@@ -1,7 +1,11 @@
 import dearpygui.dearpygui as dpg
 import tkinter as tk
 from datetime import datetime
+
+from dearpygui.dearpygui import add_separator
+
 from Scripts import Anti_AFK as Anti_AFK
+from Scripts import AutoClicker as AClicker
 
 if __name__ == '__main__':
 
@@ -12,13 +16,15 @@ if __name__ == '__main__':
     screen_height = root.winfo_screenheight()
     root.destroy()
 
-    viewport_width = 600  # ← your desired width
-    viewport_height = 400  # ← your desired height
+    viewport_width = 900  # ← your desired width
+    viewport_height = 600  # ← your desired height
 
     x = (screen_width - viewport_width) // 2
     y = (screen_height - viewport_height) // 2
 
-    vp = dpg.create_viewport(title='My App', width=viewport_width, height=viewport_height)
+    # noinspection PyNoneFunctionAssignment
+    vp = dpg.create_viewport(title='Blur Utility ver.0.1', width=viewport_width, height=viewport_height, large_icon="Resources/Icon.ico")
+    # noinspection PyTypeChecker
     dpg.configure_viewport(vp, x_pos=x, y_pos=y)
 
 ### FUNCTIONS / DEFINITIONS ###
@@ -107,14 +113,23 @@ if __name__ == '__main__':
         dpg.add_spacer(height=4)
 
 
+    def toggle_section(sender):
+        is_checked = dpg.get_value(sender)
+
+        if sender == "chk_show_clicker":
+            dpg.configure_item("collapse_clicker", show=is_checked)
+        elif sender == "chk_show_mouse":
+            dpg.configure_item("collapse_mouse", show=is_checked)
+        elif sender == "chk_show_drag":
+            dpg.configure_item("collapse_drag", show=is_checked)
 
 ### --------- UI --------- ###
     with dpg.window(tag="main_window", label="My App", no_title_bar=True, no_resize=True):
         # Tab Bar and Tabs
         tab_bar = dpg.add_tab_bar(tag="main_tab_bar")
 
-        Tab1 = dpg.add_tab(label="Anti-AFK movement", tag="tab_AntiAFK",parent=tab_bar)
         Tab2 = dpg.add_tab(label="Auto-Clicker", tag="tab_AC", parent=tab_bar)
+        Tab1 = dpg.add_tab(label="Anti-AFK movement", tag="tab_AntiAFK",parent=tab_bar)
 
         # Content for Tab 1 (Anti-AFK)
         dpg.add_text("Anti-AFK script that presses w,a,s,d buttons randomly within the given parameters.", parent = Tab1, wrap=0)
@@ -140,7 +155,45 @@ if __name__ == '__main__':
 
 
         # Content for Tab 2 (Auto Clicker)
-        dpg.add_text("Auto Clicker with randomization features", parent = Tab2, wrap=0)
+        dpg.add_text("Auto Clicker with randomization features", tag="AutoClickerText", parent = Tab2, wrap=0)
+
+        with dpg.group(tag="CheckBoxGroup1", horizontal=True, parent=Tab2):
+            dpg.add_checkbox(label="Auto Clicker", tag="chk_show_clicker", default_value=True, callback=toggle_section)
+            dpg.add_checkbox(label="Mouse Move", tag="chk_show_mouse", default_value=False, callback=toggle_section)
+
+
+        dpg.add_spacer(height=40, parent="CheckBoxGroup1")
+
+        with dpg.collapsing_header(label="Auto Clicker", default_open=True, parent=Tab2, tag="collapse_clicker", show=True):
+
+            dpg.add_button(label="Keybind")
+            dpg.add_button(label="Clicks / Second")
+            dpg.add_button(label="reset to defaults")
+            dpg.add_button(label="Click Variation toggle (average to cps)")
+            dpg.add_button(label="select app (that the auto clicker works in, disables when tabbing, enables when going back")
+            dpg.add_button(label="Click duration %")
+            dpg.add_button(label="clicks limit")
+            dpg.add_button(label="Time Limit")
+            dpg.add_button(label="Click position (current / pick)")
+            dpg.add_button(label="left / right / middle")
+            dpg.add_button(label="hold / toggle")
+            dpg.add_button(label="Click duration %")
+
+            add_separator(parent="collapse_clicker")
+
+        dpg.add_spacer(height=20, parent="collapse_clicker")
+
+        with dpg.collapsing_header(label="Mouse Over", default_open=True, parent=Tab2, tag="collapse_mouse", show=False):
+            dpg.add_button(label="Basically just jiggles")
+            dpg.add_button(label="jiggle vertical")
+            dpg.add_button(label="jiggle horizontal")
+            dpg.add_button(label="speed")
+            dpg.add_button(label="time between jiggles")
+
+
+            add_separator(parent="collapse_mouse")
+
+
 
 
     dpg.set_primary_window("main_window", True)
