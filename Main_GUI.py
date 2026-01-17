@@ -123,80 +123,118 @@ if __name__ == '__main__':
         elif sender == "chk_show_drag":
             dpg.configure_item("collapse_drag", show=is_checked)
 
+    def toggle_main_window(_, __, user_data):
+        all_windows = ["GameTools_Window", "Hotkeys_Window", "SideBarUtilities_Window", "ProgramOpener_Window"]
+        for window in all_windows:
+            dpg.configure_item(window, show=False)
+
+        dpg.configure_item(user_data, show=True)
+
+
 ### --------- UI --------- ###
-    with dpg.window(tag="main_window", label="My App", no_title_bar=True, no_resize=True):
-        # Tab Bar and Tabs
-        tab_bar = dpg.add_tab_bar(tag="main_tab_bar")
+    with dpg.window(tag="Main_Window", no_title_bar=True, no_resize=True):
+        with dpg.group(tag="Main_Window_Group", horizontal=True):
 
-        Tab2 = dpg.add_tab(label="Auto-Clicker", tag="tab_AC", parent=tab_bar)
-        Tab1 = dpg.add_tab(label="Anti-AFK movement", tag="tab_AntiAFK",parent=tab_bar)
+            with dpg.child_window(tag="SideBarWindow", label="SideBar", width=140, show=True, parent="Main_Window_Group"):
+                dpg.add_text("Blur Utility", tag="Blur Utility Tag")
+                dpg.add_button(label="Game Tools", tag="sidebar_GameTools", callback=toggle_main_window, user_data="GameTools_Window")
+                dpg.add_button(label="Hotkey's'", tag="sidebar_Hotkeys", callback=toggle_main_window, user_data="Hotkeys_Window")
+                dpg.add_button(label="Utilities", tag="sidebar_Utilities", callback=toggle_main_window, user_data="SideBarUtilities_Window")
+                dpg.add_button(label="Program Opener", tag="sidebar_ProgramOpener", callback=toggle_main_window, user_data="ProgramOpener_Window")
 
-        # Content for Tab 1 (Anti-AFK)
-        dpg.add_text("Anti-AFK script that presses w,a,s,d buttons randomly within the given parameters.", parent = Tab1, wrap=0)
-        dpg.add_text("In all honesty an auto clicker works way better than this, but here you go. If you still get kicked for being afk in a game, try the auto clicker.", parent=Tab1, wrap=0)
+            with dpg.group(tag="Content_Window_Group"):
+                with dpg.child_window(tag="GameTools_Window", show=True):
 
-        dpg.add_radio_button(
-            ["Anti-AFK Off", "Anti-AFK On"],  # Radio Buttons
-            tag="afk_radio_group",
-            default_value="Anti-AFK Off",
-            callback=toggle_afk_radio,
-            horizontal=True,
-            parent=Tab1
-        )
+                    # Tab Bar and Tabs
+                    tab_bar = dpg.add_tab_bar(tag="main_tab_bar")
 
-        dpg.add_text("AFK Script OPTIONS:",
-                     parent=Tab1,
-                     wrap=0)
+                    Tab1 = dpg.add_tab(label="Auto-Clicker", tag="tab_AC", parent=tab_bar)
+                    Tab2 = dpg.add_tab(label="Anti-AFK movement", tag="tab_AntiAFK",parent=tab_bar)
 
-        labeled_float_input("Min Hold Down Time(Seconds)", "input_min_hold", Anti_AFK.Min_Hold, 0.01, 2, Tab1)
-        labeled_float_input("Max Hold Down Time(Seconds)", "input_max_hold", Anti_AFK.Max_Hold, 0.01, 2, Tab1)
-        labeled_float_input("Min Wait Between Keystrokes(Seconds)", "input_min_wait", Anti_AFK.Min_Wait, 0.01, 2, Tab1)
-        labeled_float_input("Max Wait Between Keystrokes(Seconds)", "input_max_wait", Anti_AFK.Max_Wait,   0.01, 2, Tab1)
+                    # Content for Tab 1 (Auto Clicker)
+                    dpg.add_text("Auto Clicker with randomization features", tag="AutoClickerText", parent = Tab1, wrap=0)
+
+                    with dpg.group(tag="CheckBoxGroup1", horizontal=True, parent=Tab1):
+                        dpg.add_checkbox(label="Auto Clicker", tag="chk_show_clicker", default_value=True, callback=toggle_section)
+                        dpg.add_checkbox(label="Mouse Move", tag="chk_show_mouse", default_value=False, callback=toggle_section)
 
 
-        # Content for Tab 2 (Auto Clicker)
-        dpg.add_text("Auto Clicker with randomization features", tag="AutoClickerText", parent = Tab2, wrap=0)
+                    dpg.add_spacer(height=40, parent="CheckBoxGroup1")
 
-        with dpg.group(tag="CheckBoxGroup1", horizontal=True, parent=Tab2):
-            dpg.add_checkbox(label="Auto Clicker", tag="chk_show_clicker", default_value=True, callback=toggle_section)
-            dpg.add_checkbox(label="Mouse Move", tag="chk_show_mouse", default_value=False, callback=toggle_section)
+                    with dpg.collapsing_header(label="Auto Clicker", default_open=True, parent=Tab1, tag="collapse_clicker", show=True):
 
+                        dpg.add_button(label="Keybind")
+                        dpg.add_button(label="Clicks / Second")
+                        dpg.add_button(label="reset to defaults")
+                        dpg.add_button(label="Click Variation toggle (average to cps)")
+                        dpg.add_button(label="select app (that the auto clicker works in, disables when tabbing, enables when going back")
+                        dpg.add_button(label="Click duration %")
+                        dpg.add_button(label="clicks limit")
+                        dpg.add_button(label="Time Limit")
+                        dpg.add_button(label="Click position (current / pick)")
+                        dpg.add_button(label="left / right / middle")
+                        dpg.add_button(label="hold / toggle")
+                        dpg.add_button(label="Click duration %")
 
-        dpg.add_spacer(height=40, parent="CheckBoxGroup1")
+                        add_separator(parent="collapse_clicker")
 
-        with dpg.collapsing_header(label="Auto Clicker", default_open=True, parent=Tab2, tag="collapse_clicker", show=True):
+                    dpg.add_spacer(height=20, parent="collapse_clicker")
 
-            dpg.add_button(label="Keybind")
-            dpg.add_button(label="Clicks / Second")
-            dpg.add_button(label="reset to defaults")
-            dpg.add_button(label="Click Variation toggle (average to cps)")
-            dpg.add_button(label="select app (that the auto clicker works in, disables when tabbing, enables when going back")
-            dpg.add_button(label="Click duration %")
-            dpg.add_button(label="clicks limit")
-            dpg.add_button(label="Time Limit")
-            dpg.add_button(label="Click position (current / pick)")
-            dpg.add_button(label="left / right / middle")
-            dpg.add_button(label="hold / toggle")
-            dpg.add_button(label="Click duration %")
-
-            add_separator(parent="collapse_clicker")
-
-        dpg.add_spacer(height=20, parent="collapse_clicker")
-
-        with dpg.collapsing_header(label="Mouse Over", default_open=True, parent=Tab2, tag="collapse_mouse", show=False):
-            dpg.add_button(label="Basically just jiggles")
-            dpg.add_button(label="jiggle vertical")
-            dpg.add_button(label="jiggle horizontal")
-            dpg.add_button(label="speed")
-            dpg.add_button(label="time between jiggles")
+                    with dpg.collapsing_header(label="Mouse Over", default_open=True, parent=Tab1, tag="collapse_mouse", show=False):
+                        dpg.add_button(label="Basically just jiggles")
+                        dpg.add_button(label="jiggle vertical")
+                        dpg.add_button(label="jiggle horizontal")
+                        dpg.add_button(label="speed")
+                        dpg.add_button(label="time between jiggles")
 
 
-            add_separator(parent="collapse_mouse")
+                        add_separator(parent="collapse_mouse")
 
 
+                    # Content for Tab 2 (Anti-AFK)
+                    dpg.add_text(
+                        "Anti-AFK script that presses w,a,s,d buttons randomly within the given parameters.",
+                        parent=Tab2, wrap=0)
+                    dpg.add_text("In all honesty an auto clicker works way better than this, but here you go."
+                                 "If you still get kicked for being afk in a game, try the auto clicker.",
+                                 parent=Tab2, wrap=0)
+
+                    dpg.add_radio_button(
+                        ["Anti-AFK Off", "Anti-AFK On"],  # Radio Buttons
+                        tag="afk_radio_group",
+                        default_value="Anti-AFK Off",
+                        callback=toggle_afk_radio,
+                        horizontal=True,
+                        parent=Tab2
+                    )
+
+                    dpg.add_text("AFK Script OPTIONS:",
+                                 parent=Tab2,
+                                 wrap=0)
+
+                    labeled_float_input("Min Hold Down Time(Seconds)", "input_min_hold", Anti_AFK.Min_Hold, 0.01, 2,
+                                        Tab2)
+                    labeled_float_input("Max Hold Down Time(Seconds)", "input_max_hold", Anti_AFK.Max_Hold, 0.01, 2,
+                                        Tab2)
+                    labeled_float_input("Min Wait Between Keystrokes(Seconds)", "input_min_wait", Anti_AFK.Min_Wait,
+                                        0.01, 2, Tab2)
+                    labeled_float_input("Max Wait Between Keystrokes(Seconds)", "input_max_wait", Anti_AFK.Max_Wait,
+                                        0.01, 2, Tab2)
 
 
-    dpg.set_primary_window("main_window", True)
+                with dpg.child_window(tag="Hotkeys_Window", show=False):
+                    dpg.add_text("something")
+
+
+                with dpg.child_window(tag="SideBarUtilities_Window", show=False):
+                    dpg.add_text("something else")
+
+
+                with dpg.child_window(tag="ProgramOpener_Window", show=False):
+                    dpg.add_text("something else entirely")
+
+
+    dpg.set_primary_window("Main_Window", True)
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
