@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+#Custom
+test_c_clicker.py
+
 # C extensions
 *.so
 
