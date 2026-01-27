@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 #Custom
+.test_c_clicker.py
 test_c_clicker.py
 
 # C extensions
