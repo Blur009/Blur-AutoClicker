@@ -6,6 +6,9 @@ __pycache__/
 #Custom
 .test_c_clicker.py
 test_c_clicker.py
+Info.md
+Blur Utility.spec
+venv
 
 # C extensions
 *.so

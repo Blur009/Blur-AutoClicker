@@ -2,18 +2,20 @@ import ctypes
 import os
 import threading
 
-# --- 1. LOAD THE C ENGINE ---
-# We assume clicker_engine.dll is in the project ROOT
+DEBUG_MODE = False
+def debug_log(message):
+    if DEBUG_MODE:
+        print(message)
+
 try:
-    # Get the directory of THIS file (Scripts/)
+    # 1. Find dll
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Go up one level to the project root
     project_root = os.path.dirname(current_dir)
     dll_path = os.path.join(project_root, "clicker_engine.dll")
 
     clicker_lib = ctypes.CDLL(dll_path)
 
-    # --- 2. CONFIGURE TYPES ---
+    # 2. CONFIGURE TYPES
     clicker_lib.start_clicker.argtypes = [
         ctypes.c_double,  # interval
         ctypes.c_double,  # variation
@@ -30,10 +32,10 @@ try:
     clicker_lib.stop_clicker.argtypes = []
     clicker_lib.stop_clicker.restype = None
 
-    print("[C_Clicker] Engine loaded successfully.")
+    debug_log("[C_Clicker] Engine loaded successfully.")
 
 except Exception as e:
-    print(f"[C_Clicker] CRITICAL ERROR: {e}")
+    debug_log(f"[C_Clicker] CRITICAL ERROR: {e}")
 
 
     # Create a dummy class to prevent script crash if DLL is missing
@@ -44,17 +46,7 @@ except Exception as e:
 
     clicker_lib = DummyLib()
 
-
-# --- 3. PUBLIC FUNCTIONS (Your GUI calls these) ---
-
 def start_clicker(settings_dict, callback=None):
-    """
-    settings_dict should contain:
-    click_amount, click_unit, click_variation, click_limit,
-    click_duty_cycle, click_time_limit, click_button,
-    click_position, click_position_offset
-    callback: Optional function to call when the clicker stops naturally (limit reached)
-    """
 
     # 1. Convert 'clicks per unit' to 'interval seconds'
     raw_amount = settings_dict.get('click_amount', 1)

@@ -50,9 +50,7 @@ void __stdcall start_clicker(double click_interval, double click_variation, int 
     is_running = 1;
     srand((unsigned int)time(NULL));
 
-    // --- THE MAGIC SAUCE ---
     // Increase Windows Timer Resolution to 1ms.
-    // This prevents Sleep(100) from turning into Sleep(106) or Sleep(115).
     timeBeginPeriod(1);
 
     int click_counter = 0;
