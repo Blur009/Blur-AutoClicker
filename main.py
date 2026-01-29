@@ -1,16 +1,25 @@
-from asyncio import wait
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import (QFile, QTimer)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QPushButton, QSpinBox)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QPushButton, QSpinBox, QLabel, QToolButton)
 from PySide6.QtGui import QCursor
 import sys
 from datetime import datetime
 import time
 import keyboard
 import threading
+import requests
+import subprocess
+import os
 from Scripts import C_Clicker as AClicker
 
-DEBUG_MODE = False
+CURRENT_VERSION = "v0.0.0"
+
+# TODO:
+"""
+Saving settings on exit.
+allow updating from within App.
+"""
+DEBUG_MODE = True
 def debug_log(message):
     if DEBUG_MODE:
         print(message)
@@ -61,6 +70,10 @@ if __name__ == "__main__":
         click_offset = ui.findChild(QSpinBox, "ClickOffsetInputBox")
         btn_set_keybind = ui.findChild(QPushButton, "pushButton_2")
         btn_pick_position = ui.findChild(QPushButton, "pushButton_3")
+        version_label = ui.findChild(QLabel, "VersionLabel")
+        update_status_label = ui.findChild(QLabel, "UpdateStatusLabel")
+        download_update_button = ui.findChild(QPushButton, "DownloadUpdateButton")
+        download_updater = ui.findChild(QLabel, "downloadongithub")
 
 
     # ==========================================
@@ -301,10 +314,85 @@ if __name__ == "__main__":
             QTimer.singleShot(1000, finish_position_pick)
 
 
+    def get_newest_version():
+        url = f"https://api.github.com/repos/Blur009/Blur-AutoClicker/releases/latest"
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                return data["tag_name"]
+            else:
+                debug_log(f"Error connecting to GitHub: {response.status_code}")
+                return None
+        except Exception as e:
+            debug_log(f"An error occurred: {e}")
+            return None
 
-    # ==========================================
-    # 3. Make Buttons Work
-    # ==========================================
+
+    def is_update_available(remote_version, local_version):
+        debug_log(f"Comparing Remote: {remote_version} vs Local: {local_version}")
+        r = remote_version.replace("v", "")
+        l = local_version.replace("v", "")
+
+        r_parts = r.split(".")
+        l_parts = l.split(".")
+
+        max_len = max(len(r_parts), len(l_parts))
+        r_parts += ['0'] * (max_len - len(r_parts))
+        l_parts += ['0'] * (max_len - len(l_parts))
+
+        for i in range(max_len):
+            try: r_num = int(r_parts[i])
+            except ValueError: r_num = 0
+
+            try: l_num = int(l_parts[i])
+            except ValueError: l_num = 0
+
+            if r_num > l_num:
+                return True
+            elif r_num < l_num:
+                return False
+        return False
+
+    def perform_startup_update_check():
+        debug_log("Checking for updates on startup...")
+        github_version = get_newest_version()
+        if github_version:
+            if is_update_available(github_version, CURRENT_VERSION):
+                debug_log("UPDATE AVAILABLE!")
+                html_text = '<html><head/><body><p><span style=" color:#1aff22;">Updates Available!</span></p></body></html>'
+                UIObjects.update_status_label.setText(html_text)
+                UIObjects.download_update_button.setVisible(True)
+            else:
+                debug_log("You are on the latest version.")
+                UIObjects.update_status_label.setText("No Updates Found")
+        else:
+            debug_log("Could not check versions.")
+
+    QTimer.singleShot(0, perform_startup_update_check)
+
+
+    def launch_updater_and_quit():
+        updater_exe = "BlurUpdater.exe"
+        main_app_exe = "BlurAutoClicker.exe"
+
+        if os.path.exists(updater_exe):
+            # Launch updater. We pass the target name just to be safe.
+            subprocess.Popen([updater_exe, main_app_exe])
+
+            # Quit main app IMMEDIATELY
+            sys.exit()
+        else:
+            UIObjects.download_updater.setVisible(True)
+            UIObjects.download_update_button.setVisible(False)
+            debug_log("Updater not found!")
+
+    # Update Logic
+    UIObjects.version_label.setText(f"{CURRENT_VERSION}")
+    UIObjects.update_status_label.setText("No Updates Found")
+    UIObjects.download_updater.setVisible(False)
+    UIObjects.download_update_button.setVisible(False)
+    UIObjects.download_update_button.clicked.connect(launch_updater_and_quit)
 
     # Reset Button
     UIObjects.btn_reset.clicked.connect(reset_defaults)

@@ -4,7 +4,8 @@ __pycache__/
 *$py.class
 
 #Custom
-Blur Utility.spec
+BlurAutoClicker.spec
+Updater.spec
 venv
 
 # C extensions
