@@ -1,6 +1,6 @@
 <div align="center">
-    <h1 align="center">Blur Auto Clicker</h1>
-    <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/Resources/AutoClickerPreview.png"/>
+    <h1>Blur Auto Clicker</h1>
+    <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/Resources/AutoClickerPreview.png" alt=""/>
 </div>
 
 
