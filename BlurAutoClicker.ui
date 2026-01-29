@@ -32,11 +32,14 @@
    <iconset>
     <normaloff>F:/[07] Images/[01] Purpose-Based/Blur/Profile Picture/Blur Logo 3.ico</normaloff>F:/[07] Images/[01] Purpose-Based/Blur/Profile Picture/Blur Logo 3.ico</iconset>
   </property>
+  <property name="windowOpacity">
+   <double>0.990000000000000</double>
+  </property>
   <property name="autoFillBackground">
    <bool>false</bool>
   </property>
-  <property name="styleSheet">
-   <string notr="true"/>
+  <property name="locale">
+   <locale language="English" country="UnitedStates"/>
   </property>
   <property name="iconSize">
    <size>
@@ -75,6 +78,9 @@
     </property>
     <property name="title">
      <string>Clicker</string>
+    </property>
+    <property name="checkable">
+     <bool>false</bool>
     </property>
     <widget class="QWidget" name="gridLayoutWidget">
      <property name="geometry">
@@ -313,34 +319,21 @@ li.checked::marker { content: &quot;\2612&quot;; }
            <number>0</number>
           </property>
           <item>
-           <widget class="QPushButton" name="pushButton_2">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>20</height>
-             </size>
+           <widget class="QKeySequenceEdit" name="KeySequenceEdit">
+            <property name="layoutDirection">
+             <enum>Qt::LayoutDirection::LeftToRight</enum>
             </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>25</height>
-             </size>
+            <property name="autoFillBackground">
+             <bool>false</bool>
             </property>
-            <property name="font">
-             <font>
-              <family>Leelawadee UI</family>
-              <pointsize>9</pointsize>
-              <bold>false</bold>
-             </font>
+            <property name="keySequence">
+             <string>Alt+&lt;</string>
             </property>
-            <property name="toolTipDuration">
-             <number>-1</number>
+            <property name="clearButtonEnabled">
+             <bool>false</bool>
             </property>
-            <property name="locale">
-             <locale language="English" country="UnitedStates"/>
-            </property>
-            <property name="text">
-             <string>Set Keybind...</string>
+            <property name="maximumSequenceLength">
+             <longLong>4</longLong>
             </property>
            </widget>
           </item>
@@ -1256,7 +1249,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
      <rect>
       <x>70</x>
       <y>370</y>
-      <width>121</width>
+      <width>351</width>
       <height>20</height>
      </rect>
     </property>
@@ -1327,90 +1320,10 @@ li.checked::marker { content: &quot;\2612&quot;; }
      <string>v1</string>
     </property>
    </widget>
-   <widget class="QWidget" name="horizontalLayoutWidget">
-    <property name="geometry">
-     <rect>
-      <x>210</x>
-      <y>360</y>
-      <width>161</width>
-      <height>41</height>
-     </rect>
-    </property>
-    <layout class="QHBoxLayout" name="horizontalLayout_6">
-     <item>
-      <widget class="QPushButton" name="DownloadUpdateButton">
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>25</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>25</height>
-        </size>
-       </property>
-       <property name="font">
-        <font>
-         <family>Yu Gothic UI</family>
-         <pointsize>10</pointsize>
-         <italic>false</italic>
-         <bold>true</bold>
-         <underline>false</underline>
-         <strikeout>false</strikeout>
-        </font>
-       </property>
-       <property name="text">
-        <string>DOWNLOAD UPDATE</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </widget>
-   <widget class="QLabel" name="downloadongithub">
-    <property name="geometry">
-     <rect>
-      <x>170</x>
-      <y>370</y>
-      <width>261</width>
-      <height>20</height>
-     </rect>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>0</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="maximumSize">
-     <size>
-      <width>500</width>
-      <height>20</height>
-     </size>
-    </property>
-    <property name="font">
-     <font>
-      <family>Leelawadee UI</family>
-      <pointsize>9</pointsize>
-      <bold>false</bold>
-     </font>
-    </property>
-    <property name="toolTipDuration">
-     <number>-1</number>
-    </property>
-    <property name="locale">
-     <locale language="English" country="UnitedStates"/>
-    </property>
-    <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; font-weight:700; color:#ffffff;&quot;&gt;DOWNLOAD UPDATER ON &lt;/span&gt;&lt;a href=&quot;https://github.com/Blur009/Blur-AutoClicker/releases&quot;&gt;&lt;span style=&quot; font-size:12pt; text-decoration: underline; color:#69fcff;&quot;&gt;GITHUB&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-    </property>
-   </widget>
   </widget>
  </widget>
  <tabstops>
   <tabstop>PickingPosButton</tabstop>
-  <tabstop>pushButton_2</tabstop>
   <tabstop>ActivationTypeComboBox</tabstop>
   <tabstop>ClicksSpeedInputBox</tabstop>
   <tabstop>ClickIntervalComboBox</tabstop>

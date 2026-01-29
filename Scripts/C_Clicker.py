@@ -90,6 +90,5 @@ def start_clicker(settings_dict, callback=None):
     t = threading.Thread(target=run_thread)
     t.start()
 
-
 def stop_clicker():
     clicker_lib.stop_clicker()

@@ -1,25 +1,21 @@
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import (QFile, QTimer)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QPushButton, QSpinBox, QLabel, QToolButton)
+from PySide6.QtWidgets import (QApplication, QKeySequenceEdit, QCheckBox, QComboBox, QPushButton, QSpinBox, QLabel)
 from PySide6.QtGui import QCursor
-import sys
 from datetime import datetime
+import sys
 import time
 import keyboard
 import threading
 import requests
-import subprocess
-import os
 from Scripts import C_Clicker as AClicker
 
-CURRENT_VERSION = "v0.0.0"
-
 # TODO:
-"""
-Saving settings on exit.
-allow updating from within App.
-"""
-DEBUG_MODE = True
+# Saving settings on exit.
+
+CURRENT_VERSION = "v0.0.2"
+
+DEBUG_MODE = False
 def debug_log(message):
     if DEBUG_MODE:
         print(message)
@@ -29,6 +25,33 @@ def current_time():
     return datetime.now().strftime('%H:%M:%S')
 
 
+class UIObjects:
+
+    def __init__(self, ui):
+
+        # Initializes all the buttons and stuff so they can be used in def.
+        self.btn_reset = ui.findChild(QPushButton, "ResetSettingsButton")
+        self.click_speed = ui.findChild(QSpinBox, "ClicksSpeedInputBox")
+        self.limits_clicks = ui.findChild(QSpinBox, "ClicksLimitInputBox")
+        self.limits_seconds = ui.findChild(QSpinBox, "SecondsLimitInputBox")
+        self.pos_x = ui.findChild(QSpinBox, "PosXInputBox")
+        self.pos_y = ui.findChild(QSpinBox, "PosYInputBox")
+        self.pos_changing = ui.findChild(QPushButton, "PickingPosButton")
+        self.activation_type_combobox = ui.findChild(QComboBox, "ActivationTypeComboBox")
+        self.click_interval_combobox = ui.findChild(QComboBox, "ClickIntervalComboBox")
+        self.mouse_button_combobox = ui.findChild(QComboBox, "MouseButtonComboBox")
+        self.speed_variation = ui.findChild(QSpinBox, "SpeedVariationInputBox")
+        self.duty_cycle = ui.findChild(QSpinBox, "DutyCycleInputBox")
+        self.position_checkbox = ui.findChild(QCheckBox, "EnablePositionCheckBox")
+        self.click_offset_checkbox = ui.findChild(QCheckBox, "ClickOffsetCheckBox")
+        self.click_offset = ui.findChild(QSpinBox, "ClickOffsetInputBox")
+        self.key_sequence = ui.findChild(QKeySequenceEdit, "KeySequenceEdit")
+        self.btn_pick_position = ui.findChild(QPushButton, "pushButton_3")
+        self.version_label = ui.findChild(QLabel, "VersionLabel")
+        self.update_status_label = ui.findChild(QLabel, "UpdateStatusLabel")
+        self.download_update_button = ui.findChild(QPushButton, "DownloadUpdateButton")
+        self.download_updater = ui.findChild(QLabel, "downloadongithub")
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     loader = QUiLoader()
@@ -37,66 +60,31 @@ if __name__ == "__main__":
     ui = loader.load(file)
     file.close()
 
+    ui_objects = UIObjects(ui)
+
     is_clicking = False
-    DEFAULT_TEXT = "SET KEYBIND"
     keybind_hotkey: str | None = None
     keybind_mode = "toggle"
-    is_recording_bind = False
-    held_keys = set()
     registered_hotkey: str | None = None
     hold_monitor_running = False
-
-
-    # ==========================================
-    # 1. UI Objects Definition
-    # ==========================================
-
-    class UIObjects:
-        # Initializes all the buttons and stuff so they can be used in def.
-        btn_reset = ui.findChild(QPushButton, "ResetSettingsButton")
-        click_speed = ui.findChild(QSpinBox, "ClicksSpeedInputBox")
-        limits_clicks = ui.findChild(QSpinBox, "ClicksLimitInputBox")
-        limits_seconds = ui.findChild(QSpinBox, "SecondsLimitInputBox")
-        pos_x = ui.findChild(QSpinBox, "PosXInputBox")
-        pos_y = ui.findChild(QSpinBox, "PosYInputBox")
-        pos_changing = ui.findChild(QPushButton, "PickingPosButton")
-        activation_type_combobox = ui.findChild(QComboBox, "ActivationTypeComboBox")
-        click_interval_combobox = ui.findChild(QComboBox, "ClickIntervalComboBox")
-        mouse_button_combobox = ui.findChild(QComboBox, "MouseButtonComboBox")
-        speed_variation = ui.findChild(QSpinBox, "SpeedVariationInputBox")
-        duty_cycle = ui.findChild(QSpinBox, "DutyCycleInputBox")
-        position_checkbox = ui.findChild(QCheckBox, "EnablePositionCheckBox")
-        click_offset_checkbox = ui.findChild(QCheckBox, "ClickOffsetCheckBox")
-        click_offset = ui.findChild(QSpinBox, "ClickOffsetInputBox")
-        btn_set_keybind = ui.findChild(QPushButton, "pushButton_2")
-        btn_pick_position = ui.findChild(QPushButton, "pushButton_3")
-        version_label = ui.findChild(QLabel, "VersionLabel")
-        update_status_label = ui.findChild(QLabel, "UpdateStatusLabel")
-        download_update_button = ui.findChild(QPushButton, "DownloadUpdateButton")
-        download_updater = ui.findChild(QLabel, "downloadongithub")
-
-
-    # ==========================================
-    # 2. Logic Functions
-    # ==========================================
 
     def reset_defaults():
         debug_log("--- Resetting all Values... ---")
         start = time.perf_counter()
 
-        UIObjects.click_speed.setValue(15)
-        UIObjects.limits_clicks.setValue(0)
-        UIObjects.limits_seconds.setValue(0)
-        UIObjects.pos_x.setValue(0)
-        UIObjects.pos_y.setValue(0)
-        UIObjects.activation_type_combobox.setCurrentIndex(0)
-        UIObjects.click_interval_combobox.setCurrentIndex(0)
-        UIObjects.mouse_button_combobox.setCurrentIndex(0)
-        UIObjects.speed_variation.setValue(5)
-        UIObjects.duty_cycle.setValue(25)
-        UIObjects.position_checkbox.setChecked(False)
-        UIObjects.click_offset_checkbox.setChecked(False)
-        UIObjects.click_offset.setValue(5)
+        ui_objects.click_speed.setValue(15)
+        ui_objects.limits_clicks.setValue(0)
+        ui_objects.limits_seconds.setValue(0)
+        ui_objects.pos_x.setValue(0)
+        ui_objects.pos_y.setValue(0)
+        ui_objects.activation_type_combobox.setCurrentIndex(0)
+        ui_objects.click_interval_combobox.setCurrentIndex(0)
+        ui_objects.mouse_button_combobox.setCurrentIndex(0)
+        ui_objects.speed_variation.setValue(5)
+        ui_objects.duty_cycle.setValue(25)
+        ui_objects.position_checkbox.setChecked(False)
+        ui_objects.click_offset_checkbox.setChecked(False)
+        ui_objects.click_offset.setValue(5)
 
         end = time.perf_counter()
         debug_log(f"All Settings reset to default. This took {end - start} Seconds")
@@ -110,14 +98,13 @@ if __name__ == "__main__":
             except KeyError:
                 pass
             registered_hotkey = None
-
         if not keybind_hotkey: return
 
         def on_hotkey_trigger():
             if not keyboard.is_pressed(keybind_hotkey):
                 return
             if keybind_mode == "toggle":
-                trigger_clicker()
+                toggle_clicker_start_stop()
             elif keybind_mode == "hold":
                 start_hold_monitor(keybind_hotkey)
 
@@ -142,78 +129,23 @@ if __name__ == "__main__":
         global hold_monitor_running, is_clicking
         try:
             if not is_clicking:
-                trigger_clicker()
+                toggle_clicker_start_stop()
             while keyboard.is_pressed(hotkey_str):
                 time.sleep(0.15)
             if is_clicking:
-                trigger_clicker()
+                toggle_clicker_start_stop()
         finally:
             hold_monitor_running = False
 
 
-    def set_keybind_mode(*args):
+    def set_keybind_mode():
         global keybind_mode
-        # We assume the combo box sends the new index or text.
-        # In your UI, the items are "Toggle" and "Hold".
-        # Let's grab the text directly from the widget to be safe.
-        mode_text = UIObjects.activation_type_combobox.currentText().lower()
+        mode_text = ui_objects.activation_type_combobox.currentText().lower()
         if "hold" in mode_text:
             keybind_mode = "hold"
         else:
             keybind_mode = "toggle"
         register_hotkey()
-
-
-    def start_recording_keybind(*args):
-        global is_recording_bind, keybind_hotkey
-        if is_recording_bind:
-            is_recording_bind = False
-            update_button_text()
-        else:
-            is_recording_bind = True
-            UIObjects.btn_set_keybind.setText("PRESS KEYS NOW...")
-
-            def record():
-                global is_recording_bind, keybind_hotkey
-                try:
-                    hotkey = keyboard.read_hotkey()
-                    if is_recording_bind:
-                        keybind_hotkey = hotkey
-                        is_recording_bind = False
-                        update_button_text()
-                        register_hotkey()
-                except (Exception, KeyboardInterrupt):
-                    is_recording_bind = False
-                    update_button_text()
-
-            threading.Thread(target=record, daemon=True).start()
-
-
-    def update_button_text():
-        if keybind_hotkey:
-            UIObjects.btn_set_keybind.setText(f"KEYBIND: {keybind_hotkey}")
-        else:
-            UIObjects.btn_set_keybind.setText(DEFAULT_TEXT)
-
-
-    def trigger_clicker():
-        toggle_clicker_start_stop()
-
-
-    def on_key_event(event):
-        global held_keys
-        if event.event_type == keyboard.KEY_DOWN:
-            held_keys.add(event.name)
-        elif event.event_type == keyboard.KEY_UP:
-            held_keys.discard(event.name)
-
-
-    def enable_keybind_hook():
-        try:
-            keyboard.unhook_all()
-        except (RuntimeError, AttributeError):
-            pass
-        keyboard.hook(on_key_event)
 
 
     def on_clicker_finished():
@@ -223,31 +155,31 @@ if __name__ == "__main__":
             debug_log("Clicker finished: Limit reached.")
 
 
-    def toggle_clicker_start_stop(*args):
+    def toggle_clicker_start_stop():
         global is_clicking
         is_clicking = not is_clicking
 
         if is_clicking:
             try:
                 # Get values from UI
-                amount = UIObjects.click_speed.value()
+                amount = ui_objects.click_speed.value()
 
                 # Map the text from UI to the unit string expected by C_Clicker
-                # Your UI has: "Second", "Minute", "Hour", "Day"
+                # UI has: "Second", "Minute", "Hour", "Day"
                 unit_map = {
                     "Second": "second",
                     "Minute": "minute",
                     "Hour": "hour",
                     "Day": "day"
                 }
-                unit_text = UIObjects.click_interval_combobox.currentText()
+                unit_text = ui_objects.click_interval_combobox.currentText()
                 unit = unit_map.get(unit_text, "second")
 
-                variation = UIObjects.speed_variation.value()
-                limit = UIObjects.limits_clicks.value()
-                time_limit = UIObjects.limits_seconds.value()
+                variation = ui_objects.speed_variation.value()
+                limit = ui_objects.limits_clicks.value()
+                time_limit = ui_objects.limits_seconds.value()
 
-                duty = UIObjects.duty_cycle.value()
+                duty = ui_objects.duty_cycle.value()
 
                 # Map mouse button text
                 btn_map = {
@@ -255,18 +187,18 @@ if __name__ == "__main__":
                     "Right Click": "right",
                     "Middle Click": "middle"
                 }
-                btn_text = UIObjects.mouse_button_combobox.currentText()
+                btn_text = ui_objects.mouse_button_combobox.currentText()
                 button = btn_map.get(btn_text, "left")
 
 
 
-                if UIObjects.position_checkbox.isChecked():
-                    pos = (UIObjects.pos_x.value(), UIObjects.pos_y.value())
+                if ui_objects.position_checkbox.isChecked():
+                    pos = (ui_objects.pos_x.value(), ui_objects.pos_y.value())
                 else:
                     pos = (0,0)
 
-                if UIObjects.click_offset_checkbox.isChecked():
-                    offset = UIObjects.click_offset.value()
+                if ui_objects.click_offset_checkbox.isChecked():
+                    offset = ui_objects.click_offset.value()
                 else:
                     offset = 0
 
@@ -288,25 +220,35 @@ if __name__ == "__main__":
             except Exception as e:
                 debug_log(f"Error starting clicker: {e}")
                 is_clicking = False
-
         else:
             AClicker.stop_clicker()
             debug_log("Clicker stopped")
 
 
-    def set_position_current(*args):
-        UIObjects.pos_changing.setVisible(True)
+    def on_keybind_changed():
+        seq = ui_objects.key_sequence.keySequence()
+        key_string = seq.toString().lower()
+        key_string = key_string.replace("meta", "win")
+        if key_string:
+            global keybind_hotkey
+            keybind_hotkey = key_string
+            debug_log(f"Keybind set to: {keybind_hotkey}")
+            register_hotkey()
+        else:
+            debug_log("Keybind cleared")
+
+    def set_position_current():
+        ui_objects.pos_changing.setVisible(True)
         start_countdown(4)
 
     def finish_position_pick():
         pos = QCursor.pos()
-
-        UIObjects.pos_changing.setVisible(False)
-        UIObjects.pos_x.setValue(pos.x())
-        UIObjects.pos_y.setValue(pos.y())
+        ui_objects.pos_changing.setVisible(False)
+        ui_objects.pos_x.setValue(pos.x())
+        ui_objects.pos_y.setValue(pos.y())
 
     def start_countdown(seconds_left):
-        UIObjects.pos_changing.setText(f"Picking Cursor position in {seconds_left}s")
+        ui_objects.pos_changing.setText(f"Picking Cursor position in {seconds_left}s")
 
         if seconds_left > 1:
             QTimer.singleShot(1000, lambda: start_countdown(seconds_left - 1))
@@ -354,77 +296,66 @@ if __name__ == "__main__":
                 return False
         return False
 
+
     def perform_startup_update_check():
         debug_log("Checking for updates on startup...")
         github_version = get_newest_version()
         if github_version:
             if is_update_available(github_version, CURRENT_VERSION):
                 debug_log("UPDATE AVAILABLE!")
-                html_text = '<html><head/><body><p><span style=" color:#1aff22;">Updates Available!</span></p></body></html>'
-                UIObjects.update_status_label.setText(html_text)
-                UIObjects.download_update_button.setVisible(True)
+                html_text = '<html><head/><body><p><span style=" color:#1aff22;">Updates Available! Check my GitHub (Blur009)</span></p></body></html>'
+                ui_objects.update_status_label.setText(html_text)
+                ui_objects.update_status_label.setVisible(True)
             else:
                 debug_log("You are on the latest version.")
-                UIObjects.update_status_label.setText("No Updates Found")
+                ui_objects.update_status_label.setText("No Updates Found")
         else:
             debug_log("Could not check versions.")
 
-    QTimer.singleShot(0, perform_startup_update_check)
+    perform_startup_update_check()
 
 
-    def launch_updater_and_quit():
-        updater_exe = "BlurUpdater.exe"
-        main_app_exe = "BlurAutoClicker.exe"
+    def stop_clicker():
+        # Used for emergency stop and keybind change stop.
+        global is_clicking
+        if is_clicking:
+            is_clicking = False
+        return
 
-        if os.path.exists(updater_exe):
-            # Launch updater. We pass the target name just to be safe.
-            subprocess.Popen([updater_exe, main_app_exe])
-
-            # Quit main app IMMEDIATELY
-            sys.exit()
-        else:
-            UIObjects.download_updater.setVisible(True)
-            UIObjects.download_update_button.setVisible(False)
-            debug_log("Updater not found!")
-
-    # Update Logic
-    UIObjects.version_label.setText(f"{CURRENT_VERSION}")
-    UIObjects.update_status_label.setText("No Updates Found")
-    UIObjects.download_updater.setVisible(False)
-    UIObjects.download_update_button.setVisible(False)
-    UIObjects.download_update_button.clicked.connect(launch_updater_and_quit)
+    # Update
+    ui_objects.version_label.setText(f"{CURRENT_VERSION}")
+    ui_objects.update_status_label.setText("No Updates Found")
+    ui_objects.update_status_label.setVisible(False)
 
     # Reset Button
-    UIObjects.btn_reset.clicked.connect(reset_defaults)
+    ui_objects.btn_reset.clicked.connect(reset_defaults)
 
-    # Keybind Recording
-    UIObjects.btn_set_keybind.clicked.connect(start_recording_keybind)
+    # Keybind
+    ui_objects.key_sequence.keySequenceChanged.connect(on_keybind_changed)
+    ui_objects.key_sequence.keySequenceChanged.connect(stop_clicker)
 
     # Pick Position
-    UIObjects.pos_changing.setVisible(False)
-    UIObjects.btn_pick_position.clicked.connect(set_position_current)
+    ui_objects.pos_changing.setVisible(False)
+    ui_objects.btn_pick_position.clicked.connect(set_position_current)
 
-    # Click Interval ComboBox Change -> Update Mode
-    UIObjects.activation_type_combobox.currentIndexChanged.connect(set_keybind_mode)
+    # Click Interval ComboBox Change
+    ui_objects.activation_type_combobox.currentIndexChanged.connect(set_keybind_mode)
 
     # Debug Logs (Value Changed)
-    UIObjects.click_speed.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Speed set to {val}"))
-    UIObjects.limits_clicks.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Limit set to {val}"))
-    UIObjects.limits_seconds.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Time Limit set to {val} seconds"))
-    UIObjects.pos_x.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Pos X set to {val}"))
-    UIObjects.pos_y.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Pos Y set to {val}"))
-    UIObjects.speed_variation.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Speed Randomization Value set to {val}%"))
-    UIObjects.duty_cycle.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Duty Cycle set to {val}%"))
-    UIObjects.click_offset.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Offset set to {val}"))
-    UIObjects.activation_type_combobox.currentIndexChanged.connect(lambda val: debug_log(f"[{current_time()}] Activation Type set to {val}"))
-    UIObjects.click_interval_combobox.currentIndexChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Interval set to {val}"))
-    UIObjects.mouse_button_combobox.currentIndexChanged.connect(lambda val: debug_log(f"[{current_time()}] Mouse Button set to {val}"))
-    UIObjects.position_checkbox.toggled.connect(lambda val: debug_log(f"[{current_time()}] Position Activation set to {val}"))
-    UIObjects.click_offset_checkbox.toggled.connect(lambda val: debug_log(f"[{current_time()}] Click Offset Activation set to {val}"))
+    ui_objects.click_speed.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Speed set to {val}"))
+    ui_objects.limits_clicks.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Limit set to {val}"))
+    ui_objects.limits_seconds.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Time Limit set to {val} seconds"))
+    ui_objects.pos_x.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Pos X set to {val}"))
+    ui_objects.pos_y.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Pos Y set to {val}"))
+    ui_objects.speed_variation.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Speed Randomization Value set to {val}%"))
+    ui_objects.duty_cycle.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Duty Cycle set to {val}%"))
+    ui_objects.click_offset.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Offset set to {val}"))
+    ui_objects.activation_type_combobox.currentIndexChanged.connect(lambda val: debug_log(f"[{current_time()}] Activation Type set to {val}"))
+    ui_objects.click_interval_combobox.currentIndexChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Interval set to {val}"))
+    ui_objects.mouse_button_combobox.currentIndexChanged.connect(lambda val: debug_log(f"[{current_time()}] Mouse Button set to {val}"))
+    ui_objects.position_checkbox.toggled.connect(lambda val: debug_log(f"[{current_time()}] Position Activation set to {val}"))
+    ui_objects.click_offset_checkbox.toggled.connect(lambda val: debug_log(f"[{current_time()}] Click Offset Activation set to {val}"))
 
-
-    enable_keybind_hook()
-    register_hotkey()
-
+    # UI stuff idk
     ui.show()
     sys.exit(app.exec())
