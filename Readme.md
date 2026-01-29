@@ -19,6 +19,7 @@ I'd like to include updates from within the app and of course saving the setting
 
 This is my first real project (other than my website) so it might not be perfect, report bugs in this git repo. Thank you. 
 Since I am new to Python and VERY new in C, this is made with a lot of help from GLM-4.7 (AI).
+Past versions will not recieve bug fixes. The current version is the only "supported" one. Please do not ask me to fix something in an older version of the app.
 
 ### Other
-Please do not use any of this code in your own projects. You may take inspiration though :) 
+Please respect the included license.
