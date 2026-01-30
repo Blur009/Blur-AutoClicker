@@ -8,22 +8,44 @@ from os.path import exists
 
 import keyboard
 import requests
-from PySide6.QtCore import (QFile, QTimer)
+from PySide6.QtCore import (QTimer)
 from PySide6.QtGui import QCursor
-from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import (QApplication, QKeySequenceEdit, QCheckBox, QComboBox, QPushButton, QSpinBox, QLabel)
+from PySide6.QtWidgets import (QApplication, QKeySequenceEdit, QCheckBox, QComboBox, QPushButton, QSpinBox, QLabel,
+                               QMainWindow)
 
 from Scripts import C_Clicker as AClicker
+from ui_mainwindow import Ui_BlurAutoClicker
 
 # TODO:
-# Saving settings on exit. :) done with this version
+# Fix version calculation, I think its not correct. (v0.0.2 doesnt see v1.0.0 as update worthy)
+"""
+it ended up being that:
+ui_objects.update_status_label.setVisible(False)
+was called at the bottom of the code, meaning the function "perform_startup_update_check"
+was updating the text to be visible, but right after that, setVisible(False) was called
+which of course made it invisible again. 
 
-CURRENT_VERSION = "v1.0.0"
+fixed by moving setVisible(False) above the update check.
+
+
+additionally I made everything into 1 file.. i honestly just didn't know you could uic the .ui into a .py :)
+"""
+
+CURRENT_VERSION = "v1.1.1"
 
 DEBUG_MODE = False
-def debug_log(message):
+DEBUG_MODE_VERBOSE = False
+def log(message):
     if DEBUG_MODE:
         print(message)
+
+if DEBUG_MODE_VERBOSE:
+    if DEBUG_MODE:
+        def debug_log_v(messagev):
+            print(f"[{current_time()}] {messagev}")
+else:
+    def debug_log_v(messagev):
+        return
 
 
 def current_time():
@@ -59,13 +81,11 @@ class UIObjects:
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    loader = QUiLoader()
-    file = QFile("BlurAutoClicker.ui")
-    file.open(QFile.ReadOnly)
-    ui = loader.load(file)
-    file.close()
+    window = QMainWindow()
+    ui = Ui_BlurAutoClicker()
+    ui.setupUi(window)
+    ui_objects = UIObjects(window)
 
-    ui_objects = UIObjects(ui)
 
     is_clicking = False
     keybind_hotkey: str | None = None
@@ -106,7 +126,7 @@ if __name__ == "__main__":
 
 
     def reset_defaults():
-        debug_log(f"[{current_time()}] --- Resetting all Values... ---")
+        log(f"[{current_time()}] --- Resetting all Values... ---")
         start = time.perf_counter()
 
         ui_objects.click_speed.setValue(15)
@@ -125,7 +145,7 @@ if __name__ == "__main__":
         ui_objects.key_sequence.setKeySequence("Ctrl+K")
 
         end = time.perf_counter()
-        debug_log(f"[{current_time()}] All Settings reset to default. This took {end - start} Seconds")
+        log(f"[{current_time()}] All Settings reset to default. This took {end - start} Seconds")
 
 
     def register_hotkey():
@@ -149,9 +169,9 @@ if __name__ == "__main__":
         try:
             keyboard.add_hotkey(keybind_hotkey, on_hotkey_trigger)
             registered_hotkey = keybind_hotkey
-            debug_log(f"[{current_time()}] [Hotkey] Registered: {keybind_hotkey} ({keybind_mode})")
+            log(f"[{current_time()}] [Hotkey] Registered: {keybind_hotkey} ({keybind_mode})")
         except Exception as e:
-            debug_log(f"[{current_time()}] [Hotkey] Failed to register '{keybind_hotkey}': {e}")
+            log(f"[{current_time()}] [Hotkey] Failed to register '{keybind_hotkey}': {e}")
 
 
     def start_hold_monitor(hotkey_str: str):
@@ -190,7 +210,7 @@ if __name__ == "__main__":
         global is_clicking
         if is_clicking:
             is_clicking = False
-            debug_log(f"[{current_time()}] Clicker finished: Limit reached.")
+            log(f"[{current_time()}] Clicker finished: Limit reached.")
 
 
     def toggle_clicker_start_stop():
@@ -253,14 +273,14 @@ if __name__ == "__main__":
                 }
 
                 AClicker.start_clicker(settings, on_clicker_finished)
-                debug_log(f"[{current_time()}] Clicker started")
+                log(f"[{current_time()}] Clicker started")
 
             except Exception as e:
-                debug_log(f"[{current_time()}] Error starting clicker: {e}")
+                log(f"[{current_time()}] Error starting clicker: {e}")
                 is_clicking = False
         else:
             AClicker.stop_clicker()
-            debug_log(f"[{current_time()}] Clicker stopped")
+            log(f"[{current_time()}] Clicker stopped")
 
 
     def on_keybind_changed():
@@ -270,10 +290,10 @@ if __name__ == "__main__":
         if key_string:
             global keybind_hotkey
             keybind_hotkey = key_string
-            debug_log(f"[{current_time()}] Keybind set to: {keybind_hotkey}")
+            log(f"[{current_time()}] Keybind set to: {keybind_hotkey}")
             register_hotkey()
         else:
-            debug_log(f"[{current_time()}] Keybind cleared")
+            log(f"[{current_time()}] Keybind cleared")
 
     def set_position_current():
         ui_objects.pos_changing.setVisible(True)
@@ -294,6 +314,7 @@ if __name__ == "__main__":
             QTimer.singleShot(1000, finish_position_pick)
 
 
+    ui_objects.update_status_label.setVisible(False)
     def get_newest_version():
         url = f"https://api.github.com/repos/Blur009/Blur-AutoClicker/releases/latest"
         try:
@@ -302,53 +323,54 @@ if __name__ == "__main__":
                 data = response.json()
                 return data["tag_name"]
             else:
-                debug_log(f"[{current_time()}] Error connecting to GitHub: {response.status_code}")
+                log(f"[{current_time()}] Error connecting to GitHub: {response.status_code}")
                 return None
         except Exception as e:
-            debug_log(f"[{current_time()}] An error occurred: {e}")
+            log(f"[{current_time()}] An error occurred: {e}")
             return None
 
 
     def is_update_available(remote_version, local_version):
-        debug_log(f"[{current_time()}] Comparing Remote: {remote_version} vs Local: {local_version}")
         r = remote_version.replace("v", "")
         l = local_version.replace("v", "")
 
         r_parts = r.split(".")
         l_parts = l.split(".")
 
+
         max_len = max(len(r_parts), len(l_parts))
         r_parts += ['0'] * (max_len - len(r_parts))
         l_parts += ['0'] * (max_len - len(l_parts))
 
+
         for i in range(max_len):
             try: r_num = int(r_parts[i])
             except ValueError: r_num = 0
-
             try: l_num = int(l_parts[i])
             except ValueError: l_num = 0
 
             if r_num > l_num:
                 return True
+
             elif r_num < l_num:
                 return False
         return False
 
 
     def perform_startup_update_check():
-        debug_log(f"[{current_time()}] Checking for updates on startup...")
+        log(f"[{current_time()}] Checking for updates on startup...")
         github_version = get_newest_version()
         if github_version:
             if is_update_available(github_version, CURRENT_VERSION):
-                debug_log(f"[{current_time()}] UPDATE AVAILABLE!")
+                log(f"[{current_time()}] UPDATE AVAILABLE!")
                 html_text = '<html><head/><body><p><span style=" color:#1aff22;">Updates Available! Check my GitHub (Blur009)</span></p></body></html>'
-                ui_objects.update_status_label.setText(html_text)
                 ui_objects.update_status_label.setVisible(True)
+                ui_objects.update_status_label.setText(html_text)
             else:
-                debug_log(f"[{current_time()}] You are on the latest version.")
+                log(f"[{current_time()}] You are on the latest version.")
                 ui_objects.update_status_label.setText("No Updates Found")
         else:
-            debug_log(f"[{current_time()}] Could not check versions.")
+            log(f"[{current_time()}] Could not check versions.")
 
     perform_startup_update_check()
 
@@ -362,9 +384,6 @@ if __name__ == "__main__":
 
     # Update
     ui_objects.version_label.setText(f"{CURRENT_VERSION}")
-    ui_objects.update_status_label.setText("No Updates Found")
-    ui_objects.update_status_label.setVisible(False)
-
     # Reset Button
     ui_objects.btn_reset.clicked.connect(reset_defaults)
 
@@ -380,24 +399,24 @@ if __name__ == "__main__":
     ui_objects.activation_type_combobox.currentIndexChanged.connect(set_keybind_mode)
 
     # Debug Logs (Value Changed)
-    ui_objects.click_speed.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Speed set to {val}"))
-    ui_objects.limits_clicks.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Limit set to {val}"))
-    ui_objects.limits_seconds.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Time Limit set to {val} seconds"))
-    ui_objects.pos_x.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Pos X set to {val}"))
-    ui_objects.pos_y.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Pos Y set to {val}"))
-    ui_objects.speed_variation.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Speed Randomization Value set to {val}%"))
-    ui_objects.duty_cycle.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Duty Cycle set to {val}%"))
-    ui_objects.click_offset.valueChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Offset set to {val}"))
-    ui_objects.activation_type_combobox.currentIndexChanged.connect(lambda val: debug_log(f"[{current_time()}] Activation Type set to {val}"))
-    ui_objects.click_interval_combobox.currentIndexChanged.connect(lambda val: debug_log(f"[{current_time()}] Click Interval set to {val}"))
-    ui_objects.mouse_button_combobox.currentIndexChanged.connect(lambda val: debug_log(f"[{current_time()}] Mouse Button set to {val}"))
-    ui_objects.position_checkbox.toggled.connect(lambda val: debug_log(f"[{current_time()}] Position Activation set to {val}"))
-    ui_objects.click_offset_checkbox.toggled.connect(lambda val: debug_log(f"[{current_time()}] Click Offset Activation set to {val}"))
+    ui_objects.click_speed.valueChanged.connect(lambda val: log(f"[{current_time()}] Click Speed set to {val}"))
+    ui_objects.limits_clicks.valueChanged.connect(lambda val: log(f"[{current_time()}] Click Limit set to {val}"))
+    ui_objects.limits_seconds.valueChanged.connect(lambda val: log(f"[{current_time()}] Time Limit set to {val} seconds"))
+    ui_objects.pos_x.valueChanged.connect(lambda val: log(f"[{current_time()}] Pos X set to {val}"))
+    ui_objects.pos_y.valueChanged.connect(lambda val: log(f"[{current_time()}] Pos Y set to {val}"))
+    ui_objects.speed_variation.valueChanged.connect(lambda val: log(f"[{current_time()}] Speed Randomization Value set to {val}%"))
+    ui_objects.duty_cycle.valueChanged.connect(lambda val: log(f"[{current_time()}] Duty Cycle set to {val}%"))
+    ui_objects.click_offset.valueChanged.connect(lambda val: log(f"[{current_time()}] Click Offset set to {val}"))
+    ui_objects.activation_type_combobox.currentIndexChanged.connect(lambda val: log(f"[{current_time()}] Activation Type set to {val}"))
+    ui_objects.click_interval_combobox.currentIndexChanged.connect(lambda val: log(f"[{current_time()}] Click Interval set to {val}"))
+    ui_objects.mouse_button_combobox.currentIndexChanged.connect(lambda val: log(f"[{current_time()}] Mouse Button set to {val}"))
+    ui_objects.position_checkbox.toggled.connect(lambda val: log(f"[{current_time()}] Position Activation set to {val}"))
+    ui_objects.click_offset_checkbox.toggled.connect(lambda val: log(f"[{current_time()}] Click Offset Activation set to {val}"))
 
     register_hotkey()
 
     # Close UI and update config.
-    ui.show()
+    window.show()
     def exit_handler():
         if not exists("config.ini"):
             config.add_section("Settings")
@@ -405,63 +424,63 @@ if __name__ == "__main__":
                 config["Settings"] = {}
 
         click_speed = ui_objects.click_speed.value()
-        debug_log(f"[{current_time()}] Click speed saved as {click_speed}")
+        log(f"[{current_time()}] Click speed saved as {click_speed}")
         config["Settings"]["Click_Speed"] = str(click_speed)
 
         click_period = ui_objects.click_interval_combobox.currentIndex()
-        debug_log(f"[{current_time()}] Click interval saved as {click_period}")
+        log(f"[{current_time()}] Click interval saved as {click_period}")
         config["Settings"]["Click_Interval"] = str(click_period)
 
         mouse_button = ui_objects.mouse_button_combobox.currentIndex()
-        debug_log(f"[{current_time()}] Mouse button saved as {mouse_button}")
+        log(f"[{current_time()}] Mouse button saved as {mouse_button}")
         config["Settings"]["Mouse_Button"] = str(mouse_button)
 
         click_limit = ui_objects.limits_clicks.value()
-        debug_log(f"[{current_time()}] Click limit saved as {click_limit}")
+        log(f"[{current_time()}] Click limit saved as {click_limit}")
         config["Settings"]["Click_Limit"] = str(click_limit)
 
         time_limit = ui_objects.limits_seconds.value()
-        debug_log(f"[{current_time()}] Time limit saved as {time_limit}")
+        log(f"[{current_time()}] Time limit saved as {time_limit}")
         config["Settings"]["Time_Limit"] = str(time_limit)
 
         activation_type = ui_objects.activation_type_combobox.currentIndex()
-        debug_log(f"[{current_time()}] Activation type saved as {activation_type}")
+        log(f"[{current_time()}] Activation type saved as {activation_type}")
         config["Settings"]["Activation_Type"] = str(activation_type)
 
         speed_variation = ui_objects.speed_variation.value()
-        debug_log(f"[{current_time()}] Speed variation saved as {speed_variation}")
+        log(f"[{current_time()}] Speed variation saved as {speed_variation}")
         config["Settings"]["Speed_Variation"] = str(speed_variation)
 
         duty_cycle = ui_objects.duty_cycle.value()
-        debug_log(f"[{current_time()}] Duty cycle saved as {duty_cycle}")
+        log(f"[{current_time()}] Duty cycle saved as {duty_cycle}")
         config["Settings"]["Duty_Cycle"] = str(duty_cycle)
 
         pos_x = ui_objects.pos_x.value()
-        debug_log(f"[{current_time()}] Pos X saved as {pos_x}")
+        log(f"[{current_time()}] Pos X saved as {pos_x}")
         config["Settings"]["Pos_X"] = str(pos_x)
 
         pos_y = ui_objects.pos_y.value()
-        debug_log(f"[{current_time()}] Pos Y saved as {pos_y}")
+        log(f"[{current_time()}] Pos Y saved as {pos_y}")
         config["Settings"]["Pos_Y"] = str(pos_y)
 
         position_check = ui_objects.position_checkbox.isChecked()
-        debug_log(f"[{current_time()}] Position check saved as {position_check}")
+        log(f"[{current_time()}] Position check saved as {position_check}")
         config["Settings"]["Position_Check"] = str(position_check)
 
         offset = ui_objects.click_offset.value()
-        debug_log(f"[{current_time()}] Click offset saved as {offset}")
+        log(f"[{current_time()}] Click offset saved as {offset}")
         config["Settings"]["Offset"] = str(offset)
 
         offset_check = ui_objects.click_offset_checkbox.isChecked()
-        debug_log(f"[{current_time()}] Offset check saved as {offset_check}")
+        log(f"[{current_time()}] Offset check saved as {offset_check}")
         config["Settings"]["Offset_Check"] = str(offset_check)
 
         keybind = keybind_hotkey
-        debug_log(f"[{current_time()}] Keyboard sequence saved as {keybind}")
+        log(f"[{current_time()}] Keyboard sequence saved as {keybind}")
         config["Settings"]["Keyboard_Sequence"] = str(keybind)
 
         config["Settings"]["Debug_Mode"] = str(DEBUG_MODE)
-        debug_log(f"[{current_time()}] Debug mode saved as {DEBUG_MODE}")
+        log(f"[{current_time()}] Debug mode saved as {DEBUG_MODE}")
 
         with open("config.ini", "w") as configfile:
             config.write(configfile)

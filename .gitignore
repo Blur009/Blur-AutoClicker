@@ -4,9 +4,14 @@ __pycache__/
 *$py.class
 
 #Custom
+/main.build
+/main.dist
+/main.onefile-build
+BlurAutoClicker.exe
 BlurAutoClicker.spec
 config.ini
-venv
+info.md
+/.venv
 
 # C extensions
 *.so
