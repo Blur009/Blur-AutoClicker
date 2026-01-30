@@ -327,13 +327,13 @@ li.checked::marker { content: &quot;\2612&quot;; }
              <bool>false</bool>
             </property>
             <property name="keySequence">
-             <string>Alt+&lt;</string>
+             <string>Ctrl+K</string>
             </property>
             <property name="clearButtonEnabled">
              <bool>false</bool>
             </property>
             <property name="maximumSequenceLength">
-             <longLong>4</longLong>
+             <longLong>1</longLong>
             </property>
            </widget>
           </item>

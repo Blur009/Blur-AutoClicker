@@ -5,6 +5,7 @@ __pycache__/
 
 #Custom
 BlurAutoClicker.spec
+config.ini
 venv
 
 # C extensions
