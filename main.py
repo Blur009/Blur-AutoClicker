@@ -5,7 +5,6 @@ import time
 from configparser import ConfigParser
 from datetime import datetime
 from os.path import exists
-
 import keyboard
 import requests
 from PySide6.QtCore import (QTimer)
@@ -17,21 +16,12 @@ from Scripts import C_Clicker as AClicker
 from ui_mainwindow import Ui_BlurAutoClicker
 
 # TODO:
-# Fix version calculation, I think its not correct. (v0.0.2 doesnt see v1.0.0 as update worthy)
+# max click speed dynamically changing depending on what interval is selected
 """
-it ended up being that:
-ui_objects.update_status_label.setVisible(False)
-was called at the bottom of the code, meaning the function "perform_startup_update_check"
-was updating the text to be visible, but right after that, setVisible(False) was called
-which of course made it invisible again. 
-
-fixed by moving setVisible(False) above the update check.
-
-
-additionally I made everything into 1 file.. i honestly just didn't know you could uic the .ui into a .py :)
+this update (v1.1.1 → v1.2.1) was to change the main clicker engine to run on GO istead of C.
 """
 
-CURRENT_VERSION = "v1.1.1"
+CURRENT_VERSION = "v1.2.1"
 
 DEBUG_MODE = False
 DEBUG_MODE_VERBOSE = False
@@ -189,7 +179,7 @@ if __name__ == "__main__":
             if not is_clicking:
                 toggle_clicker_start_stop()
             while keyboard.is_pressed(hotkey_str):
-                time.sleep(0.15)
+                time.sleep(0.05)  # More responsive key release detection
             if is_clicking:
                 toggle_clicker_start_stop()
         finally:
@@ -297,7 +287,7 @@ if __name__ == "__main__":
 
     def set_position_current():
         ui_objects.pos_changing.setVisible(True)
-        start_countdown(4)
+        start_countdown()
 
     def finish_position_pick():
         pos = QCursor.pos()
@@ -305,13 +295,25 @@ if __name__ == "__main__":
         ui_objects.pos_x.setValue(pos.x())
         ui_objects.pos_y.setValue(pos.y())
 
-    def start_countdown(seconds_left):
+    countdown_timer = None
+    def start_countdown(seconds_left=4):
+        global countdown_timer
+        if countdown_timer:
+            countdown_timer.stop()
+        
+        def countdown_tick():
+            nonlocal seconds_left
+            if seconds_left > 1:
+                ui_objects.pos_changing.setText(f"Picking Cursor position in {seconds_left - 1}s")
+                seconds_left -= 1
+            else:
+                countdown_timer.stop()
+                finish_position_pick()
+        
+        countdown_timer = QTimer()
+        countdown_timer.timeout.connect(countdown_tick)
+        countdown_timer.start(1000)
         ui_objects.pos_changing.setText(f"Picking Cursor position in {seconds_left}s")
-
-        if seconds_left > 1:
-            QTimer.singleShot(1000, lambda: start_countdown(seconds_left - 1))
-        else:
-            QTimer.singleShot(1000, finish_position_pick)
 
 
     ui_objects.update_status_label.setVisible(False)
@@ -420,8 +422,8 @@ if __name__ == "__main__":
     def exit_handler():
         if not exists("config.ini"):
             config.add_section("Settings")
-            if "Settings" not in config:
-                config["Settings"] = {}
+        elif "Settings" not in config:
+            config["Settings"] = {}
 
         click_speed = ui_objects.click_speed.value()
         log(f"[{current_time()}] Click speed saved as {click_speed}")

@@ -13,7 +13,7 @@ try:
     project_root = os.path.dirname(current_dir)
     dll_path = os.path.join(project_root, "clicker_engine.dll")
 
-    clicker_lib = ctypes.CDLL(dll_path)
+    clicker_lib = ctypes.WinDLL(dll_path)
 
     # 2. CONFIGURE TYPES
     clicker_lib.start_clicker.argtypes = [

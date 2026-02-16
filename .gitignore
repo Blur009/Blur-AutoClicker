@@ -11,6 +11,9 @@ BlurAutoClicker.exe
 BlurAutoClicker.spec
 config.ini
 info.md
+go.mod
+clicker_engine.h
+version.txt
 /.venv
 
 # C extensions
