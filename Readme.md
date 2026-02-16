@@ -1,7 +1,7 @@
 <div align="center">
     <h1>Blur Auto Clicker</h1>
     <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/Resources/AutoClickerPreview.png" alt=""/>
-    <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/Resources/V1.2.1ErrorRate" alt=""/>
+    <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/Resources/V1.2.1ErrorRate.png" alt=""/>
 </div>
 
 ### Why I made this
