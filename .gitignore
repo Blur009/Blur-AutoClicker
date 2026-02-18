@@ -14,7 +14,10 @@ info.md
 go.mod
 clicker_engine.h
 version.txt
+/src/telemetry_url.py
 /.venv
+Click Tester.*
+Telemetry Dashboard.*
 
 # C extensions
 *.so
