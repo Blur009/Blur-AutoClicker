@@ -24,14 +24,25 @@ Each entry is a dict with these keys:
   default      : the default value
   widget_type  : "spinbox" | "combobox" | "checkbox" | "groupbox" | "keysequence"
 """
-
+from pathlib import Path
 from configparser import ConfigParser
-from os.path import exists
+import os
+
+CONFIG_DIR = Path.home() / "AppData" / "Roaming" / "blur009" / "autoclicker"
+CONFIG_FILE = str(CONFIG_DIR / "config.ini")
+CONFIG_SECTION = "Settings"
 
 
+def ensure_config_dir():
+    if not CONFIG_DIR.exists():
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+CONFIG_SECTION = "Settings"
 # ---------------------------------------------------------------------------
 # The registry — one row per setting
 # ---------------------------------------------------------------------------
+# fmt: off
 SETTINGS_REGISTRY = [
      # widget_attr                          config_key               default     widget_type
      ("click_speed_input",                 "Click_Speed",            25,         "spinbox"),
@@ -58,21 +69,17 @@ SETTINGS_REGISTRY = [
      ("click_offset_smoothing_input_checkbox","Smoothing_Check",     True,      "checkbox"),
      # keysequence and tab index are handled separately below
 ]
-
-CONFIG_FILE = "config.ini"
-CONFIG_SECTION = "Settings"
-
-
+# fmt: on
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_widget(ui_objects, attr):
     return getattr(ui_objects, attr, None)
 
 
 def _read_widget(widget, widget_type):
-    """Return the current value of a widget as a plain Python value."""
     if widget_type == "spinbox":
         return widget.value()
     elif widget_type == "combobox":
@@ -83,7 +90,6 @@ def _read_widget(widget, widget_type):
 
 
 def _write_widget(widget, widget_type, value):
-    """Push a value back into a widget."""
     if widget_type == "spinbox":
         widget.setValue(int(value))
     elif widget_type == "combobox":
@@ -97,14 +103,20 @@ def _write_widget(widget, widget_type, value):
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+shortcut = "Ctrl+K"
+
 
 def load_settings(ui_objects, config: ConfigParser, log=None) -> str:
     """
     Read config.ini and push every registered setting into the UI.
-    Returns the keyboard sequence string (needs extra handling by the caller).
+    Returns the keyboard sequence string.
     """
-    if not exists(CONFIG_FILE):
-        return "Ctrl+K"
+    global shortcut
+
+    if not os.path.exists(CONFIG_FILE):
+        if log:
+            log(f"No config found at {CONFIG_FILE}, using defaults.")
+        return shortcut
 
     config.read(CONFIG_FILE)
 
@@ -124,15 +136,20 @@ def load_settings(ui_objects, config: ConfigParser, log=None) -> str:
         if log:
             log(f"Loaded {key} = {value}")
 
-    # Keyboard sequence — special case
-    shortcut = config.get(CONFIG_SECTION, "Keyboard_Sequence", fallback="Ctrl+K")
-    if shortcut in ("none", ""):
-        shortcut = "Ctrl+K"
+    raw_shortcut = config.get(
+        CONFIG_SECTION, "Keyboard_Sequence", fallback="Ctrl+K")
+    if raw_shortcut and raw_shortcut.strip() != "":
+        shortcut = raw_shortcut
+
+    ui_objects.key_sequence.blockSignals(True)
+    ui_objects.key_sequence.setKeySequence(shortcut)
+    ui_objects.key_sequence.blockSignals(False)
+
     ui_objects.key_sequence.setKeySequence(shortcut)
 
-    # Tab index — special case
     tab_index = config.getint(CONFIG_SECTION, "Tab_Index", fallback=0)
     ui_objects.tabs.setCurrentIndex(tab_index)
+
     if log:
         log(f"Loaded Tab_Index = {tab_index}")
 
@@ -140,12 +157,9 @@ def load_settings(ui_objects, config: ConfigParser, log=None) -> str:
 
 
 def save_settings(ui_objects, config: ConfigParser, keybind_hotkey, debug_mode, log=None):
-    """
-    Read every registered setting from the UI and write them to config.ini.
-    """
-    if not exists(CONFIG_FILE):
-        config.add_section(CONFIG_SECTION)
-    elif CONFIG_SECTION not in config:
+    ensure_config_dir()
+
+    if CONFIG_SECTION not in config:
         config[CONFIG_SECTION] = {}
 
     for attr, key, _default, wtype in SETTINGS_REGISTRY:
@@ -154,20 +168,16 @@ def save_settings(ui_objects, config: ConfigParser, keybind_hotkey, debug_mode, 
             continue
         value = _read_widget(widget, wtype)
         config[CONFIG_SECTION][key] = str(value)
-        if log:
-            log(f"Saved {key} = {value}")
 
-    # Extra values not tied directly to a single widget
     config[CONFIG_SECTION]["Keyboard_Sequence"] = str(keybind_hotkey)
     config[CONFIG_SECTION]["Debug_Mode"] = str(debug_mode)
     config[CONFIG_SECTION]["Tab_Index"] = str(ui_objects.tabs.currentIndex())
-    if log:
-        log(f"Saved Keyboard_Sequence = {keybind_hotkey}")
-        log(f"Saved Debug_Mode = {debug_mode}")
-        log(f"Saved Tab_Index = {ui_objects.tabs.currentIndex()}")
 
     with open(CONFIG_FILE, "w") as f:
         config.write(f)
+
+    if log:
+        log(f"Settings saved to {CONFIG_FILE}")
 
 
 def reset_defaults(ui_objects, log=None):
@@ -181,7 +191,7 @@ def reset_defaults(ui_objects, log=None):
         _write_widget(widget, wtype, default)
 
     # Keyboard sequence default
-    ui_objects.key_sequence.setKeySequence("Ctrl+K")
+    ui_objects.key_sequence.setKeySequence(shortcut)
 
     # Tab index default
     ui_objects.tabs.setCurrentIndex(0)

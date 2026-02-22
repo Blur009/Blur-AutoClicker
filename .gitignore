@@ -6,18 +6,16 @@ __pycache__/
 #Custom
 /main.build
 /main.dist
+/src/Private
+/src/go
 /main.onefile-build
 BlurAutoClicker.exe
 BlurAutoClicker.spec
 config.ini
-info.md
-go.mod
 clicker_engine.h
 version.txt
-/src/telemetry_url.py
 /.venv
-Click Tester.*
-Telemetry Dashboard.*
+cargo.lock
 
 # C extensions
 *.so

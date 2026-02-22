@@ -1,3 +1,26 @@
+# v2.1.0 - 22.02.2026 (d/m/y)
+## ❇️ New Features:
+
+## 🔹 Changed:
+- updated file structure
+- Config.ini now saves at %appdata%/blur009/autoclicker/config.ini
+- split up main.py into individual files to reduce line count per file.
+
+## 🔺 Fix:
+
+## 🔸 Performance Updates:
+
+## 🪦 Removed:
+- Switch to Go was good, but I realized after way too much debugging that "runtime.cgocallback" took 84% of my runtime performance. So, back to C we go..
+
+## TODO:
+- button for going to config folder
+- statistics (cpu, ram amount, cpu usage, ram usage, average cpu usage, clicker run time session/total, session clicks)
+- put statistics in telemetry
+- measure and log cpu time
+- Clicks centered around actual cursor position (free cursor click offset, smoothing support).
+
+
 # v2.0.0 - 18.02.2026 (d/m/y)
 ## ❇️ New Features:
 - Added On / Off hint next to the shortcut field.
@@ -24,4 +47,15 @@
 - Variables are initialized outside the isRunning loop
 - more that I probably forgot because I've been sitting here for 10h making this work :3
 
+
+# v2.0.0 - 18.02.2026 (d/m/y) (just an empty template for me here)
+## ❇️ New Features:
+
+## 🔹 Changed:
+
+## 🔺 Fix:
+
+## 🔸 Performance Updates:
+
 ## 🪦 Removed:
+
