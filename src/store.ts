@@ -43,6 +43,7 @@ export interface Settings {
   advancedSettingsEnabled: boolean;
   explanationMode: ExplanationMode;
   lastPanel: SavedPanel;
+  showStopReason: boolean;
 }
 
 export interface ClickerStatus {
@@ -94,6 +95,7 @@ export const DEFAULT_SETTINGS: Settings = {
   advancedSettingsEnabled: true,
   explanationMode: "text",
   lastPanel: "simple",
+  showStopReason: true,
 };
 
 function sanitizeSavedPanel(value: unknown): SavedPanel {

@@ -50,7 +50,7 @@ export default function SettingsPanel({
   onReset,
 }: Props) {
   const [resetting, setResetting] = useState(false);
-  const [resettingStats, setResettingStats] = useState(false);
+  // const [resettingStats, setResettingStats] = useState(false);
   const [stats, setStats] = useState<CumulativeStats | null>(null);
   const [atBottom, setAtBottom] = useState(false);
 
@@ -74,7 +74,7 @@ export default function SettingsPanel({
     <div className="settings-wrapper">
       <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
         <div className="social-links">
-          <span className="social-label">Support</span>
+          <span className="settings-label">Support</span>
           <div className="social-icons">
             <a
               className="social-icon"
@@ -189,7 +189,7 @@ export default function SettingsPanel({
               Telemetry is Disabled.
             </span>
           </div>
-          <button
+          {/* <button
             className="settings-btn-danger"
             onClick={() => {
               setResettingStats(true);
@@ -199,9 +199,9 @@ export default function SettingsPanel({
             }}
           >
             {resettingStats ? "Clearing..." : "Clear"}
-          </button>
+          </button> */}
+          {/* TODO: BUTTON DISABLED FOR NOW UNTIL I MAKE A CONFIRMATION PROMPT */}
         </div>
-
         {hasStats ? (
           <>
             <div className="stats-grid">
@@ -236,13 +236,34 @@ export default function SettingsPanel({
         ) : (
           <div className="stats-empty">No runs recorded yet</div>
         )}
+
         <div className="settings-divider" />
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Anonymous Usage data</span>
+            <span className="settings-label">Stop Reason Alert</span>
             <span className="settings-sublabel">
-              Anonymous analytics to improve the app. No personal information
+              Shows why the clicker stopped in the title bar.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {["On", "Off"].map((o) => (
+              <button
+                key={o}
+                className={`settings-seg-btn ${(settings.showStopReason ? "On" : "Off") === o ? "active" : ""}`}
+                onClick={() => update({ showStopReason: o === "On" })}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Share Usage data</span>
+            <span className="settings-sublabel">
+              Share Anonymous analytics to improve the app. No personal information
               will be collected.
             </span>
           </div>

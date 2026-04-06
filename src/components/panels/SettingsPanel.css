@@ -30,7 +30,7 @@
   font-size: 16px;
   font-weight: 500;
   letter-spacing: -0.02em;
-  color: var(--text-muted);
+  color: var(--text);
 }
 
 .settings-label-group {
@@ -45,14 +45,14 @@
   font-family: 'DMSans', sans-serif;
   font-size: 12px;
   font-weight: 400;
-  color: var(--text-dim);
+  color: var(--text-muted);
 }
 
 .settings-value {
   font-family: 'DMSans', sans-serif;
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-dim);
+  color: var(--text-muted);
 }
 
 .settings-value--green {
@@ -147,14 +147,6 @@
   padding: 10px 0;
 }
 
-.social-label {
-  font-family: 'DMSans', sans-serif;
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: var(--text-muted);
-}
-
 .social-icons {
   display: flex;
   gap: 6px;
@@ -182,9 +174,9 @@
 }
 
 .social-icon--kofi:hover {
-  color: #FF5E5B;
-  border-color: rgba(255, 94, 91, 0.4);
-  background: rgba(255, 94, 91, 0.08);
+  color: #72A5F2;
+  border-color: #72A5F2;
+  background: #202020;
 }
 
 .social-icon--patreon:hover {

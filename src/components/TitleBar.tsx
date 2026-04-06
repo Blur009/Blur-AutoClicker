@@ -1,21 +1,88 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { Tab } from "../App";
 import "./TitleBar.css";
 
 const appWindow = getCurrentWindow();
-
 const handleMinimize = async () => await appWindow.minimize();
 
 interface Props {
   tab: Tab;
   setTab: (t: Tab) => void;
   running: boolean;
+  stopReason?: string | null;
   onRequestClose: () => Promise<void>;
 }
 
-export default function TitleBar({ tab, setTab, running, onRequestClose }: Props) {
+export default function TitleBar({
+  tab,
+  setTab,
+  running,
+  stopReason,
+  onRequestClose,
+}: Props) {
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
+  const [titleText, setTitleText] = useState("BlurAutoClicker");
+  const [flipClass, setFlipClass] = useState("");
+  const [isReason, setIsReason] = useState(false);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearTimers = () => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  };
+
+  const later = (fn: () => void, ms: number) => {
+    timersRef.current.push(setTimeout(fn, ms));
+  };
+
+  useEffect(() => {
+    clearTimers();
+
+    if (running) {
+      setTitleText("BlurAutoClicker");
+      setIsReason(false);
+      setFlipClass("");
+      return () => clearTimers();
+    }
+
+    if (stopReason) {
+      requestAnimationFrame(() => {
+        setFlipClass("flip-out");
+
+        later(() => {
+          setTitleText(stopReason);
+          setIsReason(true);
+          setFlipClass("");
+          requestAnimationFrame(() => {
+            setFlipClass("flip-in");
+            later(() => setFlipClass(""), 350);
+          });
+
+          later(() => {
+            requestAnimationFrame(() => {
+              setFlipClass("flip-out");
+              later(() => {
+                setTitleText("BlurAutoClicker");
+                setIsReason(false);
+                setFlipClass("");
+                requestAnimationFrame(() => {
+                  setFlipClass("flip-in");
+                  later(() => setFlipClass(""), 350);
+                });
+              }, 350);
+            });
+          }, 5000);
+        }, 400);
+      });
+    } else {
+      setTitleText("BlurAutoClicker");
+      setIsReason(false);
+      setFlipClass("");
+    }
+
+    return () => clearTimers();
+  }, [stopReason, running]);
 
   const toggleAlwaysOnTop = async () => {
     try {
@@ -41,8 +108,6 @@ export default function TitleBar({ tab, setTab, running, onRequestClose }: Props
     >
       {/* Leftmost settings icon + mode tabs */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        {" "}
-        {/* Settings button */}
         <button
           className="settings-button"
           data-active={tab === "settings"}
@@ -64,7 +129,6 @@ export default function TitleBar({ tab, setTab, running, onRequestClose }: Props
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
         </button>
-        {/* Mode tabs */}
         <div style={{ display: "flex", gap: "4px" }}>
           <TabPill
             label={tab === "simple" ? "Simple" : "S"}
@@ -87,10 +151,13 @@ export default function TitleBar({ tab, setTab, running, onRequestClose }: Props
         </div>
       </div>
 
-      {/* Center: title + active indicator */}
-
+      {/* Center: title with flip */}
       <div className="title-wrapper">
-        <span className="window-title">BlurAutoClicker</span>
+        <span
+          className={`window-title title-flipper ${flipClass} ${isReason ? "is-reason" : ""}`}
+        >
+          {titleText}
+        </span>
       </div>
 
       {/* Right: window controls */}
@@ -104,7 +171,6 @@ export default function TitleBar({ tab, setTab, running, onRequestClose }: Props
           } as React.CSSProperties
         }
       >
-        {/* Always on Top / Pin */}
         <WindowBtn
           onClick={toggleAlwaysOnTop}
           active={isAlwaysOnTop}
@@ -127,35 +193,19 @@ export default function TitleBar({ tab, setTab, running, onRequestClose }: Props
             </svg>
           }
         />
-
-        {/* Minimize */}
         <WindowBtn
           onClick={handleMinimize}
           label={
-            <svg
-              width="10"
-              height="1"
-              viewBox="0 0 10 1"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
+            <svg width="10" height="1" viewBox="0 0 10 1" fill="none">
               <rect width="10" height="1" fill="currentColor" />
             </svg>
           }
         />
-
-        {/* Close */}
         <WindowBtn
           onClick={onRequestClose}
           danger
           label={
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
               <path
                 d="M0.5 0.5L9.5 9.5M9.5 0.5L0.5 9.5"
                 stroke="currentColor"

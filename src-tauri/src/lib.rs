@@ -45,7 +45,7 @@ pub fn run() {
             if cfg!(debug_assertions) {
                 let _ = app.handle().plugin(
                     tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Debug)
+                        .level(log::LevelFilter::Info)
                         .build(),
                 );
             }

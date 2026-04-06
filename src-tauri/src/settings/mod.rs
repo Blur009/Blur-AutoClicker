@@ -40,6 +40,7 @@ pub struct ClickerSettings {
     pub advanced_settings_enabled: bool,
     pub explanation_mode: String,
     pub last_panel: String,
+    pub show_stop_reason: bool,
 }
 
 impl Default for ClickerSettings {
@@ -80,6 +81,7 @@ impl Default for ClickerSettings {
             advanced_settings_enabled: true,
             explanation_mode: "text".to_string(),
             last_panel: "simple".to_string(),
+            show_stop_reason: true,
         }
     }
 }

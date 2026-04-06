@@ -3,16 +3,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 
-
 const SimplePanel = lazy(() => import("./components/panels/SimplePanel"));
 const AdvancedPanel = lazy(() => import("./components/panels/AdvancedPanel"));
 const SettingsPanel = lazy(() => import("./components/panels/SettingsPanel"));
 const MacroPanel = lazy(() => import("./components/panels/MacroPanel"));
 const TitleBar = lazy(() => import("./components/TitleBar"));
-const AdvancedPanelCompact = lazy(() => import("./components/panels/AdvancedPanelCompact"));
+const AdvancedPanelCompact = lazy(
+  () => import("./components/panels/AdvancedPanelCompact"),
+);
 const TelemetryConsent = lazy(() => import("./components/TelemetryConsent"));
-
-
 
 import { canonicalizeHotkeyForBackend } from "./hotkeys";
 import { hasTelemetryConsent, setTelemetryConsent } from "./store";
@@ -340,6 +339,11 @@ export default function App() {
         tab={tab}
         setTab={handleTabChange}
         running={status.running}
+        stopReason={
+          settings.showStopReason && tab === "advanced"
+            ? status.stopReason
+            : null
+        }
         onRequestClose={handleWindowClose}
       />
       {updateInfo && (

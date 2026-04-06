@@ -151,3 +151,40 @@ button{
 .window-btn.active:hover {
   background: rgba(255, 255, 255, 0.15);
 }
+
+/* -- Title Flip Animation -- */
+
+.title-wrapper {
+  perspective: 400px;
+}
+
+.title-flipper {
+  display: inline-block;
+  transform-origin: center bottom;
+  transition: transform 0.35s ease-in, opacity 0.35s ease-in;
+}
+
+.title-flipper.flip-out {
+  transform: rotateX(90deg);
+  opacity: 0;
+}
+
+.title-flipper.flip-in {
+  animation: titleFlipIn 0.35s ease-out forwards;
+}
+
+@keyframes titleFlipIn {
+  0% {
+    transform: rotateX(-90deg);
+    opacity: 0;
+  }
+  100% {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+.window-title.is-reason {
+  color: var(--accent-yellow);
+  text-shadow: 0 0 8px rgba(254, 188, 46, 0.15);
+}
