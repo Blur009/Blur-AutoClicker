@@ -4,8 +4,11 @@
   "version": "3.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "tauri dev",
+    "vite": "vite",
+    "build": "tauri build",
+    "frontend:build": "tsc -b && vite build",
+    "tauri": "tauri",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -153,14 +153,14 @@ fn parse_supabase_creds() -> Result<(String, String), String> {
     let mut key = None;
 
     for line in raw.lines() {
-        let line = line.trim();
+        let line: &str = line.trim();
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
         let lower = line.to_lowercase();
         if lower.contains("url") && line.contains('=') {
             if let Some(val) = line.split('=').nth(1) {
-                let val = val.trim().trim_matches('"').trim_matches('\'').trim();
+                let val: &str = val.trim().trim_matches('"').trim_matches('\'').trim();
                 if val.starts_with("http") {
                     url = Some(val.to_string());
                 }
@@ -168,7 +168,7 @@ fn parse_supabase_creds() -> Result<(String, String), String> {
         }
         if lower.contains("key") && line.contains('=') && !lower.contains("url") {
             if let Some(val) = line.split('=').nth(1) {
-                let val = val.trim().trim_matches('"').trim_matches('\'').trim();
+                let val: &str = val.trim().trim_matches('"').trim_matches('\'').trim();
                 if !val.is_empty() {
                     key = Some(val.to_string());
                 }

@@ -49,14 +49,14 @@ fn get_signing_key() -> &'static str {
 fn parse_key() -> Vec<u8> {
     let raw = get_signing_key();
     for line in raw.lines() {
-        let line = line.trim();
+        let line: &str = line.trim();
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
         let lower = line.to_lowercase();
         if lower.contains("key") && line.contains('=') {
             if let Some(val) = line.split('=').nth(1) {
-                let val = val.trim().trim_matches('"').trim_matches('\'').trim();
+                let val: &str = val.trim().trim_matches('"').trim_matches('\'').trim();
                 if !val.is_empty() {
                     return val.as_bytes().to_vec();
                 }
