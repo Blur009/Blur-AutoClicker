@@ -17,6 +17,8 @@
           "title": "BlurAutoClicker",
           "width": 520,
           "height": 235,
+          "visible": false,
+          "center": true,
           "resizable": false,
           "fullscreen": false,
           "decorations": false,
