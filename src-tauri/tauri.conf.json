@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "BlurAutoClicker",
   "version": "3.3.0",
@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeDevCommand": "npm run vite",
+    "beforeBuildCommand": "npm run frontend:build"
   },
   "app": {
     "withGlobalTauri": true,
