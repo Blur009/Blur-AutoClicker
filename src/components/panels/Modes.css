@@ -105,6 +105,12 @@
   color: var(--text-muted);
 }
 
+.simple-seg-btn:focus,
+.simple-seg-btn:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .simple-seg-btn.active {
   background: var(--bg-input);
   color: var(--text-primary);
@@ -371,6 +377,10 @@ input[type="number"]::-webkit-outer-spin-button {
   letter-spacing: 2%;
 }
 
+.adv-desc-enabled {
+  color: var(--text-primary);
+}
+
 .adv-row {
   display: flex;
   align-items: center;
@@ -599,8 +609,15 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .disabled-content {
-  opacity: 0.35;
   pointer-events: none;
+}
+
+.disabled-content .adv-numbox-sm,
+.disabled-content .adv-pick-btn,
+.disabled-content .simple-seg-group,
+.disabled-content .adv-label-sm,
+.disabled-content .adv-corner-grid {
+  opacity: 0.55;
 }
 
 .disabled-overlay {
@@ -620,7 +637,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .disabled-container:hover .disabled-overlay {
   opacity: 1;
-  backdrop-filter: blur(2px);
+  backdrop-filter: none;
   background: rgba(0, 0, 0, 0.1);
   pointer-events: auto;
 }
@@ -647,7 +664,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .adv-toggle-btn.disabled {
-  opacity: 0.5;
+  opacity: 0.65;
   cursor: not-allowed;
   pointer-events: none;
 }

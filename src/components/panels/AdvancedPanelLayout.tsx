@@ -188,8 +188,10 @@ export default function AdvancedPanelLayout({
   }, [settings.clickSpeed, settings.clickInterval]);
 
 
-  const showDesc = (text: string) =>
-    showExplanations ? <p className="adv-desc">{text}</p> : null;
+  const showDesc = (text: string, enabled = false) =>
+    showExplanations ? (
+      <p className={`adv-desc ${enabled ? "adv-desc-enabled" : ""}`}>{text}</p>
+    ) : null;
 
   const handlePickPosition = async () => {
     setPickingPosition(true);
@@ -301,6 +303,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               {showDesc(
                 "Randomizes how long the mouse button stays held between the min and max percentages of each click interval.",
+                settings.dutyCycleEnabled,
               )}
             </div>
 
@@ -326,6 +329,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               {showDesc(
                 "Randomizes click timing around your configured speed by up to this percentage.",
+                settings.speedVariationEnabled,
               )}
             </div>
 
@@ -352,7 +356,10 @@ export default function AdvancedPanelLayout({
               <Disableable enabled={settings.doubleClickEnabled}>
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
-                    <p className="adv-desc" style={{ flex: 1 }}>
+                    <p
+                      className={`adv-desc ${settings.doubleClickEnabled ? "adv-desc-enabled" : ""}`}
+                      style={{ flex: 1 }}
+                    >
                       Fires the button twice per interval with a configurable
                       delay between the clicks.
                     </p>
@@ -461,7 +468,10 @@ export default function AdvancedPanelLayout({
               <Disableable enabled={settings.cornerStopEnabled}>
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
-                    <p className="adv-desc" style={{ flex: 1 }}>
+                    <p
+                      className={`adv-desc ${settings.cornerStopEnabled ? "adv-desc-enabled" : ""}`}
+                      style={{ flex: 1 }}
+                    >
                       Stops the clicker when the cursor enters a screen corner.
                       Keep it as a failsafe.
                     </p>
@@ -501,7 +511,10 @@ export default function AdvancedPanelLayout({
               <Disableable enabled={settings.edgeStopEnabled}>
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
-                    <p className="adv-desc" style={{ flex: 1 }}>
+                    <p
+                      className={`adv-desc ${settings.edgeStopEnabled ? "adv-desc-enabled" : ""}`}
+                      style={{ flex: 1 }}
+                    >
                       Stops the clicker when the cursor reaches a screen edge.
                       Keep it as a failsafe.
                     </p>
