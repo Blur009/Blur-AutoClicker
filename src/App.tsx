@@ -73,6 +73,7 @@ export default function App() {
   const hotkeyTimer = useRef<number | null>(null);
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const launchWindowPlacementDone = useRef(false);
+  const startupWindowShown = useRef(false);
   const [consentGiven, setConsentGiven] = useState<boolean | null>(null);
 
   const [updateInfo, setUpdateInfo] = useState<{
@@ -105,6 +106,14 @@ export default function App() {
 
   const applyStartupWindowPlacement = async () => {
     await getCurrentWindow().center();
+  };
+
+  const showStartupWindowIfNeeded = async () => {
+    if (startupWindowShown.current) return;
+
+    const appWindow = getCurrentWindow();
+    await appWindow.show();
+    startupWindowShown.current = true;
   };
 
   const handleWindowClose = async () => {
@@ -150,6 +159,7 @@ export default function App() {
       .catch((err) => {
         console.error("Failed to boot app:", err);
         if (!mounted) return;
+        setConsentGiven(true);
         setSettingsLoaded(true);
       });
 
@@ -231,13 +241,25 @@ export default function App() {
   // -- Resize window for consent dialog --
   useEffect(() => {
     if (consentGiven !== false || !settingsLoaded) return;
-    getCurrentWindow()
-      .setSize(new LogicalSize(420, 520))
-      .then(() => getCurrentWindow().center())
-      .catch((err) => console.error("Failed to size window for consent:", err));
+
+    void (async () => {
+      try {
+        const appWindow = getCurrentWindow();
+        await appWindow.setSize(new LogicalSize(420, 520));
+        await appWindow.center();
+      } catch (err) {
+        console.error("Failed to size window for consent:", err);
+      } finally {
+        showStartupWindowIfNeeded().catch((showErr) => {
+          console.error("Failed to show startup window:", showErr);
+        });
+      }
+    })();
   }, [consentGiven, settingsLoaded]);
 
   useEffect(() => {
+    if (!settingsLoaded || consentGiven === null) return;
+
     const appWindow = getCurrentWindow();
     const { width, height } = getPanelSize(tab, settings, !!updateInfo);
 
@@ -250,10 +272,14 @@ export default function App() {
         if (!settingsLoaded || launchWindowPlacementDone.current) return;
         await wait(30);
         await applyStartupWindowPlacement();
+        await showStartupWindowIfNeeded();
 
         launchWindowPlacementDone.current = true;
       } catch (err) {
         console.error("Failed to size or place window:", err);
+        showStartupWindowIfNeeded().catch((showErr) => {
+          console.error("Failed to show startup window:", showErr);
+        });
       }
     })();
   }, [settings, settingsLoaded, tab, consentGiven, updateInfo]);
