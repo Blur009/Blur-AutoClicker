@@ -31,7 +31,7 @@ pub fn stop_clicker(app: AppHandle) -> Result<ClickerStatusPayload, String> {
 pub fn toggle_clicker(app: AppHandle) -> Result<ClickerStatusPayload, String> {
     let state = app.state::<ClickerState>();
     if state.running.load(Ordering::SeqCst) {
-        stop_clicker_inner(&app, Some(String::from("Arêté manuellement")))
+        stop_clicker_inner(&app, Some(String::from("Arrêté manuellement")))
     } else {
         start_clicker_inner(&app)
     }
