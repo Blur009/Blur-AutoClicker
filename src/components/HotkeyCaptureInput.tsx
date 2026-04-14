@@ -51,7 +51,7 @@ export default function HotkeyCaptureInput({
   }, [listening]);
 
   const displayText = useMemo(
-    () => (listening ? "Press keys..." : formatHotkeyForDisplay(value, layoutMap)),
+    () => (listening ? "Appuyez sur les touches..." : formatHotkeyForDisplay(value, layoutMap)),
     [layoutMap, listening, value],
   );
 

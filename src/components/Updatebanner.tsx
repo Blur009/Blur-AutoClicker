@@ -1,5 +1,5 @@
 import { check } from "@tauri-apps/plugin-updater";
-import "./UpdateBanner.css";
+import "./Updatebanner.css";
 
 interface UpdateBannerProps {
   currentVersion: string;
@@ -32,7 +32,7 @@ export default function UpdateBanner({
       <span className="update-banner-text">→</span>
       <span className="update-banner-text-new-version">{latestVersion}</span>
       <button className="update-banner-btn" onClick={handleUpdate}>
-        Download & Install Update
+        Télécharger et installer la mise à jour
       </button>
     </div>
   );

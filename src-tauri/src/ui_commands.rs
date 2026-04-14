@@ -24,14 +24,14 @@ pub fn start_clicker(app: AppHandle) -> Result<ClickerStatusPayload, String> {
 
 #[tauri::command]
 pub fn stop_clicker(app: AppHandle) -> Result<ClickerStatusPayload, String> {
-    stop_clicker_inner(&app, Some(String::from("Stopped from UI")))
+    stop_clicker_inner(&app, Some(String::from("Arrêté depuis l’interface")))
 }
 
 #[tauri::command]
 pub fn toggle_clicker(app: AppHandle) -> Result<ClickerStatusPayload, String> {
     let state = app.state::<ClickerState>();
     if state.running.load(Ordering::SeqCst) {
-        stop_clicker_inner(&app, Some(String::from("Stopped from toggle")))
+        stop_clicker_inner(&app, Some(String::from("Arrêté via bascule")))
     } else {
         start_clicker_inner(&app)
     }
@@ -121,7 +121,7 @@ pub fn set_hotkey_capture_active(app: AppHandle, active: bool) -> Result<(), Str
 #[tauri::command]
 pub fn pick_position() -> Result<PositionPayload, String> {
     let (x, y) =
-        current_cursor_position().ok_or_else(|| String::from("Failed to read cursor position"))?;
+        current_cursor_position().ok_or_else(|| String::from("Impossible de lire la position du curseur"))?;
     Ok(PositionPayload { x, y })
 }
 
@@ -130,7 +130,9 @@ pub fn get_app_info(app: AppHandle) -> Result<AppInfoPayload, String> {
     let version = app.package_info().version.to_string();
     Ok(AppInfoPayload {
         version,
-        update_status: String::from("Update checks are disabled in development"),
+        update_status: String::from(
+            "La vérification des mises à jour est désactivée en développement",
+        ),
         screenshot_protection_supported: false,
     })
 }

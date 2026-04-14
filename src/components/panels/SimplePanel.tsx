@@ -10,14 +10,23 @@ interface SimplePanelProps {
 }
 
 const INTERVAL_OPTIONS = [
-  { value: "s", label: "Second" },
+  { value: "s", label: "Seconde" },
   { value: "m", label: "Minute" },
-  { value: "h", label: "Hour" },
-  { value: "d", label: "Day" },
+  { value: "h", label: "Heure" },
+  { value: "d", label: "Jour" },
 ] as const;
 
 const MODE_OPTIONS = ["Toggle", "Hold"] as const;
 const MOUSE_BUTTON_OPTIONS = ["Left", "Middle", "Right"] as const;
+const MODE_LABELS: Record<(typeof MODE_OPTIONS)[number], string> = {
+  Toggle: "Bascule",
+  Hold: "Maintenir",
+};
+const MOUSE_BUTTON_LABELS: Record<(typeof MOUSE_BUTTON_OPTIONS)[number], string> = {
+  Left: "Clic gauche",
+  Middle: "Clic du milieu",
+  Right: "Clic droit",
+};
 
 export default function SimplePanel({ settings, update }: SimplePanelProps) {
   const normalizeRaw = (raw: string) => raw.replace(/^0+(?=\d)/, "");
@@ -108,7 +117,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           <button
             type="button"
             className="simple-cycle-btn"
-            title="Change Click Interval"
+            title="Changer l'intervalle de clic"
             style={{ display: "flex", alignItems: "center", gap: "4px" }}
             onClick={(e) =>
               cycleWithClick(e, () =>
@@ -134,7 +143,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
             }
           >
             {INTERVAL_OPTIONS.find((o) => o.value === settings.clickInterval)
-              ?.label ?? "Second"}
+              ?.label ?? "Seconde"}
           </button>
           <svg
             className="Icon clock-icon"
@@ -186,7 +195,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           <button
             type="button"
             className="simple-cycle-btn"
-            title="Switch between hotkey Toggle and Hold mode"
+            title="Basculer entre les modes de raccourci Bascule et Maintenir"
             onClick={(e) =>
               cycleWithClick(e, () =>
                 update({
@@ -202,7 +211,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
               )
             }
           >
-            {settings.mode}
+            {MODE_LABELS[settings.mode]}
           </button>
         </div>
       </div>
@@ -212,7 +221,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           <button
             type="button"
             className="simple-cycle-btn"
-            title="Select which mouse button gets clicked"
+            title="Choisir le bouton de souris utilisé pour cliquer"
             onClick={(e) =>
               cycleWithClick(e, () =>
                 update({
@@ -236,21 +245,15 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
               )
             }
           >
-            {
-              {
-                Left: "Left Click",
-                Middle: "Middle Click",
-                Right: "Right Click",
-              }[settings.mouseButton]
-            }
+            {MOUSE_BUTTON_LABELS[settings.mouseButton]}
           </button>
         </div>
 
         <div className="InputBox">
-          <div className="muted">Hold</div>
+          <div className="muted">Maintien</div>
           <input
             type="number"
-            title="How long the mouse button gets held down during each click"
+            title="Durée de maintien du bouton de souris à chaque clic"
             className="simple-inline-input numbervalue"
             style={{
               width: dynamicChWidth(settings.dutyCycle),
@@ -285,10 +288,10 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
         </div>
 
         <div className="InputBox">
-          <div className="muted">Randomization</div>
+          <div className="muted">Variation</div>
           <input
             type="number"
-            title="Randomly changes clicks speed in % range of set CPS"
+            title="Fait varier aléatoirement la vitesse de clic dans une plage en % du CPS défini"
             className="simple-inline-input numbervalue"
             style={{
               width: dynamicChWidth(settings.speedVariation),

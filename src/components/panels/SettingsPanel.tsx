@@ -38,7 +38,7 @@ function formatNumber(n: number): string {
 }
 
 function formatCpu(cpu: number): string {
-  if (cpu < 0) return "N/A";
+  if (cpu < 0) return "N/D";
   return `${cpu.toFixed(1)}%`;
 }
 
@@ -73,7 +73,7 @@ export default function SettingsPanel({
     <div className="settings-wrapper">
       <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
         <div className="social-links">
-          <span className="settings-label">Support Me</span>
+          <span className="settings-label">Me soutenir</span>
           <div className="social-icons">
             <a
               className="social-icon social-icon--youtube"
@@ -180,9 +180,9 @@ export default function SettingsPanel({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Your Usage Data</span>
+            <span className="settings-label">Vos données d’utilisation</span>
             <span className="settings-sublabel">
-              Your personal clicker stats, tracked locally.
+              Vos statistiques personnelles du clicker, suivies localement.
             </span>
           </div>
           {/* <button
@@ -202,14 +202,14 @@ export default function SettingsPanel({
           <>
             <div className="stats-grid">
               <div className="stats-cell">
-                <span className="stats-cell-label">Total Clicks</span>
+                <span className="stats-cell-label">Total des clics</span>
                 <span className="stats-cell-value">
                   {formatNumber(stats.totalClicks)}
                 </span>
               </div>
               <div className="stats-cell">
                 <span className="stats-cell-label">
-                  Total Time spent clicking
+                  Temps total passé à cliquer
                 </span>
                 <span className="stats-cell-value">
                   {formatTime(stats.totalTimeSecs)}
@@ -217,7 +217,7 @@ export default function SettingsPanel({
               </div>
               <div className="stats-cell">
                 <span className="stats-cell-label">
-                  CPU Usage avg (while running)
+                  Utilisation CPU moyenne (en fonctionnement)
                 </span>
                 <span className="stats-cell-value">
                   {formatCpu(stats.avgCpu)}
@@ -225,31 +225,36 @@ export default function SettingsPanel({
               </div>
               <div className="stats-cell">
                 <span className="stats-cell-label">Sessions</span>
-                <span className="stats-cell-value">{stats.totalSessions}</span>
+                <span className="stats-cell-value">
+                  {stats.totalSessions}
+                </span>
               </div>
             </div>
           </>
         ) : (
-          <div className="stats-empty">No runs recorded yet</div>
+          <div className="stats-empty">Aucune session enregistrée pour l’instant</div>
         )}
 
         <div className="settings-divider" />
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Stop Hitbox Overlay</span>
+            <span className="settings-label">Superposition de zone d’arrêt</span>
             <span className="settings-sublabel">
-              Toggles whether the stop hitbox overlay is shown.
+              Active ou désactive l’affichage de la zone d’arrêt.
             </span>
           </div>
           <div className="settings-seg-group">
-            {["On", "Off"].map((o) => (
+            {[
+              { value: "On", label: "Activé" },
+              { value: "Off", label: "Désactivé" },
+            ].map((o) => (
               <button
-                key={o}
-                className={`settings-seg-btn ${(settings.showStopOverlay ? "On" : "Off") === o ? "active" : ""}`}
-                onClick={() => update({ showStopOverlay: o === "On" })}
+                key={o.value}
+                className={`settings-seg-btn ${(settings.showStopOverlay ? "On" : "Off") === o.value ? "active" : ""}`}
+                onClick={() => update({ showStopOverlay: o.value === "On" })}
               >
-                {o}
+                {o.label}
               </button>
             ))}
           </div>
@@ -257,19 +262,22 @@ export default function SettingsPanel({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Stop Reason Alert</span>
+            <span className="settings-label">Alerte de raison d’arrêt</span>
             <span className="settings-sublabel">
-              Shows why the clicker stopped in the title bar.
+              Affiche la raison de l’arrêt du clicker dans la barre de titre.
             </span>
           </div>
           <div className="settings-seg-group">
-            {["On", "Off"].map((o) => (
+            {[
+              { value: "On", label: "Activé" },
+              { value: "Off", label: "Désactivé" },
+            ].map((o) => (
               <button
-                key={o}
-                className={`settings-seg-btn ${(settings.showStopReason ? "On" : "Off") === o ? "active" : ""}`}
-                onClick={() => update({ showStopReason: o === "On" })}
+                key={o.value}
+                className={`settings-seg-btn ${(settings.showStopReason ? "On" : "Off") === o.value ? "active" : ""}`}
+                onClick={() => update({ showStopReason: o.value === "On" })}
               >
-                {o}
+                {o.label}
               </button>
             ))}
           </div>
@@ -278,9 +286,9 @@ export default function SettingsPanel({
         <div className="settings-divider" />
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Reset All Settings</span>
+            <span className="settings-label">Réinitialiser tous les paramètres</span>
             <span className="settings-sublabel">
-              Will reset all input fields and settings to the Defaults.
+              Réinitialise tous les champs et paramètres par défaut.
             </span>
           </div>
           <button
@@ -290,7 +298,7 @@ export default function SettingsPanel({
               onReset().finally(() => setResetting(false));
             }}
           >
-            {resetting ? "Resetting..." : "Reset"}
+            {resetting ? "Réinitialisation..." : "Réinitialiser"}
           </button>
         </div>
       </div>

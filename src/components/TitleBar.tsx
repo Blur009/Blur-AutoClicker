@@ -51,7 +51,7 @@ const TAB_ITEMS: readonly TabItem[] = [
   },
   {
     value: "advanced",
-    label: "Advanced",
+    label: "Avancé",
     color: "var(--accent-yellow)",
     icon: ({ active }) => (
       <svg
@@ -228,7 +228,7 @@ export default function TitleBar({
         <WindowBtn
           onClick={toggleAlwaysOnTop}
           active={isAlwaysOnTop}
-          title={isAlwaysOnTop ? "Disable Always on Top" : "Enable Always on Top"}
+          title={isAlwaysOnTop ? "Désactiver toujours au premier plan" : "Activer toujours au premier plan"}
           label={
             <svg
               width="16"

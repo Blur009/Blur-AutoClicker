@@ -65,7 +65,7 @@ fn calibrate_cycle_freq() -> f64 {
 pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, String> {
     let state = app.state::<ClickerState>();
     if state.running.load(Ordering::SeqCst) {
-        return Err(String::from("Clicker is already running"));
+        return Err(String::from("Le clicker est déjà en cours d’exécution"));
     }
 
     {
@@ -117,7 +117,7 @@ pub fn stop_clicker_inner(
 
 pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String> {
     if settings.click_speed <= 0.0 {
-        return Err(String::from("Click speed must be greater than zero"));
+        return Err(String::from("La vitesse de clic doit être supérieure à zéro"));
     }
 
     let base_interval_secs = match settings.click_interval.as_str() {
@@ -210,7 +210,7 @@ pub fn emit_status(app: &AppHandle) {
 pub fn toggle_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, String> {
     let state = app.state::<ClickerState>();
     if state.running.load(Ordering::SeqCst) {
-        stop_clicker_inner(app, Some(String::from("Stopped from hotkey")))
+        stop_clicker_inner(app, Some(String::from("Arrêté via raccourci")))
     } else {
         start_clicker_inner(app)
     }
@@ -256,7 +256,7 @@ pub fn start_clicker(config: ClickerConfig, running: Arc<AtomicBool>) -> RunOutc
     let mut target_x = config.pos_x;
     let mut target_y = config.pos_y;
     let mut next_batch_time = Instant::now();
-    let mut stop_reason = String::from("Stopped");
+    let mut stop_reason = String::from("Arrêté");
 
     if has_position {
         move_mouse(target_x, target_y);
@@ -269,12 +269,12 @@ pub fn start_clicker(config: ClickerConfig, running: Arc<AtomicBool>) -> RunOutc
         }
 
         if config.limit > 0 && click_count >= config.limit as i64 {
-            stop_reason = format!("Click limit reached ({})", config.limit);
+            stop_reason = format!("Limite de clics atteinte ({})", config.limit);
             break;
         }
 
         if config.time_limit > 0.0 && start_time.elapsed().as_secs_f64() >= config.time_limit {
-            stop_reason = format!("Time limit reached ({:.1}s)", config.time_limit);
+            stop_reason = format!("Limite de temps atteinte ({:.1}s)", config.time_limit);
             break;
         }
 
@@ -328,7 +328,7 @@ pub fn start_clicker(config: ClickerConfig, running: Arc<AtomicBool>) -> RunOutc
         };
 
         if clicks_this_cycle == 0 {
-            stop_reason = format!("Click limit reached ({})", config.limit);
+            stop_reason = format!("Limite de clics atteinte ({})", config.limit);
             break;
         }
 

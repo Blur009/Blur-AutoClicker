@@ -43,7 +43,7 @@ const DEFAULT_STATUS: ClickerStatus = {
 
 const DEFAULT_APP_INFO: AppInfo = {
   version: "3.2.0",
-  updateStatus: "Update checks are disabled in development",
+  updateStatus: "La vérification des mises à jour est désactivée en développement",
   screenshotProtectionSupported: false,
 };
 
