@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   captureHotkey,
   captureMouseHotkey,
@@ -52,6 +53,28 @@ export default function HotkeyCaptureInput({
       });
     };
   }, [listening]);
+
+  useEffect(() => {
+    if (!listening) return;
+
+    let cleanup: (() => void) | undefined;
+    listen<string>("hotkey-capture-special", (event) => {
+      if (!event.payload) return;
+      onChange(event.payload);
+      setListening(false);
+      inputRef.current?.blur();
+    })
+      .then((unlisten) => {
+        cleanup = unlisten;
+      })
+      .catch((err) => {
+        console.error("Failed to listen for special hotkey captures:", err);
+      });
+
+    return () => {
+      cleanup?.();
+    };
+  }, [listening, onChange]);
 
   useEffect(() => {
     if (!listening) return;

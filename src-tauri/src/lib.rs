@@ -10,6 +10,7 @@ mod telemetry;
 mod ui_commands;
 mod updates;
 use crate::engine::worker::emit_status;
+use crate::hotkeys::install_main_window_sysmenu_guard;
 use crate::hotkeys::register_hotkey_inner;
 use crate::hotkeys::start_hotkey_listener;
 use crate::telemetry::{send_settings_telemetry, TelemetryData};
@@ -91,6 +92,7 @@ pub fn run() {
             };
 
             let handle = app.handle().clone();
+            install_main_window_sysmenu_guard(&handle).map_err(std::io::Error::other)?;
             start_hotkey_listener(handle.clone());
             register_hotkey_inner(&handle, initial_hotkey).map_err(std::io::Error::other)?;
             emit_status(&handle);

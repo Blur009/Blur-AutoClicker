@@ -16,6 +16,7 @@ use crate::engine::worker::now_epoch_ms;
 use crate::engine::worker::start_clicker_inner;
 use crate::engine::worker::stop_clicker_inner;
 use crate::hotkeys::register_hotkey_inner;
+use crate::hotkeys::set_hotkey_capture_menu_guard_active;
 
 #[tauri::command]
 pub fn start_clicker(app: AppHandle) -> Result<ClickerStatusPayload, String> {
@@ -104,6 +105,7 @@ pub fn register_hotkey(app: AppHandle, hotkey: String) -> Result<String, String>
 pub fn set_hotkey_capture_active(app: AppHandle, active: bool) -> Result<(), String> {
     let state = app.state::<ClickerState>();
     state.hotkey_capture_active.store(active, Ordering::SeqCst);
+    set_hotkey_capture_menu_guard_active(active);
 
     if active {
         state
