@@ -46,7 +46,7 @@ export default function TelemetryConsent({ version, onAccept, onDecline }: Props
             Share anonymous data
           </button>
           <button className="consent-btn consent-btn--ghost" onClick={onDecline}>
-            No thank's
+            No thanks
           </button>
         </div>
       </div>
