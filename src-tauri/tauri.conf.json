@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "BlurAutoClicker",
   "version": "3.3.0",
@@ -11,52 +11,52 @@
   },
   "app": {
     "withGlobalTauri": true,
-      "windows": [
-        {
-          "label": "main",
-          "title": "BlurAutoClicker",
-          "width": 500,
-          "height": 150,
-          "resizable": false,
-          "fullscreen": false,
-          "decorations": false,
-          "transparent": true,
-          "maximizable": false,
-          "shadow": false
-        },
-        {
-          "label": "overlay",
-          "url": "overlay.html",
-          "title": "Overlay",
-          "fullscreen": true,
-          "transparent": true,
-          "decorations": false,
-          "alwaysOnTop": true,
-          "visible": false,
-          "skipTaskbar": true,
-          "focusable": false,
-          "shadow": false
-        }
-      ],
-      "security": {
-        "csp": null
+    "windows": [
+      {
+        "label": "main",
+        "title": "BlurAutoClicker",
+        "width": 500,
+        "height": 150,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "maximizable": false,
+        "shadow": false
+      },
+      {
+        "label": "overlay",
+        "url": "overlay.html",
+        "title": "Overlay",
+        "fullscreen": true,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "focusable": false,
+        "shadow": false
       }
-    },
-    "plugins":{
-      "updater": {
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
       "endpoints": [
-          "https://github.com/Blur009/Blur-AutoClicker/releases/latest/download/latest.json"
+        "https://github.com/Blur009/Blur-AutoClicker/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIyREY0RTc2QTU4Qjc1N0UKUldSK2RZdWxkazdmSW1IQmI4ZVMwOTRzWnBiVENhMFNYMFRtN0V4R3N0Q2JXQUdqM2t4VnRnNUYK"
-      },
-      "windows": {
-        "installMode": "passive"
-      }
     },
-    "bundle": {
-      "active": true,
-      "targets": "nsis",
-      "createUpdaterArtifacts": true,
-      "icon": ["icons/icon.ico"]
+    "windows": {
+      "installMode": "passive"
     }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "nsis",
+    "createUpdaterArtifacts": true,
+    "icon": ["icons/icon.ico"]
+  }
 }
