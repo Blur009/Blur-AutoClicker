@@ -21,6 +21,33 @@ const MODIFIER_KEYS = new Set([
   "altgraph",
 ]);
 
+const MOUSE_BUTTON_ALIASES: Record<string, string> = {
+  mbutton: "mbutton",
+  middle: "mbutton",
+  middlemouse: "mbutton",
+  mouse3: "mbutton",
+  mb3: "mbutton",
+  wheelclick: "mbutton",
+  wheelup: "wheelup",
+  scrollup: "wheelup",
+  mousewheelup: "wheelup",
+  mwheelup: "wheelup",
+  wheeldown: "wheeldown",
+  scrolldown: "wheeldown",
+  mousewheeldown: "wheeldown",
+  mwheeldown: "wheeldown",
+  xbutton1: "xbutton1",
+  mouse4: "xbutton1",
+  mb4: "xbutton1",
+  mouseback: "xbutton1",
+  browserback: "xbutton1",
+  xbutton2: "xbutton2",
+  mouse5: "xbutton2",
+  mb5: "xbutton2",
+  mouseforward: "xbutton2",
+  browserforward: "xbutton2",
+};
+
 const SHIFTED_SYMBOL_BASE_MAP: Record<string, string> = {
   "?": "/",
   ":": ";",
@@ -71,6 +98,27 @@ function normalizeNamedKey(key: string): string | null {
   return keyMap[lower] ?? null;
 }
 
+function normalizeMouseToken(token: string): string | null {
+  return MOUSE_BUTTON_ALIASES[token.toLowerCase()] ?? null;
+}
+
+type ModifierSnapshot = {
+  ctrlKey: boolean;
+  altKey: boolean;
+  shiftKey: boolean;
+  metaKey: boolean;
+};
+
+function buildHotkeyFromModifiers(mainKey: string, modifiers: ModifierSnapshot): string {
+  const parts: string[] = [];
+  if (modifiers.ctrlKey) parts.push("ctrl");
+  if (modifiers.altKey) parts.push("alt");
+  if (modifiers.shiftKey) parts.push("shift");
+  if (modifiers.metaKey) parts.push("super");
+  parts.push(mainKey);
+  return parts.join("+");
+}
+
 function displayTokenFromStoredValue(token: string, layoutMap: LayoutMapLike | null): string {
   const trimmed = token.trim();
   if (!trimmed) return trimmed;
@@ -107,6 +155,28 @@ function displayTokenFromStoredValue(token: string, layoutMap: LayoutMapLike | n
     space: "Space",
     escape: "Esc",
     esc: "Esc",
+    mbutton: "Middle Mouse",
+    middle: "Middle Mouse",
+    middlemouse: "Middle Mouse",
+    mouse3: "Middle Mouse",
+    mb3: "Middle Mouse",
+    wheelclick: "Middle Mouse",
+    wheelup: "Scroll Up",
+    scrollup: "Scroll Up",
+    mousewheelup: "Scroll Up",
+    mwheelup: "Scroll Up",
+    wheeldown: "Scroll Down",
+    scrolldown: "Scroll Down",
+    mousewheeldown: "Scroll Down",
+    mwheeldown: "Scroll Down",
+    xbutton1: "Mouse 4",
+    xbutton2: "Mouse 5",
+    mouse4: "Mouse 4",
+    mouse5: "Mouse 5",
+    mouseback: "Mouse 4",
+    mouseforward: "Mouse 5",
+    browserback: "Mouse 4",
+    browserforward: "Mouse 5",
   };
 
   if (namedDisplayMap[lower]) {
@@ -134,6 +204,11 @@ function normalizeStoredMainKey(token: string, layoutMap: LayoutMapLike | null):
   }
 
   const lower = trimmed.toLowerCase();
+  const mouseToken = normalizeMouseToken(lower);
+  if (mouseToken) {
+    return mouseToken;
+  }
+
   if (lower === "<" || lower === ">") {
     return "IntlBackslash";
   }
@@ -183,18 +258,43 @@ export function captureHotkey(event: {
     (SHIFTED_SYMBOL_BASE_MAP[event.key] ?? (event.key.length === 1 ? lower : null));
 
   if (!mainKey) return null;
+  return buildHotkeyFromModifiers(mainKey, event);
+}
 
-  const parts: string[] = [];
-  if (event.ctrlKey) parts.push("ctrl");
-  if (event.altKey) parts.push("alt");
-  if (event.shiftKey) parts.push("shift");
-  if (event.metaKey) parts.push("super");
-  parts.push(mainKey);
-  return parts.join("+");
+export function captureMouseHotkey(event: {
+  button: number;
+  ctrlKey: boolean;
+  altKey: boolean;
+  shiftKey: boolean;
+  metaKey: boolean;
+}): string | null {
+  let mainKey: string | null = null;
+  if (event.button === 1) {
+    mainKey = "mbutton";
+  } else if (event.button === 3) {
+    mainKey = "xbutton1";
+  } else if (event.button === 4) {
+    mainKey = "xbutton2";
+  }
+
+  if (!mainKey) return null;
+  return buildHotkeyFromModifiers(mainKey, event);
+}
+
+export function captureWheelHotkey(event: {
+  deltaY: number;
+  ctrlKey: boolean;
+  altKey: boolean;
+  shiftKey: boolean;
+  metaKey: boolean;
+}): string | null {
+  if (event.deltaY === 0) return null;
+  const mainKey = event.deltaY < 0 ? "wheelup" : "wheeldown";
+  return buildHotkeyFromModifiers(mainKey, event);
 }
 
 export function formatHotkeyForDisplay(value: string, layoutMap: LayoutMapLike | null): string {
-  if (!value) return "Click and press keys";
+  if (!value) return "Press keys, click, or scroll";
 
   return value
     .split("+")

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   captureHotkey,
+  captureMouseHotkey,
+  captureWheelHotkey,
   formatHotkeyForDisplay,
   getKeyboardLayoutMap,
 } from "../hotkeys";
@@ -20,6 +22,7 @@ export default function HotkeyCaptureInput({
   style,
 }: Props) {
   const [listening, setListening] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [layoutMap, setLayoutMap] = useState<Awaited<ReturnType<typeof getKeyboardLayoutMap>>>(null);
 
   useEffect(() => {
@@ -50,8 +53,52 @@ export default function HotkeyCaptureInput({
     };
   }, [listening]);
 
+  useEffect(() => {
+    if (!listening) return;
+
+    let captured = false;
+    const handleMouseEvent = (event: MouseEvent) => {
+      const nextHotkey = captureMouseHotkey(event);
+      if (!nextHotkey || captured) return;
+
+      captured = true;
+      event.preventDefault();
+      event.stopPropagation();
+      onChange(nextHotkey);
+      setListening(false);
+      inputRef.current?.blur();
+    };
+
+    const handleWheelEvent = (event: WheelEvent) => {
+      const nextHotkey = captureWheelHotkey(event);
+      if (!nextHotkey || captured) return;
+
+      captured = true;
+      event.preventDefault();
+      event.stopPropagation();
+      onChange(nextHotkey);
+      setListening(false);
+      inputRef.current?.blur();
+    };
+
+    window.addEventListener("mousedown", handleMouseEvent, true);
+    window.addEventListener("mouseup", handleMouseEvent, true);
+    window.addEventListener("auxclick", handleMouseEvent, true);
+    window.addEventListener("wheel", handleWheelEvent, {
+      capture: true,
+      passive: false,
+    });
+
+    return () => {
+      window.removeEventListener("mousedown", handleMouseEvent, true);
+      window.removeEventListener("mouseup", handleMouseEvent, true);
+      window.removeEventListener("auxclick", handleMouseEvent, true);
+      window.removeEventListener("wheel", handleWheelEvent, true);
+    };
+  }, [listening, onChange]);
+
   const displayText = useMemo(
-    () => (listening ? "Press keys..." : formatHotkeyForDisplay(value, layoutMap)),
+    () => (listening ? "Press keys, click, or scroll..." : formatHotkeyForDisplay(value, layoutMap)),
     [layoutMap, listening, value],
   );
 
@@ -60,6 +107,7 @@ export default function HotkeyCaptureInput({
     event.stopPropagation();
 
     if (event.key === "Escape") {
+      onChange("");
       setListening(false);
       event.currentTarget.blur();
       return;
@@ -88,6 +136,7 @@ export default function HotkeyCaptureInput({
 
   return (
     <input
+      ref={inputRef}
       type="text"
       className={className}
       value={displayText}
