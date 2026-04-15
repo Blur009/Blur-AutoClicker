@@ -1,6 +1,7 @@
 mod settings;
 use settings::ClickerSettings;
 mod app_state;
+mod autostart;
 mod engine;
 mod hotkeys;
 mod overlay;
@@ -128,6 +129,13 @@ pub fn run() {
             register_hotkey_inner(&handle, initial_hotkey).map_err(std::io::Error::other)?;
             emit_status(&handle);
             overlay::init_overlay(app.handle())?;
+
+            if std::env::args().any(|a| a == "--autostart") {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -147,6 +155,8 @@ pub fn run() {
             updates::update_checker::check_for_updates,
             overlay::hide_overlay,
             ui_commands::quit_app,
+            ui_commands::get_autostart_enabled,
+            ui_commands::set_autostart_enabled,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
