@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Tab } from "../App";
+import { translateStopReason, useTranslation, type TranslationKey } from "../i18n";
 import "./TitleBar.css";
 
 const appWindow = getCurrentWindow();
@@ -34,7 +35,7 @@ type TabIconProps = {
 
 type TabItem = {
   value: NavTab;
-  label: string;
+  labelKey: TranslationKey;
   color: string;
   icon: (props: TabIconProps) => ReactNode;
 };
@@ -54,7 +55,7 @@ const DEFAULT_TITLE_STATE: TitleViewState = {
 const TAB_ITEMS: readonly TabItem[] = [
   {
     value: "simple",
-    label: "Simple",
+    labelKey: "titleBar.simple",
     color: "var(--accent-green)",
     icon: ({ active }) => (
       <svg
@@ -75,7 +76,7 @@ const TAB_ITEMS: readonly TabItem[] = [
   },
   {
     value: "advanced",
-    label: "Advanced",
+    labelKey: "titleBar.advanced",
     color: "var(--accent-yellow)",
     icon: ({ active }) => (
       <svg
@@ -106,6 +107,8 @@ export default function TitleBar({
   onToggleAlwaysOnTop,
   onRequestClose,
 }: Props) {
+  const { t } = useTranslation();
+
   return (
     <div
       className="window-title-background"
@@ -123,6 +126,8 @@ export default function TitleBar({
           className="settings-button"
           data-active={tab === "settings"}
           onClick={() => setTab("settings")}
+          title={t("titleBar.settings")}
+          aria-label={t("titleBar.settings")}
           style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
         >
           <svg
@@ -146,7 +151,7 @@ export default function TitleBar({
             return (
               <TabIconButton
                 key={item.value}
-                label={item.label}
+                label={t(item.labelKey)}
                 active={isActive}
                 onClick={() => setTab(item.value)}
                 color={item.color}
@@ -176,7 +181,11 @@ export default function TitleBar({
             void onToggleAlwaysOnTop();
           }}
           active={isAlwaysOnTop}
-          title={isAlwaysOnTop ? "Disable Always on Top" : "Enable Always on Top"}
+          title={
+            isAlwaysOnTop
+              ? t("titleBar.disableAlwaysOnTop")
+              : t("titleBar.enableAlwaysOnTop")
+          }
           label={
             <svg
               width="16"
@@ -198,19 +207,19 @@ export default function TitleBar({
           onClick={() => {
             void handleMinimize();
           }}
+          title={t("titleBar.minimize")}
           label={
             <svg width="10" height="2" viewBox="0 0 10 2" fill="none">
               <rect width="10" height="2" fill="currentColor" />
             </svg>
           }
-          title="Minimize"
         />
         <WindowBtn
           onClick={() => {
             void onRequestClose();
           }}
           danger
-          title="Close"
+          title={t("titleBar.close")}
           label={
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
               <path
@@ -233,6 +242,7 @@ function AnimatedTitle({
   const [titleState, setTitleState] = useState(DEFAULT_TITLE_STATE);
   const frameIdsRef = useRef<number[]>([]);
   const timeoutIdsRef = useRef<number[]>([]);
+  const { t } = useTranslation();
 
   const clearScheduledWork = () => {
     frameIdsRef.current.forEach((id) => window.cancelAnimationFrame(id));
@@ -265,7 +275,7 @@ function AnimatedTitle({
       setTitleState((current) => ({ ...current, flipClass: "flip-out" }));
       queueDelay(() => {
         setTitleState({
-          text: stopReason,
+          text: translateStopReason(stopReason, t),
           isReason: true,
           flipClass: "",
         });
@@ -295,7 +305,7 @@ function AnimatedTitle({
     });
 
     return clearScheduledWork;
-  }, [running, stopReason]);
+  }, [running, stopReason, t]);
 
   return (
     <span

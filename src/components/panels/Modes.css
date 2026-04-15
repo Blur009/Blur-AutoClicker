@@ -197,6 +197,10 @@ input[type="number"]::-webkit-outer-spin-button {
   font-size: 0.6875rem;
 }
 
+.adv-toggle-btn {
+  text-transform: uppercase;
+}
+
 .advanced-panel-compact .adv-textbox {
   min-width: 0;
   flex: 1;

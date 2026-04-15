@@ -5,6 +5,11 @@ import type {
   PresetId,
   Settings,
 } from "../../store";
+import {
+  LANGUAGE_OPTIONS,
+  useTranslation,
+  type Language,
+} from "../../i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-shell";
@@ -38,28 +43,39 @@ interface Props {
   onReset: () => Promise<void>;
 }
 
-function formatTime(totalSeconds: number): string {
+function formatTime(totalSeconds: number, language: Language): string {
   if (totalSeconds < 0.01) return "0s";
   if (totalSeconds < 60) {
-    return `${Math.floor(totalSeconds)}s`;
+    return `${Math.floor(totalSeconds).toLocaleString(language)}s`;
   }
   if (totalSeconds < 3600) {
     const m = Math.floor(totalSeconds / 60);
     const s = Math.floor(totalSeconds % 60);
-    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+    return s > 0
+      ? `${m.toLocaleString(language)}m ${s.toLocaleString(language)}s`
+      : `${m.toLocaleString(language)}m`;
   }
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return m > 0
+    ? `${h.toLocaleString(language)}h ${m.toLocaleString(language)}m`
+    : `${h.toLocaleString(language)}h`;
 }
 
-function formatNumber(n: number): string {
-  return Math.floor(n).toLocaleString();
+function formatNumber(n: number, language: Language): string {
+  return Math.floor(n).toLocaleString(language);
 }
 
-function formatCpu(cpu: number): string {
-  if (cpu < 0) return "N/A";
-  return `${cpu.toFixed(1)}%`;
+function formatCpu(
+  cpu: number,
+  language: Language,
+  notAvailable: string,
+): string {
+  if (cpu < 0) return notAvailable;
+  return `${cpu.toLocaleString(language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })}%`;
 }
 
 function PresetRow({
@@ -95,6 +111,8 @@ function PresetRow({
   onCancelDelete: () => void;
   onConfirmDelete: () => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <div
       className={`preset-card ${isActive ? "preset-card--active" : ""}`}
@@ -124,7 +142,11 @@ function PresetRow({
             <span className="preset-name">{preset.name}</span>
           )}
           <div className="preset-badges">
-            {isActive && <span className="preset-badge preset-badge--active">Active</span>}
+            {isActive && (
+              <span className="preset-badge preset-badge--active">
+                {t("settings.presetActive")}
+              </span>
+            )}
             <span className="preset-badge">
               {new Date(preset.updatedAt).toLocaleDateString()}
             </span>
@@ -138,10 +160,10 @@ function PresetRow({
                 onClick={onCommitRename}
                 disabled={running}
               >
-                Save
+                {t("settings.presetSave")}
               </button>
               <button className="settings-btn-quiet" onClick={onCancelRename}>
-                Cancel
+                {t("settings.presetCancel")}
               </button>
             </>
           ) : isConfirmingDelete ? (
@@ -151,10 +173,10 @@ function PresetRow({
                 onClick={onConfirmDelete}
                 disabled={running}
               >
-                Confirm?
+                {t("settings.presetConfirmDelete")}
               </button>
               <button className="settings-btn-quiet" onClick={onCancelDelete}>
-                Cancel
+                {t("settings.presetCancel")}
               </button>
             </>
           ) : (
@@ -164,28 +186,28 @@ function PresetRow({
                 onClick={onApply}
                 disabled={running}
               >
-                Apply
+                {t("settings.presetApply")}
               </button>
               <button
                 className="settings-btn-secondary"
                 onClick={onUpdatePreset}
                 disabled={running}
               >
-                Update
+                {t("settings.presetUpdate")}
               </button>
               <button
                 className="settings-btn-secondary"
                 onClick={onStartRename}
                 disabled={running}
               >
-                Rename
+                {t("settings.presetRename")}
               </button>
               <button
                 className="settings-btn-danger settings-btn-danger--compact"
                 onClick={onRequestDelete}
                 disabled={running}
               >
-                Delete
+                {t("settings.presetDelete")}
               </button>
             </>
           )}
@@ -220,6 +242,7 @@ export default function SettingsPanel({
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<PresetId | null>(null);
 
   const panelRef = useRef<HTMLDivElement>(null);
+  const { language, t } = useTranslation();
 
   useEffect(() => {
     invoke<CumulativeStats>("get_stats")
@@ -314,6 +337,10 @@ export default function SettingsPanel({
   const presetLimitReached = settings.presets.length >= MAX_PRESETS;
   const activeEditingPresetId = running ? null : editingPresetId;
   const activeConfirmingDeleteId = running ? null : confirmingDeleteId;
+  const onOffOptions = [
+    { value: true, label: t("common.on") },
+    { value: false, label: t("common.off") },
+  ];
 
   const handleConfirmResetSettings = async () => {
     setResetting(true);
@@ -343,7 +370,7 @@ export default function SettingsPanel({
     <div className="settings-wrapper">
       <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
         <div className="social-links">
-          <span className="settings-label">Support Me</span>
+          <span className="settings-label">{t("settings.supportMe")}</span>
           <div className="social-icons">
             <a
               className="social-icon social-icon--kofi"
@@ -420,7 +447,7 @@ export default function SettingsPanel({
         </div>
 
         <div className="settings-row">
-          <span className="settings-label">Version</span>
+          <span className="settings-label">{t("settings.version")}</span>
           <span className="settings-value">v{appInfo.version}</span>
         </div>
 
@@ -428,56 +455,62 @@ export default function SettingsPanel({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Your Usage Data</span>
+            <span className="settings-label">{t("settings.usageData")}</span>
             <span className="settings-sublabel">
-              Your personal clicker stats, tracked locally.
+              {t("settings.usageDataDescription")}
             </span>
           </div>
         </div>
         {hasStats ? (
           <div className="stats-grid">
             <div className="stats-cell">
-              <span className="stats-cell-label">Total Clicks</span>
+              <span className="stats-cell-label">{t("settings.totalClicks")}</span>
               <span className="stats-cell-value">
-                {formatNumber(stats.totalClicks)}
+                {formatNumber(stats.totalClicks, language)}
               </span>
             </div>
             <div className="stats-cell">
-              <span className="stats-cell-label">Total Time Spent Clicking</span>
+              <span className="stats-cell-label">
+                {t("settings.totalTimeClicking")}
+              </span>
               <span className="stats-cell-value">
-                {formatTime(stats.totalTimeSecs)}
+                {formatTime(stats.totalTimeSecs, language)}
               </span>
             </div>
             <div className="stats-cell">
-              <span className="stats-cell-label">CPU Usage Avg</span>
-              <span className="stats-cell-value">{formatCpu(stats.avgCpu)}</span>
+              <span className="stats-cell-label">{t("settings.averageCpu")}</span>
+              <span className="stats-cell-value">
+                {formatCpu(stats.avgCpu, language, t("common.notAvailable"))}
+              </span>
             </div>
             <div className="stats-cell">
-              <span className="stats-cell-label">Sessions</span>
-              <span className="stats-cell-value">{stats.totalSessions}</span>
+              <span className="stats-cell-label">{t("settings.sessions")}</span>
+              <span className="stats-cell-value">
+                {formatNumber(stats.totalSessions, language)}
+              </span>
             </div>
           </div>
         ) : (
-          <div className="stats-empty">No runs recorded yet</div>
+          <div className="stats-empty">{t("settings.noRuns")}</div>
         )}
 
         <div className="settings-divider" />
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Always on Top</span>
+            <span className="settings-label">{t("settings.alwaysOnTop")}</span>
             <span className="settings-sublabel">
-              Keep the app pinned above other windows.
+              {t("settings.alwaysOnTopDescription")}
             </span>
           </div>
           <div className="settings-seg-group">
-            {["On", "Off"].map((option) => (
+            {onOffOptions.map((option) => (
               <button
-                key={option}
-                className={`settings-seg-btn ${(settings.alwaysOnTop ? "On" : "Off") === option ? "active" : ""}`}
-                onClick={() => handleAlwaysOnTopChange(option === "On")}
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.alwaysOnTop === option.value ? "active" : ""}`}
+                onClick={() => handleAlwaysOnTopChange(option.value)}
               >
-                {option}
+                {option.label}
               </button>
             ))}
           </div>
@@ -485,19 +518,21 @@ export default function SettingsPanel({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Stop Hitbox Overlay</span>
+            <span className="settings-label">
+              {t("settings.stopHitboxOverlay")}
+            </span>
             <span className="settings-sublabel">
-              Toggle the stop-zone overlay preview.
+              {t("settings.stopHitboxOverlayDescription")}
             </span>
           </div>
           <div className="settings-seg-group">
-            {["On", "Off"].map((option) => (
+            {onOffOptions.map((option) => (
               <button
-                key={option}
-                className={`settings-seg-btn ${(settings.showStopOverlay ? "On" : "Off") === option ? "active" : ""}`}
-                onClick={() => update({ showStopOverlay: option === "On" })}
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.showStopOverlay === option.value ? "active" : ""}`}
+                onClick={() => update({ showStopOverlay: option.value })}
               >
-                {option}
+                {option.label}
               </button>
             ))}
           </div>
@@ -505,19 +540,21 @@ export default function SettingsPanel({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Stop Reason Alert</span>
+            <span className="settings-label">
+              {t("settings.stopReasonAlert")}
+            </span>
             <span className="settings-sublabel">
-              Show why the clicker stopped in the title bar.
+              {t("settings.stopReasonAlertDescription")}
             </span>
           </div>
           <div className="settings-seg-group">
-            {["On", "Off"].map((option) => (
+            {onOffOptions.map((option) => (
               <button
-                key={option}
-                className={`settings-seg-btn ${(settings.showStopReason ? "On" : "Off") === option ? "active" : ""}`}
-                onClick={() => update({ showStopReason: option === "On" })}
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.showStopReason === option.value ? "active" : ""}`}
+                onClick={() => update({ showStopReason: option.value })}
               >
-                {option}
+                {option.label}
               </button>
             ))}
           </div>
@@ -525,88 +562,114 @@ export default function SettingsPanel({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Strict Hotkey Modifiers</span>
+            <span className="settings-label">
+              {t("settings.strictHotkeyModifiers")}
+            </span>
             <span className="settings-sublabel">
-              On: hotkey only fires when modifier keys match exactly. Off: extra held modifiers (e.g. Shift while gaming) are ignored.
+              {t("settings.strictHotkeyModifiersDescription")}
             </span>
           </div>
           <div className="settings-seg-group">
-            {["On", "Off"].map((o) => (
+            {onOffOptions.map((option) => (
               <button
-                key={o}
-                className={`settings-seg-btn ${(settings.strictHotkeyModifiers ? "On" : "Off") === o ? "active" : ""}`}
-                onClick={() => update({ strictHotkeyModifiers: o === "On" })}
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.strictHotkeyModifiers === option.value ? "active" : ""}`}
+                onClick={() => update({ strictHotkeyModifiers: option.value })}
               >
-                {o}
+                {option.label}
               </button>
             ))}
           </div>
         </div>
 
         <div className="settings-divider" />
+
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Minimize to Tray</span>
+            <span className="settings-label">
+              {t("settings.minimizeToTray")}
+            </span>
             <span className="settings-sublabel">
-              When enabled, closing the window hides it to the system tray instead of quitting.
+              {t("settings.minimizeToTrayDescription")}
             </span>
           </div>
           <div className="settings-seg-group">
-            {["On", "Off"].map((o) => (
+            {onOffOptions.map((option) => (
               <button
-                key={o}
-                className={`settings-seg-btn ${(settings.minimizeToTray ? "On" : "Off") === o ? "active" : ""}`}
-                onClick={() => update({ minimizeToTray: o === "On" })}
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.minimizeToTray === option.value ? "active" : ""}`}
+                onClick={() => update({ minimizeToTray: option.value })}
               >
-                {o}
+                {option.label}
               </button>
             ))}
           </div>
         </div>
+
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Run on Startup</span>
+            <span className="settings-label">{t("settings.runOnStartup")}</span>
             <span className="settings-sublabel">
-              Automatically start BlurAutoClicker with Windows, minimized to tray.
+              {t("settings.runOnStartupDescription")}
             </span>
           </div>
           <div className="settings-seg-group">
-            {["On", "Off"].map((o) => (
+            {onOffOptions.map((option) => (
               <button
-                key={o}
-                className={`settings-seg-btn ${autostartEnabled === (o === "On") ? "active" : ""}`}
+                key={String(option.value)}
+                className={`settings-seg-btn ${autostartEnabled === option.value ? "active" : ""}`}
                 disabled={autostartEnabled === null}
                 onClick={() => {
-                  const next = o === "On";
-                  invoke("set_autostart_enabled", { enabled: next })
-                    .then(() => setAutostartEnabled(next))
+                  invoke("set_autostart_enabled", { enabled: option.value })
+                    .then(() => setAutostartEnabled(option.value))
                     .catch(console.error);
                 }}
               >
-                {o}
+                {option.label}
               </button>
             ))}
           </div>
         </div>
+
         <div className="settings-divider" />
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Theme</span>
+            <span className="settings-label">{t("settings.language")}</span>
             <span className="settings-sublabel">
-              Switch between dark and light themes.
+              {t("settings.languageDescription")}
             </span>
           </div>
           <div className="settings-seg-group">
-            {(["Dark", "Light"] as const).map((option) => (
+            {LANGUAGE_OPTIONS.map((option) => (
               <button
-                key={option}
-                className={`settings-seg-btn ${(settings.theme === "light" ? "Light" : "Dark") === option ? "active" : ""}`}
-                onClick={() =>
-                  update({ theme: option.toLowerCase() as "dark" | "light" })
-                }
+                key={option.code}
+                className={`settings-seg-btn ${settings.language === option.code ? "active" : ""}`}
+                onClick={() => update({ language: option.code })}
               >
-                {option}
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-divider" />
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">{t("settings.theme")}</span>
+            <span className="settings-sublabel">
+              {t("settings.themeDescription")}
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {(["dark", "light"] as const).map((theme) => (
+              <button
+                key={theme}
+                className={`settings-seg-btn ${settings.theme === theme ? "active" : ""}`}
+                onClick={() => update({ theme })}
+              >
+                {t(theme === "dark" ? "common.dark" : "common.light")}
               </button>
             ))}
           </div>
@@ -614,9 +677,9 @@ export default function SettingsPanel({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Accent Color</span>
+            <span className="settings-label">{t("settings.accentColor")}</span>
             <span className="settings-sublabel">
-              Customize the primary accent used for active states.
+              {t("settings.accentColorDescription")}
             </span>
           </div>
           <div className="settings-color-controls">
@@ -635,7 +698,7 @@ export default function SettingsPanel({
               onClick={() => update({ accentColor: DEFAULT_ACCENT_COLOR })}
               disabled={settings.accentColor === DEFAULT_ACCENT_COLOR}
             >
-              Reset
+              {t("common.reset")}
             </button>
           </div>
         </div>
@@ -644,15 +707,15 @@ export default function SettingsPanel({
 
         <div className="settings-row settings-row--stacked">
           <div className="settings-label-group">
-            <span className="settings-label">Presets</span>
+            <span className="settings-label">{t("settings.presets")}</span>
             <span className="settings-sublabel">
-              Save and reuse named clicker configurations.
+              {t("settings.presetsDescription")}
             </span>
           </div>
           <div className="preset-compose">
             <input
               className="preset-name-input"
-              placeholder="Preset name"
+              placeholder={t("settings.presetNamePlaceholder")}
               value={newPresetName}
               maxLength={PRESET_NAME_MAX_LENGTH}
               onChange={(event) => setNewPresetName(event.target.value)}
@@ -679,17 +742,17 @@ export default function SettingsPanel({
                 newPresetName.trim().length === 0
               }
             >
-              Save New
+              {t("settings.saveNewPreset")}
             </button>
           </div>
           {presetLimitReached && (
             <span className="settings-note">
-              Preset limit reached. Delete one before saving another.
+              {t("settings.presetLimitReached")}
             </span>
           )}
           {running && (
             <span className="settings-note">
-              Preset actions are disabled while the clicker is running.
+              {t("settings.presetActionsDisabled")}
             </span>
           )}
           {settings.presets.length > 0 ? (
@@ -722,9 +785,7 @@ export default function SettingsPanel({
               ))}
             </div>
           ) : (
-            <div className="stats-empty">
-              No presets saved yet. Save one from your current clicker settings.
-            </div>
+            <div className="stats-empty">{t("settings.noPresets")}</div>
           )}
         </div>
 
@@ -732,9 +793,9 @@ export default function SettingsPanel({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Reset All Settings</span>
+            <span className="settings-label">{t("settings.resetAll")}</span>
             <span className="settings-sublabel">
-              Reset all saved settings and presets back to defaults.
+              {t("settings.resetAllDescription")}
             </span>
           </div>
           <button
@@ -746,7 +807,7 @@ export default function SettingsPanel({
                 .finally(() => setResetting(false));
             }}
           >
-            {resetting ? "Resetting..." : "Reset"}
+            {resetting ? t("common.resetting") : t("common.reset")}
           </button>
         </div>
       </div>

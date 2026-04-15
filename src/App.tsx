@@ -9,6 +9,7 @@ import { lazy, useEffect, useRef, useState } from "react";
 import { applyAccentTheme } from "./accentTheme";
 import UpdateBanner from "./components/Updatebanner";
 import { canonicalizeHotkeyForBackend } from "./hotkeys";
+import { I18nProvider, isRtlLanguage } from "./i18n";
 import {
   buildPresetSnapshot,
   createPresetDefinition,
@@ -651,6 +652,13 @@ export default function App() {
     applyAccentTheme(settings.accentColor, theme);
   }, [settings.accentColor, settings.theme]);
 
+  useEffect(() => {
+    document.documentElement.lang = settings.language;
+    document.documentElement.dir = isRtlLanguage(settings.language)
+      ? "rtl"
+      : "ltr";
+  }, [settings.language]);
+
   const handleTabChange = (nextTab: Tab) => {
     setTab(nextTab);
 
@@ -702,7 +710,8 @@ export default function App() {
   };
 
   return (
-    <div className="app-root" data-tab={tab}>
+    <I18nProvider language={settings.language}>
+      <div className="app-root" data-tab={tab}>
       <TitleBar
         tab={tab}
         setTab={handleTabChange}
@@ -757,6 +766,7 @@ export default function App() {
           />
         )}
       </main>
-    </div>
+      </div>
+    </I18nProvider>
   );
 }

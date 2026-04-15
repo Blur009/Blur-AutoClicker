@@ -47,6 +47,19 @@ const SHIFTED_SYMBOL_BASE_MAP: Record<string, string> = {
   ">": "<",
 };
 
+const NUMPAD_CODE_MAP: Record<string, string> = {
+  Numpad0: "numpad0",
+  Numpad1: "numpad1",
+  Numpad2: "numpad2",
+  Numpad3: "numpad3",
+  Numpad4: "numpad4",
+  Numpad5: "numpad5",
+  Numpad6: "numpad6",
+  Numpad7: "numpad7",
+  Numpad8: "numpad8",
+  Numpad9: "numpad9",
+};
+
 const KEY_CODE_MAIN_KEY_MAP: Record<string, string> = {
   Backspace: "backspace",
   Delete: "delete",
@@ -114,6 +127,12 @@ type MouseCaptureEvent = {
   altKey: boolean;
   shiftKey: boolean;
   metaKey: boolean;
+};
+
+export type HotkeyDisplayLabels = {
+  empty: string;
+  modifiers: Record<"ctrl" | "alt" | "shift" | "super", string>;
+  keys: Partial<Record<string, string>>;
 };
 
 let layoutMapPromise: Promise<LayoutMapLike | null> | null = null;
@@ -297,6 +316,7 @@ function buildHotkeyString(
 function displayTokenFromStoredValue(
   token: string,
   layoutMap: LayoutMapLike | null,
+  labels?: HotkeyDisplayLabels,
 ): string {
   const trimmed = token.trim();
   if (!trimmed) return trimmed;
@@ -315,8 +335,8 @@ function displayTokenFromStoredValue(
     return trimmed.slice(5);
   }
 
-  if (/^Numpad[0-9]$/.test(trimmed)) {
-    return `Num ${trimmed.slice(6)}`;
+  if (NUMPAD_CODE_MAP[trimmed]) {
+    return displayTokenFromStoredValue(NUMPAD_CODE_MAP[trimmed], layoutMap, labels);
   }
 
   const lower = trimmed.toLowerCase();
@@ -361,7 +381,7 @@ function displayTokenFromStoredValue(
   };
 
   if (namedDisplayMap[lower]) {
-    return namedDisplayMap[lower];
+    return labels?.keys[lower] ?? namedDisplayMap[lower];
   }
 
   return trimmed;
@@ -460,21 +480,22 @@ export function captureMouseHotkey(event: MouseCaptureEvent): string | null {
 export function formatHotkeyForDisplay(
   value: string,
   layoutMap: LayoutMapLike | null,
+  labels?: HotkeyDisplayLabels,
 ): string {
-  if (!value) return "Click and press keys";
+  if (!value) return labels?.empty ?? "Click and press keys";
 
   return value
     .split("+")
     .map((part) => {
       const modifier = normalizeModifierToken(part);
       if (modifier) {
-        if (modifier === "ctrl") return "Ctrl";
-        if (modifier === "alt") return "Alt";
-        if (modifier === "shift") return "Shift";
-        return "Super";
+        if (modifier === "ctrl") return labels?.modifiers.ctrl ?? "Ctrl";
+        if (modifier === "alt") return labels?.modifiers.alt ?? "Alt";
+        if (modifier === "shift") return labels?.modifiers.shift ?? "Shift";
+        return labels?.modifiers.super ?? "Super";
       }
 
-      const display = displayTokenFromStoredValue(part, layoutMap);
+      const display = displayTokenFromStoredValue(part, layoutMap, labels);
       return display.length === 1 ? display.toUpperCase() : display;
     })
     .join(" + ");

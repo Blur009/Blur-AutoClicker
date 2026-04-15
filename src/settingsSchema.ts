@@ -1,3 +1,5 @@
+import { DEFAULT_LANGUAGE, isLanguage, type Language } from "./i18n";
+
 export type ClickInterval = "s" | "m" | "h" | "d";
 export type MouseButton = "Left" | "Middle" | "Right";
 export type ClickMode = "Toggle" | "Hold";
@@ -55,6 +57,7 @@ export interface PresetDefinition {
 export interface Settings extends PresetSnapshot {
   version: string;
   hotkey: string;
+  language: Language;
   rateInputMode: RateInputMode;
   durationMinutes: number;
   durationSeconds: number;
@@ -213,6 +216,7 @@ export function createDefaultSettings(version: string): Settings {
     clickInterval: "s",
     mouseButton: "Left",
     hotkey: "ctrl+y",
+    language: DEFAULT_LANGUAGE,
     mode: "Toggle",
     dutyCycleEnabled: true,
     dutyCycle: 45,
@@ -560,6 +564,7 @@ export function sanitizeSettings(
     ...defaults,
     ...saved,
     version,
+    language: isLanguage(saved.language) ? saved.language : defaults.language,
     clickSpeed: clampNumber(
       saved.clickSpeed,
       defaults.clickSpeed,

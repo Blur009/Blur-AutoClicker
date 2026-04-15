@@ -13,6 +13,7 @@ import {
 import { getMaxDoubleClickDelayMs } from "../../cadence";
 import { normalizeIntegerRaw } from "../../numberInput";
 import type { SequencePoint, Settings } from "../../store";
+import { useTranslation, type TranslationKey } from "../../i18n";
 import CadenceInput from "../CadenceInput";
 import {
   MOUSE_BUTTON_OPTIONS,
@@ -43,6 +44,8 @@ function ToggleBtn({
   onChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
+
   useEffect(() => {
     if (disabled && value) {
       onChange(false);
@@ -56,14 +59,14 @@ function ToggleBtn({
         onClick={() => !disabled && onChange(false)}
         disabled={disabled}
       >
-        OFF
+        {t("common.off")}
       </button>
       <button
         className={`adv-toggle-btn ${value ? "active" : ""} ${disabled ? "disabled" : ""}`}
         onClick={() => !disabled && onChange(true)}
         disabled={disabled}
       >
-        ON
+        {t("common.on")}
       </button>
     </div>
   );
@@ -76,12 +79,14 @@ function Disableable({
   enabled: boolean;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
+
   return (
     <div className="disabled-container">
       <div className={enabled ? "" : "disabled-content"}>{children}</div>
       {!enabled && (
         <div className="disabled-overlay">
-          <span className="disabled-label">Disabled</span>
+          <span className="disabled-label">{t("common.disabled")}</span>
         </div>
       )}
     </div>
@@ -193,6 +198,7 @@ export default function AdvancedPanelLayout({
   compact,
   showExplanations,
 }: Props) {
+  const { t } = useTranslation();
   const [pickingPosition, setPickingPosition] = useState(false);
   const [pickCountdown, setPickCountdown] = useState<number | null>(null);
   const [capturingCursor, setCapturingCursor] = useState(false);
@@ -234,8 +240,8 @@ export default function AdvancedPanelLayout({
     rateInputMode,
   ]);
 
-  const showDesc = (text: string) =>
-    showExplanations ? <p className="adv-desc">{text}</p> : null;
+  const showDesc = (key: TranslationKey) =>
+    showExplanations ? <p className="adv-desc">{t(key)}</p> : null;
 
   const requestCursorPosition = async (): Promise<CursorPoint> => {
     setCapturingCursor(true);
@@ -310,7 +316,7 @@ export default function AdvancedPanelLayout({
   const renderSequencePoints = () => (
     <div className="adv-sequence-list">
       {settings.sequencePoints.length === 0 ? (
-        <div className="adv-sequence-empty">No sequence points saved yet.</div>
+        <div className="adv-sequence-empty">{t("advanced.sequenceEmpty")}</div>
       ) : (
         settings.sequencePoints.map((point, index) => (
           <div key={`${index}:${point.x}:${point.y}`} className="adv-sequence-item">
@@ -333,15 +339,17 @@ export default function AdvancedPanelLayout({
             </div>
             <div className="adv-sequence-actions">
               <ActionButton onClick={() => moveSequencePoint(index, -1)} disabled={index === 0}>
-                Up
+                {t("advanced.sequenceMoveUp")}
               </ActionButton>
               <ActionButton
                 onClick={() => moveSequencePoint(index, 1)}
                 disabled={index === settings.sequencePoints.length - 1}
               >
-                Down
+                {t("advanced.sequenceMoveDown")}
               </ActionButton>
-              <ActionButton onClick={() => deleteSequencePoint(index)}>Delete</ActionButton>
+              <ActionButton onClick={() => deleteSequencePoint(index)}>
+                {t("advanced.sequenceDelete")}
+              </ActionButton>
             </div>
           </div>
         ))
@@ -372,7 +380,7 @@ export default function AdvancedPanelLayout({
             <div className="sectioncontainer adv-basic-card">
               <CadenceInput settings={settings} update={update} variant="advanced" />
               <div className="adv-row" style={{ marginTop: rowSpacing }}>
-                <span className="adv-label">Hotkey</span>
+                <span className="adv-label">{t("advanced.hotkey")}</span>
                 <div className="adv-textbox">
                   <HotkeyCaptureInput
                     className="adv-textbox-text"
@@ -393,13 +401,13 @@ export default function AdvancedPanelLayout({
                       className={`simple-seg-btn ${settings.mode === clickModeOption ? "active" : ""}`}
                       onClick={() => update({ mode: clickModeOption })}
                     >
-                      {clickModeOption}
+                      {t(`options.mode.${clickModeOption}` as TranslationKey)}
                     </button>
                   ))}
                 </div>
               </div>
               <div className="adv-row" style={{ marginTop: rowSpacing }}>
-                <span className="adv-label">Mouse Button</span>
+                <span className="adv-label">{t("advanced.mouseButton")}</span>
                 <div className="simple-seg-group">
                   {MOUSE_BUTTON_OPTIONS.map((mouseButtonOption) => (
                     <button
@@ -407,7 +415,7 @@ export default function AdvancedPanelLayout({
                       className={`simple-seg-btn ${settings.mouseButton === mouseButtonOption ? "active" : ""}`}
                       onClick={() => update({ mouseButton: mouseButtonOption })}
                     >
-                      {mouseButtonOption}
+                      {t(`options.mouseButton.${mouseButtonOption}` as TranslationKey)}
                     </button>
                   ))}
                 </div>
@@ -416,7 +424,7 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer">
               <div className="adv-card-header">
-                <span className="adv-card-title">Duty Cycle</span>
+                <span className="adv-card-title">{t("advanced.dutyCycle")}</span>
                 <div className="adv-row" style={{ gap: 6 }}>
                   <div className="adv-minmax">
                     <div className="adv-numbox-sm">
@@ -432,14 +440,14 @@ export default function AdvancedPanelLayout({
                 </div>
               </div>
               <CardDivider />
-              {showDesc(
-                "Randomizes how long the mouse button stays held between the min and max percentages of each click interval.",
-              )}
+              {showDesc("advanced.dutyCycleDescription")}
             </div>
 
             <div className="sectioncontainer">
               <div className="adv-card-header">
-                <span className="adv-card-title">Speed Variation</span>
+                <span className="adv-card-title">
+                  {t("advanced.speedVariation")}
+                </span>
                 <div className="adv-row" style={{ gap: 8 }}>
                   <Disableable enabled={settings.speedVariationEnabled}>
                     <div className="adv-numbox-sm">
@@ -461,15 +469,13 @@ export default function AdvancedPanelLayout({
               <Disableable enabled={settings.speedVariationEnabled}>
                 <CardDivider />
 
-                {showDesc(
-                  "Randomizes click timing around your configured speed by up to this percentage.",
-                )}
+                {showDesc("advanced.speedVariationDescription")}
               </Disableable>
             </div>
 
             <div className="sectioncontainer">
               <div className="adv-card-header">
-                <span className="adv-card-title">Double Click</span>
+                <span className="adv-card-title">{t("advanced.doubleClick")}</span>
                 <ToggleBtn
                   value={settings.doubleClickEnabled}
                   onChange={(v) => update({ doubleClickEnabled: v })}
@@ -481,8 +487,7 @@ export default function AdvancedPanelLayout({
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
                     <p className="adv-desc" style={{ flex: 1 }}>
-                      Fires the button twice per interval with a configurable
-                      delay between the clicks.
+                      {t("advanced.doubleClickDescription")}
                     </p>
                   )}
                   <div
@@ -502,7 +507,7 @@ export default function AdvancedPanelLayout({
                       />
                       <span className="adv-unit">ms</span>
                     </div>
-                    <span className="adv-label-sm">delay</span>
+                    <span className="adv-label-sm">{t("advanced.delay")}</span>
                   </div>
                 </div>
               </Disableable>
@@ -515,7 +520,7 @@ export default function AdvancedPanelLayout({
                 className="adv-row"
                 style={{ justifyContent: "space-between" }}
               >
-                <span className="adv-card-title">Click Limit</span>
+                <span className="adv-card-title">{t("advanced.clickLimit")}</span>
                 <div className="adv-row" style={{ gap: 6 }}>
                   <Disableable enabled={settings.clickLimitEnabled}>
                     <div className="adv-numbox-sm">
@@ -525,7 +530,7 @@ export default function AdvancedPanelLayout({
                         min={SETTINGS_LIMITS.clickLimit.min}
                         style={{ width: "89px", textAlign: "right" }}
                       />
-                      <span className="adv-unit">clicks</span>
+                      <span className="adv-unit">{t("advanced.clicksUnit")}</span>
                     </div>
                   </Disableable>
                   <ToggleBtn
@@ -539,7 +544,7 @@ export default function AdvancedPanelLayout({
                 className="adv-row"
                 style={{ justifyContent: "space-between" }}
               >
-                <span className="adv-card-title">Time Limit</span>
+                <span className="adv-card-title">{t("advanced.timeLimit")}</span>
                 <div className="adv-row" style={{ gap: 6 }}>
                   <Disableable enabled={settings.timeLimitEnabled}>
                     <div className="adv-row" style={{ gap: 6 }}>
@@ -558,7 +563,7 @@ export default function AdvancedPanelLayout({
                             className={`simple-seg-btn ${settings.timeLimitUnit === timeLimitUnitOption ? "active" : ""}`}
                             onClick={() => update({ timeLimitUnit: timeLimitUnitOption })}
                           >
-                            {timeLimitUnitOption}
+                            {t(`options.timeUnitShort.${timeLimitUnitOption}` as TranslationKey)}
                           </button>
                         ))}
                       </div>
@@ -574,7 +579,7 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer">
               <div className="adv-card-header">
-                <span className="adv-card-title">Corner Stop</span>
+                <span className="adv-card-title">{t("advanced.cornerStop")}</span>
                 <ToggleBtn
                   value={settings.cornerStopEnabled}
                   onChange={(v) => {
@@ -587,8 +592,7 @@ export default function AdvancedPanelLayout({
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
                     <p className="adv-desc" style={{ flex: 1 }}>
-                      Stops the clicker when the cursor enters a screen corner.
-                      Keep it as a failsafe.
+                      {t("advanced.cornerStopDescription")}
                     </p>
                   )}
                   <div className="adv-corner-grid">
@@ -614,7 +618,7 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer">
               <div className="adv-card-header">
-                <span className="adv-card-title">Edge Stop</span>
+                <span className="adv-card-title">{t("advanced.edgeStop")}</span>
                 <ToggleBtn
                   value={settings.edgeStopEnabled}
                   onChange={(v) => {
@@ -627,8 +631,7 @@ export default function AdvancedPanelLayout({
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
                     <p className="adv-desc" style={{ flex: 1 }}>
-                      Stops the clicker when the cursor reaches a screen edge.
-                      Keep it as a failsafe.
+                      {t("advanced.edgeStopDescription")}
                     </p>
                   )}
                   <div className="adv-corner-grid">
@@ -654,7 +657,7 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer">
               <div className="adv-card-header">
-                <span className="adv-card-title">Position</span>
+                <span className="adv-card-title">{t("advanced.position")}</span>
                 <ToggleBtn
                   value={settings.positionEnabled}
                   onChange={(v) =>
@@ -670,8 +673,7 @@ export default function AdvancedPanelLayout({
                 <div className="adv-row" style={{ marginTop: 8, gap: 6 }}>
                   {showExplanations && (
                     <p className="adv-desc" style={{ flex: 1 }}>
-                      Moves the cursor to the saved point before each click
-                      while enabled.
+                      {t("advanced.positionDescription")}
                     </p>
                   )}
                   <div
@@ -730,10 +732,10 @@ export default function AdvancedPanelLayout({
                       disabled={pickingPosition}
                     >
                       {pickCountdown
-                        ? `Picking in ${pickCountdown}`
+                        ? t("advanced.pickingIn", { seconds: pickCountdown })
                         : pickingPosition
-                          ? "Picking..."
-                          : "Pick"}
+                          ? t("advanced.picking")
+                          : t("advanced.pick")}
                     </button>
                   </div>
                 </div>
@@ -742,7 +744,7 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer">
               <div className="adv-card-header">
-                <span className="adv-card-title">Sequence Clicking</span>
+                <span className="adv-card-title">{t("advanced.sequenceClicking")}</span>
                 <ToggleBtn
                   value={settings.sequenceEnabled}
                   onChange={(v) =>
@@ -758,9 +760,7 @@ export default function AdvancedPanelLayout({
                 <div className="adv-sequence-body">
                   {showExplanations && (
                     <p className="adv-desc" style={{ flex: 1 }}>
-                      Cycles through saved cursor positions in round-robin order,
-                      applying the current global timing and click settings at
-                      each point.
+                      {t("advanced.sequenceClickingDescription")}
                     </p>
                   )}
                   <div className="adv-sequence-controls">
@@ -769,7 +769,7 @@ export default function AdvancedPanelLayout({
                         onClick={addCurrentCursorToSequence}
                         disabled={capturingCursor}
                       >
-                        Add Current Cursor
+                        {t("advanced.sequenceAddCurrentCursor")}
                       </ActionButton>
                     </div>
                     {renderSequencePoints()}
@@ -780,7 +780,7 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer">
               <div className="adv-card-header">
-                <span className="adv-card-title">Custom Stop Zone</span>
+                <span className="adv-card-title">{t("advanced.customStopZone")}</span>
                 <ToggleBtn
                   value={settings.customStopZoneEnabled}
                   onChange={(v) => update({ customStopZoneEnabled: v })}
@@ -791,9 +791,7 @@ export default function AdvancedPanelLayout({
                 <div className="adv-stop-zone-body">
                   {showExplanations && (
                     <p className="adv-desc" style={{ flex: 1 }}>
-                      Stops the clicker when the cursor enters this rectangular
-                      area, using absolute screen coordinates that can span
-                      multiple monitors.
+                      {t("advanced.customStopZoneDescription")}
                     </p>
                   )}
                   <div className="adv-stop-zone-controls">
@@ -838,13 +836,13 @@ export default function AdvancedPanelLayout({
                         onClick={setCustomStopZoneTopLeft}
                         disabled={capturingCursor}
                       >
-                        Set Top-Left
+                        {t("advanced.customStopZoneSetTopLeft")}
                       </ActionButton>
                       <ActionButton
                         onClick={setCustomStopZoneBottomRight}
                         disabled={capturingCursor}
                       >
-                        Set Bottom-Right
+                        {t("advanced.customStopZoneSetBottomRight")}
                       </ActionButton>
                     </div>
                   </div>
@@ -864,7 +862,7 @@ export default function AdvancedPanelLayout({
           <div className="sectioncontainer adv-basic-card">
             <CadenceInput settings={settings} update={update} variant="advanced" />
             <div className="adv-row" style={{ marginTop: rowSpacing }}>
-              <span className="adv-label">Hotkey</span>
+              <span className="adv-label">{t("advanced.hotkey")}</span>
               <div className="adv-textbox">
                 <HotkeyCaptureInput
                   className="adv-textbox-text"
@@ -885,13 +883,13 @@ export default function AdvancedPanelLayout({
                     className={`simple-seg-btn ${settings.mode === clickModeOption ? "active" : ""}`}
                     onClick={() => update({ mode: clickModeOption })}
                   >
-                    {clickModeOption}
+                    {t(`options.mode.${clickModeOption}` as TranslationKey)}
                   </button>
                 ))}
               </div>
             </div>
             <div className="adv-row" style={{ marginTop: rowSpacing }}>
-              <span className="adv-label">Mouse Button</span>
+              <span className="adv-label">{t("advanced.mouseButton")}</span>
               <div className="simple-seg-group">
                 {MOUSE_BUTTON_OPTIONS.map((mouseButtonOption) => (
                   <button
@@ -899,7 +897,7 @@ export default function AdvancedPanelLayout({
                     className={`simple-seg-btn ${settings.mouseButton === mouseButtonOption ? "active" : ""}`}
                     onClick={() => update({ mouseButton: mouseButtonOption })}
                   >
-                    {mouseButtonOption}
+                    {t(`options.mouseButton.${mouseButtonOption}` as TranslationKey)}
                   </button>
                 ))}
               </div>
@@ -907,11 +905,11 @@ export default function AdvancedPanelLayout({
           </div>
 
           <div className="sectioncontainer adv-compact-card">
-            <div className="adv-card-title">Double Click</div>
+            <div className="adv-card-title">{t("advanced.doubleClick")}</div>
             <CardDivider />
             <div className="adv-limit-block">
               <div className="adv-card-header">
-                <span className="adv-label">Enabled</span>
+                <span className="adv-label">{t("common.enabled")}</span>
                 <ToggleBtn
                   value={settings.doubleClickEnabled}
                   onChange={(v) => update({ doubleClickEnabled: v })}
@@ -930,7 +928,7 @@ export default function AdvancedPanelLayout({
                       />
                       <span className="adv-unit">ms</span>
                     </div>
-                    <span className="adv-label-sm">delay</span>
+                    <span className="adv-label-sm">{t("advanced.delay")}</span>
                   </div>
                 </div>
               </Disableable>
@@ -939,19 +937,19 @@ export default function AdvancedPanelLayout({
         </div>
 
         <div className="adv-compact-grid">
-            <div className="sectioncontainer adv-compact-card adv-compact-card-wide">
-              <div className="adv-card-header">
-                <span className="adv-card-title">Position</span>
-                <ToggleBtn
-                  value={settings.positionEnabled}
-                  onChange={(v) =>
-                    update({
-                      positionEnabled: v,
-                      sequenceEnabled: v ? false : settings.sequenceEnabled,
-                    })
-                  }
-                />
-              </div>
+          <div className="sectioncontainer adv-compact-card adv-compact-card-wide">
+            <div className="adv-card-header">
+              <span className="adv-card-title">{t("advanced.position")}</span>
+              <ToggleBtn
+                value={settings.positionEnabled}
+                onChange={(v) =>
+                  update({
+                    positionEnabled: v,
+                    sequenceEnabled: v ? false : settings.sequenceEnabled,
+                  })
+                }
+              />
+            </div>
             <CardDivider />
             <Disableable enabled={settings.positionEnabled}>
               <div className={featureBodyClass}>
@@ -986,10 +984,10 @@ export default function AdvancedPanelLayout({
                     disabled={pickingPosition}
                   >
                     {pickCountdown
-                      ? `Picking in ${pickCountdown}`
+                      ? t("advanced.pickingIn", { seconds: pickCountdown })
                       : pickingPosition
-                        ? "Picking..."
-                        : "Pick"}
+                        ? t("advanced.picking")
+                        : t("advanced.pick")}
                   </button>
                 </div>
               </div>
@@ -998,7 +996,7 @@ export default function AdvancedPanelLayout({
 
           <div className="sectioncontainer adv-compact-card adv-compact-card-wide">
             <div className="adv-card-header">
-              <span className="adv-card-title">Sequence Clicking</span>
+              <span className="adv-card-title">{t("advanced.sequenceClicking")}</span>
               <ToggleBtn
                 value={settings.sequenceEnabled}
                 onChange={(v) =>
@@ -1017,7 +1015,7 @@ export default function AdvancedPanelLayout({
                     onClick={addCurrentCursorToSequence}
                     disabled={capturingCursor}
                   >
-                    Add Current Cursor
+                    {t("advanced.sequenceAddCurrentCursor")}
                   </ActionButton>
                 </div>
                 {renderSequencePoints()}
@@ -1027,7 +1025,7 @@ export default function AdvancedPanelLayout({
 
           <div className="sectioncontainer adv-compact-card adv-compact-card-wide">
             <div className="adv-card-header">
-              <span className="adv-card-title">Custom Stop Zone</span>
+              <span className="adv-card-title">{t("advanced.customStopZone")}</span>
               <ToggleBtn
                 value={settings.customStopZoneEnabled}
                 onChange={(v) => update({ customStopZoneEnabled: v })}
@@ -1077,13 +1075,13 @@ export default function AdvancedPanelLayout({
                     onClick={setCustomStopZoneTopLeft}
                     disabled={capturingCursor}
                   >
-                    Set Top-Left
+                    {t("advanced.customStopZoneSetTopLeft")}
                   </ActionButton>
                   <ActionButton
                     onClick={setCustomStopZoneBottomRight}
                     disabled={capturingCursor}
                   >
-                    Set Bottom-Right
+                    {t("advanced.customStopZoneSetBottomRight")}
                   </ActionButton>
                 </div>
               </div>
@@ -1093,7 +1091,7 @@ export default function AdvancedPanelLayout({
           <div className="adv-compact-three-grid">
             <div className="sectioncontainer adv-compact-card">
               <div className="adv-card-header">
-                <span className="adv-card-title">Click Limit</span>
+                <span className="adv-card-title">{t("advanced.clickLimit")}</span>
                 <ToggleBtn
                   value={settings.clickLimitEnabled}
                   onChange={(v) => update({ clickLimitEnabled: v })}
@@ -1111,7 +1109,7 @@ export default function AdvancedPanelLayout({
                         max={SETTINGS_LIMITS.clickLimit.max}
                         style={{ width: "72px", textAlign: "right" }}
                       />
-                      <span className="adv-unit">clicks</span>
+                      <span className="adv-unit">{t("advanced.clicksUnit")}</span>
                     </div>
                   </div>
                 </div>
@@ -1120,7 +1118,7 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer adv-compact-card">
               <div className="adv-card-header">
-                <span className="adv-card-title">Time Limit</span>
+                <span className="adv-card-title">{t("advanced.timeLimit")}</span>
                 <ToggleBtn
                   value={settings.timeLimitEnabled}
                   onChange={(v) => update({ timeLimitEnabled: v })}
@@ -1145,7 +1143,7 @@ export default function AdvancedPanelLayout({
                           className={`simple-seg-btn ${settings.timeLimitUnit === timeLimitUnitOption ? "active" : ""}`}
                           onClick={() => update({ timeLimitUnit: timeLimitUnitOption })}
                         >
-                          {timeLimitUnitOption}
+                          {t(`options.timeUnitShort.${timeLimitUnitOption}` as TranslationKey)}
                         </button>
                       ))}
                     </div>
@@ -1156,7 +1154,7 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer adv-compact-card">
               <div className="adv-card-header">
-                <span className="adv-card-title">Duty Cycle</span>
+                <span className="adv-card-title">{t("advanced.dutyCycle")}</span>
                 <ToggleBtn
                   value={settings.dutyCycleEnabled}
                   onChange={(v) => update({ dutyCycleEnabled: v })}
@@ -1184,7 +1182,9 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer adv-compact-card">
               <div className="adv-card-header">
-                <span className="adv-card-title">Speed Variation</span>
+                <span className="adv-card-title">
+                  {t("advanced.speedVariation")}
+                </span>
                 <ToggleBtn
                   value={settings.speedVariationEnabled}
                   onChange={(v) => update({ speedVariationEnabled: v })}
@@ -1210,7 +1210,7 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer adv-compact-card">
               <div className="adv-card-header">
-                <span className="adv-card-title">Corner Stop</span>
+                <span className="adv-card-title">{t("advanced.cornerStop")}</span>
                 <ToggleBtn
                   value={settings.cornerStopEnabled}
                   onChange={(v) => {
@@ -1244,7 +1244,7 @@ export default function AdvancedPanelLayout({
 
             <div className="sectioncontainer adv-compact-card">
               <div className="adv-card-header">
-                <span className="adv-card-title">Edge Stop</span>
+                <span className="adv-card-title">{t("advanced.edgeStop")}</span>
                 <ToggleBtn
                   value={settings.edgeStopEnabled}
                   onChange={(v) => {

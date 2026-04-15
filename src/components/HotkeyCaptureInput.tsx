@@ -5,7 +5,9 @@ import {
   captureMouseHotkey,
   formatHotkeyForDisplay,
   getKeyboardLayoutMap,
+  type HotkeyDisplayLabels,
 } from "../hotkeys";
+import { useTranslation, type TranslationKey } from "../i18n";
 
 interface Props {
   value: string;
@@ -27,6 +29,7 @@ export default function HotkeyCaptureInput({
   const suppressResetTimerRef = useRef<number | null>(null);
   const [layoutMap, setLayoutMap] =
     useState<Awaited<ReturnType<typeof getKeyboardLayoutMap>>>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     let active = true;
@@ -168,12 +171,72 @@ export default function HotkeyCaptureInput({
     };
   }, [listening, onChange]);
 
+  const hotkeyLabels = useMemo<HotkeyDisplayLabels>(() => {
+    const keyCodes = [
+      "up",
+      "down",
+      "left",
+      "right",
+      "pageup",
+      "pagedown",
+      "backspace",
+      "delete",
+      "insert",
+      "home",
+      "end",
+      "enter",
+      "tab",
+      "space",
+      "escape",
+      "esc",
+      "capslock",
+      "numlock",
+      "scrolllock",
+      "printscreen",
+      "pause",
+      "menu",
+      "mouseleft",
+      "mouseright",
+      "mousemiddle",
+      "mouse4",
+      "mouse5",
+      "numpad0",
+      "numpad1",
+      "numpad2",
+      "numpad3",
+      "numpad4",
+      "numpad5",
+      "numpad6",
+      "numpad7",
+      "numpad8",
+      "numpad9",
+      "numpadadd",
+      "numpadsubtract",
+      "numpadmultiply",
+      "numpaddivide",
+      "numpaddecimal",
+    ] as const;
+
+    return {
+      empty: t("hotkey.empty"),
+      modifiers: {
+        ctrl: t("hotkey.modifier.ctrl"),
+        alt: t("hotkey.modifier.alt"),
+        shift: t("hotkey.modifier.shift"),
+        super: t("hotkey.modifier.super"),
+      },
+      keys: Object.fromEntries(
+        keyCodes.map((code) => [code, t(`hotkey.key.${code}` as TranslationKey)]),
+      ),
+    };
+  }, [t]);
+
   const displayText = useMemo(
     () =>
       listening
-        ? "Press key / mouse..."
-        : formatHotkeyForDisplay(value, layoutMap),
-    [layoutMap, listening, value],
+        ? t("hotkey.pressKeys")
+        : formatHotkeyForDisplay(value, layoutMap, hotkeyLabels),
+    [hotkeyLabels, layoutMap, listening, t, value],
   );
 
   return (
