@@ -12,6 +12,7 @@ use crate::ClickerStatusPayload;
 use crate::STATUS_EVENT;
 
 use super::failsafe::should_stop_for_failsafe;
+use super::keyboard::send_key_presses;
 use super::mouse::{get_button_flags, get_cursor_pos, move_mouse, send_clicks, smooth_move};
 use super::rng::SmallRng;
 use super::ClickerConfig;
@@ -103,6 +104,21 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
 
     let settings = state.settings.lock().unwrap().clone();
     let config = build_config(&settings)?;
+
+    // Prevent feedback loop: keyboard key must not match a modifier-free hotkey
+    if config.input_type == 1 && config.key_code > 0 {
+        let hotkey_binding = state.registered_hotkey.lock().unwrap().clone();
+        if let Some(binding) = hotkey_binding {
+            if !binding.ctrl && !binding.alt && !binding.shift && !binding.super_key {
+                if binding.main_vk == config.key_code as i32 {
+                    return Err(String::from(
+                        "The auto-press key conflicts with your hotkey. Use a modifier on the hotkey (e.g. Ctrl+key) or pick a different key.",
+                    ));
+                }
+            }
+        }
+    }
+
     let expected_generation = state.run_generation.fetch_add(1, Ordering::SeqCst) + 1;
     state.running.store(true, Ordering::SeqCst);
     let control = RunControl::new(app.clone(), expected_generation);
@@ -163,6 +179,28 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         _ => 1,
     };
 
+    let is_keyboard = settings.input_type == "keyboard";
+    let key_code = if is_keyboard && !settings.keyboard_key.is_empty() {
+        match crate::hotkeys::parse_hotkey_main_key(&settings.keyboard_key, &settings.keyboard_key)
+        {
+            Ok((vk, _)) => vk as u16,
+            Err(_) => {
+                return Err(format!(
+                    "Unknown keyboard key: '{}'",
+                    settings.keyboard_key
+                ))
+            }
+        }
+    } else {
+        0u16
+    };
+
+    if is_keyboard && key_code == 0 {
+        return Err(String::from(
+            "Keyboard mode requires a key to be selected",
+        ));
+    }
+
     let time_limit_secs = if settings.time_limit_enabled {
         Some(match settings.time_limit_unit.as_str() {
             "m" => settings.time_limit * 60.0,
@@ -210,6 +248,8 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         edge_stop_right: settings.edge_stop_right,
         edge_stop_bottom: settings.edge_stop_bottom,
         edge_stop_left: settings.edge_stop_left,
+        input_type: if is_keyboard { 1 } else { 0 },
+        key_code,
     })
 }
 
@@ -260,7 +300,12 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
 
     let mut rng = SmallRng::new();
     let mut click_count: i64 = 0;
-    let (down_flag, up_flag) = get_button_flags(config.button);
+    let is_keyboard = config.input_type == 1 && config.key_code > 0;
+    let (down_flag, up_flag) = if is_keyboard {
+        (0u32, 0u32)
+    } else {
+        get_button_flags(config.button)
+    };
     let cps = if config.interval > 0.0 {
         1.0 / config.interval
     } else {
@@ -355,15 +400,26 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             break;
         }
 
-        send_clicks(
-            down_flag,
-            up_flag,
-            clicks_this_cycle,
-            hold_ms,
-            config.double_click_enabled,
-            config.double_click_delay_ms,
-            &control,
-        );
+        if is_keyboard {
+            send_key_presses(
+                config.key_code,
+                clicks_this_cycle,
+                hold_ms,
+                config.double_click_enabled,
+                config.double_click_delay_ms,
+                &control,
+            );
+        } else {
+            send_clicks(
+                down_flag,
+                up_flag,
+                clicks_this_cycle,
+                hold_ms,
+                config.double_click_enabled,
+                config.double_click_delay_ms,
+                &control,
+            );
+        }
 
         if !control.is_active() {
             break;

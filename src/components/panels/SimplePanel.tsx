@@ -1,5 +1,6 @@
 import type { Settings } from "../../store";
 import HotkeyCaptureInput from "../HotkeyCaptureInput";
+import KeyCaptureInput from "../KeyCaptureInput";
 import "./Modes.css";
 import "./SimplePanel.css";
 // I HATE MAKING UI, FUCK UI DESIGN IN CODE, WHY CANT I JUST PHOTOSHOP THIS SHIT
@@ -212,38 +213,71 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           <button
             type="button"
             className="simple-cycle-btn"
-            title="Select which mouse button gets clicked"
+            title="Switch between Mouse and Keyboard input"
             onClick={(e) =>
               cycleWithClick(e, () =>
                 update({
-                  mouseButton: cycleOption(
-                    MOUSE_BUTTON_OPTIONS,
-                    settings.mouseButton,
-                    1,
-                  ),
+                  inputType:
+                    settings.inputType === "mouse" ? "keyboard" : "mouse",
                 }),
               )
             }
             onContextMenu={(e) =>
               cycleWithClick(e, () =>
                 update({
-                  mouseButton: cycleOption(
-                    MOUSE_BUTTON_OPTIONS,
-                    settings.mouseButton,
-                    -1,
-                  ),
+                  inputType:
+                    settings.inputType === "mouse" ? "keyboard" : "mouse",
                 }),
               )
             }
           >
-            {
-              {
-                Left: "Left Click",
-                Middle: "Middle Click",
-                Right: "Right Click",
-              }[settings.mouseButton]
-            }
+            {settings.inputType === "mouse" ? "Mouse" : "Keyboard"}
           </button>
+          <div className="vertical-devider" />
+          {settings.inputType === "mouse" ? (
+            <button
+              type="button"
+              className="simple-cycle-btn"
+              title="Select which mouse button gets clicked"
+              onClick={(e) =>
+                cycleWithClick(e, () =>
+                  update({
+                    mouseButton: cycleOption(
+                      MOUSE_BUTTON_OPTIONS,
+                      settings.mouseButton,
+                      1,
+                    ),
+                  }),
+                )
+              }
+              onContextMenu={(e) =>
+                cycleWithClick(e, () =>
+                  update({
+                    mouseButton: cycleOption(
+                      MOUSE_BUTTON_OPTIONS,
+                      settings.mouseButton,
+                      -1,
+                    ),
+                  }),
+                )
+              }
+            >
+              {
+                {
+                  Left: "Left Click",
+                  Middle: "Middle Click",
+                  Right: "Right Click",
+                }[settings.mouseButton]
+              }
+            </button>
+          ) : (
+            <KeyCaptureInput
+              className="simple-cycle-btn"
+              value={settings.keyboardKey}
+              onChange={(key) => update({ keyboardKey: key })}
+              style={{ width: "90px" }}
+            />
+          )}
         </div>
 
         <div className="InputBox">
@@ -323,6 +357,14 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           />
           <div className="postfix">%</div>
         </div>
+      </div>
+      <div
+        className="hcontainer"
+        style={{ justifyContent: "center", opacity: 0.5, fontSize: "11px" }}
+      >
+        <span title="Running as Administrator helps with games and protected applications">
+          For best compatibility with games, run as Administrator
+        </span>
       </div>
     </div>
   );

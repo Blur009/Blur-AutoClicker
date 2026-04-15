@@ -41,6 +41,8 @@ pub struct ClickerSettings {
     pub last_panel: String,
     pub show_stop_reason: bool,
     pub show_stop_overlay: bool,
+    pub input_type: String,
+    pub keyboard_key: String,
 }
 
 impl Default for ClickerSettings {
@@ -82,6 +84,8 @@ impl Default for ClickerSettings {
             last_panel: "simple".to_string(),
             show_stop_reason: true,
             show_stop_overlay: true,
+            input_type: "mouse".to_string(),
+            keyboard_key: String::new(),
         }
     }
 }

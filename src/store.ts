@@ -47,6 +47,8 @@ export interface Settings {
   showStopReason: boolean;
   showStopOverlay: boolean;
   theme: Theme;
+  inputType: "mouse" | "keyboard";
+  keyboardKey: string;
 }
 
 export interface ClickerStatus {
@@ -100,6 +102,8 @@ export const DEFAULT_SETTINGS: Settings = {
   showStopReason: true,
   showStopOverlay: true,
   theme: "dark",
+  inputType: "mouse",
+  keyboardKey: "",
 };
 
 function sanitizeSavedPanel(value: unknown): SavedPanel {
@@ -233,6 +237,8 @@ function sanitizeSettings(input?: Partial<Settings> | null): Settings {
     explanationMode: sanitizeExplanationMode(saved),
     lastPanel: sanitizeSavedPanel(saved.lastPanel),
     theme: saved.theme === "light" ? "light" : "dark",
+    inputType: saved.inputType === "keyboard" ? "keyboard" : "mouse",
+    keyboardKey: typeof saved.keyboardKey === "string" ? saved.keyboardKey : "",
   };
 }
 

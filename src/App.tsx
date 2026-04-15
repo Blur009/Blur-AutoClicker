@@ -25,7 +25,7 @@ const AdvancedPanelCompact = lazy(
 
 export type Tab = "simple" | "advanced" | "settings";
 
-const BACKEND_SETTINGS_SCHEMA_VERSION = 5;
+const BACKEND_SETTINGS_SCHEMA_VERSION = 6;
 
 function getPanelSize(tab: Tab, settings: Settings, hasUpdate: boolean) {
   const extra = hasUpdate ? 30 : 0;
