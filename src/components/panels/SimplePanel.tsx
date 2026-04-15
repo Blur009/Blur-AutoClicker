@@ -210,35 +210,11 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
 
       <div className="hcontainer">
         <div className="InputBox">
-          <button
-            type="button"
-            className="simple-cycle-btn"
-            title="Switch between Mouse and Keyboard input"
-            onClick={(e) =>
-              cycleWithClick(e, () =>
-                update({
-                  inputType:
-                    settings.inputType === "mouse" ? "keyboard" : "mouse",
-                }),
-              )
-            }
-            onContextMenu={(e) =>
-              cycleWithClick(e, () =>
-                update({
-                  inputType:
-                    settings.inputType === "mouse" ? "keyboard" : "mouse",
-                }),
-              )
-            }
-          >
-            {settings.inputType === "mouse" ? "Mouse" : "Keyboard"}
-          </button>
-          <div className="vertical-devider" />
           {settings.inputType === "mouse" ? (
             <button
               type="button"
               className="simple-cycle-btn"
-              title="Select which mouse button gets clicked"
+              title="Click to change button. Right-click to switch to Keyboard mode."
               onClick={(e) =>
                 cycleWithClick(e, () =>
                   update({
@@ -252,13 +228,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
               }
               onContextMenu={(e) =>
                 cycleWithClick(e, () =>
-                  update({
-                    mouseButton: cycleOption(
-                      MOUSE_BUTTON_OPTIONS,
-                      settings.mouseButton,
-                      -1,
-                    ),
-                  }),
+                  update({ inputType: "keyboard" }),
                 )
               }
             >
@@ -276,6 +246,11 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
               value={settings.keyboardKey}
               onChange={(key) => update({ keyboardKey: key })}
               style={{ width: "90px" }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                update({ inputType: "mouse" });
+              }}
             />
           )}
         </div>
@@ -357,14 +332,6 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           />
           <div className="postfix">%</div>
         </div>
-      </div>
-      <div
-        className="hcontainer"
-        style={{ justifyContent: "center", opacity: 0.5, fontSize: "11px" }}
-      >
-        <span title="Running as Administrator helps with games and protected applications">
-          For best compatibility with games, run as Administrator
-        </span>
       </div>
     </div>
   );

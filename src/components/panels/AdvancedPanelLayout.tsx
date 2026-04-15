@@ -270,7 +270,6 @@ export default function AdvancedPanelLayout({
                 </div>
               </div>
               <div className="adv-row" style={{ marginTop: rowSpacing }}>
-                <span className="adv-label">Input</span>
                 <div className="simple-seg-group">
                   {(["mouse", "keyboard"] as const).map((t) => (
                     <button
@@ -706,7 +705,6 @@ export default function AdvancedPanelLayout({
               </div>
             </div>
             <div className="adv-row" style={{ marginTop: rowSpacing }}>
-              <span className="adv-label">Input</span>
               <div className="simple-seg-group">
                 {(["mouse", "keyboard"] as const).map((t) => (
                   <button

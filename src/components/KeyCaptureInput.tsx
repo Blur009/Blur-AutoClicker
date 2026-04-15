@@ -10,6 +10,7 @@ interface Props {
   onChange: (next: string) => void;
   className?: string;
   style?: React.CSSProperties;
+  onContextMenu?: (e: React.MouseEvent<HTMLInputElement>) => void;
 }
 
 export default function KeyCaptureInput({
@@ -17,6 +18,7 @@ export default function KeyCaptureInput({
   onChange,
   className,
   style,
+  onContextMenu,
 }: Props) {
   const [listening, setListening] = useState(false);
   const [layoutMap, setLayoutMap] =
@@ -90,8 +92,9 @@ export default function KeyCaptureInput({
       onFocus={() => setListening(true)}
       onBlur={() => setListening(false)}
       onKeyDown={handleKeyDown}
+      onContextMenu={onContextMenu}
       spellCheck={false}
-      title="Click and press a key to select which key gets auto-pressed"
+      title="Click and press a key to select which key gets auto-pressed. Right-click to switch to Mouse mode."
       style={{
         cursor: "pointer",
         textAlign: "center",
