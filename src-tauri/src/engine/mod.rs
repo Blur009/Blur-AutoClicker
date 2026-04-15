@@ -1,4 +1,5 @@
 pub mod failsafe;
+pub mod keyboard;
 pub mod mouse;
 pub mod rng;
 pub mod stats;
@@ -38,6 +39,8 @@ pub struct ClickerConfig {
     pub edge_stop_right: i32,
     pub edge_stop_bottom: i32,
     pub edge_stop_left: i32,
+    pub input_type: i32,
+    pub key_code: u16,
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
