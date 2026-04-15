@@ -4,27 +4,10 @@ use crate::engine::worker::stop_clicker_inner;
 use crate::engine::worker::toggle_clicker_inner;
 use crate::AppHandle;
 use crate::ClickerState;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tauri::Manager;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
-use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, GetMessageW, SetWindowsHookExW, KBDLLHOOKSTRUCT, LLKHF_EXTENDED, MSG,
-    WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_KEYUP, WM_MOUSEWHEEL, WM_SYSKEYDOWN, WM_SYSKEYUP,
-};
-
-/// Pseudo virtual-key codes for inputs that do not have a stable VK we can poll.
-pub const VK_SCROLL_UP_PSEUDO: i32 = -1;
-pub const VK_SCROLL_DOWN_PSEUDO: i32 = -2;
-pub const VK_NUMPAD_ENTER_PSEUDO: i32 = -3;
-
-/// Epoch-ms timestamps of the last detected scroll events.
-static SCROLL_UP_AT: AtomicU64 = AtomicU64::new(0);
-static SCROLL_DOWN_AT: AtomicU64 = AtomicU64::new(0);
-static NUMPAD_ENTER_DOWN: AtomicBool = AtomicBool::new(false);
-
-/// How long a scroll event is considered "pressed" for the polling loop.
-const SCROLL_WINDOW_MS: u64 = 200;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HotkeyBinding {
@@ -51,13 +34,7 @@ pub fn register_hotkey_inner(app: &AppHandle, hotkey: String) -> Result<String, 
 }
 
 pub fn normalize_hotkey(value: &str) -> String {
-    value
-        .trim()
-        .to_lowercase()
-        .replace("control", "ctrl")
-        .replace("command", "super")
-        .replace("meta", "super")
-        .replace("win", "super")
+    value.trim().to_ascii_lowercase()
 }
 
 pub fn parse_hotkey_binding(hotkey: &str) -> Result<HotkeyBinding, String> {
@@ -73,12 +50,13 @@ pub fn parse_hotkey_binding(hotkey: &str) -> Result<HotkeyBinding, String> {
             return Err(format!("Invalid hotkey '{hotkey}': found empty key token"));
         }
 
-        match token {
-            "alt" | "option" => alt = true,
-            "ctrl" | "control" => ctrl = true,
-            "shift" => shift = true,
-            "super" | "command" | "cmd" | "meta" | "win" => super_key = true,
-            _ => {
+        match normalize_modifier_token(token) {
+            Some("ctrl") => ctrl = true,
+            Some("alt") => alt = true,
+            Some("shift") => shift = true,
+            Some("super") => super_key = true,
+            Some(_) => {}
+            None => {
                 if main_key
                     .replace(parse_hotkey_main_key(token, hotkey)?)
                     .is_some()
@@ -105,86 +83,22 @@ pub fn parse_hotkey_binding(hotkey: &str) -> Result<HotkeyBinding, String> {
 }
 
 pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> Result<(i32, String), String> {
-    let lower = token.trim().to_lowercase();
+    let lower = token.trim().to_ascii_lowercase();
 
-    let mapped = match lower.as_str() {
-        // Mouse buttons
-        "mouseleft" | "mouse1" => Some((VK_LBUTTON as i32, String::from("mouseleft"))),
-        "mouseright" | "mouse2" => Some((VK_RBUTTON as i32, String::from("mouseright"))),
-        "mousemiddle" | "mouse3" | "scrollbutton" | "middleclick" => {
-            Some((VK_MBUTTON as i32, String::from("mousemiddle")))
-        }
-        "mouse4" | "mouseback" | "xbutton1" => Some((VK_XBUTTON1 as i32, String::from("mouse4"))),
-        "mouse5" | "mouseforward" | "xbutton2" => {
-            Some((VK_XBUTTON2 as i32, String::from("mouse5")))
-        }
-        // Scroll wheel
-        "scrollup" | "wheelup" => Some((VK_SCROLL_UP_PSEUDO, String::from("scrollup"))),
-        "scrolldown" | "wheeldown" => Some((VK_SCROLL_DOWN_PSEUDO, String::from("scrolldown"))),
-        // Explicit numpad keys
-        "numpad0" => Some((VK_NUMPAD0 as i32, String::from("numpad0"))),
-        "numpad1" => Some((VK_NUMPAD1 as i32, String::from("numpad1"))),
-        "numpad2" => Some((VK_NUMPAD2 as i32, String::from("numpad2"))),
-        "numpad3" => Some((VK_NUMPAD3 as i32, String::from("numpad3"))),
-        "numpad4" => Some((VK_NUMPAD4 as i32, String::from("numpad4"))),
-        "numpad5" => Some((VK_NUMPAD5 as i32, String::from("numpad5"))),
-        "numpad6" => Some((VK_NUMPAD6 as i32, String::from("numpad6"))),
-        "numpad7" => Some((VK_NUMPAD7 as i32, String::from("numpad7"))),
-        "numpad8" => Some((VK_NUMPAD8 as i32, String::from("numpad8"))),
-        "numpad9" => Some((VK_NUMPAD9 as i32, String::from("numpad9"))),
-        "numpadadd" => Some((VK_ADD as i32, String::from("numpadadd"))),
-        "numpadsubtract" => Some((VK_SUBTRACT as i32, String::from("numpadsubtract"))),
-        "numpadmultiply" => Some((VK_MULTIPLY as i32, String::from("numpadmultiply"))),
-        "numpaddivide" => Some((VK_DIVIDE as i32, String::from("numpaddivide"))),
-        "numpaddecimal" => Some((VK_DECIMAL as i32, String::from("numpaddecimal"))),
-        "numpadenter" => Some((VK_NUMPAD_ENTER_PSEUDO, String::from("numpadenter"))),
-        // Keyboard keys
-        "<" | ">" | "intlbackslash" | "oem102" | "nonusbackslash" => {
-            Some((VK_OEM_102 as i32, String::from("IntlBackslash")))
-        }
-        "space" | "spacebar" => Some((VK_SPACE as i32, String::from("space"))),
-        "tab" => Some((VK_TAB as i32, String::from("tab"))),
-        "enter" => Some((VK_RETURN as i32, String::from("enter"))),
-        "backspace" => Some((VK_BACK as i32, String::from("backspace"))),
-        "delete" => Some((VK_DELETE as i32, String::from("delete"))),
-        "insert" => Some((VK_INSERT as i32, String::from("insert"))),
-        "home" => Some((VK_HOME as i32, String::from("home"))),
-        "end" => Some((VK_END as i32, String::from("end"))),
-        "pageup" => Some((VK_PRIOR as i32, String::from("pageup"))),
-        "pagedown" => Some((VK_NEXT as i32, String::from("pagedown"))),
-        "up" => Some((VK_UP as i32, String::from("up"))),
-        "down" => Some((VK_DOWN as i32, String::from("down"))),
-        "left" => Some((VK_LEFT as i32, String::from("left"))),
-        "right" => Some((VK_RIGHT as i32, String::from("right"))),
-        "esc" | "escape" => Some((VK_ESCAPE as i32, String::from("escape"))),
-        "/" | "slash" => Some((VK_OEM_2 as i32, String::from("/"))),
-        "\\" | "backslash" => Some((VK_OEM_5 as i32, String::from("\\"))),
-        ";" | "semicolon" => Some((VK_OEM_1 as i32, String::from(";"))),
-        "'" | "quote" => Some((VK_OEM_7 as i32, String::from("'"))),
-        "[" | "bracketleft" => Some((VK_OEM_4 as i32, String::from("["))),
-        "]" | "bracketright" => Some((VK_OEM_6 as i32, String::from("]"))),
-        "-" | "minus" => Some((VK_OEM_MINUS as i32, String::from("-"))),
-        "=" | "equal" => Some((VK_OEM_PLUS as i32, String::from("="))),
-        "`" | "backquote" => Some((VK_OEM_3 as i32, String::from("`"))),
-        "," | "comma" => Some((VK_OEM_COMMA as i32, String::from(","))),
-        "." | "period" => Some((VK_OEM_PERIOD as i32, String::from("."))),
-        _ => None,
-    };
-
-    if let Some(binding) = mapped {
+    if let Some(binding) = parse_named_key_token(&lower) {
         return Ok(binding);
     }
 
-    if lower.starts_with('f') && lower.len() <= 3 {
-        if let Ok(number) = lower[1..].parse::<i32>() {
-            let vk = match number {
-                1..=24 => VK_F1 as i32 + (number - 1),
-                _ => -1,
-            };
-            if vk >= 0 {
-                return Ok((vk, lower));
-            }
-        }
+    if let Some(binding) = parse_mouse_button_token(&lower) {
+        return Ok(binding);
+    }
+
+    if let Some(binding) = parse_numpad_token(&lower) {
+        return Ok(binding);
+    }
+
+    if let Some(binding) = parse_function_key_token(&lower) {
+        return Ok(binding);
     }
 
     if let Some(letter) = lower.strip_prefix("key") {
@@ -248,7 +162,7 @@ pub fn start_hotkey_listener(app: AppHandle) {
 
             let currently_pressed = binding
                 .as_ref()
-                .map(|b| is_hotkey_binding_pressed(b, strict))
+                .map(|binding| is_hotkey_binding_pressed(binding, strict))
                 .unwrap_or(false);
 
             let suppress_until = app
@@ -339,7 +253,7 @@ pub fn is_hotkey_binding_pressed(binding: &HotkeyBinding, strict: bool) -> bool 
         return false;
     }
 
-    is_main_key_active(binding.main_vk)
+    is_vk_down(binding.main_vk)
 }
 
 fn modifiers_match(
@@ -364,108 +278,150 @@ fn modifiers_match(
     }
 
     if strict {
-        if ctrl_down && !binding.ctrl { return false; }
-        if alt_down && !binding.alt { return false; }
-        if shift_down && !binding.shift { return false; }
-        if super_down && !binding.super_key { return false; }
+        if ctrl_down && !binding.ctrl {
+            return false;
+        }
+        if alt_down && !binding.alt {
+            return false;
+        }
+        if shift_down && !binding.shift {
+            return false;
+        }
+        if super_down && !binding.super_key {
+            return false;
+        }
     }
 
     true
-}
-
-/// For normal VKs this uses `GetAsyncKeyState`. Pseudo-VKs use hook-maintained state.
-fn is_main_key_active(vk: i32) -> bool {
-    match vk {
-        VK_SCROLL_UP_PSEUDO => {
-            let ts = SCROLL_UP_AT.load(Ordering::SeqCst);
-            if ts == 0 {
-                return false;
-            }
-            let now = now_epoch_ms();
-            now.saturating_sub(ts) < SCROLL_WINDOW_MS
-        }
-        VK_SCROLL_DOWN_PSEUDO => {
-            let ts = SCROLL_DOWN_AT.load(Ordering::SeqCst);
-            if ts == 0 {
-                return false;
-            }
-            let now = now_epoch_ms();
-            now.saturating_sub(ts) < SCROLL_WINDOW_MS
-        }
-        VK_NUMPAD_ENTER_PSEUDO => NUMPAD_ENTER_DOWN.load(Ordering::SeqCst),
-        _ => is_vk_down(vk),
-    }
 }
 
 pub fn is_vk_down(vk: i32) -> bool {
     unsafe { (GetAsyncKeyState(vk) as u16 & 0x8000) != 0 }
 }
 
-/// Installs low-level hooks used for scroll and numpad-enter hotkeys.
-pub fn start_scroll_hook() {
-    std::thread::spawn(|| unsafe {
-        let mouse_hook = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), 0, 0);
-        if mouse_hook == 0 {
-            log::error!("[Hotkeys] Failed to install WH_MOUSE_LL hook");
-        }
-
-        let keyboard_hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_hook_proc), 0, 0);
-        if keyboard_hook == 0 {
-            log::error!("[Hotkeys] Failed to install WH_KEYBOARD_LL hook");
-        }
-
-        if mouse_hook == 0 && keyboard_hook == 0 {
-            return;
-        }
-
-        let mut msg: MSG = std::mem::zeroed();
-        while GetMessageW(&mut msg, 0, 0, 0) > 0 {}
-    });
+fn normalize_modifier_token(token: &str) -> Option<&'static str> {
+    match token {
+        "alt" | "option" => Some("alt"),
+        "ctrl" | "control" => Some("ctrl"),
+        "shift" => Some("shift"),
+        "super" | "command" | "cmd" | "meta" | "win" => Some("super"),
+        _ => None,
+    }
 }
 
-unsafe extern "system" fn keyboard_hook_proc(code: i32, w_param: usize, l_param: isize) -> isize {
-    if code >= 0 {
-        let info = &*(l_param as *const KBDLLHOOKSTRUCT);
-        if info.vkCode as i32 == VK_RETURN as i32 && (info.flags & LLKHF_EXTENDED) != 0 {
-            match w_param as u32 {
-                WM_KEYDOWN | WM_SYSKEYDOWN => {
-                    NUMPAD_ENTER_DOWN.store(true, Ordering::SeqCst);
-                }
-                WM_KEYUP | WM_SYSKEYUP => {
-                    NUMPAD_ENTER_DOWN.store(false, Ordering::SeqCst);
-                }
-                _ => {}
-            }
-        }
-    }
-
-    CallNextHookEx(0, code, w_param, l_param)
+fn binding(vk: i32, token: &str) -> (i32, String) {
+    (vk, token.to_string())
 }
 
-/// Raw low-level mouse-hook callback. We only care about `WM_MOUSEWHEEL`.
-unsafe extern "system" fn mouse_hook_proc(code: i32, w_param: usize, l_param: isize) -> isize {
-    if code >= 0 && w_param == WM_MOUSEWHEEL as usize {
-        #[repr(C)]
-        struct MsllHookStruct {
-            pt_x: i32,
-            pt_y: i32,
-            mouse_data: u32,
-            flags: u32,
-            time: u32,
-            extra_info: usize,
+fn parse_named_key_token(token: &str) -> Option<(i32, String)> {
+    match token {
+        "<" | ">" | "intlbackslash" | "oem102" | "nonusbackslash" => {
+            Some(binding(VK_OEM_102 as i32, "IntlBackslash"))
         }
+        "space" | "spacebar" => Some(binding(VK_SPACE as i32, "space")),
+        "tab" => Some(binding(VK_TAB as i32, "tab")),
+        "enter" | "return" => Some(binding(VK_RETURN as i32, "enter")),
+        "backspace" => Some(binding(VK_BACK as i32, "backspace")),
+        "delete" | "del" => Some(binding(VK_DELETE as i32, "delete")),
+        "insert" | "ins" => Some(binding(VK_INSERT as i32, "insert")),
+        "home" => Some(binding(VK_HOME as i32, "home")),
+        "end" => Some(binding(VK_END as i32, "end")),
+        "pageup" | "pgup" => Some(binding(VK_PRIOR as i32, "pageup")),
+        "pagedown" | "pgdn" => Some(binding(VK_NEXT as i32, "pagedown")),
+        "up" | "arrowup" => Some(binding(VK_UP as i32, "up")),
+        "down" | "arrowdown" => Some(binding(VK_DOWN as i32, "down")),
+        "left" | "arrowleft" => Some(binding(VK_LEFT as i32, "left")),
+        "right" | "arrowright" => Some(binding(VK_RIGHT as i32, "right")),
+        "esc" | "escape" => Some(binding(VK_ESCAPE as i32, "escape")),
+        "capslock" => Some(binding(VK_CAPITAL as i32, "capslock")),
+        "numlock" => Some(binding(VK_NUMLOCK as i32, "numlock")),
+        "scrolllock" => Some(binding(VK_SCROLL as i32, "scrolllock")),
+        "menu" | "apps" | "contextmenu" => Some(binding(VK_APPS as i32, "menu")),
+        "printscreen" | "prtsc" | "snapshot" => Some(binding(VK_SNAPSHOT as i32, "printscreen")),
+        "pause" | "break" => Some(binding(VK_PAUSE as i32, "pause")),
+        "/" | "slash" => Some(binding(VK_OEM_2 as i32, "/")),
+        "\\" | "backslash" => Some(binding(VK_OEM_5 as i32, "\\")),
+        ";" | "semicolon" => Some(binding(VK_OEM_1 as i32, ";")),
+        "'" | "quote" | "apostrophe" => Some(binding(VK_OEM_7 as i32, "'")),
+        "[" | "bracketleft" => Some(binding(VK_OEM_4 as i32, "[")),
+        "]" | "bracketright" => Some(binding(VK_OEM_6 as i32, "]")),
+        "-" | "minus" => Some(binding(VK_OEM_MINUS as i32, "-")),
+        "=" | "equal" => Some(binding(VK_OEM_PLUS as i32, "=")),
+        "`" | "backquote" | "grave" => Some(binding(VK_OEM_3 as i32, "`")),
+        "," | "comma" => Some(binding(VK_OEM_COMMA as i32, ",")),
+        "." | "period" | "dot" => Some(binding(VK_OEM_PERIOD as i32, ".")),
+        _ => None,
+    }
+}
 
-        let info = &*(l_param as *const MsllHookStruct);
-        let delta = (info.mouse_data >> 16) as i16;
-        let now = now_epoch_ms();
-        if delta > 0 {
-            SCROLL_UP_AT.store(now, Ordering::SeqCst);
-        } else if delta < 0 {
-            SCROLL_DOWN_AT.store(now, Ordering::SeqCst);
+fn parse_mouse_button_token(token: &str) -> Option<(i32, String)> {
+    match token {
+        "mouseleft" | "leftmouse" | "leftbutton" | "mouse1" | "lmb" => {
+            Some(binding(VK_LBUTTON as i32, "mouseleft"))
         }
+        "mouseright" | "rightmouse" | "rightbutton" | "mouse2" | "rmb" => {
+            Some(binding(VK_RBUTTON as i32, "mouseright"))
+        }
+        "mousemiddle"
+        | "middlemouse"
+        | "middlebutton"
+        | "mouse3"
+        | "mmb"
+        | "scrollbutton"
+        | "middleclick" => Some(binding(VK_MBUTTON as i32, "mousemiddle")),
+        "mouse4" | "xbutton1" | "mouseback" | "browserback" | "backbutton" => {
+            Some(binding(VK_XBUTTON1 as i32, "mouse4"))
+        }
+        "mouse5" | "xbutton2" | "mouseforward" | "browserforward" | "forwardbutton" => {
+            Some(binding(VK_XBUTTON2 as i32, "mouse5"))
+        }
+        _ => None,
+    }
+}
+
+fn parse_numpad_token(token: &str) -> Option<(i32, String)> {
+    match token {
+        "numpad0" | "num0" => Some(binding(VK_NUMPAD0 as i32, "numpad0")),
+        "numpad1" | "num1" => Some(binding(VK_NUMPAD1 as i32, "numpad1")),
+        "numpad2" | "num2" => Some(binding(VK_NUMPAD2 as i32, "numpad2")),
+        "numpad3" | "num3" => Some(binding(VK_NUMPAD3 as i32, "numpad3")),
+        "numpad4" | "num4" => Some(binding(VK_NUMPAD4 as i32, "numpad4")),
+        "numpad5" | "num5" => Some(binding(VK_NUMPAD5 as i32, "numpad5")),
+        "numpad6" | "num6" => Some(binding(VK_NUMPAD6 as i32, "numpad6")),
+        "numpad7" | "num7" => Some(binding(VK_NUMPAD7 as i32, "numpad7")),
+        "numpad8" | "num8" => Some(binding(VK_NUMPAD8 as i32, "numpad8")),
+        "numpad9" | "num9" => Some(binding(VK_NUMPAD9 as i32, "numpad9")),
+        "numpadadd" | "numadd" | "numpadplus" | "numplus" => {
+            Some(binding(VK_ADD as i32, "numpadadd"))
+        }
+        "numpadsubtract" | "numsubtract" | "numsub" | "numpadminus" | "numminus" => {
+            Some(binding(VK_SUBTRACT as i32, "numpadsubtract"))
+        }
+        "numpadmultiply" | "nummultiply" | "nummul" | "numpadmul" => {
+            Some(binding(VK_MULTIPLY as i32, "numpadmultiply"))
+        }
+        "numpaddivide" | "numdivide" | "numdiv" | "numpaddiv" => {
+            Some(binding(VK_DIVIDE as i32, "numpaddivide"))
+        }
+        "numpaddecimal" | "numdecimal" | "numdot" | "numdel" | "numpadpoint" => {
+            Some(binding(VK_DECIMAL as i32, "numpaddecimal"))
+        }
+        _ => None,
+    }
+}
+
+fn parse_function_key_token(token: &str) -> Option<(i32, String)> {
+    if !token.starts_with('f') || token.len() > 3 {
+        return None;
     }
 
-    CallNextHookEx(0, code, w_param, l_param)
+    let number = token[1..].parse::<i32>().ok()?;
+    let vk = match number {
+        1..=24 => VK_F1 as i32 + (number - 1),
+        _ => return None,
+    };
+
+    Some(binding(vk, token))
 }
 
 #[cfg(test)]
@@ -490,7 +446,6 @@ mod tests {
             "numpadmultiply",
             "numpaddivide",
             "numpaddecimal",
-            "numpadenter",
         ] {
             let hotkey = format!("ctrl+shift+{token}");
             let binding = parse_hotkey_binding(&hotkey).expect("token should parse");

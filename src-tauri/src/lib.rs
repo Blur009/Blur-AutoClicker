@@ -83,7 +83,6 @@ pub fn run() {
 
             let handle = app.handle().clone();
             start_hotkey_listener(handle.clone());
-            hotkeys::start_scroll_hook();
             register_hotkey_inner(&handle, initial_hotkey).map_err(std::io::Error::other)?;
             emit_status(&handle);
             overlay::init_overlay(app.handle())?;

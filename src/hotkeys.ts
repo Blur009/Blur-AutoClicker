@@ -21,6 +21,19 @@ const MODIFIER_KEYS = new Set([
   "altgraph",
 ]);
 
+const MODIFIER_CODES = new Set([
+  "ControlLeft",
+  "ControlRight",
+  "ShiftLeft",
+  "ShiftRight",
+  "AltLeft",
+  "AltRight",
+  "MetaLeft",
+  "MetaRight",
+  "OSLeft",
+  "OSRight",
+]);
+
 const SHIFTED_SYMBOL_BASE_MAP: Record<string, string> = {
   "?": "/",
   ":": ";",
@@ -34,23 +47,33 @@ const SHIFTED_SYMBOL_BASE_MAP: Record<string, string> = {
   ">": "<",
 };
 
-const NUMPAD_CODE_MAP: Record<string, string> = {
-  Numpad0: "numpad0",
-  Numpad1: "numpad1",
-  Numpad2: "numpad2",
-  Numpad3: "numpad3",
-  Numpad4: "numpad4",
-  Numpad5: "numpad5",
-  Numpad6: "numpad6",
-  Numpad7: "numpad7",
-  Numpad8: "numpad8",
-  Numpad9: "numpad9",
+const KEY_CODE_MAIN_KEY_MAP: Record<string, string> = {
+  Backspace: "backspace",
+  Delete: "delete",
+  Insert: "insert",
+  Home: "home",
+  End: "end",
+  PageUp: "pageup",
+  PageDown: "pagedown",
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  Enter: "enter",
+  Tab: "tab",
+  Space: "space",
+  Escape: "escape",
+  CapsLock: "capslock",
+  NumLock: "numlock",
+  ScrollLock: "scrolllock",
+  PrintScreen: "printscreen",
+  Pause: "pause",
+  ContextMenu: "menu",
   NumpadAdd: "numpadadd",
   NumpadSubtract: "numpadsubtract",
   NumpadMultiply: "numpadmultiply",
   NumpadDivide: "numpaddivide",
   NumpadDecimal: "numpaddecimal",
-  NumpadEnter: "numpadenter",
 };
 
 const NUMPAD_LOCATION_KEY_MAP: Record<string, string> = {
@@ -69,17 +92,109 @@ const NUMPAD_LOCATION_KEY_MAP: Record<string, string> = {
   "*": "numpadmultiply",
   "/": "numpaddivide",
   ".": "numpaddecimal",
-  enter: "numpadenter",
 };
 
 type LayoutMapLike = {
   get(code: string): string | undefined;
 };
 
+type KeyboardCaptureEvent = {
+  key: string;
+  code?: string;
+  location?: number;
+  ctrlKey: boolean;
+  altKey: boolean;
+  shiftKey: boolean;
+  metaKey: boolean;
+};
+
+type MouseCaptureEvent = {
+  button: number;
+  ctrlKey: boolean;
+  altKey: boolean;
+  shiftKey: boolean;
+  metaKey: boolean;
+};
+
 let layoutMapPromise: Promise<LayoutMapLike | null> | null = null;
 
 function normalizeModifierToken(token: string): string | null {
   return MODIFIER_ALIASES[token.trim().toLowerCase()] ?? null;
+}
+
+function normalizeMouseToken(token: string): string | null {
+  const lower = token.trim().toLowerCase();
+
+  const mouseMap: Record<string, string> = {
+    mouseleft: "mouseleft",
+    leftmouse: "mouseleft",
+    leftbutton: "mouseleft",
+    mouse1: "mouseleft",
+    lmb: "mouseleft",
+    mouseright: "mouseright",
+    rightmouse: "mouseright",
+    rightbutton: "mouseright",
+    mouse2: "mouseright",
+    rmb: "mouseright",
+    mousemiddle: "mousemiddle",
+    middlemouse: "mousemiddle",
+    middlebutton: "mousemiddle",
+    mouse3: "mousemiddle",
+    mmb: "mousemiddle",
+    scrollbutton: "mousemiddle",
+    middleclick: "mousemiddle",
+    mouse4: "mouse4",
+    xbutton1: "mouse4",
+    mouseback: "mouse4",
+    browserback: "mouse4",
+    backbutton: "mouse4",
+    mouse5: "mouse5",
+    xbutton2: "mouse5",
+    mouseforward: "mouse5",
+    browserforward: "mouse5",
+    forwardbutton: "mouse5",
+  };
+
+  return mouseMap[lower] ?? null;
+}
+
+function normalizeNumpadToken(token: string): string | null {
+  const lower = token.trim().toLowerCase();
+
+  if (/^numpad[0-9]$/.test(lower)) {
+    return lower;
+  }
+
+  if (/^num[0-9]$/.test(lower)) {
+    return `numpad${lower.slice(3)}`;
+  }
+
+  const numpadMap: Record<string, string> = {
+    numpadadd: "numpadadd",
+    numadd: "numpadadd",
+    numplus: "numpadadd",
+    numpadplus: "numpadadd",
+    numpadsubtract: "numpadsubtract",
+    numsubtract: "numpadsubtract",
+    numsub: "numpadsubtract",
+    numminus: "numpadsubtract",
+    numpadminus: "numpadsubtract",
+    numpadmultiply: "numpadmultiply",
+    nummultiply: "numpadmultiply",
+    nummul: "numpadmultiply",
+    numpadmul: "numpadmultiply",
+    numpaddivide: "numpaddivide",
+    numdivide: "numpaddivide",
+    numdiv: "numpaddivide",
+    numpaddiv: "numpaddivide",
+    numpaddecimal: "numpaddecimal",
+    numdecimal: "numpaddecimal",
+    numdot: "numpaddecimal",
+    numdel: "numpaddecimal",
+    numpadpoint: "numpaddecimal",
+  };
+
+  return numpadMap[lower] ?? null;
 }
 
 function normalizeNamedKey(key: string): string | null {
@@ -100,40 +215,17 @@ function normalizeNamedKey(key: string): string | null {
     arrowdown: "down",
     arrowleft: "left",
     arrowright: "right",
-    mouseleft: "mouseleft",
-    mouse1: "mouseleft",
-    mouseright: "mouseright",
-    mouse2: "mouseright",
-    mousemiddle: "mousemiddle",
-    mouse3: "mousemiddle",
-    scrollbutton: "mousemiddle",
-    middleclick: "mousemiddle",
-    mouse4: "mouse4",
-    mouseback: "mouse4",
-    xbutton1: "mouse4",
-    mouse5: "mouse5",
-    mouseforward: "mouse5",
-    xbutton2: "mouse5",
-    scrollup: "scrollup",
-    wheelup: "scrollup",
-    scrolldown: "scrolldown",
-    wheeldown: "scrolldown",
-    numpad0: "numpad0",
-    numpad1: "numpad1",
-    numpad2: "numpad2",
-    numpad3: "numpad3",
-    numpad4: "numpad4",
-    numpad5: "numpad5",
-    numpad6: "numpad6",
-    numpad7: "numpad7",
-    numpad8: "numpad8",
-    numpad9: "numpad9",
-    numpadadd: "numpadadd",
-    numpadsubtract: "numpadsubtract",
-    numpadmultiply: "numpadmultiply",
-    numpaddivide: "numpaddivide",
-    numpaddecimal: "numpaddecimal",
-    numpadenter: "numpadenter",
+    capslock: "capslock",
+    numlock: "numlock",
+    scrolllock: "scrolllock",
+    printscreen: "printscreen",
+    pause: "pause",
+    break: "pause",
+    contextmenu: "menu",
+    apps: "menu",
+    menu: "menu",
+    escape: "escape",
+    esc: "escape",
   };
 
   if (/^f\d{1,2}$/i.test(key)) {
@@ -143,20 +235,63 @@ function normalizeNamedKey(key: string): string | null {
   return keyMap[lower] ?? null;
 }
 
-function normalizeNumpadFromCode(
-  code: string | undefined,
+function mainKeyFromCode(
+  code: string,
   key: string,
-  location: number | undefined,
+  location?: number,
 ): string | null {
-  if (code && NUMPAD_CODE_MAP[code]) {
-    return NUMPAD_CODE_MAP[code];
+  if (code === "IntlBackslash") {
+    return "IntlBackslash";
   }
 
-  if (location !== 3) {
-    return null;
+  if (/^Key[A-Z]$/.test(code)) {
+    return code;
   }
 
-  return NUMPAD_LOCATION_KEY_MAP[key.toLowerCase()] ?? null;
+  if (/^Digit[0-9]$/.test(code)) {
+    return code;
+  }
+
+  if (/^Numpad[0-9]$/.test(code)) {
+    return `numpad${code.slice(6)}`;
+  }
+
+  if (location === 3) {
+    const locationMapped = NUMPAD_LOCATION_KEY_MAP[key.toLowerCase()];
+    if (locationMapped) {
+      return locationMapped;
+    }
+  }
+
+  return KEY_CODE_MAIN_KEY_MAP[code] ?? null;
+}
+
+function mainKeyFromKey(key: string): string | null {
+  if (key === " ") return "space";
+
+  const normalizedNamedKey = normalizeNamedKey(key);
+  return (
+    normalizedNamedKey ??
+    normalizeNumpadToken(key) ??
+    normalizeMouseToken(key) ??
+    (SHIFTED_SYMBOL_BASE_MAP[key] ?? (key.length === 1 ? key.toLowerCase() : null))
+  );
+}
+
+function buildHotkeyString(
+  mainKey: string,
+  event: Pick<
+    KeyboardCaptureEvent,
+    "ctrlKey" | "altKey" | "shiftKey" | "metaKey"
+  >,
+): string {
+  const parts: string[] = [];
+  if (event.ctrlKey) parts.push("ctrl");
+  if (event.altKey) parts.push("alt");
+  if (event.shiftKey) parts.push("shift");
+  if (event.metaKey) parts.push("super");
+  parts.push(mainKey);
+  return parts.join("+");
 }
 
 function displayTokenFromStoredValue(
@@ -180,11 +315,16 @@ function displayTokenFromStoredValue(
     return trimmed.slice(5);
   }
 
-  if (NUMPAD_CODE_MAP[trimmed]) {
-    return displayTokenFromStoredValue(NUMPAD_CODE_MAP[trimmed], layoutMap);
+  if (/^Numpad[0-9]$/.test(trimmed)) {
+    return `Num ${trimmed.slice(6)}`;
   }
 
   const lower = trimmed.toLowerCase();
+
+  if (/^numpad[0-9]$/.test(lower)) {
+    return `Num ${lower.slice(6)}`;
+  }
+
   const namedDisplayMap: Record<string, string> = {
     up: "Up",
     down: "Down",
@@ -202,29 +342,22 @@ function displayTokenFromStoredValue(
     space: "Space",
     escape: "Esc",
     esc: "Esc",
-    mouseleft: "Mouse Left",
-    mouseright: "Mouse Right",
-    mousemiddle: "Scroll Button",
-    mouse4: "Mouse Back",
-    mouse5: "Mouse Forward",
-    scrollup: "Scroll Up",
-    scrolldown: "Scroll Down",
-    numpad0: "Num 0",
-    numpad1: "Num 1",
-    numpad2: "Num 2",
-    numpad3: "Num 3",
-    numpad4: "Num 4",
-    numpad5: "Num 5",
-    numpad6: "Num 6",
-    numpad7: "Num 7",
-    numpad8: "Num 8",
-    numpad9: "Num 9",
+    capslock: "Caps Lock",
+    numlock: "Num Lock",
+    scrolllock: "Scroll Lock",
+    printscreen: "Print Screen",
+    pause: "Pause",
+    menu: "Menu",
     numpadadd: "Num +",
     numpadsubtract: "Num -",
     numpadmultiply: "Num *",
     numpaddivide: "Num /",
     numpaddecimal: "Num .",
-    numpadenter: "Num Enter",
+    mouseleft: "Mouse Left",
+    mouseright: "Mouse Right",
+    mousemiddle: "Mouse Middle",
+    mouse4: "Mouse Back",
+    mouse5: "Mouse Forward",
   };
 
   if (namedDisplayMap[lower]) {
@@ -254,16 +387,12 @@ function normalizeStoredMainKey(
     return trimmed.slice(5);
   }
 
-  if (NUMPAD_CODE_MAP[trimmed]) {
-    return NUMPAD_CODE_MAP[trimmed];
+  if (/^Numpad[0-9]$/.test(trimmed)) {
+    return `numpad${trimmed.slice(6)}`;
   }
 
   const lower = trimmed.toLowerCase();
-  if (normalizeNamedKey(lower)?.startsWith("numpad")) {
-    return normalizeNamedKey(lower)!;
-  }
-
-  if (lower === "<" || lower === ">") {
+  if (lower === "<" || lower === ">" || lower === "intlbackslash") {
     return "IntlBackslash";
   }
 
@@ -271,7 +400,12 @@ function normalizeStoredMainKey(
     return SHIFTED_SYMBOL_BASE_MAP[trimmed];
   }
 
-  return normalizeNamedKey(trimmed) ?? lower;
+  return (
+    normalizeMouseToken(trimmed) ??
+    normalizeNumpadToken(trimmed) ??
+    normalizeNamedKey(trimmed) ??
+    lower
+  );
 }
 
 export async function getKeyboardLayoutMap(): Promise<LayoutMapLike | null> {
@@ -293,97 +427,34 @@ export async function canonicalizeHotkeyForBackend(value: string): Promise<strin
   return canonicalizeHotkeyString(value, layoutMap);
 }
 
-export function captureHotkey(event: {
-  key: string;
-  code?: string;
-  location?: number;
-  ctrlKey: boolean;
-  altKey: boolean;
-  shiftKey: boolean;
-  metaKey: boolean;
-}): string | null {
-  const lower = event.key.toLowerCase();
-  if (MODIFIER_KEYS.has(lower) || lower === "escape") {
-    return null;
-  }
+export function captureHotkey(event: KeyboardCaptureEvent): string | null {
+  const lowerKey = event.key.toLowerCase();
+
+  if (MODIFIER_KEYS.has(lowerKey)) return null;
+  if (event.code && MODIFIER_CODES.has(event.code)) return null;
+  if (lowerKey === "escape" || event.code === "Escape") return null;
 
   const mainKey =
-    normalizeNumpadFromCode(event.code, event.key, event.location) ??
-    (event.key === " " ? "space" : null) ??
-    normalizeNamedKey(event.key) ??
-    (SHIFTED_SYMBOL_BASE_MAP[event.key] ?? (event.key.length === 1 ? lower : null));
+    (event.code ? mainKeyFromCode(event.code, event.key, event.location) : null) ??
+    mainKeyFromKey(event.key);
 
-  if (!mainKey) {
-    return null;
-  }
-
-  const parts: string[] = [];
-  if (event.ctrlKey) parts.push("ctrl");
-  if (event.altKey) parts.push("alt");
-  if (event.shiftKey) parts.push("shift");
-  if (event.metaKey) parts.push("super");
-  parts.push(mainKey);
-  return parts.join("+");
-}
-
-export function captureMouseHotkey(
-  event: {
-    button: number;
-    ctrlKey: boolean;
-    altKey: boolean;
-    shiftKey: boolean;
-    metaKey: boolean;
-  },
-  clickerMouseButton?: string,
-): string | null {
-  const mouseMap: Record<number, string> = {
-    0: "mouseleft",
-    1: "mousemiddle",
-    2: "mouseright",
-    3: "mouse4",
-    4: "mouse5",
-  };
-
-  const mainKey = mouseMap[event.button];
   if (!mainKey) return null;
 
-  if (clickerMouseButton === "Left" && mainKey === "mouseleft") return null;
-  if (clickerMouseButton === "Middle" && mainKey === "mousemiddle") return null;
-  if (clickerMouseButton === "Right" && mainKey === "mouseright") return null;
-
-  if (event.button === 0) {
-    const hasModifier =
-      event.ctrlKey || event.altKey || event.shiftKey || event.metaKey;
-    if (!hasModifier) return null;
-  }
-
-  const parts: string[] = [];
-  if (event.ctrlKey) parts.push("ctrl");
-  if (event.altKey) parts.push("alt");
-  if (event.shiftKey) parts.push("shift");
-  if (event.metaKey) parts.push("super");
-  parts.push(mainKey);
-  return parts.join("+");
+  return buildHotkeyString(mainKey, event);
 }
 
-export function captureWheelHotkey(event: {
-  deltaY: number;
-  ctrlKey: boolean;
-  altKey: boolean;
-  shiftKey: boolean;
-  metaKey: boolean;
-}): string | null {
-  if (event.deltaY === 0) return null;
+export function captureMouseHotkey(event: MouseCaptureEvent): string | null {
+  const mainKey =
+    {
+      0: "mouseleft",
+      1: "mousemiddle",
+      2: "mouseright",
+      3: "mouse4",
+      4: "mouse5",
+    }[event.button] ?? null;
 
-  const mainKey = event.deltaY < 0 ? "scrollup" : "scrolldown";
-
-  const parts: string[] = [];
-  if (event.ctrlKey) parts.push("ctrl");
-  if (event.altKey) parts.push("alt");
-  if (event.shiftKey) parts.push("shift");
-  if (event.metaKey) parts.push("super");
-  parts.push(mainKey);
-  return parts.join("+");
+  if (!mainKey) return null;
+  return buildHotkeyString(mainKey, event);
 }
 
 export function formatHotkeyForDisplay(
@@ -413,7 +484,10 @@ function canonicalizeHotkeyString(
   value: string,
   layoutMap: LayoutMapLike | null,
 ): string {
-  const parts: string[] = [];
+  let ctrl = false;
+  let alt = false;
+  let shift = false;
+  let superKey = false;
   let mainKey: string | null = null;
 
   for (const rawPart of value.split("+")) {
@@ -422,18 +496,21 @@ function canonicalizeHotkeyString(
 
     const modifier = normalizeModifierToken(part);
     if (modifier) {
-      if (!parts.includes(modifier)) {
-        parts.push(modifier);
-      }
+      if (modifier === "ctrl") ctrl = true;
+      if (modifier === "alt") alt = true;
+      if (modifier === "shift") shift = true;
+      if (modifier === "super") superKey = true;
       continue;
     }
 
     mainKey = normalizeStoredMainKey(part, layoutMap);
   }
 
-  if (mainKey) {
-    parts.push(mainKey);
-  }
-
+  const parts: string[] = [];
+  if (ctrl) parts.push("ctrl");
+  if (alt) parts.push("alt");
+  if (shift) parts.push("shift");
+  if (superKey) parts.push("super");
+  if (mainKey) parts.push(mainKey);
   return parts.join("+");
 }
