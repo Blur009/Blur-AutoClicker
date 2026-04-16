@@ -46,7 +46,6 @@ body:
       options:
         - Simple
         - Advanced
-        - Macro
         - Settings / General
         - Not sure
     validations:
