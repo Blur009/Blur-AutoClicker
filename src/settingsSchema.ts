@@ -11,7 +11,6 @@ export interface PresetSnapshot {
   clickSpeed: number;
   clickInterval: ClickInterval;
   mouseButton: MouseButton;
-  hotkey: string;
   mode: ClickMode;
   dutyCycleEnabled: boolean;
   dutyCycle: number;
@@ -49,6 +48,7 @@ export interface PresetDefinition {
 
 export interface Settings extends PresetSnapshot {
   version: string;
+  hotkey: string;
   disableScreenshots: boolean;
   advancedSettingsEnabled: boolean;
   explanationMode: ExplanationMode;
@@ -65,6 +65,7 @@ export interface Settings extends PresetSnapshot {
 }
 
 export const DEFAULT_ACCENT_COLOR = "#22c55e";
+export const MAX_PRESETS = 20;
 export const PRESET_NAME_MAX_LENGTH = 40;
 
 export const CLICK_INTERVAL_OPTIONS = [
@@ -94,7 +95,6 @@ export const PRESET_SNAPSHOT_KEYS = [
   "clickSpeed",
   "clickInterval",
   "mouseButton",
-  "hotkey",
   "mode",
   "dutyCycleEnabled",
   "dutyCycle",
@@ -238,7 +238,6 @@ export function buildPresetSnapshot(settings: Settings): PresetSnapshot {
     clickSpeed: settings.clickSpeed,
     clickInterval: settings.clickInterval,
     mouseButton: settings.mouseButton,
-    hotkey: settings.hotkey,
     mode: settings.mode,
     dutyCycleEnabled: settings.dutyCycleEnabled,
     dutyCycle: settings.dutyCycle,
@@ -303,7 +302,6 @@ function sanitizePresetSnapshot(
 
   return {
     ...defaults,
-    ...saved,
     clickSpeed: clampNumber(
       saved.clickSpeed,
       defaults.clickSpeed,
@@ -320,7 +318,6 @@ function sanitizePresetSnapshot(
       saved.mouseButton === "Middle" || saved.mouseButton === "Right"
         ? saved.mouseButton
         : defaults.mouseButton,
-    hotkey: typeof saved.hotkey === "string" ? saved.hotkey : defaults.hotkey,
     mode: saved.mode === "Hold" ? "Hold" : defaults.mode,
     dutyCycleEnabled: sanitizeBoolean(
       saved.dutyCycleEnabled,
@@ -456,6 +453,7 @@ function sanitizePresets(input: unknown, defaults: Settings): PresetDefinition[]
   const defaultSnapshot = buildPresetSnapshot(defaults);
 
   return input
+    .slice(0, MAX_PRESETS)
     .map((preset, index) => {
       if (!preset || typeof preset !== "object") {
         return null;

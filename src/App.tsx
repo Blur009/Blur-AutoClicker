@@ -12,6 +12,8 @@ import { canonicalizeHotkeyForBackend } from "./hotkeys";
 import {
   buildPresetSnapshot,
   createPresetDefinition,
+  MAX_PRESETS,
+  sanitizePresetName,
   type PresetId,
 } from "./settingsSchema";
 import {
@@ -35,7 +37,7 @@ const AdvancedPanelCompact = lazy(
 
 export type Tab = "simple" | "advanced" | "settings";
 
-const BACKEND_SETTINGS_SCHEMA_VERSION = 7;
+const BACKEND_SETTINGS_SCHEMA_VERSION = 6;
 const OPERATIONAL_SETTING_KEYS = new Set<string>(Object.keys(buildPresetSnapshot(DEFAULT_SETTINGS)));
 
 function getPanelSize(tab: Tab, settings: Settings, hasUpdate: boolean) {
@@ -287,6 +289,10 @@ export default function App() {
       return false;
     }
 
+    if (committedSettingsRef.current.presets.length >= MAX_PRESETS) {
+      return false;
+    }
+
     const preset = createPresetDefinition(name, committedSettingsRef.current);
     if (!preset.name) {
       return false;
@@ -375,8 +381,8 @@ export default function App() {
       return false;
     }
 
-    const trimmedName = name.trim();
-    if (!trimmedName) {
+    const sanitizedName = sanitizePresetName(name);
+    if (!sanitizedName) {
       return false;
     }
 
@@ -389,7 +395,7 @@ export default function App() {
       updated = true;
       return {
         ...preset,
-        name: trimmedName,
+        name: sanitizedName,
         updatedAt: new Date().toISOString(),
       };
     });

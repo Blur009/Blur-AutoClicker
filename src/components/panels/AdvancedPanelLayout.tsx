@@ -262,13 +262,13 @@ export default function AdvancedPanelLayout({
                   />
                 </div>
                 <div className="simple-seg-group">
-                  {(["Toggle", "Hold"] as const).map((m) => (
+                  {(["Toggle", "Hold"] as const).map((clickModeOption) => (
                     <button
-                      key={m}
-                      className={`simple-seg-btn ${settings.mode === m ? "active" : ""}`}
-                      onClick={() => update({ mode: m })}
+                      key={clickModeOption}
+                      className={`simple-seg-btn ${settings.mode === clickModeOption ? "active" : ""}`}
+                      onClick={() => update({ mode: clickModeOption })}
                     >
-                      {m}
+                      {clickModeOption}
                     </button>
                   ))}
                 </div>
@@ -276,13 +276,13 @@ export default function AdvancedPanelLayout({
               <div className="adv-row" style={{ marginTop: rowSpacing }}>
                 <span className="adv-label">Mouse Button</span>
                 <div className="simple-seg-group">
-                  {MOUSE_BUTTON_OPTIONS.map((button) => (
+                  {MOUSE_BUTTON_OPTIONS.map((mouseButtonOption) => (
                     <button
-                      key={button}
-                      className={`simple-seg-btn ${settings.mouseButton === button ? "active" : ""}`}
-                      onClick={() => update({ mouseButton: button })}
+                      key={mouseButtonOption}
+                      className={`simple-seg-btn ${settings.mouseButton === mouseButtonOption ? "active" : ""}`}
+                      onClick={() => update({ mouseButton: mouseButtonOption })}
                     >
-                      {button}
+                      {mouseButtonOption}
                     </button>
                   ))}
                 </div>
@@ -440,13 +440,13 @@ export default function AdvancedPanelLayout({
                       />
                       </div>
                       <div className="simple-seg-group">
-                        {TIME_LIMIT_UNIT_OPTIONS.map((unit) => (
+                        {TIME_LIMIT_UNIT_OPTIONS.map((timeLimitUnitOption) => (
                           <button
-                            key={unit}
-                            className={`simple-seg-btn ${settings.timeLimitUnit === unit ? "active" : ""}`}
-                            onClick={() => update({ timeLimitUnit: unit })}
+                            key={timeLimitUnitOption}
+                            className={`simple-seg-btn ${settings.timeLimitUnit === timeLimitUnitOption ? "active" : ""}`}
+                            onClick={() => update({ timeLimitUnit: timeLimitUnitOption })}
                           >
-                            {unit}
+                            {timeLimitUnitOption}
                           </button>
                         ))}
                       </div>
@@ -480,13 +480,13 @@ export default function AdvancedPanelLayout({
                     </p>
                   )}
                   <div className="adv-corner-grid">
-                    {(["tl", "tr", "bl", "br"] as const).map((c) => (
-                      <div key={c} className="adv-corner-box">
-                        <div className={`adv-arc adv-arc-${c}`} />
+                    {(["tl", "tr", "bl", "br"] as const).map((cornerKey) => (
+                      <div key={cornerKey} className="adv-corner-box">
+                        <div className={`adv-arc adv-arc-${cornerKey}`} />
                         <NumInput
-                          value={settings[CORNER_KEYS[c]]}
+                          value={settings[CORNER_KEYS[cornerKey]]}
                           onChange={(v) => {
-                            update({ [CORNER_KEYS[c]]: v });
+                            update({ [CORNER_KEYS[cornerKey]]: v });
                           }}
                           min={SETTINGS_LIMITS.stopBoundary.min}
                           max={SETTINGS_LIMITS.stopBoundary.max}
@@ -520,13 +520,13 @@ export default function AdvancedPanelLayout({
                     </p>
                   )}
                   <div className="adv-corner-grid">
-                    {(["top", "right", "left", "bottom"] as const).map((e) => (
-                      <div key={e} className="adv-corner-box">
-                        <div className={`adv-edge-bar adv-edge-bar-${e}`} />
+                    {(["top", "right", "left", "bottom"] as const).map((edgeSide) => (
+                      <div key={edgeSide} className="adv-corner-box">
+                        <div className={`adv-edge-bar adv-edge-bar-${edgeSide}`} />
                         <NumInput
-                          value={settings[EDGE_KEYS[e]]}
+                          value={settings[EDGE_KEYS[edgeSide]]}
                           onChange={(v) => {
-                            update({ [EDGE_KEYS[e]]: v });
+                            update({ [EDGE_KEYS[edgeSide]]: v });
                           }}
                           min={SETTINGS_LIMITS.stopBoundary.min}
                           max={SETTINGS_LIMITS.stopBoundary.max}
@@ -671,13 +671,13 @@ export default function AdvancedPanelLayout({
                 />
               </div>
               <div className="simple-seg-group">
-                {(["Toggle", "Hold"] as const).map((m) => (
+                {(["Toggle", "Hold"] as const).map((clickModeOption) => (
                   <button
-                    key={m}
-                    className={`simple-seg-btn ${settings.mode === m ? "active" : ""}`}
-                    onClick={() => update({ mode: m })}
+                    key={clickModeOption}
+                    className={`simple-seg-btn ${settings.mode === clickModeOption ? "active" : ""}`}
+                    onClick={() => update({ mode: clickModeOption })}
                   >
-                    {m}
+                    {clickModeOption}
                   </button>
                 ))}
               </div>
@@ -685,13 +685,13 @@ export default function AdvancedPanelLayout({
             <div className="adv-row" style={{ marginTop: rowSpacing }}>
               <span className="adv-label">Mouse Button</span>
               <div className="simple-seg-group">
-                {MOUSE_BUTTON_OPTIONS.map((button) => (
+                {MOUSE_BUTTON_OPTIONS.map((mouseButtonOption) => (
                   <button
-                    key={button}
-                    className={`simple-seg-btn ${settings.mouseButton === button ? "active" : ""}`}
-                    onClick={() => update({ mouseButton: button })}
+                    key={mouseButtonOption}
+                    className={`simple-seg-btn ${settings.mouseButton === mouseButtonOption ? "active" : ""}`}
+                    onClick={() => update({ mouseButton: mouseButtonOption })}
                   >
-                    {button}
+                    {mouseButtonOption}
                   </button>
                 ))}
               </div>
@@ -845,13 +845,13 @@ export default function AdvancedPanelLayout({
                       />
                     </div>
                     <div className="simple-seg-group">
-                      {TIME_LIMIT_UNIT_OPTIONS.map((unit) => (
+                      {TIME_LIMIT_UNIT_OPTIONS.map((timeLimitUnitOption) => (
                         <button
-                          key={unit}
-                          className={`simple-seg-btn ${settings.timeLimitUnit === unit ? "active" : ""}`}
-                          onClick={() => update({ timeLimitUnit: unit })}
+                          key={timeLimitUnitOption}
+                          className={`simple-seg-btn ${settings.timeLimitUnit === timeLimitUnitOption ? "active" : ""}`}
+                          onClick={() => update({ timeLimitUnit: timeLimitUnitOption })}
                         >
-                          {unit}
+                          {timeLimitUnitOption}
                         </button>
                       ))}
                     </div>
@@ -928,13 +928,13 @@ export default function AdvancedPanelLayout({
               <Disableable enabled={settings.cornerStopEnabled}>
                 <div className={featureBodyClass}>
                   <div className="adv-corner-grid">
-                    {(["tl", "tr", "bl", "br"] as const).map((c) => (
-                      <div key={c} className="adv-corner-box">
-                        <div className={`adv-arc adv-arc-${c}`} />
+                    {(["tl", "tr", "bl", "br"] as const).map((cornerKey) => (
+                      <div key={cornerKey} className="adv-corner-box">
+                        <div className={`adv-arc adv-arc-${cornerKey}`} />
                         <NumInput
-                          value={settings[CORNER_KEYS[c]]}
+                          value={settings[CORNER_KEYS[cornerKey]]}
                           onChange={(v) => {
-                            update({ [CORNER_KEYS[c]]: v });
+                            update({ [CORNER_KEYS[cornerKey]]: v });
                           }}
                           min={SETTINGS_LIMITS.stopBoundary.min}
                           max={SETTINGS_LIMITS.stopBoundary.max}
@@ -962,13 +962,13 @@ export default function AdvancedPanelLayout({
               <Disableable enabled={settings.edgeStopEnabled}>
                 <div className={featureBodyClass}>
                   <div className="adv-corner-grid">
-                    {(["top", "right", "left", "bottom"] as const).map((e) => (
-                      <div key={e} className="adv-corner-box">
-                        <div className={`adv-edge-bar adv-edge-bar-${e}`} />
+                    {(["top", "right", "left", "bottom"] as const).map((edgeSide) => (
+                      <div key={edgeSide} className="adv-corner-box">
+                        <div className={`adv-edge-bar adv-edge-bar-${edgeSide}`} />
                         <NumInput
-                          value={settings[EDGE_KEYS[e]]}
+                          value={settings[EDGE_KEYS[edgeSide]]}
                           onChange={(v) => {
-                            update({ [EDGE_KEYS[e]]: v });
+                            update({ [EDGE_KEYS[edgeSide]]: v });
                           }}
                           min={SETTINGS_LIMITS.stopBoundary.min}
                           max={SETTINGS_LIMITS.stopBoundary.max}

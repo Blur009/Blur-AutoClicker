@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-shell";
 import {
   DEFAULT_ACCENT_COLOR,
+  MAX_PRESETS,
   PRESET_NAME_MAX_LENGTH,
 } from "../../settingsSchema";
 
@@ -62,6 +63,7 @@ function PresetRow({
   preset,
   isActive,
   isEditing,
+  isConfirmingDelete,
   running,
   renameDraft,
   onRenameDraftChange,
@@ -70,11 +72,14 @@ function PresetRow({
   onCommitRename,
   onApply,
   onUpdatePreset,
-  onDeletePreset,
+  onRequestDelete,
+  onCancelDelete,
+  onConfirmDelete,
 }: {
   preset: PresetDefinition;
   isActive: boolean;
   isEditing: boolean;
+  isConfirmingDelete: boolean;
   running: boolean;
   renameDraft: string;
   onRenameDraftChange: (value: string) => void;
@@ -83,10 +88,15 @@ function PresetRow({
   onCommitRename: () => void;
   onApply: () => void;
   onUpdatePreset: () => void;
-  onDeletePreset: () => void;
+  onRequestDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
 }) {
   return (
-    <div className={`preset-card ${isActive ? "preset-card--active" : ""}`}>
+    <div
+      className={`preset-card ${isActive ? "preset-card--active" : ""}`}
+      data-preset-id={preset.id}
+    >
       <div className="preset-card-head">
         <div className="preset-card-meta">
           {isEditing ? (
@@ -95,6 +105,17 @@ function PresetRow({
               value={renameDraft}
               maxLength={PRESET_NAME_MAX_LENGTH}
               onChange={(event) => onRenameDraftChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onCommitRename();
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  onCancelRename();
+                }
+              }}
+              autoFocus
             />
           ) : (
             <span className="preset-name">{preset.name}</span>
@@ -117,6 +138,19 @@ function PresetRow({
                 Save
               </button>
               <button className="settings-btn-quiet" onClick={onCancelRename}>
+                Cancel
+              </button>
+            </>
+          ) : isConfirmingDelete ? (
+            <>
+              <button
+                className="settings-btn-danger settings-btn-danger--compact"
+                onClick={onConfirmDelete}
+                disabled={running}
+              >
+                Confirm?
+              </button>
+              <button className="settings-btn-quiet" onClick={onCancelDelete}>
                 Cancel
               </button>
             </>
@@ -145,7 +179,7 @@ function PresetRow({
               </button>
               <button
                 className="settings-btn-danger settings-btn-danger--compact"
-                onClick={onDeletePreset}
+                onClick={onRequestDelete}
                 disabled={running}
               >
                 Delete
@@ -178,6 +212,7 @@ export default function SettingsPanel({
   const [newPresetName, setNewPresetName] = useState("");
   const [editingPresetId, setEditingPresetId] = useState<PresetId | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<PresetId | null>(null);
 
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -190,6 +225,31 @@ export default function SettingsPanel({
       .catch(() => setAutostartEnabled(false));
   }, []);
 
+  useEffect(() => {
+    if (!confirmingDeleteId) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const presetCard = target.closest("[data-preset-id]");
+      if (presetCard?.getAttribute("data-preset-id") === confirmingDeleteId) {
+        return;
+      }
+
+      setConfirmingDeleteId(null);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [confirmingDeleteId]);
+
   const handleScroll = () => {
     const el = panelRef.current;
     if (!el) return;
@@ -199,10 +259,12 @@ export default function SettingsPanel({
   const handleSavePreset = () => {
     if (onSavePreset(newPresetName)) {
       setNewPresetName("");
+      setConfirmingDeleteId(null);
     }
   };
 
   const handleStartRename = (preset: PresetDefinition) => {
+    setConfirmingDeleteId(null);
     setEditingPresetId(preset.id);
     setRenameDraft(preset.name);
   };
@@ -218,6 +280,23 @@ export default function SettingsPanel({
     }
   };
 
+  const handleCancelRename = () => {
+    setEditingPresetId(null);
+    setRenameDraft("");
+  };
+
+  const handleRequestDelete = (presetId: PresetId) => {
+    setEditingPresetId(null);
+    setRenameDraft("");
+    setConfirmingDeleteId(presetId);
+  };
+
+  const handleConfirmDelete = (presetId: PresetId) => {
+    if (onDeletePreset(presetId)) {
+      setConfirmingDeleteId(null);
+    }
+  };
+
   const handleAlwaysOnTopChange = (nextValue: boolean) => {
     if (settings.alwaysOnTop === nextValue) {
       return;
@@ -227,6 +306,9 @@ export default function SettingsPanel({
   };
 
   const hasStats = stats !== null && stats.totalSessions > 0;
+  const presetLimitReached = settings.presets.length >= MAX_PRESETS;
+  const activeEditingPresetId = running ? null : editingPresetId;
+  const activeConfirmingDeleteId = running ? null : confirmingDeleteId;
 
   return (
     <div className="settings-wrapper">
@@ -545,16 +627,37 @@ export default function SettingsPanel({
               value={newPresetName}
               maxLength={PRESET_NAME_MAX_LENGTH}
               onChange={(event) => setNewPresetName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  if (!running && !presetLimitReached && newPresetName.trim()) {
+                    handleSavePreset();
+                  }
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setNewPresetName("");
+                }
+              }}
               disabled={running}
             />
             <button
               className="settings-btn-primary"
               onClick={handleSavePreset}
-              disabled={running || newPresetName.trim().length === 0}
+              disabled={
+                running ||
+                presetLimitReached ||
+                newPresetName.trim().length === 0
+              }
             >
               Save New
             </button>
           </div>
+          {presetLimitReached && (
+            <span className="settings-note">
+              Preset limit reached. Delete one before saving another.
+            </span>
+          )}
           {running && (
             <span className="settings-note">
               Preset actions are disabled while the clicker is running.
@@ -567,25 +670,25 @@ export default function SettingsPanel({
                   key={preset.id}
                   preset={preset}
                   isActive={settings.activePresetId === preset.id}
-                  isEditing={editingPresetId === preset.id}
+                  isEditing={activeEditingPresetId === preset.id}
+                  isConfirmingDelete={activeConfirmingDeleteId === preset.id}
                   running={running}
-                  renameDraft={editingPresetId === preset.id ? renameDraft : preset.name}
+                  renameDraft={activeEditingPresetId === preset.id ? renameDraft : preset.name}
                   onRenameDraftChange={setRenameDraft}
                   onStartRename={() => handleStartRename(preset)}
-                  onCancelRename={() => {
-                    setEditingPresetId(null);
-                    setRenameDraft("");
-                  }}
+                  onCancelRename={handleCancelRename}
                   onCommitRename={handleCommitRename}
                   onApply={() => {
+                    setConfirmingDeleteId(null);
                     onApplyPreset(preset.id);
                   }}
                   onUpdatePreset={() => {
+                    setConfirmingDeleteId(null);
                     onUpdatePreset(preset.id);
                   }}
-                  onDeletePreset={() => {
-                    onDeletePreset(preset.id);
-                  }}
+                  onRequestDelete={() => handleRequestDelete(preset.id)}
+                  onCancelDelete={() => setConfirmingDeleteId(null)}
+                  onConfirmDelete={() => handleConfirmDelete(preset.id)}
                 />
               ))}
             </div>
