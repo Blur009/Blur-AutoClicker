@@ -13,6 +13,12 @@ interface Props {
   onContextMenu?: (e: React.MouseEvent<HTMLInputElement>) => void;
 }
 
+// Bare modifier presses can't serve as the auto-press key — stripping the
+// modifier flags in captureHotkey would pass "ctrl"/"shift"/"alt"/"meta"
+// through, and the backend parse_hotkey_main_key rejects those, leaving
+// keyboardKey in an unusable state. Ignore them and stay in listening mode.
+const MODIFIER_KEYS = new Set(["Control", "Shift", "Alt", "Meta"]);
+
 export default function KeyCaptureInput({
   value,
   onChange,
@@ -62,6 +68,9 @@ export default function KeyCaptureInput({
       event.currentTarget.blur();
       return;
     }
+
+    // Ignore bare modifier presses — user is still in the middle of picking a key.
+    if (MODIFIER_KEYS.has(event.key)) return;
 
     // Capture without modifiers — we only want the main key
     const captured = captureHotkey({

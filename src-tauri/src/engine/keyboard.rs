@@ -1,27 +1,34 @@
 use std::time::Duration;
 
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE,
-    MapVirtualKeyW, MAPVK_VK_TO_VSC,
+    SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
+    KEYEVENTF_SCANCODE, MapVirtualKeyW, MAPVK_VK_TO_VSC_EX,
 };
 
 use super::worker::{sleep_interruptible, RunControl};
 
 #[inline]
-fn vk_to_scan(vk: u16) -> u16 {
-    unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC) as u16 }
+fn vk_to_scan(vk: u16) -> (u16, bool) {
+    // MAPVK_VK_TO_VSC_EX returns the scan code in the low byte and, for
+    // extended keys (arrows, Ins/Del/Home/End/PgUp/PgDn, numpad Enter, etc.),
+    // a 0xE0/0xE1 prefix byte in the high byte. A non-zero high byte means
+    // KEYEVENTF_EXTENDEDKEY must be set so apps that key off the extended
+    // bit (or use raw input) see the correct key.
+    let raw = unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC_EX) };
+    ((raw & 0xFF) as u16, (raw >> 8) != 0)
 }
 
 #[inline]
 pub fn make_keyboard_input(vk: u16, flags: u32) -> INPUT {
-    let scan = vk_to_scan(vk);
+    let (scan, extended) = vk_to_scan(vk);
+    let ext_flag = if extended { KEYEVENTF_EXTENDEDKEY } else { 0 };
     INPUT {
         r#type: INPUT_KEYBOARD,
         Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
             ki: KEYBDINPUT {
                 wVk: vk,
                 wScan: scan,
-                dwFlags: flags | KEYEVENTF_SCANCODE,
+                dwFlags: flags | KEYEVENTF_SCANCODE | ext_flag,
                 time: 0,
                 dwExtraInfo: 0,
             },
