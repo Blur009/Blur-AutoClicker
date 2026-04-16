@@ -1,0 +1,52 @@
+.unavailable-reason {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.unavailable-reason--block {
+  display: block;
+}
+
+.unavailable-reason-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: min(260px, calc(100vw - 48px));
+  padding: 8px 10px;
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg-surface) 92%, black 8%);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  color: var(--text-primary);
+  font-family: 'DMSans', sans-serif;
+  font-size: 11px;
+  font-weight: var(--font-weight-md);
+  line-height: 1.35;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 30;
+}
+
+.unavailable-reason-tooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 8px;
+  height: 8px;
+  background: color-mix(in srgb, var(--bg-surface) 92%, black 8%);
+  border-right: 1px solid var(--border-focus);
+  border-bottom: 1px solid var(--border-focus);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.unavailable-reason:hover .unavailable-reason-tooltip,
+.unavailable-reason:focus-within .unavailable-reason-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
