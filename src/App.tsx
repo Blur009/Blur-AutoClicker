@@ -13,11 +13,71 @@ import {
   DEFAULT_SETTINGS,
   type AppInfo,
   type ClickerStatus,
+  type CustomThemeColors,
   type Settings,
   clearSavedSettings,
   loadSettings,
   saveSettings,
 } from "./store";
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const clean = hex.replace("#", "");
+  const full = clean.length === 3
+    ? clean.split("").map((c) => c + c).join("")
+    : clean;
+  if (full.length !== 6) return null;
+  const n = parseInt(full, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return "#" + [r, g, b].map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+}
+
+function lighten(hex: string, pct: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const [r, g, b] = rgb;
+  return rgbToHex(r + (255 - r) * pct, g + (255 - g) * pct, b + (255 - b) * pct);
+}
+
+const CUSTOM_THEME_VARS = [
+  "--bg-base", "--bg-surface", "--bg-elevated", "--bg-input", "--bg-input-off",
+  "--border", "--border-focus", "--border-subtle",
+  "--text-primary", "--text-muted", "--text-dim",
+  "--accent-green", "--accent-yellow", "--accent-red",
+  "--radius-sm", "--radius-md", "--radius-lg",
+  "--container-shadow", "--divider-color", "--status-success", "--status-error",
+];
+
+function clearCustomTheme(root: HTMLElement) {
+  for (const v of CUSTOM_THEME_VARS) root.style.removeProperty(v);
+}
+
+function applyCustomTheme(root: HTMLElement, c: CustomThemeColors) {
+  const bg = c.bgBase;
+  root.style.setProperty("--bg-base", bg);
+  root.style.setProperty("--bg-surface", c.bgSurface ?? lighten(bg, 0.05));
+  root.style.setProperty("--bg-elevated", c.bgElevated ?? lighten(bg, 0.10));
+  root.style.setProperty("--bg-input", c.bgInput ?? lighten(bg, 0.20));
+  root.style.setProperty("--bg-input-off", c.bgInputOff ?? lighten(bg, 0.15));
+  root.style.setProperty("--border", c.border ?? lighten(bg, 0.28));
+  root.style.setProperty("--border-focus", c.borderFocus ?? lighten(bg, 0.35));
+  root.style.setProperty("--border-subtle", c.borderSubtle ?? lighten(bg, 0.20));
+  root.style.setProperty("--text-primary", c.textPrimary);
+  root.style.setProperty("--text-muted", c.textMuted ?? c.textPrimary + "80");
+  root.style.setProperty("--text-dim", c.textDim ?? c.textPrimary + "40");
+  root.style.setProperty("--accent-green", c.accentGreen);
+  root.style.setProperty("--accent-yellow", c.accentYellow);
+  root.style.setProperty("--accent-red", c.accentRed);
+  root.style.setProperty("--radius-sm", c.radiusSm ?? "0.375rem");
+  root.style.setProperty("--radius-md", c.radiusMd ?? "0.625rem");
+  root.style.setProperty("--radius-lg", c.radiusLg ?? "0.875rem");
+  root.style.setProperty("--container-shadow", c.containerShadow ?? "0 2px 0.5rem rgba(0,0,0,0.3)");
+  root.style.setProperty("--divider-color", c.dividerColor ?? "rgba(255,255,255,0.25)");
+  root.style.setProperty("--status-success", c.statusSuccess ?? c.accentGreen);
+  root.style.setProperty("--status-error", c.statusError ?? c.accentRed);
+}
 
 const SimplePanel = lazy(() => import("./components/panels/SimplePanel"));
 const AdvancedPanel = lazy(() => import("./components/panels/AdvancedPanel"));
@@ -408,8 +468,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = settings.theme ?? "dark";
-  }, [settings.theme]);
+    const root = document.documentElement;
+    if (settings.theme === "custom") {
+      root.removeAttribute("data-theme");
+      applyCustomTheme(root, settings.customTheme);
+    } else {
+      clearCustomTheme(root);
+      root.dataset.theme = settings.theme ?? "dark";
+    }
+  }, [settings.theme, settings.customTheme]);
 
   const handleTabChange = (nextTab: Tab) => {
     setTab(nextTab);

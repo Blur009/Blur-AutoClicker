@@ -7,7 +7,31 @@ export const APP_VERSION = await getVersion();
 
 export type SavedPanel = "simple" | "advanced";
 export type ExplanationMode = "off" | "text";
-export type Theme = "dark" | "light";
+export type Theme = "dark" | "light" | "custom";
+
+export interface CustomThemeColors {
+  bgBase: string;
+  textPrimary: string;
+  accentGreen: string;
+  accentYellow: string;
+  accentRed: string;
+  bgSurface?: string;
+  bgElevated?: string;
+  bgInput?: string;
+  bgInputOff?: string;
+  border?: string;
+  borderFocus?: string;
+  borderSubtle?: string;
+  textMuted?: string;
+  textDim?: string;
+  radiusSm?: string;
+  radiusMd?: string;
+  radiusLg?: string;
+  containerShadow?: string;
+  dividerColor?: string;
+  statusSuccess?: string;
+  statusError?: string;
+}
 
 export interface Settings {
   version: string;
@@ -48,6 +72,8 @@ export interface Settings {
   showStopOverlay: boolean;
   strictHotkeyModifiers: boolean;
   theme: Theme;
+  customTheme: CustomThemeColors;
+  customThemeMode: "basic" | "advanced";
 }
 
 export interface ClickerStatus {
@@ -102,6 +128,14 @@ export const DEFAULT_SETTINGS: Settings = {
   showStopOverlay: true,
   strictHotkeyModifiers: false,
   theme: "dark",
+  customTheme: {
+    bgBase: "#121212",
+    textPrimary: "#f9fefe",
+    accentGreen: "hsla(129, 77%, 43%, 0.75)",
+    accentYellow: "hsla(41, 99%, 59%, 0.75)",
+    accentRed: "hsla(4, 100%, 71%, 0.75)",
+  },
+  customThemeMode: "basic",
 };
 
 function sanitizeSavedPanel(value: unknown): SavedPanel {
@@ -234,7 +268,38 @@ function sanitizeSettings(input?: Partial<Settings> | null): Settings {
     disableScreenshots: false,
     explanationMode: sanitizeExplanationMode(saved),
     lastPanel: sanitizeSavedPanel(saved.lastPanel),
-    theme: saved.theme === "light" ? "light" : "dark",
+    theme: saved.theme === "light" ? "light" : saved.theme === "custom" ? "custom" : "dark",
+    customTheme: sanitizeCustomThemeColors(saved.customTheme),
+    customThemeMode: saved.customThemeMode === "advanced" ? "advanced" : "basic",
+  };
+}
+
+function sanitizeCustomThemeColors(input: unknown): CustomThemeColors {
+  const c = (typeof input === "object" && input !== null ? input : {}) as Partial<CustomThemeColors>;
+  const isHex = (v: unknown) => typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v);
+  const isColor = (v: unknown) => typeof v === "string" && v.trim().length > 0;
+  return {
+    bgBase: isHex(c.bgBase) ? c.bgBase! : DEFAULT_SETTINGS.customTheme.bgBase,
+    textPrimary: isColor(c.textPrimary) ? c.textPrimary! : DEFAULT_SETTINGS.customTheme.textPrimary,
+    accentGreen: isColor(c.accentGreen) ? c.accentGreen! : DEFAULT_SETTINGS.customTheme.accentGreen,
+    accentYellow: isColor(c.accentYellow) ? c.accentYellow! : DEFAULT_SETTINGS.customTheme.accentYellow,
+    accentRed: isColor(c.accentRed) ? c.accentRed! : DEFAULT_SETTINGS.customTheme.accentRed,
+    ...(isColor(c.bgSurface) && { bgSurface: c.bgSurface }),
+    ...(isColor(c.bgElevated) && { bgElevated: c.bgElevated }),
+    ...(isColor(c.bgInput) && { bgInput: c.bgInput }),
+    ...(isColor(c.bgInputOff) && { bgInputOff: c.bgInputOff }),
+    ...(isColor(c.border) && { border: c.border }),
+    ...(isColor(c.borderFocus) && { borderFocus: c.borderFocus }),
+    ...(isColor(c.borderSubtle) && { borderSubtle: c.borderSubtle }),
+    ...(isColor(c.textMuted) && { textMuted: c.textMuted }),
+    ...(isColor(c.textDim) && { textDim: c.textDim }),
+    ...(isColor(c.radiusSm) && { radiusSm: c.radiusSm }),
+    ...(isColor(c.radiusMd) && { radiusMd: c.radiusMd }),
+    ...(isColor(c.radiusLg) && { radiusLg: c.radiusLg }),
+    ...(isColor(c.containerShadow) && { containerShadow: c.containerShadow }),
+    ...(isColor(c.dividerColor) && { dividerColor: c.dividerColor }),
+    ...(isColor(c.statusSuccess) && { statusSuccess: c.statusSuccess }),
+    ...(isColor(c.statusError) && { statusError: c.statusError }),
   };
 }
 

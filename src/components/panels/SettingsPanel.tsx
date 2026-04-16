@@ -1,8 +1,10 @@
 import "./SettingsPanel.css";
-import type { AppInfo, Settings } from "../../store";
+import type { AppInfo, Settings, Theme } from "../../store";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useRef, useState } from "react";
+import { lazy, useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-shell";
+
+const CustomThemeEditor = lazy(() => import("../CustomThemeEditor"));
 
 interface CumulativeStats {
   totalClicks: number;
@@ -87,7 +89,11 @@ export default function SettingsPanel({
               <img
                 height="28"
                 style={{ border: 0, height: "28px" }}
-                src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
+                src={
+                  settings.theme === "light"
+                    ? "https://storage.ko-fi.com/cdn/kofi1.png?v=6"
+                    : "https://storage.ko-fi.com/cdn/kofi3.png?v=6"
+                }
                 alt="Buy Me a Coffee at ko-fi.com"
               />
             </a>
@@ -279,23 +285,29 @@ export default function SettingsPanel({
           <div className="settings-label-group">
             <span className="settings-label">Theme</span>
             <span className="settings-sublabel">
-              Switch between Dark and light themes.
+              Switch between Dark, Light, or create a Custom theme.
             </span>
           </div>
           <div className="settings-seg-group">
-            {(["Dark", "Light"] as const).map((o) => (
+            {(["Dark", "Light", "Custom"] as const).map((o) => (
               <button
                 key={o}
-                className={`settings-seg-btn ${(settings.theme === "light" ? "Light" : "Dark") === o ? "active" : ""}`}
-                onClick={() =>
-                  update({ theme: o.toLowerCase() as "dark" | "light" })
-                }
+                className={`settings-seg-btn ${settings.theme === o.toLowerCase() ? "active" : ""}`}
+                onClick={() => update({ theme: o.toLowerCase() as Theme })}
               >
                 {o}
               </button>
             ))}
           </div>
         </div>
+        {settings.theme === "custom" && (
+          <CustomThemeEditor
+            colors={settings.customTheme}
+            mode={settings.customThemeMode ?? "basic"}
+            onColorsChange={(c) => update({ customTheme: c })}
+            onModeChange={(m) => update({ customThemeMode: m })}
+          />
+        )}
         <div className="settings-divider" />
         <div className="settings-row">
           <div className="settings-label-group">

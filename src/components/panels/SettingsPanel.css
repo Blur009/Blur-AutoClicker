@@ -207,14 +207,15 @@
   width: 114px;
   height: 30px;
   border-radius: 10px;
-  border: 1px solid var(--border-subtle);
+  border: none;
+  background: transparent;
 }
 
 .social-icon--kofi:hover {
-  color: #72A5F2;
   outline: 2px solid #72A5F2;
-  background: #202020;
+  background: transparent;
 }
+
 
 .social-icon--patreon:hover {
   color: #FF424D;
