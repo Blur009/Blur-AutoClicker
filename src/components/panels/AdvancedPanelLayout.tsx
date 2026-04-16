@@ -1,6 +1,7 @@
 import "./Modes.css";
 import {
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type ChangeEvent,
@@ -176,6 +177,9 @@ export default function AdvancedPanelLayout({
   const rowSpacing = compact ? 6 : 8;
   const cardBodyClass = `adv-card-body ${compact ? "adv-card-body-compact" : ""}`;
   const featureBodyClass = `adv-feature-body ${compact ? "adv-feature-body-compact" : ""}`;
+  const clampDoubleClickDelay = useEffectEvent((maxDelay: number) => {
+    update({ doubleClickDelay: maxDelay });
+  });
 
   useEffect(() => {
     const max = maxDoubleClickDelayMs(
@@ -183,9 +187,13 @@ export default function AdvancedPanelLayout({
       settings.clickInterval,
     );
     if (settings.doubleClickDelay > max) {
-      update({ doubleClickDelay: max });
+      clampDoubleClickDelay(max);
     }
-  }, [settings.clickSpeed, settings.clickInterval]);
+  }, [
+    settings.clickInterval,
+    settings.clickSpeed,
+    settings.doubleClickDelay,
+  ]);
 
   const showDesc = (text: string) =>
     showExplanations ? <p className="adv-desc">{text}</p> : null;
@@ -417,26 +425,26 @@ export default function AdvancedPanelLayout({
                 <span className="adv-card-title">Time Limit</span>
                 <div className="adv-row" style={{ gap: 6 }}>
                   <Disableable enabled={settings.timeLimitEnabled}>
-                    <div className="adv-numbox-sm">
-                      <NumInput
-                        value={settings.timeLimit}
-                        onChange={(v) => update({ timeLimit: v })}
-                        min={1}
-                        style={{ width: "38px", textAlign: "right" }}
-                      />
-                    </div>
-                  </Disableable>
-                  <Disableable enabled={settings.timeLimitEnabled}>
-                    <div className="simple-seg-group">
-                      {(["s", "m", "h"] as const).map((u) => (
-                        <button
-                          key={u}
-                          className={`simple-seg-btn ${settings.timeLimitUnit === u ? "active" : ""}`}
-                          onClick={() => update({ timeLimitUnit: u })}
-                        >
-                          {u}
-                        </button>
-                      ))}
+                    <div className="adv-row" style={{ gap: 6 }}>
+                      <div className="adv-numbox-sm">
+                        <NumInput
+                          value={settings.timeLimit}
+                          onChange={(v) => update({ timeLimit: v })}
+                          min={1}
+                          style={{ width: "38px", textAlign: "right" }}
+                        />
+                      </div>
+                      <div className="simple-seg-group">
+                        {(["s", "m", "h"] as const).map((u) => (
+                          <button
+                            key={u}
+                            className={`simple-seg-btn ${settings.timeLimitUnit === u ? "active" : ""}`}
+                            onClick={() => update({ timeLimitUnit: u })}
+                          >
+                            {u}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </Disableable>
                   <ToggleBtn

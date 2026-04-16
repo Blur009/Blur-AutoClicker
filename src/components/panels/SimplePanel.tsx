@@ -156,7 +156,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           <div className="faderbox">
             <HotkeyCaptureInput
               className="simple-hotkey-input"
-              style={{ width: isShortHotkey ? "80px" : "120px" }}
+              style={{ width: isShortHotkey ? "90px" : "130px" }}
               value={settings.hotkey}
               onChange={(hotkey) => update({ hotkey })}
             />
@@ -248,6 +248,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
 
         <div className="InputBox">
           <div className="muted">Hold</div>
+          <div className="vertical-devider" />
           <input
             type="number"
             title="How long the mouse button gets held down during each click"
@@ -286,6 +287,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
 
         <div className="InputBox">
           <div className="muted">Randomization</div>
+          <div className="vertical-devider" />
           <input
             type="number"
             title="Randomly changes clicks speed in % range of set CPS"

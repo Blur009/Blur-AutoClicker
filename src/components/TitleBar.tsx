@@ -1,9 +1,11 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import React, { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Tab } from "../App";
 import "./TitleBar.css";
 
 const appWindow = getCurrentWindow();
+const DEFAULT_TITLE = "BlurAutoClicker";
+
 const handleMinimize = async () => await appWindow.minimize();
 
 interface Props {
@@ -25,6 +27,18 @@ type TabItem = {
   label: string;
   color: string;
   icon: (props: TabIconProps) => React.ReactNode;
+};
+
+type TitleViewState = {
+  text: string;
+  flipClass: string;
+  isReason: boolean;
+};
+
+const DEFAULT_TITLE_STATE: TitleViewState = {
+  text: DEFAULT_TITLE,
+  flipClass: "",
+  isReason: false,
 };
 
 const TAB_ITEMS: readonly TabItem[] = [
@@ -81,67 +95,6 @@ export default function TitleBar({
   onRequestClose,
 }: Props) {
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
-  const [titleText, setTitleText] = useState("BlurAutoClicker");
-  const [flipClass, setFlipClass] = useState("");
-  const [isReason, setIsReason] = useState(false);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  const clearTimers = () => {
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current = [];
-  };
-
-  const later = (fn: () => void, ms: number) => {
-    timersRef.current.push(setTimeout(fn, ms));
-  };
-
-  useEffect(() => {
-    clearTimers();
-
-    if (running) {
-      setTitleText("BlurAutoClicker");
-      setIsReason(false);
-      setFlipClass("");
-      return () => clearTimers();
-    }
-
-    if (stopReason) {
-      requestAnimationFrame(() => {
-        setFlipClass("flip-out");
-
-        later(() => {
-          setTitleText(stopReason);
-          setIsReason(true);
-          setFlipClass("");
-          requestAnimationFrame(() => {
-            setFlipClass("flip-in");
-            later(() => setFlipClass(""), 350);
-          });
-
-          later(() => {
-            requestAnimationFrame(() => {
-              setFlipClass("flip-out");
-              later(() => {
-                setTitleText("BlurAutoClicker");
-                setIsReason(false);
-                setFlipClass("");
-                requestAnimationFrame(() => {
-                  setFlipClass("flip-in");
-                  later(() => setFlipClass(""), 350);
-                });
-              }, 350);
-            });
-          }, 5000);
-        }, 400);
-      });
-    } else {
-      setTitleText("BlurAutoClicker");
-      setIsReason(false);
-      setFlipClass("");
-    }
-
-    return () => clearTimers();
-  }, [stopReason, running]);
 
   const toggleAlwaysOnTop = async () => {
     try {
@@ -165,7 +118,6 @@ export default function TitleBar({
       data-tauri-drag-region
       data-running={running}
     >
-      {/* Leftmost settings icon + mode tabs */}
       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
         <button
           className="settings-button"
@@ -205,16 +157,10 @@ export default function TitleBar({
         </div>
       </div>
 
-      {/* Center: title with flip */}
       <div className="title-wrapper">
-        <span
-          className={`window-title title-flipper ${flipClass} ${isReason ? "is-reason" : ""}`}
-        >
-          {titleText}
-        </span>
+        <AnimatedTitle running={running} stopReason={stopReason} />
       </div>
 
-      {/* Right: window controls */}
       <div
         style={
           {
@@ -276,6 +222,86 @@ export default function TitleBar({
         }
       `}</style>
     </div>
+  );
+}
+
+function AnimatedTitle({
+  running,
+  stopReason,
+}: Pick<Props, "running" | "stopReason">) {
+  const [titleState, setTitleState] = useState(DEFAULT_TITLE_STATE);
+  const frameIdsRef = useRef<number[]>([]);
+  const timeoutIdsRef = useRef<number[]>([]);
+
+  const clearScheduledWork = () => {
+    frameIdsRef.current.forEach((id) => window.cancelAnimationFrame(id));
+    timeoutIdsRef.current.forEach((id) => window.clearTimeout(id));
+    frameIdsRef.current = [];
+    timeoutIdsRef.current = [];
+  };
+
+  const queueFrame = (fn: () => void) => {
+    const id = window.requestAnimationFrame(fn);
+    frameIdsRef.current.push(id);
+  };
+
+  const queueDelay = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timeoutIdsRef.current.push(id);
+  };
+
+  useEffect(() => {
+    clearScheduledWork();
+
+    if (running || !stopReason) {
+      queueFrame(() => {
+        setTitleState(DEFAULT_TITLE_STATE);
+      });
+      return clearScheduledWork;
+    }
+
+    queueFrame(() => {
+      setTitleState((current) => ({ ...current, flipClass: "flip-out" }));
+      queueDelay(() => {
+        setTitleState({
+          text: stopReason,
+          isReason: true,
+          flipClass: "",
+        });
+
+        queueFrame(() => {
+          setTitleState((current) => ({ ...current, flipClass: "flip-in" }));
+          queueDelay(() => {
+            setTitleState((current) => ({ ...current, flipClass: "" }));
+          }, 350);
+        });
+
+        queueDelay(() => {
+          queueFrame(() => {
+            setTitleState((current) => ({ ...current, flipClass: "flip-out" }));
+            queueDelay(() => {
+              setTitleState(DEFAULT_TITLE_STATE);
+              queueFrame(() => {
+                setTitleState((current) => ({ ...current, flipClass: "flip-in" }));
+                queueDelay(() => {
+                  setTitleState((current) => ({ ...current, flipClass: "" }));
+                }, 350);
+              });
+            }, 350);
+          });
+        }, 5000);
+      }, 400);
+    });
+
+    return clearScheduledWork;
+  }, [running, stopReason]);
+
+  return (
+    <span
+      className={`window-title title-flipper ${titleState.flipClass} ${titleState.isReason ? "is-reason" : ""}`}
+    >
+      {titleState.text}
+    </span>
   );
 }
 

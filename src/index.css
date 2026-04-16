@@ -27,6 +27,50 @@
   --radius-sm:     6px;
   --radius-md:     10px;
   --radius-lg:     14px;
+
+  --container-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  --font-weight-li: 400;
+  --font-weight-md: 600;
+  --font-weight-hv: 800;
+
+  --divider-color: rgba(255, 255, 255, 0.25);
+
+  --update-banner-bg: hsl(42, 50%, 23%);
+  --update-banner-text-fg: hsl(0, 0%, 100%);
+  --update-banner-text-bg: hsl(0, 0%, 80%);
+}
+
+[data-theme="light"] {
+  --bg-base:       hsl(0, 0%, 100%);
+  --bg-surface:    hsl(0, 0%, 100%);
+  --bg-elevated:   hsl(0, 0%, 95%);
+  --bg-input:      hsl(0, 0%, 75%);
+  --bg-input-off:  hsl(0, 0%, 86%);
+
+  --border:        hsl(0, 0%, 50%);
+  --border-focus:  hsl(0, 0%, 45%);
+  --border-subtle: hsl(0, 0%, 75%);
+
+  --text-primary:  hsla(0, 0%, 0%, 1);
+  --text-muted:    hsla(0, 0%, 0%, 0.85);
+  --text-dim:      hsla(0, 0%, 0%, 0.65);
+
+  --accent-green:  hsla(129, 77%, 30%, 0.9);
+  --accent-yellow: hsla(41, 99%, 35%, 0.9);
+  --accent-red:    hsla(4, 100%, 45%, 0.9);
+
+  --container-shadow: none;
+
+  --font-weight-li: 600;
+  --font-weight-md: 700;
+  --font-weight-hv: 800;
+
+  --divider-color: rgba(0, 0, 0, 0.18);
+
+  --update-banner-bg: rgba(254, 188, 46, 0.747);
+  --update-banner-text-fg: hsl(0, 0%, 0%);
+  --update-banner-text-bg: hsl(0, 0%, 15%);
 }
 
 * {

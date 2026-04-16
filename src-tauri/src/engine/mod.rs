@@ -4,7 +4,7 @@ pub mod rng;
 pub mod stats;
 pub mod worker;
 use std::sync::atomic::AtomicI64;
-pub use worker::{sleep_interruptible, start_clicker};
+pub use worker::start_clicker;
 
 #[derive(Clone, Copy, Debug)]
 pub struct ClickerConfig {
@@ -16,6 +16,7 @@ pub struct ClickerConfig {
     pub button: i32,
     pub double_click_enabled: bool,
     pub double_click_delay_ms: u32,
+    pub position_enabled: bool,
     pub pos_x: i32,
     pub pos_y: i32,
     pub offset: f64,

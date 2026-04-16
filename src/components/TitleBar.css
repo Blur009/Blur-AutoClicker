@@ -27,7 +27,7 @@ button{
 
 .window-title {
   font-family: var(--font-main);
-  font-weight: 600;
+  font-weight: var(--font-weight-hv);
   font-size: 16px;
   color: var(--text-muted);
   letter-spacing: -4%;

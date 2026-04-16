@@ -27,7 +27,7 @@
 .simple-label {
   font-family: 'DMSans', sans-serif;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: var(--font-weight-md);
   letter-spacing: -0.02em;
   color: var(--text-muted);
   white-space: nowrap;
@@ -52,14 +52,14 @@
 .simple-number {
   font-family: 'DMSans', sans-serif;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: var(--font-weight-md);
   color: var(--text-primary);
 }
 
 .simple-unit {
   font-family: 'DMSans', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--font-weight-hv);
   letter-spacing: -0.02em;
   color: var(--text-dim);
 }
@@ -72,7 +72,7 @@
 .simple-hotkey-text {
   font-family: 'DMSans', sans-serif;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: var(--font-weight-md);
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -91,7 +91,7 @@
 .simple-seg-btn {
   font-family: 'DMSans', sans-serif;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: var(--font-weight-md);
   line-height: 18px;
   padding: 4px 12px;
   background: transparent;
@@ -274,7 +274,7 @@ input[type="number"]::-webkit-outer-spin-button {
   padding: 10px 12px;
   margin-bottom: 10px;
   flex: 1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--container-shadow);
 }
 
 .adv-basic-card {
@@ -352,7 +352,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .adv-card-title {
   font-family: 'DMSans', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--font-weight-hv);
   color: var(--text-primary);
   letter-spacing: -2%;
   min-width: 0;
@@ -370,7 +370,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .adv-desc {
   font-family: 'DMSans', sans-serif;
   font-size: 11px;
-  font-weight: 400;
+  font-weight: var(--font-weight-li);
   color: var(--text-dim);
   line-height: 1.5;
   letter-spacing: 2%;
@@ -385,7 +385,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .adv-label {
   font-family: 'DMSans', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--font-weight-hv);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -393,7 +393,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .adv-label-sm {
   font-family: 'DMSans', sans-serif;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--font-weight-hv);
   color: var(--text-dim);
   white-space: nowrap;
 }
@@ -420,21 +420,21 @@ input[type="number"]::-webkit-outer-spin-button {
 .adv-number {
   font-family: 'DMSans', sans-serif;
   font-size: 1px;
-  font-weight: 600;
+  font-weight: var(--font-weight-hv);
   color: var(--text-primary);
 }
 
 .adv-number-sm {
   font-family: 'DMSans', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--font-weight-hv);
   color: var(--text-primary);
 }
 
 .adv-unit {
   font-family: 'DMSans', sans-serif;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: var(--font-weight-hv);
   letter-spacing: 5%;
   color: var(--text-dim);
   margin-left: 1px;
@@ -455,7 +455,7 @@ input[type="number"]::-webkit-outer-spin-button {
   font-size: 16px;
   line-height: 18px;
   padding: 2px 10px;
-  font-weight: 500;
+  font-weight: var(--font-weight-md);
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -576,7 +576,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .adv-pick-btn {
   font-family: 'DMSans', sans-serif;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: var(--font-weight-hv);
   padding: 4px 8px;
   background: transparent;
   border: 1px solid var(--border-subtle);

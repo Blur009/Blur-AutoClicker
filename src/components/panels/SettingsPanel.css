@@ -40,7 +40,7 @@
 .settings-label {
   font-family: 'DMSans', sans-serif;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: var(--font-weight-md);
   letter-spacing: -0.02em;
   color: var(--text);
 }
@@ -56,14 +56,14 @@
 .settings-sublabel {
   font-family: 'DMSans', sans-serif;
   font-size: 12px;
-  font-weight: 400;
+  font-weight: var(--font-weight-li);
   color: var(--text-muted);
 }
 
 .settings-value {
   font-family: 'DMSans', sans-serif;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--font-weight-md);
   color: var(--text-muted);
 }
 
@@ -84,7 +84,7 @@
 .settings-seg-btn {
   font-family: 'DMSans', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--font-weight-md);
   padding: 5px 12px;
   background: transparent;
   border: none;
@@ -111,7 +111,7 @@
 .settings-btn-danger {
   font-family: 'DMSans', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--font-weight-md);
   padding: 5px 14px;
   background: transparent;
   border: 1px solid var(--border-subtle);
@@ -198,9 +198,9 @@
 }
 
 .social-icon--github:hover {
-  color: #f0f6fc;
-  border-color: rgba(240, 246, 252, 0.35);
-  background: rgba(240, 246, 252, 0.08);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+  background: var(--bg-elevated);
 }
 
 .social-icon--kofi:hover {
@@ -237,16 +237,17 @@
 }
 
 .stats-cell-label {
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: var(--font-weight-md);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-dim);
 }
 
 .stats-cell-value {
   font-size: 16px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  font-weight: var(--font-weight-md);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -254,15 +255,15 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-dim);
   padding: 8px 0 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border-subtle);
   margin-top: 4px;
 }
 
 .stats-empty {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-dim);
   padding: 12px 0;
   text-align: center;
 }

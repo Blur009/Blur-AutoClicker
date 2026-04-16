@@ -217,7 +217,7 @@ export default function SettingsPanel({
               </div>
               <div className="stats-cell">
                 <span className="stats-cell-label">
-                  CPU Usage avg (while running)
+                  CPU Usage avg
                 </span>
                 <span className="stats-cell-value">
                   {formatCpu(stats.avgCpu)}
@@ -275,6 +275,26 @@ export default function SettingsPanel({
           </div>
         </div>
 
+        <div className="settings-divider" />
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Theme</span>
+            <span className="settings-sublabel">
+              Switch between Dark and light themes.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {(["Dark", "Light"] as const).map((o) => (
+              <button
+                key={o}
+                className={`settings-seg-btn ${(settings.theme === "light" ? "Light" : "Dark") === o ? "active" : ""}`}
+                onClick={() => update({ theme: o.toLowerCase() as "dark" | "light" })}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="settings-divider" />
         <div className="settings-row">
           <div className="settings-label-group">

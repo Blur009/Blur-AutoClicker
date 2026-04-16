@@ -30,6 +30,11 @@
             border-color: rgba(128, 128, 128, 0.5);
             border-style: dashed;
         }
+        .zone-monitor {
+            background: transparent;
+            border-color: rgba(255, 255, 255, 0.28);
+            border-style: solid;
+        }
         #overlay-container {
             width: 100%;
             height: 100%;
@@ -80,28 +85,79 @@
 
             const sw = data.screenWidth;
             const sh = data.screenHeight;
+            const monitors = Array.isArray(data.monitors) && data.monitors.length > 0
+                ? data.monitors
+                : [{ x: 0, y: 0, width: sw, height: sh }];
 
+            for (const monitor of monitors) {
+                addZone(monitor.x, monitor.y, monitor.width, monitor.height, 'zone-monitor');
+            }
+
+            for (const monitor of monitors) {
+                renderMonitorZones(monitor, data);
+            }
+        }
+
+        function renderMonitorZones(monitor, data) {
             if (data.edgeStopEnabled) {
                 const cTL = data.cornerStopEnabled ? data.cornerStopTL : 0;
                 const cTR = data.cornerStopEnabled ? data.cornerStopTR : 0;
                 const cBL = data.cornerStopEnabled ? data.cornerStopBL : 0;
                 const cBR = data.cornerStopEnabled ? data.cornerStopBR : 0;
 
-                // Top edge
-                addZone(cTL, 0, sw - cTL - cTR, data.edgeStopTop, 'zone-edge');
-                // Bottom edge
-                addZone(cBL, sh - data.edgeStopBottom, sw - cBL - cBR, data.edgeStopBottom, 'zone-edge');
-                // Left edge
-                addZone(0, cTL, data.edgeStopLeft, sh - cTL - cBL, 'zone-edge');
-                // Right edge
-                addZone(sw - data.edgeStopRight, cTR, data.edgeStopRight, sh - cTR - cBR, 'zone-edge');
+                addZone(
+                    monitor.x + cTL,
+                    monitor.y,
+                    monitor.width - cTL - cTR,
+                    data.edgeStopTop,
+                    'zone-edge'
+                );
+                addZone(
+                    monitor.x + cBL,
+                    monitor.y + monitor.height - data.edgeStopBottom,
+                    monitor.width - cBL - cBR,
+                    data.edgeStopBottom,
+                    'zone-edge'
+                );
+                addZone(
+                    monitor.x,
+                    monitor.y + cTL,
+                    data.edgeStopLeft,
+                    monitor.height - cTL - cBL,
+                    'zone-edge'
+                );
+                addZone(
+                    monitor.x + monitor.width - data.edgeStopRight,
+                    monitor.y + cTR,
+                    data.edgeStopRight,
+                    monitor.height - cTR - cBR,
+                    'zone-edge'
+                );
             }
 
             if (data.cornerStopEnabled) {
-                addZone(0, 0, data.cornerStopTL, data.cornerStopTL, 'zone-corner');
-                addZone(sw - data.cornerStopTR, 0, data.cornerStopTR, data.cornerStopTR, 'zone-corner');
-                addZone(0, sh - data.cornerStopBL, data.cornerStopBL, data.cornerStopBL, 'zone-corner');
-                addZone(sw - data.cornerStopBR, sh - data.cornerStopBR, data.cornerStopBR, data.cornerStopBR, 'zone-corner');
+                addZone(monitor.x, monitor.y, data.cornerStopTL, data.cornerStopTL, 'zone-corner');
+                addZone(
+                    monitor.x + monitor.width - data.cornerStopTR,
+                    monitor.y,
+                    data.cornerStopTR,
+                    data.cornerStopTR,
+                    'zone-corner'
+                );
+                addZone(
+                    monitor.x,
+                    monitor.y + monitor.height - data.cornerStopBL,
+                    data.cornerStopBL,
+                    data.cornerStopBL,
+                    'zone-corner'
+                );
+                addZone(
+                    monitor.x + monitor.width - data.cornerStopBR,
+                    monitor.y + monitor.height - data.cornerStopBR,
+                    data.cornerStopBR,
+                    data.cornerStopBR,
+                    'zone-corner'
+                );
             }
         }
 
