@@ -1,0 +1,102 @@
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  border-radius: var(--radius-md);
+  animation: confirm-dialog-fade-in 0.15s ease-out;
+}
+
+.confirm-dialog {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px 16px;
+  width: min(360px, calc(100% - 40px));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: confirm-dialog-pop-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.confirm-dialog-title {
+  font-family: 'DMSans', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.confirm-dialog-message {
+  font-family: 'DMSans', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.confirm-dialog-btn {
+  font-family: 'DMSans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.confirm-dialog-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.confirm-dialog-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirm-dialog-btn--cancel {
+  color: var(--text-muted);
+}
+
+.confirm-dialog-btn--cancel:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border-color: var(--border);
+}
+
+.confirm-dialog-btn--danger {
+  color: var(--accent-red);
+}
+
+.confirm-dialog-btn--danger:hover:not(:disabled) {
+  background: rgba(255, 115, 106, 0.1);
+  border-color: var(--accent-red);
+}
+
+@keyframes confirm-dialog-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes confirm-dialog-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

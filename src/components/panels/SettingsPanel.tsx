@@ -3,6 +3,9 @@ import type { AppInfo, Settings } from "../../store";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-shell";
+import ConfirmDialog from "../ConfirmDialog";
+
+type PendingAction = "reset-settings" | "clear-stats" | null;
 
 interface CumulativeStats {
   totalClicks: number;
@@ -49,7 +52,8 @@ export default function SettingsPanel({
   onReset,
 }: Props) {
   const [resetting, setResetting] = useState(false);
-  // const [resettingStats, setResettingStats] = useState(false);
+  const [resettingStats, setResettingStats] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [stats, setStats] = useState<CumulativeStats | null>(null);
   const [atBottom, setAtBottom] = useState(false);
 
@@ -68,6 +72,29 @@ export default function SettingsPanel({
   };
 
   const hasStats = stats !== null && stats.totalSessions > 0;
+
+  const handleConfirmResetSettings = async () => {
+    setResetting(true);
+    try {
+      await onReset();
+    } finally {
+      setResetting(false);
+      setPendingAction(null);
+    }
+  };
+
+  const handleConfirmClearStats = async () => {
+    setResettingStats(true);
+    try {
+      const next = await invoke<CumulativeStats>("reset_stats");
+      setStats(next);
+    } catch {
+      // swallow — failure leaves stats unchanged
+    } finally {
+      setResettingStats(false);
+      setPendingAction(null);
+    }
+  };
 
   return (
     <div className="settings-wrapper">
@@ -185,18 +212,13 @@ export default function SettingsPanel({
               Your personal clicker stats, tracked locally.
             </span>
           </div>
-          {/* <button
+          <button
             className="settings-btn-danger"
-            onClick={() => {
-              setResettingStats(true);
-              invoke<CumulativeStats>("reset_stats")
-                .then(setStats)
-                .finally(() => setResettingStats(false));
-            }}
+            onClick={() => setPendingAction("clear-stats")}
+            disabled={resettingStats || !hasStats}
           >
             {resettingStats ? "Clearing..." : "Clear"}
-          </button> */}
-          {/* TODO: BUTTON DISABLED FOR NOW UNTIL I MAKE A CONFIRMATION PROMPT */}
+          </button>
         </div>
         {hasStats ? (
           <>
@@ -285,10 +307,8 @@ export default function SettingsPanel({
           </div>
           <button
             className="settings-btn-danger"
-            onClick={() => {
-              setResetting(true);
-              onReset().finally(() => setResetting(false));
-            }}
+            onClick={() => setPendingAction("reset-settings")}
+            disabled={resetting}
           >
             {resetting ? "Resetting..." : "Reset"}
           </button>
@@ -297,6 +317,24 @@ export default function SettingsPanel({
       <div
         className={`settings-fade ${atBottom ? "settings-fade--hidden" : ""}`}
       ></div>
+      <ConfirmDialog
+        open={pendingAction === "reset-settings"}
+        title="Reset all settings?"
+        message="All inputs, hotkeys, and preferences will return to their defaults. This can't be undone."
+        confirmLabel="Reset"
+        busy={resetting}
+        onConfirm={handleConfirmResetSettings}
+        onCancel={() => setPendingAction(null)}
+      />
+      <ConfirmDialog
+        open={pendingAction === "clear-stats"}
+        title="Clear usage data?"
+        message="Your total clicks, session count, time spent clicking, and CPU averages will be permanently erased."
+        confirmLabel="Clear"
+        busy={resettingStats}
+        onConfirm={handleConfirmClearStats}
+        onCancel={() => setPendingAction(null)}
+      />
     </div>
   );
 }
