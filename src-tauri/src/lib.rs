@@ -103,7 +103,7 @@ pub fn run() {
                     Ok(Some(result)) => {
                         if result.update_available {
                             log::info!(
-                                "[Updates] Update available: {} → {}",
+                                "[Updates] Update available: {} -> {}",
                                 result.current_version,
                                 result.latest_version
                             );

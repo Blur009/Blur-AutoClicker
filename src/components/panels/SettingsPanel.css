@@ -1,7 +1,8 @@
 .settings-panel {
   display: flex;
   flex-direction: column;
-  padding: 0.25rem 1.25rem;
+  gap: 0.25rem;
+  padding: 0.25rem 1.25rem 1rem;
   height: 100%;
   overflow-y: auto;
 }
@@ -12,11 +13,11 @@
   border-radius: 0.5rem;
 }
 
-
 .settings-panel::-webkit-scrollbar-thumb {
   background: var(--text-dim);
   border-radius: 0.25rem;
 }
+
 .settings-panel::-webkit-scrollbar-thumb:hover {
   background: #777;
 }
@@ -30,6 +31,11 @@
   padding: 0.75rem 0;
 }
 
+.settings-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .settings-divider {
   width: 100%;
   height: 1px;
@@ -38,7 +44,7 @@
 }
 
 .settings-label {
-  font-family: 'DMSans', sans-serif;
+  font-family: var(--font-family-base);
   font-size: 1rem;
   font-weight: var(--font-weight-md);
   letter-spacing: -0.02em;
@@ -54,21 +60,21 @@
 }
 
 .settings-sublabel {
-  font-family: 'DMSans', sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.75rem;
   font-weight: var(--font-weight-li);
   color: var(--text-muted);
 }
 
 .settings-value {
-  font-family: 'DMSans', sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.875rem;
   font-weight: var(--font-weight-md);
   color: var(--text-muted);
 }
 
-.settings-value--green {
-  color: var(--accent-green);
+.settings-value--mono {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
 .settings-seg-group {
@@ -82,7 +88,7 @@
 }
 
 .settings-seg-btn {
-  font-family: 'DMSans', sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.875rem;
   font-weight: var(--font-weight-md);
   padding: 0.3125rem 0.75rem;
@@ -108,22 +114,73 @@
   cursor: not-allowed;
 }
 
-.settings-btn-danger {
-  font-family: 'DMSans', sans-serif;
+.settings-btn-primary,
+.settings-btn-secondary,
+.settings-btn-danger,
+.settings-btn-quiet {
+  font-family: var(--font-family-base);
   font-size: 0.875rem;
   font-weight: var(--font-weight-md);
-  padding: 0.3125rem 0.875rem;
+  padding: 0.4375rem 0.75rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.settings-btn-primary {
+  background: var(--accent-green-soft);
+  border: 1px solid var(--accent-green-ring);
+  color: var(--accent-green-strong);
+}
+
+.settings-btn-primary:hover {
+  background: var(--accent-green-soft);
+  border-color: var(--accent-green);
+}
+
+.settings-btn-secondary,
+.settings-btn-quiet,
+.settings-btn-danger {
   background: transparent;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+}
+
+.settings-btn-secondary {
+  color: var(--text-primary);
+}
+
+.settings-btn-secondary:hover,
+.settings-btn-quiet:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-focus);
+}
+
+.settings-btn-quiet {
+  color: var(--text-muted);
+}
+
+.settings-btn-danger {
   color: var(--accent-red);
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .settings-btn-danger:hover {
   background: rgba(255, 115, 106, 0.1);
   border-color: var(--accent-red);
+}
+
+.settings-btn-danger--compact {
+  padding-inline: 10px;
+}
+
+.settings-btn-primary:disabled,
+.settings-btn-secondary:disabled,
+.settings-btn-danger:disabled,
+.settings-btn-quiet:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .settings-wrapper {
@@ -140,14 +197,138 @@
   height: 10vb;
   background: linear-gradient(to bottom, transparent, var(--bg-base));
   pointer-events: none;
-}
-
-.settings-fade {
   transition: opacity 0.3s ease;
 }
 
 .settings-fade--hidden {
   opacity: 0;
+}
+
+.settings-note {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.settings-color-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.settings-color-picker {
+  width: 40px;
+  height: 40px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  cursor: pointer;
+}
+
+.settings-color-picker input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.preset-compose {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preset-name-input,
+.preset-rename-input {
+  min-width: 0;
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.preset-name-input::placeholder,
+.preset-rename-input::placeholder {
+  color: var(--text-dim);
+}
+
+.preset-name-input:focus,
+.preset-rename-input:focus {
+  border-color: var(--accent-green-ring);
+}
+
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  padding: 12px;
+}
+
+.preset-card--active {
+  border-color: var(--accent-green-ring);
+  box-shadow: inset 0 0 0 1px var(--accent-green-soft);
+}
+
+.preset-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.preset-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.preset-name {
+  font-size: 15px;
+  font-weight: var(--font-weight-md);
+  color: var(--text-primary);
+}
+
+.preset-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preset-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg-input);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: var(--font-weight-md);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.preset-badge--active {
+  background: var(--accent-green-soft);
+  color: var(--accent-green-strong);
+}
+
+.preset-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 /* -- Social Links -- */
@@ -211,17 +392,16 @@
 }
 
 .social-icon--kofi:hover {
-  color: #72A5F2;
-  outline: 2px solid #72A5F2;
+  color: #72a5f2;
+  border-color: #72a5f2;
   background: #202020;
 }
 
 .social-icon--patreon:hover {
-  color: #FF424D;
+  color: #ff424d;
   border-color: rgba(255, 66, 77, 0.4);
   background: rgba(255, 66, 77, 0.08);
 }
-
 
 /* -- Usage Stats -- */
 
@@ -236,6 +416,7 @@
   gap: 0.25rem 1rem;
   padding: 0.25rem 0 0.5rem;
 }
+
 
 .stats-cell {
   display: flex;
@@ -267,6 +448,7 @@
   border-top: 1px solid var(--border-subtle);
   margin-top: 0.25rem;
 }
+
 
 .stats-empty {
   font-size: 0.75rem;

@@ -33,10 +33,10 @@
 }
 
 .window-title-background[data-running="true"] .window-title {
-  color: #9ae7ae;
+  color: var(--accent-green-strong);
   text-shadow:
-    0 0 0.625rem rgba(74, 222, 128, 0.2),
-    0 0 1.125rem rgba(74, 222, 128, 0.12);
+    0 0 10px var(--accent-green-glow-1),
+    0 0 18px var(--accent-green-glow-2);
 }
 
 .settings-button {
@@ -150,12 +150,12 @@
 }
 
 .window-btn.active {
-  color: var(--accent-green);
+  color: var(--accent-green-strong);
   /* background: rgba(255, 255, 255, 0.08); */
 }
 
 .window-btn.active:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--accent-green-soft);
 }
 
 /* -- Title Flip Animation -- */

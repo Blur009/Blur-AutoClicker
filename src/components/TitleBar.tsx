@@ -1,18 +1,28 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import type { Tab } from "../App";
 import "./TitleBar.css";
 
 const appWindow = getCurrentWindow();
 const DEFAULT_TITLE = "BlurAutoClicker";
 
-const handleMinimize = async () => await appWindow.minimize();
+async function handleMinimize() {
+  await appWindow.minimize();
+}
 
 interface Props {
   tab: Tab;
   setTab: (t: Tab) => void;
   running: boolean;
   stopReason?: string | null;
+  isAlwaysOnTop: boolean;
+  onToggleAlwaysOnTop: () => Promise<void>;
   onRequestClose: () => Promise<void>;
 }
 
@@ -26,7 +36,7 @@ type TabItem = {
   value: NavTab;
   label: string;
   color: string;
-  icon: (props: TabIconProps) => React.ReactNode;
+  icon: (props: TabIconProps) => ReactNode;
 };
 
 type TitleViewState = {
@@ -92,20 +102,10 @@ export default function TitleBar({
   setTab,
   running,
   stopReason,
+  isAlwaysOnTop,
+  onToggleAlwaysOnTop,
   onRequestClose,
 }: Props) {
-  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
-
-  const toggleAlwaysOnTop = async () => {
-    try {
-      const newState = !isAlwaysOnTop;
-      await appWindow.setAlwaysOnTop(newState);
-      setIsAlwaysOnTop(newState);
-    } catch (err) {
-      console.error("Failed to set always on top:", err);
-    }
-  };
-
   return (
     <div
       className="window-title-background"
@@ -113,7 +113,7 @@ export default function TitleBar({
         {
           WebkitAppRegion: "drag",
           WebkitUserSelect: "none",
-        } as React.CSSProperties
+        } as CSSProperties
       }
       data-tauri-drag-region
       data-running={running}
@@ -123,7 +123,7 @@ export default function TitleBar({
           className="settings-button"
           data-active={tab === "settings"}
           onClick={() => setTab("settings")}
-          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+          style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
         >
           <svg
             className="settings-svg"
@@ -168,11 +168,13 @@ export default function TitleBar({
             alignItems: "center",
             gap: "4px",
             WebkitAppRegion: "no-drag",
-          } as React.CSSProperties
+          } as CSSProperties
         }
       >
         <WindowBtn
-          onClick={toggleAlwaysOnTop}
+          onClick={() => {
+            void onToggleAlwaysOnTop();
+          }}
           active={isAlwaysOnTop}
           title={isAlwaysOnTop ? "Disable Always on Top" : "Enable Always on Top"}
           label={
@@ -193,16 +195,22 @@ export default function TitleBar({
           }
         />
         <WindowBtn
-          onClick={handleMinimize}
+          onClick={() => {
+            void handleMinimize();
+          }}
           label={
             <svg width="10" height="2" viewBox="0 0 10 2" fill="none">
               <rect width="10" height="2" fill="currentColor" />
             </svg>
           }
+          title="Minimize"
         />
         <WindowBtn
-          onClick={onRequestClose}
+          onClick={() => {
+            void onRequestClose();
+          }}
           danger
+          title="Close"
           label={
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
               <path
@@ -305,7 +313,7 @@ function TabIconButton({
   onClick,
   color,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
@@ -322,7 +330,7 @@ function TabIconButton({
         {
           "--active-color": color,
           WebkitAppRegion: "no-drag",
-        } as React.CSSProperties
+        } as CSSProperties
       }
     >
       {icon}
@@ -338,7 +346,7 @@ function WindowBtn({
   title,
 }: {
   onClick: () => void;
-  label: React.ReactNode;
+  label: ReactNode;
   danger?: boolean;
   active?: boolean;
   title?: string;

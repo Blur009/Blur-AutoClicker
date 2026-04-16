@@ -1,5 +1,11 @@
 import type { Settings } from "../../store";
 import HotkeyCaptureInput from "../HotkeyCaptureInput";
+import {
+  CLICK_INTERVAL_OPTIONS,
+  MODE_OPTIONS,
+  MOUSE_BUTTON_OPTIONS,
+  SETTINGS_LIMITS,
+} from "../../settingsSchema";
 import "./Modes.css";
 import "./SimplePanel.css";
 // I HATE MAKING UI, FUCK UI DESIGN IN CODE, WHY CANT I JUST PHOTOSHOP THIS SHIT
@@ -8,16 +14,6 @@ interface SimplePanelProps {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
 }
-
-const INTERVAL_OPTIONS = [
-  { value: "s", label: "Second" },
-  { value: "m", label: "Minute" },
-  { value: "h", label: "Hour" },
-  { value: "d", label: "Day" },
-] as const;
-
-const MODE_OPTIONS = ["Toggle", "Hold"] as const;
-const MOUSE_BUTTON_OPTIONS = ["Left", "Middle", "Right"] as const;
 
 export default function SimplePanel({ settings, update }: SimplePanelProps) {
   const normalizeRaw = (raw: string) => raw.replace(/^0+(?=\d)/, "");
@@ -95,12 +91,20 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
                 e.target.value = normalized;
               }
               update({
-                clickSpeed: clamp(parseRawNumber(normalized), 1, 500),
+                clickSpeed: clamp(
+                  parseRawNumber(normalized),
+                  SETTINGS_LIMITS.clickSpeed.min,
+                  SETTINGS_LIMITS.clickSpeed.max,
+                ),
               });
             }}
             onWheel={(e) =>
-              handleWheelStep(e, settings.clickSpeed, 1, 500, (next) =>
-                update({ clickSpeed: next }),
+              handleWheelStep(
+                e,
+                settings.clickSpeed,
+                SETTINGS_LIMITS.clickSpeed.min,
+                SETTINGS_LIMITS.clickSpeed.max,
+                (next) => update({ clickSpeed: next }),
               )
             }
           />
@@ -114,7 +118,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
               cycleWithClick(e, () =>
                 update({
                   clickInterval: cycleOption(
-                    INTERVAL_OPTIONS.map((o) => o.value),
+                    CLICK_INTERVAL_OPTIONS.map((o) => o.value),
                     settings.clickInterval,
                     1,
                   ),
@@ -125,7 +129,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
               cycleWithClick(e, () =>
                 update({
                   clickInterval: cycleOption(
-                    INTERVAL_OPTIONS.map((o) => o.value),
+                    CLICK_INTERVAL_OPTIONS.map((o) => o.value),
                     settings.clickInterval,
                     -1,
                   ),
@@ -133,7 +137,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
               )
             }
           >
-            {INTERVAL_OPTIONS.find((o) => o.value === settings.clickInterval)
+            {CLICK_INTERVAL_OPTIONS.find((o) => o.value === settings.clickInterval)
               ?.label ?? "Second"}
           </button>
           <svg
@@ -273,12 +277,20 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
                 e.target.value = normalized;
               }
               update({
-                dutyCycle: clamp(parseRawNumber(normalized), 0, 100),
+                dutyCycle: clamp(
+                  parseRawNumber(normalized),
+                  SETTINGS_LIMITS.dutyCycle.min,
+                  SETTINGS_LIMITS.dutyCycle.max,
+                ),
               });
             }}
             onWheel={(e) =>
-              handleWheelStep(e, settings.dutyCycle, 0, 100, (next) =>
-                update({ dutyCycle: next }),
+              handleWheelStep(
+                e,
+                settings.dutyCycle,
+                SETTINGS_LIMITS.dutyCycle.min,
+                SETTINGS_LIMITS.dutyCycle.max,
+                (next) => update({ dutyCycle: next }),
               )
             }
           />
@@ -312,12 +324,20 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
                 e.target.value = normalized;
               }
               update({
-                speedVariation: clamp(parseRawNumber(normalized), 0, 200),
+                speedVariation: clamp(
+                  parseRawNumber(normalized),
+                  SETTINGS_LIMITS.speedVariation.min,
+                  SETTINGS_LIMITS.speedVariation.max,
+                ),
               });
             }}
             onWheel={(e) =>
-              handleWheelStep(e, settings.speedVariation, 0, 200, (next) =>
-                update({ speedVariation: next }),
+              handleWheelStep(
+                e,
+                settings.speedVariation,
+                SETTINGS_LIMITS.speedVariation.min,
+                SETTINGS_LIMITS.speedVariation.max,
+                (next) => update({ speedVariation: next }),
               )
             }
           />
