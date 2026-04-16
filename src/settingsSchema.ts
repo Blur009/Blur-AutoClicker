@@ -6,6 +6,12 @@ export type SavedPanel = "simple" | "advanced";
 export type ExplanationMode = "off" | "text";
 export type Theme = "dark" | "light";
 export type PresetId = string;
+export type RateInputMode = "rate" | "duration";
+
+export interface SequencePoint {
+  x: number;
+  y: number;
+}
 
 export interface PresetSnapshot {
   clickSpeed: number;
@@ -49,6 +55,17 @@ export interface PresetDefinition {
 export interface Settings extends PresetSnapshot {
   version: string;
   hotkey: string;
+  rateInputMode: RateInputMode;
+  durationMinutes: number;
+  durationSeconds: number;
+  durationMilliseconds: number;
+  sequenceEnabled: boolean;
+  sequencePoints: SequencePoint[];
+  customStopZoneEnabled: boolean;
+  customStopZoneX: number;
+  customStopZoneY: number;
+  customStopZoneWidth: number;
+  customStopZoneHeight: number;
   disableScreenshots: boolean;
   advancedSettingsEnabled: boolean;
   explanationMode: ExplanationMode;
@@ -89,6 +106,10 @@ export const SETTINGS_LIMITS = {
   timeLimit: { min: 1 },
   stopBoundary: { min: 0, max: 999 },
   position: { min: 0 },
+  durationMinutes: { min: 0 },
+  durationSeconds: { min: 0, max: 59 },
+  durationMilliseconds: { min: 0, max: 999 },
+  stopZoneDimension: { min: 1 },
 } as const;
 
 export const PRESET_SNAPSHOT_KEYS = [
@@ -217,6 +238,17 @@ export function createDefaultSettings(version: string): Settings {
     positionEnabled: false,
     positionX: 0,
     positionY: 0,
+    rateInputMode: "rate",
+    durationMinutes: 0,
+    durationSeconds: 0,
+    durationMilliseconds: 40,
+    sequenceEnabled: false,
+    sequencePoints: [],
+    customStopZoneEnabled: false,
+    customStopZoneX: 0,
+    customStopZoneY: 0,
+    customStopZoneWidth: 100,
+    customStopZoneHeight: 100,
     disableScreenshots: false,
     advancedSettingsEnabled: true,
     explanationMode: "text",
@@ -445,6 +477,25 @@ function sanitizePresetSnapshot(
   };
 }
 
+function sanitizeRateInputMode(value: unknown): RateInputMode {
+  return value === "duration" ? "duration" : "rate";
+}
+
+function sanitizeSequencePoints(value: unknown): SequencePoint[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((point) => {
+      if (!point || typeof point !== "object") return null;
+      const candidate = point as Partial<SequencePoint>;
+      const x = typeof candidate.x === "number" && Number.isFinite(candidate.x) ? Math.trunc(candidate.x) : null;
+      const y = typeof candidate.y === "number" && Number.isFinite(candidate.y) ? Math.trunc(candidate.y) : null;
+      if (x === null || y === null) return null;
+      return { x, y };
+    })
+    .filter((point): point is SequencePoint => point !== null);
+}
+
 function sanitizePresets(input: unknown, defaults: Settings): PresetDefinition[] {
   if (!Array.isArray(input)) {
     return [];
@@ -503,6 +554,7 @@ export function sanitizeSettings(
     SETTINGS_LIMITS.speedVariation.max,
   );
   const presets = sanitizePresets(saved.presets, defaults);
+  const sequenceEnabled = sanitizeBoolean(saved.sequenceEnabled, defaults.sequenceEnabled);
 
   return {
     ...defaults,
@@ -619,6 +671,7 @@ export function sanitizeSettings(
       SETTINGS_LIMITS.stopBoundary.min,
       SETTINGS_LIMITS.stopBoundary.max,
     ),
+    positionEnabled: sequenceEnabled ? false : sanitizeBoolean(saved.positionEnabled, defaults.positionEnabled),
     positionX: clampNumber(
       saved.positionX,
       defaults.positionX,
@@ -629,6 +682,17 @@ export function sanitizeSettings(
       defaults.positionY,
       SETTINGS_LIMITS.position.min,
     ),
+    rateInputMode: sanitizeRateInputMode(saved.rateInputMode),
+    durationMinutes: clampNumber(saved.durationMinutes, defaults.durationMinutes, SETTINGS_LIMITS.durationMinutes.min),
+    durationSeconds: clampNumber(saved.durationSeconds, defaults.durationSeconds, SETTINGS_LIMITS.durationSeconds.min, SETTINGS_LIMITS.durationSeconds.max),
+    durationMilliseconds: clampNumber(saved.durationMilliseconds, defaults.durationMilliseconds, SETTINGS_LIMITS.durationMilliseconds.min, SETTINGS_LIMITS.durationMilliseconds.max),
+    sequenceEnabled,
+    sequencePoints: sanitizeSequencePoints(saved.sequencePoints),
+    customStopZoneEnabled: sanitizeBoolean(saved.customStopZoneEnabled, defaults.customStopZoneEnabled),
+    customStopZoneX: clampNumber(saved.customStopZoneX, defaults.customStopZoneX),
+    customStopZoneY: clampNumber(saved.customStopZoneY, defaults.customStopZoneY),
+    customStopZoneWidth: clampNumber(saved.customStopZoneWidth, defaults.customStopZoneWidth, SETTINGS_LIMITS.stopZoneDimension.min),
+    customStopZoneHeight: clampNumber(saved.customStopZoneHeight, defaults.customStopZoneHeight, SETTINGS_LIMITS.stopZoneDimension.min),
     disableScreenshots: false,
     explanationMode: sanitizeExplanationMode(saved),
     lastPanel: sanitizeSavedPanel(saved.lastPanel),

@@ -71,6 +71,13 @@ pub fn show_overlay(app: &AppHandle) -> Result<(), String> {
 
     let settings = state.settings.lock().unwrap();
     let monitors = current_monitor_rects().unwrap_or_else(|| vec![bounds]);
+    let custom_stop_zone = VirtualScreenRect::new(
+        settings.custom_stop_zone_x,
+        settings.custom_stop_zone_y,
+        settings.custom_stop_zone_width.max(1),
+        settings.custom_stop_zone_height.max(1),
+    )
+    .offset_from(bounds);
     let monitor_payload: Vec<_> = monitors
         .into_iter()
         .map(|monitor| {
@@ -96,6 +103,13 @@ pub fn show_overlay(app: &AppHandle) -> Result<(), String> {
             "cornerStopTR": settings.corner_stop_tr,
             "cornerStopBL": settings.corner_stop_bl,
             "cornerStopBR": settings.corner_stop_br,
+            "customStopZoneEnabled": settings.custom_stop_zone_enabled,
+            "customStopZone": {
+                "x": custom_stop_zone.left,
+                "y": custom_stop_zone.top,
+                "width": custom_stop_zone.width,
+                "height": custom_stop_zone.height,
+            },
             "screenWidth": bounds.width,
             "screenHeight": bounds.height,
             "monitors": monitor_payload,

@@ -37,16 +37,20 @@ const AdvancedPanelCompact = lazy(
 
 export type Tab = "simple" | "advanced" | "settings";
 
-const BACKEND_SETTINGS_SCHEMA_VERSION = 6;
+const BACKEND_SETTINGS_SCHEMA_VERSION = 8;
 const OPERATIONAL_SETTING_KEYS = new Set<string>(Object.keys(buildPresetSnapshot(DEFAULT_SETTINGS)));
 
 function getPanelSize(tab: Tab, settings: Settings, hasUpdate: boolean) {
   const extra = hasUpdate ? 30 : 0;
   if (tab === "settings") return { width: 560, height: 720 + extra };
-  if (tab === "simple") return { width: 550, height: 175 + extra };
+  if (tab === "simple") {
+    return settings.rateInputMode === "duration"
+      ? { width: 760, height: 175 + extra }
+      : { width: 640, height: 175 + extra };
+  }
   return settings.explanationMode === "off"
-    ? { width: 600, height: 600 + extra }
-    : { width: 800, height: 650 + extra };
+    ? { width: 860, height: 760 + extra }
+    : { width: 980, height: 860 + extra };
 }
 
 const textScale = await invoke<number>("get_text_scale_factor");
@@ -688,6 +692,7 @@ export default function App() {
       const point = await invoke<{ x: number; y: number }>("pick_position");
       updateSettings({
         positionEnabled: true,
+        sequenceEnabled: false,
         positionX: point.x,
         positionY: point.y,
       });

@@ -84,7 +84,12 @@ pub fn update_settings(
         || old.corner_stop_tl != settings.corner_stop_tl
         || old.corner_stop_tr != settings.corner_stop_tr
         || old.corner_stop_bl != settings.corner_stop_bl
-        || old.corner_stop_br != settings.corner_stop_br;
+        || old.corner_stop_br != settings.corner_stop_br
+        || old.custom_stop_zone_enabled != settings.custom_stop_zone_enabled
+        || old.custom_stop_zone_x != settings.custom_stop_zone_x
+        || old.custom_stop_zone_y != settings.custom_stop_zone_y
+        || old.custom_stop_zone_width != settings.custom_stop_zone_width
+        || old.custom_stop_zone_height != settings.custom_stop_zone_height;
     drop(old);
 
     *state.settings.lock().unwrap() = settings.clone();

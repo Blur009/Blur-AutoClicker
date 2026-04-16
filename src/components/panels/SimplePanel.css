@@ -140,6 +140,34 @@
   margin-left: 0.5rem;
 }
 
+.cadence-box {
+  gap: 8px;
+}
+
+.cadence-mode-group {
+  flex-shrink: 0;
+}
+
+.simple-duration-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.simple-duration-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.simple-duration-chip .postfix {
+  align-self: center;
+  margin-left: 2px;
+}
+
 .simple-cycle-btn:hover {
   color: var(--text-muted);
 }

@@ -1,4 +1,5 @@
 import "./Modes.css";
+import { invoke } from "@tauri-apps/api/core";
 import {
   useEffect,
   useEffectEvent,
@@ -9,9 +10,10 @@ import {
   type FocusEvent,
   type ReactNode,
 } from "react";
-import type { Settings } from "../../store";
+import { getMaxDoubleClickDelayMs } from "../../cadence";
+import type { SequencePoint, Settings } from "../../store";
+import CadenceInput from "../CadenceInput";
 import {
-  CLICK_INTERVAL_OPTIONS,
   MOUSE_BUTTON_OPTIONS,
   SETTINGS_LIMITS,
   TIME_LIMIT_UNIT_OPTIONS,
@@ -24,6 +26,21 @@ interface Props {
   onPickPosition: () => Promise<void>;
   compact: boolean;
   showExplanations: boolean;
+}
+
+interface CursorPoint {
+  x: number;
+  y: number;
+}
+
+function normalizeIntegerRaw(raw: string) {
+  if (raw === "-") {
+    return raw;
+  }
+
+  const negative = raw.startsWith("-");
+  const digits = (negative ? raw.slice(1) : raw).replace(/^0+(?=\d)/, "");
+  return `${negative ? "-" : ""}${digits}`;
 }
 
 function ToggleBtn({
@@ -96,16 +113,16 @@ function NumInput({
   const ref = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/^0+(?=\d)/, "");
+    const raw = normalizeIntegerRaw(e.target.value);
     if (raw !== e.target.value) {
       e.target.value = raw;
     }
-    const val = raw === "" ? 0 : Number(raw);
+    const val = raw === "" || raw === "-" ? 0 : Number(raw);
     onChange(val);
   };
 
   const handleBlur = (e: FocusEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/^0+(?=\d)/, "");
+    const raw = normalizeIntegerRaw(e.target.value);
     if (raw !== e.target.value) {
       e.target.value = raw;
     }
@@ -141,6 +158,29 @@ function CardDivider() {
   return <div className="adv-card-divider" />;
 }
 
+function ActionButton({
+  children,
+  onClick,
+  disabled = false,
+}: {
+  children: ReactNode;
+  onClick: () => void | Promise<void>;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className="adv-secondary-btn"
+      onClick={() => {
+        void onClick();
+      }}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  );
+}
+
 const CORNER_KEYS = {
   tl: "cornerStopTL",
   tr: "cornerStopTR",
@@ -155,21 +195,6 @@ const EDGE_KEYS = {
   bottom: "edgeStopBottom",
 } as const;
 
-function maxDoubleClickDelayMs(
-  clickSpeed: number,
-  clickInterval: string,
-): number {
-  const cps =
-    clickInterval === "m"
-      ? Math.min(clickSpeed / 60, 50)
-      : clickInterval === "h"
-        ? Math.min(clickSpeed / 3600, 50)
-        : clickInterval === "d"
-          ? Math.min(clickSpeed / 86400, 50)
-          : Math.min(clickSpeed, 50);
-  return cps > 0 ? Math.floor(1000 / cps) - 2 : 9999;
-}
-
 export default function AdvancedPanelLayout({
   settings,
   update,
@@ -179,6 +204,7 @@ export default function AdvancedPanelLayout({
 }: Props) {
   const [pickingPosition, setPickingPosition] = useState(false);
   const [pickCountdown, setPickCountdown] = useState<number | null>(null);
+  const [capturingCursor, setCapturingCursor] = useState(false);
   const rowSpacing = compact ? 6 : 8;
   const cardBodyClass = `adv-card-body ${compact ? "adv-card-body-compact" : ""}`;
   const featureBodyClass = `adv-feature-body ${compact ? "adv-feature-body-compact" : ""}`;
@@ -187,21 +213,119 @@ export default function AdvancedPanelLayout({
   });
 
   useEffect(() => {
-    const max = maxDoubleClickDelayMs(
-      settings.clickSpeed,
-      settings.clickInterval,
-    );
+    const max = getMaxDoubleClickDelayMs(settings);
     if (settings.doubleClickDelay > max) {
       clampDoubleClickDelay(max);
     }
-  }, [
-    settings.clickInterval,
-    settings.clickSpeed,
-    settings.doubleClickDelay,
-  ]);
+  }, [settings, settings.doubleClickDelay]);
 
   const showDesc = (text: string) =>
     showExplanations ? <p className="adv-desc">{text}</p> : null;
+
+  const requestCursorPosition = async (): Promise<CursorPoint> => {
+    setCapturingCursor(true);
+    try {
+      return await invoke<CursorPoint>("pick_position");
+    } finally {
+      setCapturingCursor(false);
+    }
+  };
+
+  const updateSequencePoint = (
+    index: number,
+    patch: Partial<SequencePoint>,
+  ) => {
+    const nextPoints = settings.sequencePoints.map((point, pointIndex) =>
+      pointIndex === index ? { ...point, ...patch } : point,
+    );
+    update({ sequencePoints: nextPoints });
+  };
+
+  const moveSequencePoint = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= settings.sequencePoints.length) {
+      return;
+    }
+
+    const nextPoints = [...settings.sequencePoints];
+    const [point] = nextPoints.splice(index, 1);
+    nextPoints.splice(nextIndex, 0, point);
+    update({ sequencePoints: nextPoints });
+  };
+
+  const deleteSequencePoint = (index: number) => {
+    const nextPoints = settings.sequencePoints.filter(
+      (_, pointIndex) => pointIndex !== index,
+    );
+    update({ sequencePoints: nextPoints });
+  };
+
+  const addCurrentCursorToSequence = async () => {
+    const point = await requestCursorPosition();
+    update({
+      positionEnabled: false,
+      sequenceEnabled: true,
+      sequencePoints: [...settings.sequencePoints, point],
+    });
+  };
+
+  const setCustomStopZoneTopLeft = async () => {
+    const point = await requestCursorPosition();
+    update({
+      customStopZoneX: point.x,
+      customStopZoneY: point.y,
+    });
+  };
+
+  const setCustomStopZoneBottomRight = async () => {
+    const point = await requestCursorPosition();
+    update({
+      customStopZoneWidth: Math.max(1, point.x - settings.customStopZoneX + 1),
+      customStopZoneHeight: Math.max(1, point.y - settings.customStopZoneY + 1),
+    });
+  };
+
+  const renderSequencePoints = () => (
+    <div className="adv-sequence-list">
+      {settings.sequencePoints.length === 0 ? (
+        <div className="adv-sequence-empty">No sequence points saved yet.</div>
+      ) : (
+        settings.sequencePoints.map((point, index) => (
+          <div key={`${index}:${point.x}:${point.y}`} className="adv-sequence-item">
+            <span className="adv-sequence-index">{index + 1}</span>
+            <div className="adv-numbox-sm adv-sequence-coord">
+              <span className="adv-unit adv-axis-label">X</span>
+              <NumInput
+                value={point.x}
+                onChange={(value) => updateSequencePoint(index, { x: value })}
+                style={{ width: "54px", textAlign: "right" }}
+              />
+            </div>
+            <div className="adv-numbox-sm adv-sequence-coord">
+              <span className="adv-unit adv-axis-label">Y</span>
+              <NumInput
+                value={point.y}
+                onChange={(value) => updateSequencePoint(index, { y: value })}
+                style={{ width: "54px", textAlign: "right" }}
+              />
+            </div>
+            <div className="adv-sequence-actions">
+              <ActionButton onClick={() => moveSequencePoint(index, -1)} disabled={index === 0}>
+                Up
+              </ActionButton>
+              <ActionButton
+                onClick={() => moveSequencePoint(index, 1)}
+                disabled={index === settings.sequencePoints.length - 1}
+              >
+                Down
+              </ActionButton>
+              <ActionButton onClick={() => deleteSequencePoint(index)}>Delete</ActionButton>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
 
   const handlePickPosition = async () => {
     setPickingPosition(true);
@@ -224,28 +348,7 @@ export default function AdvancedPanelLayout({
         <div className="advanced-columns">
           <div className="advanced-col">
             <div className="sectioncontainer adv-basic-card">
-              <div className="adv-row">
-                <div className="adv-numbox-sm">
-                  <NumInput
-                        value={settings.clickSpeed}
-                        onChange={(v) => update({ clickSpeed: v })}
-                        min={SETTINGS_LIMITS.clickSpeed.min}
-                        max={SETTINGS_LIMITS.clickSpeed.max}
-                      />
-                    </div>
-                <span className="adv-label">Clicks Per</span>
-                <div className="simple-seg-group">
-                  {CLICK_INTERVAL_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      className={`simple-seg-btn ${settings.clickInterval === option.value ? "active" : ""}`}
-                      onClick={() => update({ clickInterval: option.value })}
-                    >
-                      {option.value}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <CadenceInput settings={settings} update={update} variant="advanced" />
               <div className="adv-row" style={{ marginTop: rowSpacing }}>
                 <span className="adv-label">Hotkey</span>
                 <div className="adv-textbox">
@@ -348,17 +451,7 @@ export default function AdvancedPanelLayout({
                 <ToggleBtn
                   value={settings.doubleClickEnabled}
                   onChange={(v) => update({ doubleClickEnabled: v })}
-                  disabled={
-                    settings.clickInterval === "s"
-                      ? settings.clickSpeed > 49
-                      : settings.clickInterval === "m"
-                        ? settings.clickSpeed / 60 > 49
-                        : settings.clickInterval === "h"
-                          ? settings.clickSpeed / 3600 > 49
-                          : settings.clickInterval === "d"
-                            ? settings.clickSpeed / 86400 > 49
-                            : settings.clickSpeed > 49
-                  }
+                  disabled={getMaxDoubleClickDelayMs(settings) <= 20}
                 />
               </div>
               <CardDivider />
@@ -383,10 +476,7 @@ export default function AdvancedPanelLayout({
                         value={settings.doubleClickDelay}
                         onChange={(v) => update({ doubleClickDelay: v })}
                         min={20}
-                        max={maxDoubleClickDelayMs(
-                          settings.clickSpeed,
-                          settings.clickInterval,
-                        )}
+                        max={getMaxDoubleClickDelayMs(settings)}
                       />
                       <span className="adv-unit">ms</span>
                     </div>
@@ -545,7 +635,12 @@ export default function AdvancedPanelLayout({
                 <span className="adv-card-title">Position</span>
                 <ToggleBtn
                   value={settings.positionEnabled}
-                  onChange={(v) => update({ positionEnabled: v })}
+                  onChange={(v) =>
+                    update({
+                      positionEnabled: v,
+                      sequenceEnabled: v ? false : settings.sequenceEnabled,
+                    })
+                  }
                 />
               </div>
               <CardDivider />
@@ -622,6 +717,118 @@ export default function AdvancedPanelLayout({
                 </div>
               </Disableable>
             </div>
+
+            <div className="sectioncontainer">
+              <div className="adv-card-header">
+                <span className="adv-card-title">Sequence Clicking</span>
+                <ToggleBtn
+                  value={settings.sequenceEnabled}
+                  onChange={(v) =>
+                    update({
+                      sequenceEnabled: v,
+                      positionEnabled: v ? false : settings.positionEnabled,
+                    })
+                  }
+                />
+              </div>
+              <CardDivider />
+              <Disableable enabled={settings.sequenceEnabled}>
+                <div className="adv-sequence-body">
+                  {showExplanations && (
+                    <p className="adv-desc" style={{ flex: 1 }}>
+                      Cycles through saved cursor positions in round-robin order,
+                      applying the current global timing and click settings at
+                      each point.
+                    </p>
+                  )}
+                  <div className="adv-sequence-controls">
+                    <div className="adv-sequence-toolbar">
+                      <ActionButton
+                        onClick={addCurrentCursorToSequence}
+                        disabled={capturingCursor}
+                      >
+                        Add Current Cursor
+                      </ActionButton>
+                    </div>
+                    {renderSequencePoints()}
+                  </div>
+                </div>
+              </Disableable>
+            </div>
+
+            <div className="sectioncontainer">
+              <div className="adv-card-header">
+                <span className="adv-card-title">Custom Stop Zone</span>
+                <ToggleBtn
+                  value={settings.customStopZoneEnabled}
+                  onChange={(v) => update({ customStopZoneEnabled: v })}
+                />
+              </div>
+              <CardDivider />
+              <Disableable enabled={settings.customStopZoneEnabled}>
+                <div className="adv-stop-zone-body">
+                  {showExplanations && (
+                    <p className="adv-desc" style={{ flex: 1 }}>
+                      Stops the clicker when the cursor enters this rectangular
+                      area, using absolute screen coordinates that can span
+                      multiple monitors.
+                    </p>
+                  )}
+                  <div className="adv-stop-zone-controls">
+                    <div className="adv-stop-zone-grid">
+                      <div className="adv-numbox-sm adv-sequence-coord">
+                        <span className="adv-unit adv-axis-label">X</span>
+                        <NumInput
+                          value={settings.customStopZoneX}
+                          onChange={(v) => update({ customStopZoneX: v })}
+                          style={{ width: "54px", textAlign: "right" }}
+                        />
+                      </div>
+                      <div className="adv-numbox-sm adv-sequence-coord">
+                        <span className="adv-unit adv-axis-label">Y</span>
+                        <NumInput
+                          value={settings.customStopZoneY}
+                          onChange={(v) => update({ customStopZoneY: v })}
+                          style={{ width: "54px", textAlign: "right" }}
+                        />
+                      </div>
+                      <div className="adv-numbox-sm adv-sequence-coord">
+                        <span className="adv-unit">W</span>
+                        <NumInput
+                          value={settings.customStopZoneWidth}
+                          onChange={(v) => update({ customStopZoneWidth: v })}
+                          min={1}
+                          style={{ width: "54px", textAlign: "right" }}
+                        />
+                      </div>
+                      <div className="adv-numbox-sm adv-sequence-coord">
+                        <span className="adv-unit">H</span>
+                        <NumInput
+                          value={settings.customStopZoneHeight}
+                          onChange={(v) => update({ customStopZoneHeight: v })}
+                          min={1}
+                          style={{ width: "54px", textAlign: "right" }}
+                        />
+                      </div>
+                    </div>
+                    <div className="adv-sequence-actions adv-stop-zone-actions">
+                      <ActionButton
+                        onClick={setCustomStopZoneTopLeft}
+                        disabled={capturingCursor}
+                      >
+                        Set Top-Left
+                      </ActionButton>
+                      <ActionButton
+                        onClick={setCustomStopZoneBottomRight}
+                        disabled={capturingCursor}
+                      >
+                        Set Bottom-Right
+                      </ActionButton>
+                    </div>
+                  </div>
+                </div>
+              </Disableable>
+            </div>
           </div>
         </div>
       </div>
@@ -633,28 +840,7 @@ export default function AdvancedPanelLayout({
       <div className="adv-compact-stack">
         <div className="adv-compact-top">
           <div className="sectioncontainer adv-basic-card">
-            <div className="adv-row">
-              <div className="adv-numbox-sm">
-                <NumInput
-                  value={settings.clickSpeed}
-                  onChange={(v) => update({ clickSpeed: v })}
-                  min={SETTINGS_LIMITS.clickSpeed.min}
-                  max={SETTINGS_LIMITS.clickSpeed.max}
-                />
-              </div>
-              <span className="adv-label">Clicks Per</span>
-              <div className="simple-seg-group">
-                {CLICK_INTERVAL_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    className={`simple-seg-btn ${settings.clickInterval === option.value ? "active" : ""}`}
-                    onClick={() => update({ clickInterval: option.value })}
-                  >
-                    {option.value}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <CadenceInput settings={settings} update={update} variant="advanced" />
             <div className="adv-row" style={{ marginTop: rowSpacing }}>
               <span className="adv-label">Hotkey</span>
               <div className="adv-textbox">
@@ -707,17 +893,7 @@ export default function AdvancedPanelLayout({
                 <ToggleBtn
                   value={settings.doubleClickEnabled}
                   onChange={(v) => update({ doubleClickEnabled: v })}
-                  disabled={
-                    settings.clickInterval === "s"
-                      ? settings.clickSpeed > 49
-                      : settings.clickInterval === "m"
-                        ? settings.clickSpeed / 60 > 49
-                        : settings.clickInterval === "h"
-                          ? settings.clickSpeed / 3600 > 49
-                          : settings.clickInterval === "d"
-                            ? settings.clickSpeed / 86400 > 49
-                            : settings.clickSpeed > 49
-                  }
+                  disabled={getMaxDoubleClickDelayMs(settings) <= 20}
                 />
               </div>
               <Disableable enabled={settings.doubleClickEnabled}>
@@ -728,10 +904,7 @@ export default function AdvancedPanelLayout({
                         value={settings.doubleClickDelay}
                         onChange={(v) => update({ doubleClickDelay: v })}
                         min={20}
-                        max={maxDoubleClickDelayMs(
-                          settings.clickSpeed,
-                          settings.clickInterval,
-                        )}
+                        max={getMaxDoubleClickDelayMs(settings)}
                       />
                       <span className="adv-unit">ms</span>
                     </div>
@@ -744,14 +917,19 @@ export default function AdvancedPanelLayout({
         </div>
 
         <div className="adv-compact-grid">
-          <div className="sectioncontainer adv-compact-card adv-compact-card-wide">
-            <div className="adv-card-header">
-              <span className="adv-card-title">Position</span>
-              <ToggleBtn
-                value={settings.positionEnabled}
-                onChange={(v) => update({ positionEnabled: v })}
-              />
-            </div>
+            <div className="sectioncontainer adv-compact-card adv-compact-card-wide">
+              <div className="adv-card-header">
+                <span className="adv-card-title">Position</span>
+                <ToggleBtn
+                  value={settings.positionEnabled}
+                  onChange={(v) =>
+                    update({
+                      positionEnabled: v,
+                      sequenceEnabled: v ? false : settings.sequenceEnabled,
+                    })
+                  }
+                />
+              </div>
             <CardDivider />
             <Disableable enabled={settings.positionEnabled}>
               <div className={featureBodyClass}>
@@ -762,11 +940,11 @@ export default function AdvancedPanelLayout({
                   >
                     <span className="adv-unit adv-axis-label">X</span>
                     <NumInput
-                        value={settings.positionX}
-                        onChange={(v) => update({ positionX: v })}
-                        min={SETTINGS_LIMITS.position.min}
-                        style={{ width: "32px" }}
-                      />
+                      value={settings.positionX}
+                      onChange={(v) => update({ positionX: v })}
+                      min={SETTINGS_LIMITS.position.min}
+                      style={{ width: "32px" }}
+                    />
                   </div>
                   <div
                     className="adv-numbox-sm"
@@ -774,11 +952,11 @@ export default function AdvancedPanelLayout({
                   >
                     <span className="adv-unit adv-axis-label">Y</span>
                     <NumInput
-                        value={settings.positionY}
-                        onChange={(v) => update({ positionY: v })}
-                        min={SETTINGS_LIMITS.position.min}
-                        style={{ width: "32px" }}
-                      />
+                      value={settings.positionY}
+                      onChange={(v) => update({ positionY: v })}
+                      min={SETTINGS_LIMITS.position.min}
+                      style={{ width: "32px" }}
+                    />
                   </div>
                   <button
                     className="adv-pick-btn adv-pick-btn-inline"
@@ -791,6 +969,100 @@ export default function AdvancedPanelLayout({
                         ? "Picking..."
                         : "Pick"}
                   </button>
+                </div>
+              </div>
+            </Disableable>
+          </div>
+
+          <div className="sectioncontainer adv-compact-card adv-compact-card-wide">
+            <div className="adv-card-header">
+              <span className="adv-card-title">Sequence Clicking</span>
+              <ToggleBtn
+                value={settings.sequenceEnabled}
+                onChange={(v) =>
+                  update({
+                    sequenceEnabled: v,
+                    positionEnabled: v ? false : settings.positionEnabled,
+                  })
+                }
+              />
+            </div>
+            <CardDivider />
+            <Disableable enabled={settings.sequenceEnabled}>
+              <div className="adv-sequence-controls">
+                <div className="adv-sequence-toolbar">
+                  <ActionButton
+                    onClick={addCurrentCursorToSequence}
+                    disabled={capturingCursor}
+                  >
+                    Add Current Cursor
+                  </ActionButton>
+                </div>
+                {renderSequencePoints()}
+              </div>
+            </Disableable>
+          </div>
+
+          <div className="sectioncontainer adv-compact-card adv-compact-card-wide">
+            <div className="adv-card-header">
+              <span className="adv-card-title">Custom Stop Zone</span>
+              <ToggleBtn
+                value={settings.customStopZoneEnabled}
+                onChange={(v) => update({ customStopZoneEnabled: v })}
+              />
+            </div>
+            <CardDivider />
+            <Disableable enabled={settings.customStopZoneEnabled}>
+              <div className="adv-stop-zone-controls">
+                <div className="adv-stop-zone-grid">
+                  <div className="adv-numbox-sm adv-sequence-coord">
+                    <span className="adv-unit adv-axis-label">X</span>
+                    <NumInput
+                      value={settings.customStopZoneX}
+                      onChange={(v) => update({ customStopZoneX: v })}
+                      style={{ width: "46px", textAlign: "right" }}
+                    />
+                  </div>
+                  <div className="adv-numbox-sm adv-sequence-coord">
+                    <span className="adv-unit adv-axis-label">Y</span>
+                    <NumInput
+                      value={settings.customStopZoneY}
+                      onChange={(v) => update({ customStopZoneY: v })}
+                      style={{ width: "46px", textAlign: "right" }}
+                    />
+                  </div>
+                  <div className="adv-numbox-sm adv-sequence-coord">
+                    <span className="adv-unit">W</span>
+                    <NumInput
+                      value={settings.customStopZoneWidth}
+                      onChange={(v) => update({ customStopZoneWidth: v })}
+                      min={1}
+                      style={{ width: "46px", textAlign: "right" }}
+                    />
+                  </div>
+                  <div className="adv-numbox-sm adv-sequence-coord">
+                    <span className="adv-unit">H</span>
+                    <NumInput
+                      value={settings.customStopZoneHeight}
+                      onChange={(v) => update({ customStopZoneHeight: v })}
+                      min={1}
+                      style={{ width: "46px", textAlign: "right" }}
+                    />
+                  </div>
+                </div>
+                <div className="adv-sequence-actions adv-stop-zone-actions">
+                  <ActionButton
+                    onClick={setCustomStopZoneTopLeft}
+                    disabled={capturingCursor}
+                  >
+                    Set Top-Left
+                  </ActionButton>
+                  <ActionButton
+                    onClick={setCustomStopZoneBottomRight}
+                    disabled={capturingCursor}
+                  >
+                    Set Bottom-Right
+                  </ActionButton>
                 </div>
               </div>
             </Disableable>
