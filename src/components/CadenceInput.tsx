@@ -4,6 +4,7 @@ import {
   formatDurationSummary,
   RATE_INPUT_MODE_OPTIONS,
 } from "../cadence";
+import { normalizeIntegerRaw } from "../numberInput";
 import type { RateInputMode, Settings } from "../store";
 
 interface Props {
@@ -18,16 +19,6 @@ const INTERVAL_OPTIONS = [
   { value: "h", label: "Hour" },
   { value: "d", label: "Day" },
 ] as const;
-
-function normalizeIntegerRaw(raw: string) {
-  if (raw === "-") {
-    return raw;
-  }
-
-  const negative = raw.startsWith("-");
-  const digits = (negative ? raw.slice(1) : raw).replace(/^0+(?=\d)/, "");
-  return `${negative ? "-" : ""}${digits}`;
-}
 
 function parseIntegerRaw(raw: string) {
   const normalized = normalizeIntegerRaw(raw);

@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { getMaxDoubleClickDelayMs } from "../../cadence";
+import { normalizeIntegerRaw } from "../../numberInput";
 import type { SequencePoint, Settings } from "../../store";
 import CadenceInput from "../CadenceInput";
 import {
@@ -31,16 +32,6 @@ interface Props {
 interface CursorPoint {
   x: number;
   y: number;
-}
-
-function normalizeIntegerRaw(raw: string) {
-  if (raw === "-") {
-    return raw;
-  }
-
-  const negative = raw.startsWith("-");
-  const digits = (negative ? raw.slice(1) : raw).replace(/^0+(?=\d)/, "");
-  return `${negative ? "-" : ""}${digits}`;
 }
 
 function ToggleBtn({
@@ -208,16 +199,40 @@ export default function AdvancedPanelLayout({
   const rowSpacing = compact ? 6 : 8;
   const cardBodyClass = `adv-card-body ${compact ? "adv-card-body-compact" : ""}`;
   const featureBodyClass = `adv-feature-body ${compact ? "adv-feature-body-compact" : ""}`;
+  const {
+    clickInterval,
+    clickSpeed,
+    doubleClickDelay,
+    durationMilliseconds,
+    durationMinutes,
+    durationSeconds,
+    rateInputMode,
+  } = settings;
   const clampDoubleClickDelay = useEffectEvent((maxDelay: number) => {
     update({ doubleClickDelay: maxDelay });
   });
 
   useEffect(() => {
-    const max = getMaxDoubleClickDelayMs(settings);
-    if (settings.doubleClickDelay > max) {
+    const max = getMaxDoubleClickDelayMs({
+      clickInterval,
+      clickSpeed,
+      rateInputMode,
+      durationMinutes,
+      durationSeconds,
+      durationMilliseconds,
+    });
+    if (doubleClickDelay > max) {
       clampDoubleClickDelay(max);
     }
-  }, [settings, settings.doubleClickDelay]);
+  }, [
+    clickInterval,
+    clickSpeed,
+    doubleClickDelay,
+    durationMilliseconds,
+    durationMinutes,
+    durationSeconds,
+    rateInputMode,
+  ]);
 
   const showDesc = (text: string) =>
     showExplanations ? <p className="adv-desc">{text}</p> : null;
@@ -279,9 +294,16 @@ export default function AdvancedPanelLayout({
 
   const setCustomStopZoneBottomRight = async () => {
     const point = await requestCursorPosition();
+    const left = Math.min(settings.customStopZoneX, point.x);
+    const top = Math.min(settings.customStopZoneY, point.y);
+    const right = Math.max(settings.customStopZoneX, point.x);
+    const bottom = Math.max(settings.customStopZoneY, point.y);
+
     update({
-      customStopZoneWidth: Math.max(1, point.x - settings.customStopZoneX + 1),
-      customStopZoneHeight: Math.max(1, point.y - settings.customStopZoneY + 1),
+      customStopZoneX: left,
+      customStopZoneY: top,
+      customStopZoneWidth: right - left + 1,
+      customStopZoneHeight: bottom - top + 1,
     });
   };
 
