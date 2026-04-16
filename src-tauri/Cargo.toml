@@ -1,6 +1,6 @@
 [package]
 name = "BlurAutoClicker"
-version = "3.4.0"
+version = "3.4.1"
 description = "BlurAutoClicker"
 authors = ["Blur009"]
 edition = "2021"
@@ -33,3 +33,4 @@ sha2 = "0.10"
 hex = "0.4"
 dirs = "6.0.0"
 windows-targets = "0.48"
+winreg = "0.52"

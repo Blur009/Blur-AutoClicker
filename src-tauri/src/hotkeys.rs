@@ -239,15 +239,16 @@ pub fn start_hotkey_listener(app: AppHandle) {
         let mut was_pressed = false;
 
         loop {
-            let binding = {
+            let (binding, strict) = {
                 let state = app.state::<ClickerState>();
                 let binding = state.registered_hotkey.lock().unwrap().clone();
-                binding
+                let strict = state.settings.lock().unwrap().strict_hotkey_modifiers;
+                (binding, strict)
             };
 
             let currently_pressed = binding
                 .as_ref()
-                .map(is_hotkey_binding_pressed)
+                .map(|b| is_hotkey_binding_pressed(b, strict))
                 .unwrap_or(false);
 
             let suppress_until = app
@@ -328,21 +329,48 @@ pub fn handle_hotkey_released(app: &AppHandle) {
     }
 }
 
-pub fn is_hotkey_binding_pressed(binding: &HotkeyBinding) -> bool {
+pub fn is_hotkey_binding_pressed(binding: &HotkeyBinding, strict: bool) -> bool {
     let ctrl_down = is_vk_down(VK_CONTROL as i32);
     let alt_down = is_vk_down(VK_MENU as i32);
     let shift_down = is_vk_down(VK_SHIFT as i32);
     let super_down = is_vk_down(VK_LWIN as i32) || is_vk_down(VK_RWIN as i32);
 
-    if ctrl_down != binding.ctrl
-        || alt_down != binding.alt
-        || shift_down != binding.shift
-        || super_down != binding.super_key
-    {
+    if !modifiers_match(binding, ctrl_down, alt_down, shift_down, super_down, strict) {
         return false;
     }
 
     is_main_key_active(binding.main_vk)
+}
+
+fn modifiers_match(
+    binding: &HotkeyBinding,
+    ctrl_down: bool,
+    alt_down: bool,
+    shift_down: bool,
+    super_down: bool,
+    strict: bool,
+) -> bool {
+    if binding.ctrl && !ctrl_down {
+        return false;
+    }
+    if binding.alt && !alt_down {
+        return false;
+    }
+    if binding.shift && !shift_down {
+        return false;
+    }
+    if binding.super_key && !super_down {
+        return false;
+    }
+
+    if strict {
+        if ctrl_down && !binding.ctrl { return false; }
+        if alt_down && !binding.alt { return false; }
+        if shift_down && !binding.shift { return false; }
+        if super_down && !binding.super_key { return false; }
+    }
+
+    true
 }
 
 /// For normal VKs this uses `GetAsyncKeyState`. Pseudo-VKs use hook-maintained state.
@@ -442,7 +470,7 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, w_param: usize, l_param: is
 
 #[cfg(test)]
 mod tests {
-    use super::{format_hotkey_binding, parse_hotkey_binding};
+    use super::{format_hotkey_binding, modifiers_match, parse_hotkey_binding};
 
     #[test]
     fn numpad_tokens_round_trip() {
@@ -475,5 +503,20 @@ mod tests {
     fn empty_hotkeys_are_rejected() {
         assert!(parse_hotkey_binding("").is_err());
         assert!(parse_hotkey_binding("ctrl+").is_err());
+    }
+
+    #[test]
+    fn extra_modifiers_do_not_block_hotkeys_in_relaxed_mode() {
+        let binding = parse_hotkey_binding("f11").expect("hotkey should parse");
+        assert!(modifiers_match(&binding, false, false, true, false, false));
+        assert!(modifiers_match(&binding, true, true, true, true, false));
+    }
+
+    #[test]
+    fn extra_modifiers_block_hotkeys_in_strict_mode() {
+        let binding = parse_hotkey_binding("f11").expect("hotkey should parse");
+        assert!(!modifiers_match(&binding, false, false, true, false, true));
+        assert!(!modifiers_match(&binding, true, true, true, true, true));
+        assert!(modifiers_match(&binding, false, false, false, false, true));
     }
 }

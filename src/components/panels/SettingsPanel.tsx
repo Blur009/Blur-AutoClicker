@@ -76,6 +76,23 @@ export default function SettingsPanel({
           <span className="settings-label">Support Me</span>
           <div className="social-icons">
             <a
+              className="social-icon social-icon--kofi"
+              href="#"
+              title="Ko-fi"
+              onClick={(e) => {
+                e.preventDefault();
+                open("https://ko-fi.com/Z8Z71T8QD4");
+              }}
+            >
+              <img
+                height="28"
+                style={{ border: 0, height: "28px" }}
+                src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
+                alt="Buy Me a Coffee at ko-fi.com"
+              />
+            </a>
+
+            <a
               className="social-icon social-icon--youtube"
               href="#"
               title="YouTube"
@@ -129,42 +146,6 @@ export default function SettingsPanel({
                 <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.2-1.7-1.2-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 .1.8 1.8 3.4 1.2.1-.7.4-1.2.7-1.5-2.7-.3-5.4-1.3-5.4-6a4.7 4.7 0 0 1 1.2-3.2c-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.2 11.2 0 0 1 6.1 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2a4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.8 5.7-5.4 6 .4.3.8 1 .8 2.1v3.1c0 .4.2.7.8.6A12 12 0 0 0 12 .3" />
               </svg>
             </a>
-            <a
-              className="social-icon social-icon--kofi"
-              href="#"
-              title="Ko-fi"
-              onClick={(e) => {
-                e.preventDefault();
-                open("https://ko-fi.com/Blur009");
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                width="18"
-                height="18"
-              >
-                <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.034-3.954-.709-.965-1.041-2.7-.091-3.71.951-1.01 3.005-1.086 4.363.407 0 0 1.565-1.782 3.468-.963 1.904.82 1.832 3.011.723 4.311zm6.173.478c-.928.116-1.682.028-1.682.028V7.284h1.77s1.971.551 1.971 2.638c0 1.913-.985 2.667-2.059 3.015z" />
-              </svg>
-            </a>
-            <a
-              className="social-icon social-icon--patreon"
-              href="#"
-              title="Patreon"
-              onClick={(e) => {
-                e.preventDefault();
-                open("https://patreon.com/Blur009");
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                width="18"
-                height="18"
-              >
-                <path d="M15.386.524c-4.764 0-8.64 3.876-8.64 8.64 0 4.75 3.876 8.613 8.64 8.613 4.75 0 8.614-3.864 8.614-8.613C24 4.4 20.136.524 15.386.524zM.003 23.537h4.22V.524H.003z" />
-              </svg>
-            </a>
           </div>
         </div>
 
@@ -216,9 +197,7 @@ export default function SettingsPanel({
                 </span>
               </div>
               <div className="stats-cell">
-                <span className="stats-cell-label">
-                  CPU Usage avg
-                </span>
+                <span className="stats-cell-label">CPU Usage avg</span>
                 <span className="stats-cell-value">
                   {formatCpu(stats.avgCpu)}
                 </span>
@@ -275,6 +254,26 @@ export default function SettingsPanel({
           </div>
         </div>
 
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Strict Hotkey Modifiers</span>
+            <span className="settings-sublabel">
+              On: hotkey only fires when modifier keys match exactly. Off: extra held modifiers (e.g. Shift while gaming) are ignored.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {["On", "Off"].map((o) => (
+              <button
+                key={o}
+                className={`settings-seg-btn ${(settings.strictHotkeyModifiers ? "On" : "Off") === o ? "active" : ""}`}
+                onClick={() => update({ strictHotkeyModifiers: o === "On" })}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="settings-divider" />
         <div className="settings-row">
           <div className="settings-label-group">
@@ -288,7 +287,9 @@ export default function SettingsPanel({
               <button
                 key={o}
                 className={`settings-seg-btn ${(settings.theme === "light" ? "Light" : "Dark") === o ? "active" : ""}`}
-                onClick={() => update({ theme: o.toLowerCase() as "dark" | "light" })}
+                onClick={() =>
+                  update({ theme: o.toLowerCase() as "dark" | "light" })
+                }
               >
                 {o}
               </button>

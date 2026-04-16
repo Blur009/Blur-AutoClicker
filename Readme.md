@@ -62,6 +62,48 @@ Config and stats are stored in `%appdata%/BlurAutoClicker`.
 *Info: If you are on version 2.1.2 or below, delete the old executable (the installer will not delete it for you).
 The old Config and Stats files will unfortunately not be compatible with the new versions (3.0.0 and above), so they will be deleted upon launching the application.*
 
+### Windows trust / signing
+
+Unsigned GitHub-downloaded Windows installers can still show a SmartScreen warning. Tauri updater signing is separate from Windows Authenticode signing. See [docs/windows-release-trust.md](docs/windows-release-trust.md) for build commands, signature checks, and the release-trust checklist.
+
+---
+
+## Building From Source
+
+This project is currently Windows-first. The maintained desktop build path is the Rust `x86_64-pc-windows-msvc` toolchain plus Node.js.
+
+Requirements:
+- Node.js 20 or newer
+- Rust via `rustup`
+- Microsoft C++ Build Tools / Visual Studio Build Tools
+
+Setup:
+```powershell
+git clone https://github.com/Blur009/Blur-AutoClicker.git
+cd Blur-AutoClicker
+npm install
+rustup default stable-x86_64-pc-windows-msvc
+```
+
+Run the app in development:
+```powershell
+npm exec tauri dev
+```
+
+Build a release bundle:
+```powershell
+npm exec tauri build
+```
+
+Useful validation commands:
+```powershell
+npm run lint
+npm run build
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+The built Windows installer is written to `src-tauri/target/release/bundle/nsis/`.
+
 ---
 
 ## Support the project!

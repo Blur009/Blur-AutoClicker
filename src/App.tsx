@@ -1,6 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import {
+  currentMonitor,
+  getCurrentWindow,
+  LogicalSize,
+} from "@tauri-apps/api/window";
 import { lazy, useEffect, useRef, useState } from "react";
 import UpdateBanner from "./components/Updatebanner";
 import { canonicalizeHotkeyForBackend } from "./hotkeys";
@@ -34,6 +38,34 @@ function getPanelSize(tab: Tab, settings: Settings, hasUpdate: boolean) {
   return settings.explanationMode === "off"
     ? { width: 600, height: 600 + extra }
     : { width: 800, height: 650 + extra };
+}
+
+const textScale = await invoke<number>("get_text_scale_factor");
+await invoke("set_webview_zoom", { factor: 1.0 / textScale });
+
+async function getClampedPanelSize(
+  size: { width: number; height: number },
+  textScale: number,
+) {
+  const monitor = await currentMonitor();
+  if (!monitor) return size;
+
+  const scale = monitor.scaleFactor || 1;
+  const workAreaWidth = Math.floor(monitor.workArea.size.width / scale);
+  const workAreaHeight = Math.floor(monitor.workArea.size.height / scale);
+  const horizontalMargin = 24;
+  const verticalMargin = 24;
+
+  return {
+    width: Math.min(
+      Math.ceil(size.width * textScale),
+      Math.max(360, workAreaWidth - horizontalMargin),
+    ),
+    height: Math.min(
+      Math.ceil(size.height * textScale),
+      Math.max(220, workAreaHeight - verticalMargin),
+    ),
+  };
 }
 
 const DEFAULT_STATUS: ClickerStatus = {
@@ -284,27 +316,42 @@ export default function App() {
       resizeTimeout.current = null;
     }
 
-    const { width, height } = getPanelSize(tab, settings, !!updateInfo);
     const root = document.querySelector(".app-root") as HTMLElement;
 
     void (async () => {
       try {
+        const textScale = await invoke<number>("get_text_scale_factor");
+        document.documentElement.style.fontSize = `${16 * textScale}px`;
+        console.log("Windows Text Scale:", textScale);
+        console.log(
+          "Actual Root Font Size:",
+          getComputedStyle(document.documentElement).fontSize,
+        );
+
+        const preferredSize = getPanelSize(tab, settings, !!updateInfo);
+        const { width, height } = await getClampedPanelSize(
+          preferredSize,
+          textScale,
+        );
+
+        const appWindow = getCurrentWindow();
+
         if (!launchWindowPlacementDone.current) {
-          const appWindow = getCurrentWindow();
           await appWindow.setSize(new LogicalSize(width, height));
+
           root.style.width = `${width}px`;
           root.style.height = `${height}px`;
+
           await wait(30);
           await applyStartupWindowPlacement();
           launchWindowPlacementDone.current = true;
           return;
         }
 
-        const appWindow = getCurrentWindow();
         const currentSize = await appWindow.innerSize();
-        const scale = await appWindow.scaleFactor();
-        const currentH = currentSize.height / scale;
-        const currentW = currentSize.width / scale;
+        const monitorScale = await appWindow.scaleFactor();
+        const currentH = currentSize.height / monitorScale;
+        const currentW = currentSize.width / monitorScale;
 
         if (width < currentW || height < currentH) {
           const snapW = width >= currentW ? width : currentW;
