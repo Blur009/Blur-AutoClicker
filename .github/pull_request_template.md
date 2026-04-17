@@ -18,10 +18,6 @@ Link the related issue here, or write `N/A`.
 
 List the exact commands you ran and the result for each one.
 
-## Screenshots / recordings
-
-Add screenshots or recordings for UI changes, or write `N/A`.
-
 ## Checklist
 
 - [ ] I ran the relevant local validation commands and recorded them above
