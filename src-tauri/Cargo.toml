@@ -1,8 +1,9 @@
 [package]
 name = "BlurAutoClicker"
 version = "3.4.1"
-description = "BlurAutoClicker"
+description = "BlurAutoClicker - accuracy and performance focused auto clicker for Windows."
 authors = ["Blur009"]
+license = "GPL-3.0"
 edition = "2021"
 rust-version = "1.77.2"
 
@@ -19,7 +20,7 @@ windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_UI_Inpu
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 serde = { version = "1.0", features = ["derive"] }
 reqwest = { version = "0.12", features = ["json"] }
-tauri-plugin-shell = "2.0"
+tauri-plugin-opener = "2.0"
 tauri-plugin-log = "2.0"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-store = "2"
@@ -34,3 +35,8 @@ hex = "0.4"
 dirs = "6.0.0"
 windows-targets = "0.48"
 winreg = "0.52"
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1

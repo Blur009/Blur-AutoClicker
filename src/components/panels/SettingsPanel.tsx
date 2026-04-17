@@ -2,7 +2,7 @@ import "./SettingsPanel.css";
 import type { AppInfo, Settings } from "../../store";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
-import { open } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 interface CumulativeStats {
   totalClicks: number;
@@ -81,7 +81,7 @@ export default function SettingsPanel({
               title="Ko-fi"
               onClick={(e) => {
                 e.preventDefault();
-                open("https://ko-fi.com/Z8Z71T8QD4");
+                void openUrl("https://ko-fi.com/Z8Z71T8QD4");
               }}
             >
               <img
@@ -98,7 +98,7 @@ export default function SettingsPanel({
               title="YouTube"
               onClick={(e) => {
                 e.preventDefault();
-                open("https://youtube.com/@Blur009");
+                void openUrl("https://youtube.com/@Blur009");
               }}
             >
               <svg
@@ -116,7 +116,7 @@ export default function SettingsPanel({
               title="Twitch"
               onClick={(e) => {
                 e.preventDefault();
-                open("https://twitch.tv/Blur009");
+                void openUrl("https://twitch.tv/Blur009");
               }}
             >
               <svg
@@ -134,7 +134,7 @@ export default function SettingsPanel({
               title="GitHub"
               onClick={(e) => {
                 e.preventDefault();
-                open("https://github.com/Blur009/Blur-AutoClicker");
+                void openUrl("https://github.com/Blur009/Blur-AutoClicker");
               }}
             >
               <svg

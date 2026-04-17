@@ -7,7 +7,8 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build",
+    "removeUnusedCommands": true
   },
   "app": {
     "withGlobalTauri": true,
@@ -57,6 +58,21 @@
       "active": true,
       "targets": "nsis",
       "createUpdaterArtifacts": true,
-      "icon": ["icons/icon.ico"]
+      "publisher": "Blur009",
+      "copyright": "Copyright (c) Blur009",
+      "category": "Utility",
+      "shortDescription": "Configurable auto clicker with accurate CPS timing.",
+      "longDescription": "Performance-focused auto clicker with global hotkeys, optional overlay, and advanced timing. Licensed under GPLv3.",
+      "homepage": "https://github.com/Blur009/Blur-AutoClicker",
+      "icon": ["icons/icon.ico"],
+      "windows": {
+        "webviewInstallMode": {
+          "type": "embedBootstrapper",
+          "silent": true
+        },
+        "nsis": {
+          "compression": "zlib"
+        }
+      }
     }
 }
