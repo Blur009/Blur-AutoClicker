@@ -132,6 +132,25 @@ body {
   min-height: 0;
 }
 
+[data-theme="custom"] .app-root::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--theme-bg-image, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: var(--theme-bg-opacity, 0);
+  filter: blur(var(--theme-bg-blur, 0));
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+[data-theme="custom"] .app-root > * {
+  position: relative;
+  z-index: 1;
+}
 .panel-area {
   flex: 1;
   padding: 1.25rem 1.25rem 1.25rem 1.25rem;

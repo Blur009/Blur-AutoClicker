@@ -25,6 +25,9 @@ import { CUSTOM_THEME_VAR_MAP, isLightColor } from "./utils/theme";
 function clearCustomTheme(root: HTMLElement) {
   for (const [, cssVar] of CUSTOM_THEME_VAR_MAP) root.style.removeProperty(cssVar);
   root.style.removeProperty("--theme-tint");
+  root.style.removeProperty("--theme-bg-image");
+  root.style.removeProperty("--theme-bg-opacity");
+  root.style.removeProperty("--theme-bg-blur");
 }
 
 function applyCustomTheme(root: HTMLElement, c: CustomThemeColors) {
@@ -36,6 +39,32 @@ function applyCustomTheme(root: HTMLElement, c: CustomThemeColors) {
     } else {
       root.style.removeProperty(cssVar);
     }
+  }
+  if (c.backgroundImage) {
+    root.style.setProperty("--theme-bg-image", `url("${c.backgroundImage}")`);
+    root.style.setProperty(
+      "--theme-bg-opacity",
+      String((c.backgroundOpacity ?? 30) / 100),
+    );
+    root.style.setProperty("--theme-bg-blur", `${c.backgroundBlur ?? 0}px`);
+  } else {
+    root.style.removeProperty("--theme-bg-image");
+    root.style.removeProperty("--theme-bg-opacity");
+    root.style.removeProperty("--theme-bg-blur");
+  }
+  const panelOpacity = c.panelOpacity ?? 100;
+  if (panelOpacity < 100) {
+    const tint = isLightColor(c.bgBase) ? "#000" : "#fff";
+    const surfaceSrc = c.bgSurface || `color-mix(in oklab, ${c.bgBase} 95%, ${tint})`;
+    const elevatedSrc = c.bgElevated || `color-mix(in oklab, ${c.bgBase} 90%, ${tint})`;
+    root.style.setProperty(
+      "--bg-surface",
+      `color-mix(in srgb, ${surfaceSrc} ${panelOpacity}%, transparent)`,
+    );
+    root.style.setProperty(
+      "--bg-elevated",
+      `color-mix(in srgb, ${elevatedSrc} ${panelOpacity}%, transparent)`,
+    );
   }
 }
 

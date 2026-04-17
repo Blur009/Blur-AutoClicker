@@ -32,6 +32,10 @@ export interface CustomThemeColors {
   statusSuccess?: string;
   statusError?: string;
   kofiStyle?: "1" | "2" | "3" | "4" | "5" | "6";
+  backgroundImage?: string;
+  backgroundOpacity?: number;
+  backgroundBlur?: number;
+  panelOpacity?: number;
 }
 
 export interface Settings {
@@ -302,6 +306,16 @@ function sanitizeCustomThemeColors(input: unknown): CustomThemeColors {
     ...(isColor(c.statusSuccess) && { statusSuccess: c.statusSuccess }),
     ...(isColor(c.statusError) && { statusError: c.statusError }),
     ...(["1","2","3","4","5","6"].includes(c.kofiStyle as string) && { kofiStyle: c.kofiStyle }),
+    ...(typeof c.backgroundImage === "string" && c.backgroundImage.startsWith("data:image/") && { backgroundImage: c.backgroundImage }),
+    ...(typeof c.backgroundOpacity === "number" && Number.isFinite(c.backgroundOpacity) && {
+      backgroundOpacity: Math.max(0, Math.min(100, c.backgroundOpacity)),
+    }),
+    ...(typeof c.backgroundBlur === "number" && Number.isFinite(c.backgroundBlur) && {
+      backgroundBlur: Math.max(0, Math.min(10, c.backgroundBlur)),
+    }),
+    ...(typeof c.panelOpacity === "number" && Number.isFinite(c.panelOpacity) && {
+      panelOpacity: Math.max(0, Math.min(100, c.panelOpacity)),
+    }),
   };
 }
 

@@ -8,6 +8,7 @@ import {
   THEME_PRESETS,
   validateRadius,
   sanitizeImportedTheme,
+  fileToBackgroundDataUrl,
 } from "../utils/theme";
 
 interface Props {
@@ -73,6 +74,37 @@ export default function CustomThemeEditor({
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
+  const bgFileRef = useRef<HTMLInputElement | null>(null);
+  const [bgBusy, setBgBusy] = useState(false);
+
+  const handleBgPick = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      showToast("Only image files are supported");
+      return;
+    }
+    setBgBusy(true);
+    try {
+      const dataUrl = await fileToBackgroundDataUrl(file);
+      onColorsChange({
+        ...colors,
+        backgroundImage: dataUrl,
+        backgroundOpacity: colors.backgroundOpacity ?? 30,
+        backgroundBlur: colors.backgroundBlur ?? 0,
+      });
+      showToast("Background image saved");
+    } catch (err) {
+      console.error("Failed to load image:", err);
+      showToast("Failed to load image");
+    } finally {
+      setBgBusy(false);
+      if (bgFileRef.current) bgFileRef.current.value = "";
+    }
+  };
+
+  const handleBgRemove = () => {
+    const { backgroundImage: _img, backgroundOpacity: _o, backgroundBlur: _b, ...rest } = colors;
+    onColorsChange(rest as CustomThemeColors);
+  };
 
   useEffect(() => {
     return () => {
@@ -279,6 +311,115 @@ export default function CustomThemeEditor({
       )}
 
       <div className="color-grid">
+        <div className="color-group-label kofi-section-label">Background Image</div>
+        <div className="bg-image-row">
+          {colors.backgroundImage ? (
+            <div
+              className="bg-image-preview"
+              style={{ backgroundImage: `url("${colors.backgroundImage}")` }}
+            />
+          ) : (
+            <div className="bg-image-preview bg-image-preview--empty">No image</div>
+          )}
+          <div className="bg-image-actions">
+            <button
+              className="theme-io-btn"
+              onClick={() => bgFileRef.current?.click()}
+              disabled={bgBusy}
+            >
+              {colors.backgroundImage ? "Change" : "Select image"}
+            </button>
+            {colors.backgroundImage && (
+              <button
+                className="theme-io-btn"
+                onClick={handleBgRemove}
+                disabled={bgBusy}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          <input
+            ref={bgFileRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleBgPick(file);
+            }}
+          />
+        </div>
+        {colors.backgroundImage && (
+          <>
+            <div className="color-picker-row">
+              <span className="color-picker-label">Opacity</span>
+              <div className="color-picker-alpha">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={colors.backgroundOpacity ?? 30}
+                  onChange={(e) =>
+                    onColorsChange({
+                      ...colors,
+                      backgroundOpacity: parseInt(e.target.value, 10),
+                    })
+                  }
+                  className="color-picker-alpha-range"
+                />
+                <span className="color-picker-alpha-value">
+                  {colors.backgroundOpacity ?? 30}%
+                </span>
+              </div>
+            </div>
+            <div className="color-picker-row">
+              <span className="color-picker-label">Blur</span>
+              <div className="color-picker-alpha">
+                <input
+                  type="range"
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  value={colors.backgroundBlur ?? 0}
+                  onChange={(e) =>
+                    onColorsChange({
+                      ...colors,
+                      backgroundBlur: parseFloat(e.target.value),
+                    })
+                  }
+                  className="color-picker-alpha-range"
+                />
+                <span className="color-picker-alpha-value">
+                  {(colors.backgroundBlur ?? 0).toFixed(1)}px
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+        <div className="color-picker-row">
+          <span className="color-picker-label">Panel opacity</span>
+          <div className="color-picker-alpha">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={colors.panelOpacity ?? 100}
+              onChange={(e) =>
+                onColorsChange({
+                  ...colors,
+                  panelOpacity: parseInt(e.target.value, 10),
+                })
+              }
+              className="color-picker-alpha-range"
+            />
+            <span className="color-picker-alpha-value">
+              {colors.panelOpacity ?? 100}%
+            </span>
+          </div>
+        </div>
         <div className="color-group-label kofi-section-label">Ko-fi Button</div>
         <div className="color-picker-row">
           <span className="color-picker-label">Style</span>
