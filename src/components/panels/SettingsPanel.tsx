@@ -6,6 +6,33 @@ import { open } from "@tauri-apps/plugin-shell";
 
 const CustomThemeEditor = lazy(() => import("../CustomThemeEditor"));
 
+function getAutoKofiStyle(hex: string): "1" | "2" | "3" | "4" | "5" | "6" {
+  const clean = hex.replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
+  if (full.length !== 6) return "3";
+  const n = parseInt(full, 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const luminance = r * 0.299 + g * 0.587 + b * 0.114;
+  if (max === min) return luminance > 0.5 ? "1" : "3";
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  if (s < 0.15) return luminance > 0.5 ? "1" : "3";
+  let h: number;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+  else if (max === g) h = ((b - r) / d + 2) * 60;
+  else h = ((r - g) / d + 4) * 60;
+  if (h < 30 || h >= 330) return "6";
+  if (h < 70) return "2";
+  if (h < 165) return luminance > 0.5 ? "1" : "3";
+  if (h < 255) return "5";
+  return "4";
+}
+
 interface CumulativeStats {
   totalClicks: number;
   totalTimeSecs: number;
@@ -89,11 +116,17 @@ export default function SettingsPanel({
               <img
                 height="28"
                 style={{ border: 0, height: "28px" }}
-                src={
-                  settings.theme === "light"
+                src={(() => {
+                  if (settings.theme === "custom") {
+                    if (settings.customTheme.kofiStyle) {
+                      return `https://storage.ko-fi.com/cdn/kofi${settings.customTheme.kofiStyle}.png?v=6`;
+                    }
+                    return `https://storage.ko-fi.com/cdn/kofi${getAutoKofiStyle(settings.customTheme.bgBase)}.png?v=6`;
+                  }
+                  return settings.theme === "light"
                     ? "https://storage.ko-fi.com/cdn/kofi1.png?v=6"
-                    : "https://storage.ko-fi.com/cdn/kofi3.png?v=6"
-                }
+                    : "https://storage.ko-fi.com/cdn/kofi3.png?v=6";
+                })()}
                 alt="Buy Me a Coffee at ko-fi.com"
               />
             </a>

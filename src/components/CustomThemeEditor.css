@@ -8,7 +8,26 @@
 
 .theme-mode-toggle {
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.theme-reset-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-dim);
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-md);
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.theme-reset-btn:hover {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
 }
 
 /* Color grid */
@@ -130,4 +149,281 @@
 
 .color-picker-reset:hover {
   color: var(--accent-red);
+}
+
+.kofi-picker {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.kofi-option {
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.125rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+  line-height: 0;
+}
+
+.kofi-option:hover {
+  border-color: var(--border-focus);
+}
+
+.kofi-option.active {
+  border-color: var(--accent-green);
+}
+
+.kofi-option.auto-active {
+  border-color: var(--border-focus);
+  opacity: 0.7;
+}
+
+.kofi-option--auto {
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-md);
+  color: var(--text-muted);
+  padding: 0 0.375rem;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kofi-option--auto.active {
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+}
+
+.kofi-section-label {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.5rem;
+  margin-top: 0.125rem;
+}
+
+/* Alpha slider */
+.color-picker-alpha {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.color-picker-alpha-range {
+  width: 4.5rem;
+  height: 0.875rem;
+  cursor: pointer;
+  accent-color: var(--accent-green);
+}
+
+.color-picker-alpha-value {
+  font-family: 'DMSans', monospace;
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  min-width: 2.25rem;
+  text-align: right;
+}
+
+/* Invalid radius */
+.color-picker-text--invalid {
+  border-color: var(--accent-red);
+}
+
+/* Presets */
+.theme-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem 0 0.25rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.theme-presets-label {
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-md);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+}
+
+.theme-presets-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.theme-preset-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-md);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.theme-preset-btn:hover {
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
+
+.theme-preset-btn--active {
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+}
+
+.theme-preset-swatch {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+
+.theme-preset-name {
+  white-space: nowrap;
+}
+
+/* Contrast warning */
+.theme-contrast-warn {
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-md);
+  color: var(--accent-yellow);
+  background: color-mix(in oklab, var(--accent-yellow) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent-yellow) 40%, transparent);
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+/* Import / Export */
+.theme-io {
+  display: flex;
+  gap: 0.375rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.theme-io-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-md);
+  padding: 0.3125rem 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.theme-io-btn:hover {
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
+
+.theme-io-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.theme-io-btn--primary {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.theme-io-btn--primary:hover:not(:disabled) {
+  border-color: var(--accent-green);
+  background: color-mix(in oklab, var(--accent-green) 15%, transparent);
+}
+
+.theme-import-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.theme-import-textarea {
+  font-family: 'DMSans', monospace;
+  font-size: 0.75rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  resize: vertical;
+  outline: none;
+  min-height: 4rem;
+}
+
+.theme-import-textarea:focus {
+  border-color: var(--border-focus);
+}
+
+.theme-import-error {
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.75rem;
+  color: var(--accent-red);
+}
+
+.theme-import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+/* Toast */
+.theme-toast {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-md);
+  color: var(--text-primary);
+  box-shadow: var(--container-shadow);
+  animation: theme-toast-in 0.15s ease;
+}
+
+.theme-toast--info {
+  color: var(--text-muted);
+  justify-content: center;
+}
+
+.theme-toast-undo {
+  background: transparent;
+  border: none;
+  color: var(--accent-green);
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-hv);
+  cursor: pointer;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.theme-toast-undo:hover {
+  background: color-mix(in oklab, var(--accent-green) 15%, transparent);
+}
+
+@keyframes theme-toast-in {
+  from { opacity: 0; transform: translateY(0.25rem); }
+  to   { opacity: 1; transform: translateY(0); }
 }

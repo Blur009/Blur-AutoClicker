@@ -31,6 +31,7 @@ export interface CustomThemeColors {
   dividerColor?: string;
   statusSuccess?: string;
   statusError?: string;
+  kofiStyle?: "1" | "2" | "3" | "4" | "5" | "6";
 }
 
 export interface Settings {
@@ -131,9 +132,9 @@ export const DEFAULT_SETTINGS: Settings = {
   customTheme: {
     bgBase: "#121212",
     textPrimary: "#f9fefe",
-    accentGreen: "hsla(129, 77%, 43%, 0.75)",
-    accentYellow: "hsla(41, 99%, 59%, 0.75)",
-    accentRed: "hsla(4, 100%, 71%, 0.75)",
+    accentGreen: "#19c233bf",
+    accentYellow: "#febc2fbf",
+    accentRed: "#ff726bbf",
   },
   customThemeMode: "basic",
 };
@@ -300,6 +301,7 @@ function sanitizeCustomThemeColors(input: unknown): CustomThemeColors {
     ...(isColor(c.dividerColor) && { dividerColor: c.dividerColor }),
     ...(isColor(c.statusSuccess) && { statusSuccess: c.statusSuccess }),
     ...(isColor(c.statusError) && { statusError: c.statusError }),
+    ...(["1","2","3","4","5","6"].includes(c.kofiStyle as string) && { kofiStyle: c.kofiStyle }),
   };
 }
 
