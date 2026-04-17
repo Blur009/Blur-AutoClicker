@@ -1,5 +1,11 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { LazyStore } from "@tauri-apps/plugin-store";
+import {
+  BG_IMAGE_SENTINEL,
+  clearBgImage,
+  loadBgImage,
+  saveBgImage,
+} from "./utils/bgImageStore";
 
 const store = new LazyStore("settings.json");
 
@@ -37,6 +43,21 @@ export interface CustomThemeColors {
   backgroundBlur?: number;
   panelOpacity?: number;
 }
+
+/**
+ * Optional string/color fields of CustomThemeColors that are handled
+ * generically (no special per-field logic). Keep this list in sync with
+ * the CustomThemeColors interface above — it is the single source of truth
+ * used by both store sanitization and theme import/export helpers.
+ */
+export const THEME_OPTIONAL_KEYS = [
+  "bgSurface", "bgElevated", "bgInput", "bgInputOff",
+  "border", "borderFocus", "borderSubtle",
+  "textMuted", "textDim",
+  "radiusSm", "radiusMd", "radiusLg",
+  "containerShadow", "dividerColor",
+  "statusSuccess", "statusError",
+] as const satisfies ReadonlyArray<keyof CustomThemeColors>;
 
 export interface Settings {
   version: string;
@@ -283,53 +304,81 @@ function sanitizeCustomThemeColors(input: unknown): CustomThemeColors {
   const c = (typeof input === "object" && input !== null ? input : {}) as Partial<CustomThemeColors>;
   const isHex = (v: unknown) => typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v);
   const isColor = (v: unknown) => typeof v === "string" && v.trim().length > 0;
-  return {
-    bgBase: isHex(c.bgBase) ? c.bgBase! : DEFAULT_SETTINGS.customTheme.bgBase,
-    textPrimary: isColor(c.textPrimary) ? c.textPrimary! : DEFAULT_SETTINGS.customTheme.textPrimary,
-    accentGreen: isColor(c.accentGreen) ? c.accentGreen! : DEFAULT_SETTINGS.customTheme.accentGreen,
-    accentYellow: isColor(c.accentYellow) ? c.accentYellow! : DEFAULT_SETTINGS.customTheme.accentYellow,
-    accentRed: isColor(c.accentRed) ? c.accentRed! : DEFAULT_SETTINGS.customTheme.accentRed,
-    ...(isColor(c.bgSurface) && { bgSurface: c.bgSurface }),
-    ...(isColor(c.bgElevated) && { bgElevated: c.bgElevated }),
-    ...(isColor(c.bgInput) && { bgInput: c.bgInput }),
-    ...(isColor(c.bgInputOff) && { bgInputOff: c.bgInputOff }),
-    ...(isColor(c.border) && { border: c.border }),
-    ...(isColor(c.borderFocus) && { borderFocus: c.borderFocus }),
-    ...(isColor(c.borderSubtle) && { borderSubtle: c.borderSubtle }),
-    ...(isColor(c.textMuted) && { textMuted: c.textMuted }),
-    ...(isColor(c.textDim) && { textDim: c.textDim }),
-    ...(isColor(c.radiusSm) && { radiusSm: c.radiusSm }),
-    ...(isColor(c.radiusMd) && { radiusMd: c.radiusMd }),
-    ...(isColor(c.radiusLg) && { radiusLg: c.radiusLg }),
-    ...(isColor(c.containerShadow) && { containerShadow: c.containerShadow }),
-    ...(isColor(c.dividerColor) && { dividerColor: c.dividerColor }),
-    ...(isColor(c.statusSuccess) && { statusSuccess: c.statusSuccess }),
-    ...(isColor(c.statusError) && { statusError: c.statusError }),
-    ...(["1","2","3","4","5","6"].includes(c.kofiStyle as string) && { kofiStyle: c.kofiStyle }),
-    ...(typeof c.backgroundImage === "string" && c.backgroundImage.startsWith("data:image/") && { backgroundImage: c.backgroundImage }),
-    ...(typeof c.backgroundOpacity === "number" && Number.isFinite(c.backgroundOpacity) && {
-      backgroundOpacity: Math.max(0, Math.min(100, c.backgroundOpacity)),
-    }),
-    ...(typeof c.backgroundBlur === "number" && Number.isFinite(c.backgroundBlur) && {
-      backgroundBlur: Math.max(0, Math.min(10, c.backgroundBlur)),
-    }),
-    ...(typeof c.panelOpacity === "number" && Number.isFinite(c.panelOpacity) && {
-      panelOpacity: Math.max(0, Math.min(100, c.panelOpacity)),
-    }),
+
+  const base: CustomThemeColors = {
+    bgBase:       isHex(c.bgBase)           ? c.bgBase!           : DEFAULT_SETTINGS.customTheme.bgBase,
+    textPrimary:  isColor(c.textPrimary)    ? c.textPrimary!      : DEFAULT_SETTINGS.customTheme.textPrimary,
+    accentGreen:  isColor(c.accentGreen)    ? c.accentGreen!      : DEFAULT_SETTINGS.customTheme.accentGreen,
+    accentYellow: isColor(c.accentYellow)   ? c.accentYellow!     : DEFAULT_SETTINGS.customTheme.accentYellow,
+    accentRed:    isColor(c.accentRed)      ? c.accentRed!        : DEFAULT_SETTINGS.customTheme.accentRed,
   };
+
+  // Optional color fields — include if provided, otherwise CSS fallback is used
+  for (const key of THEME_OPTIONAL_KEYS) {
+    const val = c[key];
+    if (isColor(val)) (base as unknown as Record<string, unknown>)[key] = val;
+  }
+
+  if (["1", "2", "3", "4", "5", "6"].includes(c.kofiStyle as string)) {
+    base.kofiStyle = c.kofiStyle;
+  }
+  if (
+    typeof c.backgroundImage === "string" &&
+    (c.backgroundImage.startsWith("data:image/") || c.backgroundImage === BG_IMAGE_SENTINEL)
+  ) {
+    base.backgroundImage = c.backgroundImage;
+  }
+  if (typeof c.backgroundOpacity === "number" && Number.isFinite(c.backgroundOpacity)) {
+    base.backgroundOpacity = Math.max(0, Math.min(100, c.backgroundOpacity));
+  }
+  if (typeof c.backgroundBlur === "number" && Number.isFinite(c.backgroundBlur)) {
+    base.backgroundBlur = Math.max(0, Math.min(10, c.backgroundBlur));
+  }
+  if (typeof c.panelOpacity === "number" && Number.isFinite(c.panelOpacity)) {
+    base.panelOpacity = Math.max(0, Math.min(100, c.panelOpacity));
+  }
+
+  return base;
 }
 
 export async function loadSettings(): Promise<Settings> {
   const saved = await store.get<Partial<Settings>>("settings");
-  return sanitizeSettings(saved);
+  const settings = sanitizeSettings(saved);
+  // Re-hydrate background image from IndexedDB if it was offloaded
+  if (settings.customTheme.backgroundImage === BG_IMAGE_SENTINEL) {
+    const dataUrl = await loadBgImage();
+    if (dataUrl) {
+      settings.customTheme.backgroundImage = dataUrl;
+    } else {
+      delete settings.customTheme.backgroundImage;
+    }
+  }
+  return settings;
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
-  await store.set("settings", sanitizeSettings(settings));
+  const sanitized = sanitizeSettings(settings);
+  const bgImage = sanitized.customTheme.backgroundImage;
+  let toStore = sanitized;
+
+  if (bgImage?.startsWith("data:")) {
+    // Keep settings.json small — store the DataURL in IndexedDB instead
+    await saveBgImage(bgImage);
+    toStore = {
+      ...sanitized,
+      customTheme: { ...sanitized.customTheme, backgroundImage: BG_IMAGE_SENTINEL },
+    };
+  } else if (!bgImage) {
+    // Image was removed — clean up IndexedDB entry too
+    await clearBgImage().catch(() => { /* non-critical */ });
+  }
+
+  await store.set("settings", toStore);
   await store.save();
 }
 
 export async function clearSavedSettings(): Promise<void> {
+  await clearBgImage().catch(() => { /* non-critical */ });
   await store.set("settings", DEFAULT_SETTINGS);
   await store.save();
 }

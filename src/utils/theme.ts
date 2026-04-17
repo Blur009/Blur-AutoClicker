@@ -1,79 +1,116 @@
-import type { CustomThemeColors } from "../store";
+import { THEME_OPTIONAL_KEYS, type CustomThemeColors } from "../store";
 
 export type KofiStyle = "1" | "2" | "3" | "4" | "5" | "6";
 
-let parseCanvas: HTMLCanvasElement | null = null;
-function getParseCtx(): CanvasRenderingContext2D | null {
-  if (!parseCanvas) parseCanvas = document.createElement("canvas");
-  return parseCanvas.getContext("2d");
-}
-
+/**
+ * Parses any supported CSS color string into an [r, g, b, a] tuple.
+ * Supports: #rgb, #rrggbb, #rrggbbaa, rgb(), rgba().
+ * Pure-regex implementation — no DOM or Canvas dependency.
+ */
 export function parseColorToRgba(
   color: string,
 ): [number, number, number, number] | null {
-  const ctx = getParseCtx();
-  if (!ctx) return null;
-  ctx.fillStyle = "#000";
-  try {
-    ctx.fillStyle = color;
-  } catch {
-    return null;
+  const s = color.trim();
+
+  if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+    return [
+      parseInt(s[1] + s[1], 16),
+      parseInt(s[2] + s[2], 16),
+      parseInt(s[3] + s[3], 16),
+      1,
+    ];
   }
-  const c = ctx.fillStyle;
-  if (typeof c === "string" && c.startsWith("#")) {
-    const hex = c.slice(1);
-    if (hex.length === 6) {
-      const n = parseInt(hex, 16);
-      return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 1];
-    }
-    if (hex.length === 8) {
-      const n = parseInt(hex.slice(0, 6), 16);
-      const a = parseInt(hex.slice(6), 16) / 255;
-      return [(n >> 16) & 255, (n >> 8) & 255, n & 255, a];
-    }
+  if (/^#[0-9a-fA-F]{6}$/.test(s)) {
+    const n = parseInt(s.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 1];
   }
-  const m = /rgba?\(([^)]+)\)/.exec(c);
-  if (!m) return null;
-  const parts = m[1].split(",").map((s) => parseFloat(s.trim()));
-  if (parts.length < 3 || parts.some((p) => Number.isNaN(p))) return null;
-  return [parts[0], parts[1], parts[2], parts[3] ?? 1];
+  if (/^#[0-9a-fA-F]{8}$/.test(s)) {
+    const n = parseInt(s.slice(1, 7), 16);
+    const a = parseInt(s.slice(7), 16) / 255;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, a];
+  }
+  const m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/.exec(s);
+  if (m) {
+    const r = parseFloat(m[1]);
+    const g = parseFloat(m[2]);
+    const b = parseFloat(m[3]);
+    const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+    if ([r, g, b, a].some(Number.isNaN)) return null;
+    return [r, g, b, a];
+  }
+  return null;
 }
 
-export function getLuminance(color: string): number {
-  const rgba = parseColorToRgba(color);
-  if (!rgba) return 0.5;
-  const [r, g, b] = rgba;
-  return (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+/**
+ * Perceived brightness of a color on a 0–1 scale.
+ * Uses ITU-R BT.601 coefficients on gamma-encoded sRGB — intentionally
+ * simple and fast for UI light/dark decisions.
+ * @param r  red   channel, 0–1
+ * @param g  green channel, 0–1
+ * @param b  blue  channel, 0–1
+ */
+function perceivedBrightness(r: number, g: number, b: number): number {
+  return r * 0.299 + g * 0.587 + b * 0.114;
 }
 
 export function isLightColor(color: string): boolean {
-  return getLuminance(color) > 0.5;
+  const rgba = parseColorToRgba(color);
+  if (!rgba) return false;
+  return perceivedBrightness(rgba[0] / 255, rgba[1] / 255, rgba[2] / 255) > 0.5;
+}
+
+// Ko-fi button style index values — order matches KOFI_TITLES
+const KOFI_STYLE_DARK: KofiStyle   = "1"; // Dark
+const KOFI_STYLE_YELLOW: KofiStyle = "2"; // Yellow
+const KOFI_STYLE_WHITE: KofiStyle  = "3"; // White (default for dark backgrounds)
+const KOFI_STYLE_RED: KofiStyle    = "6"; // Orange (for reddish backgrounds)
+const KOFI_STYLE_BLUE: KofiStyle   = "5"; // Blue
+const KOFI_STYLE_PURPLE: KofiStyle = "4"; // Purple
+
+const LIGHT_LUMINANCE_THRESHOLD = 0.5;
+const GRAYSCALE_SATURATION_THRESHOLD = 0.15;
+
+const HUE_RED_MIN = 330;
+const HUE_RED_MAX = 30;
+const HUE_YELLOW_MAX = 70;
+const HUE_GREEN_MAX = 165;
+const HUE_BLUE_MAX = 255;
+
+function rgbToHsl(r: number, g: number, b: number) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lightness = (max + min) / 2;
+  if (max === min) {
+    return { hue: 0, saturation: 0, lightness };
+  }
+  const delta = max - min;
+  const saturation =
+    lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+  let hue: number;
+  if (max === r) hue = ((g - b) / delta + (g < b ? 6 : 0)) * 60;
+  else if (max === g) hue = ((b - r) / delta + 2) * 60;
+  else hue = ((r - g) / delta + 4) * 60;
+  return { hue, saturation, lightness };
 }
 
 export function getAutoKofiStyle(color: string): KofiStyle {
   const rgba = parseColorToRgba(color);
-  if (!rgba) return "3";
-  const [r8, g8, b8] = rgba;
-  const r = r8 / 255;
-  const g = g8 / 255;
-  const b = b8 / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  const luminance = r * 0.299 + g * 0.587 + b * 0.114;
-  if (max === min) return luminance > 0.5 ? "1" : "3";
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  if (s < 0.15) return luminance > 0.5 ? "1" : "3";
-  let h: number;
-  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
-  else if (max === g) h = ((b - r) / d + 2) * 60;
-  else h = ((r - g) / d + 4) * 60;
-  if (h < 30 || h >= 330) return "6";
-  if (h < 70) return "2";
-  if (h < 165) return luminance > 0.5 ? "1" : "3";
-  if (h < 255) return "5";
-  return "4";
+  if (!rgba) return KOFI_STYLE_WHITE;
+  const r = rgba[0] / 255;
+  const g = rgba[1] / 255;
+  const b = rgba[2] / 255;
+
+  const isLight = perceivedBrightness(r, g, b) > LIGHT_LUMINANCE_THRESHOLD;
+  const defaultStyle = isLight ? KOFI_STYLE_DARK : KOFI_STYLE_WHITE;
+
+  const { hue, saturation } = rgbToHsl(r, g, b);
+  if (saturation < GRAYSCALE_SATURATION_THRESHOLD) return defaultStyle;
+
+  if (hue < HUE_RED_MAX || hue >= HUE_RED_MIN) return KOFI_STYLE_RED;
+  if (hue < HUE_YELLOW_MAX) return KOFI_STYLE_YELLOW;
+  if (hue < HUE_GREEN_MAX) return defaultStyle;
+  if (hue < HUE_BLUE_MAX) return KOFI_STYLE_BLUE;
+  return KOFI_STYLE_PURPLE;
 }
 
 function relativeLuminance(color: string): number {
@@ -299,27 +336,9 @@ export function sanitizeImportedTheme(
     accentYellow: r.accentYellow,
     accentRed: r.accentRed,
   };
-  const optionalKeys: Array<keyof CustomThemeColors> = [
-    "bgSurface",
-    "bgElevated",
-    "bgInput",
-    "bgInputOff",
-    "border",
-    "borderFocus",
-    "borderSubtle",
-    "textMuted",
-    "textDim",
-    "radiusSm",
-    "radiusMd",
-    "radiusLg",
-    "containerShadow",
-    "dividerColor",
-    "statusSuccess",
-    "statusError",
-  ];
-  for (const k of optionalKeys) {
+  for (const k of THEME_OPTIONAL_KEYS) {
     const v = r[k];
-    if (isStr(v)) (out as Record<string, string>)[k] = v;
+    if (isStr(v)) (out as unknown as Record<string, string>)[k] = v;
   }
   if (["1", "2", "3", "4", "5", "6"].includes(r.kofiStyle as string)) {
     out.kofiStyle = r.kofiStyle as KofiStyle;

@@ -53,6 +53,8 @@ function applyCustomTheme(root: HTMLElement, c: CustomThemeColors) {
     root.style.removeProperty("--theme-bg-blur");
   }
   const panelOpacity = c.panelOpacity ?? 100;
+  // If panel opacity < 100, override --bg-surface and --bg-elevated that were
+  // already set by the loop above; transparency is applied via color-mix.
   if (panelOpacity < 100) {
     const tint = isLightColor(c.bgBase) ? "#000" : "#fff";
     const surfaceSrc = c.bgSurface || `color-mix(in oklab, ${c.bgBase} 95%, ${tint})`;
