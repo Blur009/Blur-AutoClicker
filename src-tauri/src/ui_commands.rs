@@ -17,7 +17,6 @@ use crate::engine::worker::start_clicker_inner;
 use crate::engine::worker::stop_clicker_inner;
 use crate::hotkeys::register_hotkey_inner;
 
-
 #[tauri::command]
 pub fn get_text_scale_factor() -> f64 {
     #[cfg(target_os = "windows")]
@@ -26,9 +25,7 @@ pub fn get_text_scale_factor() -> f64 {
         use winreg::RegKey;
 
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let key = hkcu
-            .open_subkey(r"Software\Microsoft\Accessibility")
-            .ok();
+        let key = hkcu.open_subkey(r"Software\Microsoft\Accessibility").ok();
 
         if let Some(key) = key {
             let value: u32 = key.get_value("TextScaleFactor").unwrap_or(100);

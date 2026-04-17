@@ -8,14 +8,24 @@ body:
     attributes:
       value: |
         Thanks for taking the time to report a bug.
-        Please fill out the form as clearly as possible so the issue can be reproduced.
+        Please fill out the form as clearly as possible so the problem can be reproduced.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and pull requests for the same problem.
+          required: true
+        - label: I reproduced this on the latest release or latest local source build, if applicable.
+          required: true
 
   - type: input
     id: version
     attributes:
       label: Blur Auto Clicker version
-      description: Example: 3.3.0
-      placeholder: 3.3.0
+      description: Example: 3.4.1
+      placeholder: 3.4.1
     validations:
       required: true
 
@@ -40,37 +50,17 @@ body:
       required: true
 
   - type: dropdown
-    id: mode
+    id: affected_area
     attributes:
-      label: Affected mode
+      label: Affected area
       options:
         - Simple
         - Advanced
         - Settings / General
-        - Not sure
-    validations:
-      required: true
-
-  - type: dropdown
-    id: mouse_button
-    attributes:
-      label: Mouse button
-      options:
-        - Left
-        - Right
-        - Middle
-        - Multiple
-        - Not sure / N/A
-    validations:
-      required: true
-
-  - type: dropdown
-    id: activation_mode
-    attributes:
-      label: Activation mode
-      options:
-        - Hold
-        - Toggle
+        - Clicking engine
+        - Hotkeys
+        - Overlay
+        - Installer / Updates
         - Not sure / N/A
     validations:
       required: true
@@ -86,7 +76,7 @@ body:
     id: affected_settings
     attributes:
       label: Relevant settings
-      description: List any settings that seem relevant, such as duty cycle, speed variation, double click, edge stop, corner stop, or position clicking
+      description: List any settings that seem relevant, such as duty cycle, speed variation, double click, edge stop, corner stop, position clicking, strict hotkey modifiers, or update settings.
       placeholder: |
         Duty cycle enabled
         Speed variation 40-60 CPS
@@ -122,8 +112,14 @@ body:
       required: true
 
   - type: textarea
+    id: evidence
+    attributes:
+      label: Logs, screenshots, or recordings
+      description: Add anything else that may help, such as screenshots, recordings, logs, or unusual system behavior.
+
+  - type: textarea
     id: additional_context
     attributes:
       label: Additional context
-      description: Add anything else that may help, such as screenshots, recordings, logs, or unusual system behavior
+      description: Add any extra context that may help explain the problem.
 

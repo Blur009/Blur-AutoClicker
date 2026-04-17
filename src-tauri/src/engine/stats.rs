@@ -137,7 +137,10 @@ fn compact_runs(runs: &mut Vec<RunRecord>) {
     let avg_cpu = if valid_cpu.is_empty() {
         -1.0
     } else {
-        let weighted_sum: f64 = valid_cpu.iter().map(|(cpu, count)| cpu * *count as f64).sum();
+        let weighted_sum: f64 = valid_cpu
+            .iter()
+            .map(|(cpu, count)| cpu * *count as f64)
+            .sum();
         let weight: u64 = valid_cpu.iter().map(|(_, count)| *count as u64).sum();
         round2(weighted_sum / weight as f64)
     };

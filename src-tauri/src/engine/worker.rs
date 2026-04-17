@@ -53,7 +53,7 @@ fn calibrate_cycle_freq() -> f64 {
 
     let cycle_delta = thread_cycles().saturating_sub(start_cycles);
     let wall_secs = start.elapsed().as_secs_f64();
-    
+
     if wall_secs > 0.0 && cycle_delta > 0 {
         let freq = cycle_delta as f64 / wall_secs;
         log::info!("CPU: calibrated at {:.0} MHz", freq / 1_000_000.0);
