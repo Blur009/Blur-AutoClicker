@@ -1,19 +1,18 @@
-@import "tailwindcss";
-
 .vcontainer {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  gap: 8px;
+  height: 100%;
+  min-height: 0;
+  gap: 0.5rem;
 
 }
 .hcontainer {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px;            
+  gap: 0.5rem;            
 }
 
 .InputBox {
@@ -21,8 +20,9 @@
   display: flex;
   align-items: center;
   
-  padding: 4px 16px;
-  margin: 4px;
+  min-height: 2.125rem;
+  padding: 0.25rem 1rem;
+  margin: 0.25rem;
   
   font-weight: 600;
 
@@ -32,18 +32,19 @@
 
 .vertical-devider {
   align-self: center;
-  height: 16px;
+  height: 1rem;
   width: 1px;
 
-  background-color: rgba(255, 255, 255, 0.25);
+  background-color: var(--divider-color);
 
-  margin-left: 8px;
-  margin-right: 8px;
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
 }
 
 .postfix {
   align-self: flex-end;
-  font-size: 14px;
+  font-size: 0.875rem;
+  margin-bottom: 0.185rem;
   font-weight: 400;
   color: var(--text-muted);
 }
@@ -53,7 +54,7 @@
 }
 
 .numbervalue{
-  margin-left: 8px;
+  margin-left: 0.5rem;
 }
 
 .faderbox {
@@ -63,7 +64,7 @@
   display: flex;
   height: 100%;
   width: auto;
-  max-width: 130px;
+  max-width: 8.125rem;
   overflow: hidden;
 }
 .faderbox::after {
@@ -74,7 +75,7 @@
   height: 100%;
   width: 100%;
   
-  background: linear-gradient(90deg, #ffffff00, #ffffff00,#121212);
+  background: linear-gradient(90deg, transparent, transparent, var(--bg-base));
   z-index: 1; 
   pointer-events: none;
 }
@@ -84,7 +85,7 @@
   border: none;
   outline: none;
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
   width: 3ch;
   min-width: 3ch;
@@ -94,7 +95,7 @@
 }
 
 .simple-inline-input.numbervalue {
-  margin-left: 8px;
+  margin-left: -0.25rem;
 }
 
 .simple-inline-input::-webkit-inner-spin-button,
@@ -108,9 +109,9 @@
   border: none;
   outline: none;
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
-  width: 120px;
+  width: 7.5rem;
   min-width: 0;
   cursor: pointer;
 }
@@ -119,24 +120,52 @@
   background: transparent;
   border: none;
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
   padding: 0;
   cursor: pointer;
   line-height: 1.1;
-  height: 24px;
+  height: 1.5rem;
 }
 
 .Icon,
 .icon {
-  color: var(--text);
+  color: var(--text-primary);
   flex-shrink: 0;
   display: block;
   align-self: center;
 }
 
 .clock-icon {
-  margin-left: 8px;
+  margin-left: 0.5rem;
+}
+
+.cadence-box {
+  gap: 8px;
+}
+
+.cadence-mode-group {
+  flex-shrink: 0;
+}
+
+.simple-duration-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.simple-duration-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.simple-duration-chip .postfix {
+  align-self: center;
+  margin-left: 2px;
 }
 
 .simple-cycle-btn:hover {

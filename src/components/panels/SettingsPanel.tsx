@@ -1,11 +1,21 @@
 import "./SettingsPanel.css";
-import type { AppInfo, Settings } from "../../store";
+import type {
+  AppInfo,
+  PresetDefinition,
+  PresetId,
+  Settings,
+} from "../../store";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-shell";
 import ConfirmDialog from "../ConfirmDialog";
 
 type PendingAction = "reset-settings" | "clear-stats" | null;
+import {
+  DEFAULT_ACCENT_COLOR,
+  MAX_PRESETS,
+  PRESET_NAME_MAX_LENGTH,
+} from "../../settingsSchema";
 
 interface CumulativeStats {
   totalClicks: number;
@@ -17,7 +27,14 @@ interface CumulativeStats {
 interface Props {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
+  running: boolean;
   appInfo: AppInfo;
+  onSavePreset: (name: string) => boolean;
+  onApplyPreset: (presetId: PresetId) => boolean;
+  onUpdatePreset: (presetId: PresetId) => boolean;
+  onRenamePreset: (presetId: PresetId, name: string) => boolean;
+  onDeletePreset: (presetId: PresetId) => boolean;
+  onToggleAlwaysOnTop: () => Promise<void>;
   onReset: () => Promise<void>;
 }
 
@@ -45,17 +62,160 @@ function formatCpu(cpu: number): string {
   return `${cpu.toFixed(1)}%`;
 }
 
+function PresetRow({
+  preset,
+  isActive,
+  isEditing,
+  isConfirmingDelete,
+  running,
+  renameDraft,
+  onRenameDraftChange,
+  onStartRename,
+  onCancelRename,
+  onCommitRename,
+  onApply,
+  onUpdatePreset,
+  onRequestDelete,
+  onCancelDelete,
+  onConfirmDelete,
+}: {
+  preset: PresetDefinition;
+  isActive: boolean;
+  isEditing: boolean;
+  isConfirmingDelete: boolean;
+  running: boolean;
+  renameDraft: string;
+  onRenameDraftChange: (value: string) => void;
+  onStartRename: () => void;
+  onCancelRename: () => void;
+  onCommitRename: () => void;
+  onApply: () => void;
+  onUpdatePreset: () => void;
+  onRequestDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
+}) {
+  return (
+    <div
+      className={`preset-card ${isActive ? "preset-card--active" : ""}`}
+      data-preset-id={preset.id}
+    >
+      <div className="preset-card-head">
+        <div className="preset-card-meta">
+          {isEditing ? (
+            <input
+              className="preset-rename-input"
+              value={renameDraft}
+              maxLength={PRESET_NAME_MAX_LENGTH}
+              onChange={(event) => onRenameDraftChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onCommitRename();
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  onCancelRename();
+                }
+              }}
+              autoFocus
+            />
+          ) : (
+            <span className="preset-name">{preset.name}</span>
+          )}
+          <div className="preset-badges">
+            {isActive && <span className="preset-badge preset-badge--active">Active</span>}
+            <span className="preset-badge">
+              {new Date(preset.updatedAt).toLocaleDateString()}
+            </span>
+          </div>
+        </div>
+        <div className="preset-actions">
+          {isEditing ? (
+            <>
+              <button
+                className="settings-btn-secondary"
+                onClick={onCommitRename}
+                disabled={running}
+              >
+                Save
+              </button>
+              <button className="settings-btn-quiet" onClick={onCancelRename}>
+                Cancel
+              </button>
+            </>
+          ) : isConfirmingDelete ? (
+            <>
+              <button
+                className="settings-btn-danger settings-btn-danger--compact"
+                onClick={onConfirmDelete}
+                disabled={running}
+              >
+                Confirm?
+              </button>
+              <button className="settings-btn-quiet" onClick={onCancelDelete}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="settings-btn-primary"
+                onClick={onApply}
+                disabled={running}
+              >
+                Apply
+              </button>
+              <button
+                className="settings-btn-secondary"
+                onClick={onUpdatePreset}
+                disabled={running}
+              >
+                Update
+              </button>
+              <button
+                className="settings-btn-secondary"
+                onClick={onStartRename}
+                disabled={running}
+              >
+                Rename
+              </button>
+              <button
+                className="settings-btn-danger settings-btn-danger--compact"
+                onClick={onRequestDelete}
+                disabled={running}
+              >
+                Delete
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPanel({
   settings,
   update,
+  running,
   appInfo,
+  onSavePreset,
+  onApplyPreset,
+  onUpdatePreset,
+  onRenamePreset,
+  onDeletePreset,
+  onToggleAlwaysOnTop,
   onReset,
 }: Props) {
   const [resetting, setResetting] = useState(false);
-  const [resettingStats, setResettingStats] = useState(false);
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [stats, setStats] = useState<CumulativeStats | null>(null);
   const [atBottom, setAtBottom] = useState(false);
+  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(null);
+  const [newPresetName, setNewPresetName] = useState("");
+  const [editingPresetId, setEditingPresetId] = useState<PresetId | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<PresetId | null>(null);
 
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -63,7 +223,35 @@ export default function SettingsPanel({
     invoke<CumulativeStats>("get_stats")
       .then(setStats)
       .catch(() => {});
+    invoke<boolean>("get_autostart_enabled")
+      .then(setAutostartEnabled)
+      .catch(() => setAutostartEnabled(false));
   }, []);
+
+  useEffect(() => {
+    if (!confirmingDeleteId) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const presetCard = target.closest("[data-preset-id]");
+      if (presetCard?.getAttribute("data-preset-id") === confirmingDeleteId) {
+        return;
+      }
+
+      setConfirmingDeleteId(null);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [confirmingDeleteId]);
 
   const handleScroll = () => {
     const el = panelRef.current;
@@ -71,12 +259,65 @@ export default function SettingsPanel({
     setAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
   };
 
+  const handleSavePreset = () => {
+    if (onSavePreset(newPresetName)) {
+      setNewPresetName("");
+      setConfirmingDeleteId(null);
+    }
+  };
+
+  const handleStartRename = (preset: PresetDefinition) => {
+    setConfirmingDeleteId(null);
+    setEditingPresetId(preset.id);
+    setRenameDraft(preset.name);
+  };
+
+  const handleCommitRename = () => {
+    if (!editingPresetId) {
+      return;
+    }
+
+    if (onRenamePreset(editingPresetId, renameDraft)) {
+      setEditingPresetId(null);
+      setRenameDraft("");
+    }
+  };
+
+  const handleCancelRename = () => {
+    setEditingPresetId(null);
+    setRenameDraft("");
+  };
+
+  const handleRequestDelete = (presetId: PresetId) => {
+    setEditingPresetId(null);
+    setRenameDraft("");
+    setConfirmingDeleteId(presetId);
+  };
+
+  const handleConfirmDelete = (presetId: PresetId) => {
+    if (onDeletePreset(presetId)) {
+      setConfirmingDeleteId(null);
+    }
+  };
+
+  const handleAlwaysOnTopChange = (nextValue: boolean) => {
+    if (settings.alwaysOnTop === nextValue) {
+      return;
+    }
+
+    void onToggleAlwaysOnTop();
+  };
+
   const hasStats = stats !== null && stats.totalSessions > 0;
+  const presetLimitReached = settings.presets.length >= MAX_PRESETS;
+  const activeEditingPresetId = running ? null : editingPresetId;
+  const activeConfirmingDeleteId = running ? null : confirmingDeleteId;
 
   const handleConfirmResetSettings = async () => {
     setResetting(true);
     try {
       await onReset();
+      setAutostartEnabled(false);
     } finally {
       setResetting(false);
       setPendingAction(null);
@@ -102,6 +343,23 @@ export default function SettingsPanel({
         <div className="social-links">
           <span className="settings-label">Support Me</span>
           <div className="social-icons">
+            <a
+              className="social-icon social-icon--kofi"
+              href="#"
+              title="Ko-fi"
+              onClick={(e) => {
+                e.preventDefault();
+                open("https://ko-fi.com/Z8Z71T8QD4");
+              }}
+            >
+              <img
+                height="28"
+                style={{ border: 0, height: "28px" }}
+                src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
+                alt="Buy Me a Coffee at ko-fi.com"
+              />
+            </a>
+
             <a
               className="social-icon social-icon--youtube"
               href="#"
@@ -156,54 +414,15 @@ export default function SettingsPanel({
                 <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.2-1.7-1.2-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 .1.8 1.8 3.4 1.2.1-.7.4-1.2.7-1.5-2.7-.3-5.4-1.3-5.4-6a4.7 4.7 0 0 1 1.2-3.2c-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.2 11.2 0 0 1 6.1 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2a4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.8 5.7-5.4 6 .4.3.8 1 .8 2.1v3.1c0 .4.2.7.8.6A12 12 0 0 0 12 .3" />
               </svg>
             </a>
-            <a
-              className="social-icon social-icon--kofi"
-              href="#"
-              title="Ko-fi"
-              onClick={(e) => {
-                e.preventDefault();
-                open("https://ko-fi.com/Blur009");
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                width="18"
-                height="18"
-              >
-                <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.034-3.954-.709-.965-1.041-2.7-.091-3.71.951-1.01 3.005-1.086 4.363.407 0 0 1.565-1.782 3.468-.963 1.904.82 1.832 3.011.723 4.311zm6.173.478c-.928.116-1.682.028-1.682.028V7.284h1.77s1.971.551 1.971 2.638c0 1.913-.985 2.667-2.059 3.015z" />
-              </svg>
-            </a>
-            <a
-              className="social-icon social-icon--patreon"
-              href="#"
-              title="Patreon"
-              onClick={(e) => {
-                e.preventDefault();
-                open("https://patreon.com/Blur009");
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                width="18"
-                height="18"
-              >
-                <path d="M15.386.524c-4.764 0-8.64 3.876-8.64 8.64 0 4.75 3.876 8.613 8.64 8.613 4.75 0 8.614-3.864 8.614-8.613C24 4.4 20.136.524 15.386.524zM.003 23.537h4.22V.524H.003z" />
-              </svg>
-            </a>
           </div>
         </div>
 
-        {/* <div className="settings-divider" /> */}
         <div className="settings-row">
           <span className="settings-label">Version</span>
           <span className="settings-value">v{appInfo.version}</span>
         </div>
 
         <div className="settings-divider" />
-
-        {/* -- Your Usage Data -- */}
 
         <div className="settings-row">
           <div className="settings-label-group">
@@ -212,45 +431,30 @@ export default function SettingsPanel({
               Your personal clicker stats, tracked locally.
             </span>
           </div>
-          <button
-            className="settings-btn-danger"
-            onClick={() => setPendingAction("clear-stats")}
-            disabled={resettingStats || !hasStats}
-          >
-            {resettingStats ? "Clearing..." : "Clear"}
-          </button>
         </div>
         {hasStats ? (
-          <>
-            <div className="stats-grid">
-              <div className="stats-cell">
-                <span className="stats-cell-label">Total Clicks</span>
-                <span className="stats-cell-value">
-                  {formatNumber(stats.totalClicks)}
-                </span>
-              </div>
-              <div className="stats-cell">
-                <span className="stats-cell-label">
-                  Total Time spent clicking
-                </span>
-                <span className="stats-cell-value">
-                  {formatTime(stats.totalTimeSecs)}
-                </span>
-              </div>
-              <div className="stats-cell">
-                <span className="stats-cell-label">
-                  CPU Usage avg (while running)
-                </span>
-                <span className="stats-cell-value">
-                  {formatCpu(stats.avgCpu)}
-                </span>
-              </div>
-              <div className="stats-cell">
-                <span className="stats-cell-label">Sessions</span>
-                <span className="stats-cell-value">{stats.totalSessions}</span>
-              </div>
+          <div className="stats-grid">
+            <div className="stats-cell">
+              <span className="stats-cell-label">Total Clicks</span>
+              <span className="stats-cell-value">
+                {formatNumber(stats.totalClicks)}
+              </span>
             </div>
-          </>
+            <div className="stats-cell">
+              <span className="stats-cell-label">Total Time Spent Clicking</span>
+              <span className="stats-cell-value">
+                {formatTime(stats.totalTimeSecs)}
+              </span>
+            </div>
+            <div className="stats-cell">
+              <span className="stats-cell-label">CPU Usage Avg</span>
+              <span className="stats-cell-value">{formatCpu(stats.avgCpu)}</span>
+            </div>
+            <div className="stats-cell">
+              <span className="stats-cell-label">Sessions</span>
+              <span className="stats-cell-value">{stats.totalSessions}</span>
+            </div>
+          </div>
         ) : (
           <div className="stats-empty">No runs recorded yet</div>
         )}
@@ -259,19 +463,39 @@ export default function SettingsPanel({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Stop Hitbox Overlay</span>
+            <span className="settings-label">Always on Top</span>
             <span className="settings-sublabel">
-              Toggles whether the stop hitbox overlay is shown.
+              Keep the app pinned above other windows.
             </span>
           </div>
           <div className="settings-seg-group">
-            {["On", "Off"].map((o) => (
+            {["On", "Off"].map((option) => (
               <button
-                key={o}
-                className={`settings-seg-btn ${(settings.showStopOverlay ? "On" : "Off") === o ? "active" : ""}`}
-                onClick={() => update({ showStopOverlay: o === "On" })}
+                key={option}
+                className={`settings-seg-btn ${(settings.alwaysOnTop ? "On" : "Off") === option ? "active" : ""}`}
+                onClick={() => handleAlwaysOnTopChange(option === "On")}
               >
-                {o}
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Stop Hitbox Overlay</span>
+            <span className="settings-sublabel">
+              Toggle the stop-zone overlay preview.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {["On", "Off"].map((option) => (
+              <button
+                key={option}
+                className={`settings-seg-btn ${(settings.showStopOverlay ? "On" : "Off") === option ? "active" : ""}`}
+                onClick={() => update({ showStopOverlay: option === "On" })}
+              >
+                {option}
               </button>
             ))}
           </div>
@@ -281,15 +505,35 @@ export default function SettingsPanel({
           <div className="settings-label-group">
             <span className="settings-label">Stop Reason Alert</span>
             <span className="settings-sublabel">
-              Shows why the clicker stopped in the title bar.
+              Show why the clicker stopped in the title bar.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {["On", "Off"].map((option) => (
+              <button
+                key={option}
+                className={`settings-seg-btn ${(settings.showStopReason ? "On" : "Off") === option ? "active" : ""}`}
+                onClick={() => update({ showStopReason: option === "On" })}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Strict Hotkey Modifiers</span>
+            <span className="settings-sublabel">
+              On: hotkey only fires when modifier keys match exactly. Off: extra held modifiers (e.g. Shift while gaming) are ignored.
             </span>
           </div>
           <div className="settings-seg-group">
             {["On", "Off"].map((o) => (
               <button
                 key={o}
-                className={`settings-seg-btn ${(settings.showStopReason ? "On" : "Off") === o ? "active" : ""}`}
-                onClick={() => update({ showStopReason: o === "On" })}
+                className={`settings-seg-btn ${(settings.strictHotkeyModifiers ? "On" : "Off") === o ? "active" : ""}`}
+                onClick={() => update({ strictHotkeyModifiers: o === "On" })}
               >
                 {o}
               </button>
@@ -300,15 +544,205 @@ export default function SettingsPanel({
         <div className="settings-divider" />
         <div className="settings-row">
           <div className="settings-label-group">
+            <span className="settings-label">Minimize to Tray</span>
+            <span className="settings-sublabel">
+              When enabled, closing the window hides it to the system tray instead of quitting.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {["On", "Off"].map((o) => (
+              <button
+                key={o}
+                className={`settings-seg-btn ${(settings.minimizeToTray ? "On" : "Off") === o ? "active" : ""}`}
+                onClick={() => update({ minimizeToTray: o === "On" })}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Run on Startup</span>
+            <span className="settings-sublabel">
+              Automatically start BlurAutoClicker with Windows, minimized to tray.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {["On", "Off"].map((o) => (
+              <button
+                key={o}
+                className={`settings-seg-btn ${autostartEnabled === (o === "On") ? "active" : ""}`}
+                disabled={autostartEnabled === null}
+                onClick={() => {
+                  const next = o === "On";
+                  invoke("set_autostart_enabled", { enabled: next })
+                    .then(() => setAutostartEnabled(next))
+                    .catch(console.error);
+                }}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-divider" />
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Theme</span>
+            <span className="settings-sublabel">
+              Switch between dark and light themes.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {(["Dark", "Light"] as const).map((option) => (
+              <button
+                key={option}
+                className={`settings-seg-btn ${(settings.theme === "light" ? "Light" : "Dark") === option ? "active" : ""}`}
+                onClick={() =>
+                  update({ theme: option.toLowerCase() as "dark" | "light" })
+                }
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Accent Color</span>
+            <span className="settings-sublabel">
+              Customize the primary accent used for active states.
+            </span>
+          </div>
+          <div className="settings-color-controls">
+            <label className="settings-color-picker">
+              <input
+                type="color"
+                value={settings.accentColor}
+                onChange={(event) => update({ accentColor: event.target.value })}
+              />
+            </label>
+            <span className="settings-value settings-value--mono">
+              {settings.accentColor.toUpperCase()}
+            </span>
+            <button
+              className="settings-btn-secondary"
+              onClick={() => update({ accentColor: DEFAULT_ACCENT_COLOR })}
+              disabled={settings.accentColor === DEFAULT_ACCENT_COLOR}
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-divider" />
+
+        <div className="settings-row settings-row--stacked">
+          <div className="settings-label-group">
+            <span className="settings-label">Presets</span>
+            <span className="settings-sublabel">
+              Save and reuse named clicker configurations.
+            </span>
+          </div>
+          <div className="preset-compose">
+            <input
+              className="preset-name-input"
+              placeholder="Preset name"
+              value={newPresetName}
+              maxLength={PRESET_NAME_MAX_LENGTH}
+              onChange={(event) => setNewPresetName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  if (!running && !presetLimitReached && newPresetName.trim()) {
+                    handleSavePreset();
+                  }
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setNewPresetName("");
+                }
+              }}
+              disabled={running}
+            />
+            <button
+              className="settings-btn-primary"
+              onClick={handleSavePreset}
+              disabled={
+                running ||
+                presetLimitReached ||
+                newPresetName.trim().length === 0
+              }
+            >
+              Save New
+            </button>
+          </div>
+          {presetLimitReached && (
+            <span className="settings-note">
+              Preset limit reached. Delete one before saving another.
+            </span>
+          )}
+          {running && (
+            <span className="settings-note">
+              Preset actions are disabled while the clicker is running.
+            </span>
+          )}
+          {settings.presets.length > 0 ? (
+            <div className="preset-list">
+              {settings.presets.map((preset) => (
+                <PresetRow
+                  key={preset.id}
+                  preset={preset}
+                  isActive={settings.activePresetId === preset.id}
+                  isEditing={activeEditingPresetId === preset.id}
+                  isConfirmingDelete={activeConfirmingDeleteId === preset.id}
+                  running={running}
+                  renameDraft={activeEditingPresetId === preset.id ? renameDraft : preset.name}
+                  onRenameDraftChange={setRenameDraft}
+                  onStartRename={() => handleStartRename(preset)}
+                  onCancelRename={handleCancelRename}
+                  onCommitRename={handleCommitRename}
+                  onApply={() => {
+                    setConfirmingDeleteId(null);
+                    onApplyPreset(preset.id);
+                  }}
+                  onUpdatePreset={() => {
+                    setConfirmingDeleteId(null);
+                    onUpdatePreset(preset.id);
+                  }}
+                  onRequestDelete={() => handleRequestDelete(preset.id)}
+                  onCancelDelete={() => setConfirmingDeleteId(null)}
+                  onConfirmDelete={() => handleConfirmDelete(preset.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="stats-empty">
+              No presets saved yet. Save one from your current clicker settings.
+            </div>
+          )}
+        </div>
+
+        <div className="settings-divider" />
+
+        <div className="settings-row">
+          <div className="settings-label-group">
             <span className="settings-label">Reset All Settings</span>
             <span className="settings-sublabel">
-              Will reset all input fields and settings to the Defaults.
+              Reset all saved settings and presets back to defaults.
             </span>
           </div>
           <button
             className="settings-btn-danger"
-            onClick={() => setPendingAction("reset-settings")}
-            disabled={resetting}
+            onClick={() => {
+              setResetting(true);
+              onReset()
+                .then(() => setAutostartEnabled(false))
+                .finally(() => setResetting(false));
+            }}
           >
             {resetting ? "Resetting..." : "Reset"}
           </button>

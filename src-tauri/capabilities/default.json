@@ -26,6 +26,7 @@
     "store:allow-set",
 
     "shell:allow-open",
+    "process:default",
     "updater:default",
 
     "global-shortcut:allow-register",

@@ -2,46 +2,67 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  height: 30px;
-  background: rgba(254, 188, 46, 0.1);
-  border-top: 1px solid rgba(254, 188, 46, 0.25);
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  min-height: 1.875rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--update-banner-bg);
   flex-shrink: 0;
 }
 
 .update-banner-text {
   font-family: 'DMSans', sans-serif;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
-  color: var(--accent-yellow);
+  color: var(--update-banner-text-bg);
 }
 .update-banner-text-new-version {
   font-family: 'DMSans', sans-serif;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
-  color: var(--color-lime-500);
+  color: var(--update-banner-text-fg);
 }
 .update-banner-text-old-version {
   font-family: 'DMSans', sans-serif;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
-  color: var(--color-red-400);
+  color: var(--update-banner-text-fg);
 }
 
 .update-banner-btn {
   font-family: 'DMSans', sans-serif;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--accent-yellow);
+  color: var(--update-banner-text-bg);
   background: transparent;
   border: 1px solid rgba(254, 188, 46, 0.4);
   border-radius: var(--radius-sm);
-  padding: 2px 10px;
+  padding: 2px 0.625rem;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .update-banner-btn:hover {
-  background: rgba(254, 188, 46, 0.15);
+  background: rgba(156, 121, 45, 0.15);
   border-color: var(--accent-yellow);
+}
+
+.update-banner-btn:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.update-banner-status {
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.update-banner-status[data-stage="error"] {
+  color: var(--status-error);
+}
+
+.update-banner-status[data-stage="restart-required"] {
+  color: var(--status-success);
 }

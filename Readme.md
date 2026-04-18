@@ -1,3 +1,5 @@
+[![Downloads](https://img.shields.io/github/downloads/Blur009/Blur-AutoClicker/total?style=for-the-badge&label=downloads)](https://github.com/Blur009/Blur-AutoClicker/releases)
+
 # Blur Auto Clicker
 
 <div align="center">
@@ -6,13 +8,13 @@
 <p align="center"><em>An accuracy and performance focused auto clicker</em></p>
 
 
-## Why i made it
+## Why I made it:
 
-A lot of the most popular auto clickers like OP Auto Clicker and Speed Auto Clicker are pretty inaccurate at higher speeds. Setting CPS to 50 might give you 40.. or 60. Technically this is not an issue since they are still clicking _fast_, but I am a perfectionist and I wanted something that could actually click at the CPS I set it to, even at higher speeds. So I made this.
+A lot of the most popular auto clickers, like OP Auto Clicker and Speed Auto Clicker, are pretty inaccurate at higher speeds. Setting CPS to 50 might give you 40... or 60. Technically this is not an issue since they are still clicking _fast_, but I am a perfectionist and I wanted something that could actually click at the CPS I set it to, even at higher speeds. So I made this.
 
-Additionally, many auto clickers have 1 good feature but are missing the other features I want. My auto clicker combines all the featurs I have seen in other auto clickers, and even adds some of my own ideas.
+Additionally, many auto clickers have 1 good feature but are missing the other features I want. My auto clicker combines all the features I have seen in other auto clickers, and even adds some of my own ideas.
 
-Performance is also a heavy focus of this. While version 3 and onwards run on a web based UI, The total RAM usage is around 50mb and I intend for it to never go above 100mb.
+Performance is also a heavy focus of this. While version 3 and onwards run on a web-based UI, The total RAM usage is around 50mb and I intend for it to never go above 100mb.
 
 ---
 
@@ -45,25 +47,73 @@ Other Features:
 
 ## Installation
 
-1. download from releases  
-2. run the installer
-3. run the program (default location is `%localappdata%/BlurAutoClicker/BlurAutoClicker.exe`)
+ <tr>
+    <td align="center" colspan="2">
+      <a href="https://github.com/Blur009/Blur-AutoClicker/releases/latest">
+        <img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Download from GitHub" height="75">
+      </a>
+    </td>
+  </tr>
 
-config and stats are stored in `%appdata%/BlurAutoClicker`
+By default, the program is stored in `%localappdata%/BlurAutoClicker/BlurAutoClicker.exe`. 
 
-Info: If you are on version 2.1.2 or below, delete the old executable (the installer will not delete it for you).
-The old Config and Stats files will unfortunately not be compatible with the new versions (3.0.0 and above), so they will be deleted upon launching the application.
+Config and stats are stored in `%appdata%/BlurAutoClicker`.
+
+*Info: If you are on version 2.1.2 or below, delete the old executable (the installer will not delete it for you).
+The old Config and Stats files will unfortunately not be compatible with the new versions (3.0.0 and above), so they will be deleted upon launching the application.*
+
+### Windows trust / signing
+
+Unsigned GitHub-downloaded Windows installers can still show a SmartScreen warning. Tauri updater signing is separate from Windows Authenticode signing. See [docs/windows-release-trust.md](docs/windows-release-trust.md) for build commands, signature checks, and the release-trust checklist.
 
 ---
 
-## license
+## Building From Source
 
-GPL v3 https://www.gnu.org/licenses/gpl-3.0.en.html#license-text
+This project is currently Windows-first. The maintained desktop build path is the Rust `x86_64-pc-windows-msvc` toolchain plus Node.js.
 
-## Support the project
-Ko-fi: https://ko-fi.com/blur009
+Requirements:
+- Node.js 20 or newer
+- Rust via `rustup`
+- Microsoft C++ Build Tools / Visual Studio Build Tools
+
+Setup:
+```powershell
+git clone https://github.com/Blur009/Blur-AutoClicker.git
+cd Blur-AutoClicker
+npm install
+rustup default stable-x86_64-pc-windows-msvc
+```
+
+Run the app in development:
+```powershell
+npm run dev
+```
+
+Build a release bundle:
+```powershell
+npm run build
+```
+
+Useful validation commands:
+```powershell
+npm run lint
+npm run frontend:build
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+The built Windows installer is written to `src-tauri/target/release/bundle/nsis/`.
+
+---
+
+## Support the project!
+[![ko-fi](https://www.ko-fi.com/img/donate_sm.png)](https://ko-fi.com/blur009)
 
 You can also support the project by starring the repository and sharing it with your friends :). Thank you for your support!
+
+## License
+
+This project is licensed under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html#license-text).
 
 ## Other Info
 1. Windows has a limit of around 500 CPS for mouse events. This is because Windows timer resolution is limited to about 1ms at minimum (1000cps) but windows also needs to do other things, so the practical limit is around 800cps, but since I can not guarantee that performance on every computer, I set the limit to 500cps.

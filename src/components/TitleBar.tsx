@@ -1,16 +1,28 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import React, { useState, useEffect, useRef } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import type { Tab } from "../App";
 import "./TitleBar.css";
 
 const appWindow = getCurrentWindow();
-const handleMinimize = async () => await appWindow.minimize();
+const DEFAULT_TITLE = "BlurAutoClicker";
+
+async function handleMinimize() {
+  await appWindow.minimize();
+}
 
 interface Props {
   tab: Tab;
   setTab: (t: Tab) => void;
   running: boolean;
   stopReason?: string | null;
+  isAlwaysOnTop: boolean;
+  onToggleAlwaysOnTop: () => Promise<void>;
   onRequestClose: () => Promise<void>;
 }
 
@@ -24,7 +36,19 @@ type TabItem = {
   value: NavTab;
   label: string;
   color: string;
-  icon: (props: TabIconProps) => React.ReactNode;
+  icon: (props: TabIconProps) => ReactNode;
+};
+
+type TitleViewState = {
+  text: string;
+  flipClass: string;
+  isReason: boolean;
+};
+
+const DEFAULT_TITLE_STATE: TitleViewState = {
+  text: DEFAULT_TITLE,
+  flipClass: "",
+  isReason: false,
 };
 
 const TAB_ITEMS: readonly TabItem[] = [
@@ -78,81 +102,10 @@ export default function TitleBar({
   setTab,
   running,
   stopReason,
+  isAlwaysOnTop,
+  onToggleAlwaysOnTop,
   onRequestClose,
 }: Props) {
-  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
-  const [titleText, setTitleText] = useState("BlurAutoClicker");
-  const [flipClass, setFlipClass] = useState("");
-  const [isReason, setIsReason] = useState(false);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  const clearTimers = () => {
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current = [];
-  };
-
-  const later = (fn: () => void, ms: number) => {
-    timersRef.current.push(setTimeout(fn, ms));
-  };
-
-  useEffect(() => {
-    clearTimers();
-
-    if (running) {
-      setTitleText("BlurAutoClicker");
-      setIsReason(false);
-      setFlipClass("");
-      return () => clearTimers();
-    }
-
-    if (stopReason) {
-      requestAnimationFrame(() => {
-        setFlipClass("flip-out");
-
-        later(() => {
-          setTitleText(stopReason);
-          setIsReason(true);
-          setFlipClass("");
-          requestAnimationFrame(() => {
-            setFlipClass("flip-in");
-            later(() => setFlipClass(""), 350);
-          });
-
-          later(() => {
-            requestAnimationFrame(() => {
-              setFlipClass("flip-out");
-              later(() => {
-                setTitleText("BlurAutoClicker");
-                setIsReason(false);
-                setFlipClass("");
-                requestAnimationFrame(() => {
-                  setFlipClass("flip-in");
-                  later(() => setFlipClass(""), 350);
-                });
-              }, 350);
-            });
-          }, 5000);
-        }, 400);
-      });
-    } else {
-      setTitleText("BlurAutoClicker");
-      setIsReason(false);
-      setFlipClass("");
-    }
-
-    return () => clearTimers();
-  }, [stopReason, running]);
-
-  const toggleAlwaysOnTop = async () => {
-    try {
-      const newState = !isAlwaysOnTop;
-      await appWindow.setAlwaysOnTop(newState);
-      setIsAlwaysOnTop(newState);
-    } catch (err) {
-      console.error("Failed to set always on top:", err);
-    }
-  };
-
   return (
     <div
       className="window-title-background"
@@ -160,18 +113,17 @@ export default function TitleBar({
         {
           WebkitAppRegion: "drag",
           WebkitUserSelect: "none",
-        } as React.CSSProperties
+        } as CSSProperties
       }
       data-tauri-drag-region
       data-running={running}
     >
-      {/* Leftmost settings icon + mode tabs */}
       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
         <button
           className="settings-button"
           data-active={tab === "settings"}
           onClick={() => setTab("settings")}
-          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+          style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
         >
           <svg
             className="settings-svg"
@@ -205,16 +157,10 @@ export default function TitleBar({
         </div>
       </div>
 
-      {/* Center: title with flip */}
       <div className="title-wrapper">
-        <span
-          className={`window-title title-flipper ${flipClass} ${isReason ? "is-reason" : ""}`}
-        >
-          {titleText}
-        </span>
+        <AnimatedTitle running={running} stopReason={stopReason} />
       </div>
 
-      {/* Right: window controls */}
       <div
         style={
           {
@@ -222,11 +168,13 @@ export default function TitleBar({
             alignItems: "center",
             gap: "4px",
             WebkitAppRegion: "no-drag",
-          } as React.CSSProperties
+          } as CSSProperties
         }
       >
         <WindowBtn
-          onClick={toggleAlwaysOnTop}
+          onClick={() => {
+            void onToggleAlwaysOnTop();
+          }}
           active={isAlwaysOnTop}
           title={isAlwaysOnTop ? "Disable Always on Top" : "Enable Always on Top"}
           label={
@@ -247,16 +195,22 @@ export default function TitleBar({
           }
         />
         <WindowBtn
-          onClick={handleMinimize}
+          onClick={() => {
+            void handleMinimize();
+          }}
           label={
             <svg width="10" height="2" viewBox="0 0 10 2" fill="none">
               <rect width="10" height="2" fill="currentColor" />
             </svg>
           }
+          title="Minimize"
         />
         <WindowBtn
-          onClick={onRequestClose}
+          onClick={() => {
+            void onRequestClose();
+          }}
           danger
+          title="Close"
           label={
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
               <path
@@ -268,14 +222,87 @@ export default function TitleBar({
           }
         />
       </div>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
     </div>
+  );
+}
+
+function AnimatedTitle({
+  running,
+  stopReason,
+}: Pick<Props, "running" | "stopReason">) {
+  const [titleState, setTitleState] = useState(DEFAULT_TITLE_STATE);
+  const frameIdsRef = useRef<number[]>([]);
+  const timeoutIdsRef = useRef<number[]>([]);
+
+  const clearScheduledWork = () => {
+    frameIdsRef.current.forEach((id) => window.cancelAnimationFrame(id));
+    timeoutIdsRef.current.forEach((id) => window.clearTimeout(id));
+    frameIdsRef.current = [];
+    timeoutIdsRef.current = [];
+  };
+
+  const queueFrame = (fn: () => void) => {
+    const id = window.requestAnimationFrame(fn);
+    frameIdsRef.current.push(id);
+  };
+
+  const queueDelay = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timeoutIdsRef.current.push(id);
+  };
+
+  useEffect(() => {
+    clearScheduledWork();
+
+    if (running || !stopReason) {
+      queueFrame(() => {
+        setTitleState(DEFAULT_TITLE_STATE);
+      });
+      return clearScheduledWork;
+    }
+
+    queueFrame(() => {
+      setTitleState((current) => ({ ...current, flipClass: "flip-out" }));
+      queueDelay(() => {
+        setTitleState({
+          text: stopReason,
+          isReason: true,
+          flipClass: "",
+        });
+
+        queueFrame(() => {
+          setTitleState((current) => ({ ...current, flipClass: "flip-in" }));
+          queueDelay(() => {
+            setTitleState((current) => ({ ...current, flipClass: "" }));
+          }, 350);
+        });
+
+        queueDelay(() => {
+          queueFrame(() => {
+            setTitleState((current) => ({ ...current, flipClass: "flip-out" }));
+            queueDelay(() => {
+              setTitleState(DEFAULT_TITLE_STATE);
+              queueFrame(() => {
+                setTitleState((current) => ({ ...current, flipClass: "flip-in" }));
+                queueDelay(() => {
+                  setTitleState((current) => ({ ...current, flipClass: "" }));
+                }, 350);
+              });
+            }, 350);
+          });
+        }, 5000);
+      }, 400);
+    });
+
+    return clearScheduledWork;
+  }, [running, stopReason]);
+
+  return (
+    <span
+      className={`window-title title-flipper ${titleState.flipClass} ${titleState.isReason ? "is-reason" : ""}`}
+    >
+      {titleState.text}
+    </span>
   );
 }
 
@@ -286,7 +313,7 @@ function TabIconButton({
   onClick,
   color,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
@@ -303,7 +330,7 @@ function TabIconButton({
         {
           "--active-color": color,
           WebkitAppRegion: "no-drag",
-        } as React.CSSProperties
+        } as CSSProperties
       }
     >
       {icon}
@@ -319,7 +346,7 @@ function WindowBtn({
   title,
 }: {
   onClick: () => void;
-  label: React.ReactNode;
+  label: ReactNode;
   danger?: boolean;
   active?: boolean;
   title?: string;

@@ -44,7 +44,4 @@ lerna-debug.log*
 # -- Misc local --
 .VSCodeCounter/
 *.csv
-structure.txt
-DirRead.py
-combine_files.py
 .continue

@@ -1,0 +1,66 @@
+name: Documentation improvement
+description: Report missing, unclear, or outdated contributor or user documentation
+title: "[Docs]: "
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the documentation.
+        Please describe what is unclear, outdated, or missing.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and pull requests for the same documentation problem.
+          required: true
+
+  - type: dropdown
+    id: docs_area
+    attributes:
+      label: Documentation area
+      options:
+        - README
+        - CONTRIBUTING
+        - Issue or pull request templates
+        - Build or development workflow
+        - Release or update documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_problem
+    attributes:
+      label: Current problem
+      description: What is wrong, unclear, missing, or outdated?
+      placeholder: The current documentation ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested_change
+    attributes:
+      label: Suggested change
+      description: Describe the update that would make the documentation more useful.
+      placeholder: It should say ...
+    validations:
+      required: true
+
+  - type: input
+    id: affected_reference
+    attributes:
+      label: Affected page, file, or reference
+      description: Include the doc page, file path, or section when you know it.
+      placeholder: Readme.md - Building From Source
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add screenshots, links, or any other useful context.

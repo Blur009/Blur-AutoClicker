@@ -1,20 +1,16 @@
-button{
-  background-color: white;
-}
-
 .window-title-background {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px;
-  padding-inline: 12px;
+  height: 2.5rem;
+  padding-inline: 0.75rem;
   width: 100%;
   box-sizing: border-box;
   background: var(--bg-surface);
   border-bottom: 2px solid var(--border-subtle);
   position: relative;
-  z-Index: 10;
-  flex-Shrink: 0;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .title-wrapper {
@@ -26,34 +22,34 @@ button{
 }
 
 .window-title {
-  font-family: var(--font-main);
-  font-weight: 600;
-  font-size: 16px;
+  font-family: var(--font-family-base);
+  font-weight: var(--font-weight-hv);
+  font-size: 1rem;
   color: var(--text-muted);
-  letter-spacing: -4%;
+  letter-spacing: -0.04em;
   transition:
     color 0.2s ease,
     text-shadow 0.2s ease;
 }
 
 .window-title-background[data-running="true"] .window-title {
-  color: #9ae7ae;
+  color: var(--accent-green-strong);
   text-shadow:
-    0 0 10px rgba(74, 222, 128, 0.2),
-    0 0 18px rgba(74, 222, 128, 0.12);
+    0 0 10px var(--accent-green-glow-1),
+    0 0 18px var(--accent-green-glow-2);
 }
 
 .settings-button {
   background: transparent;
   border: none;
   cursor: pointer;
-  width: 32px;
-  height: 32px;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 0.375rem;
   color: var(--text-dim);
   line-height: 0;
   transition: all 0.5s ease;
@@ -80,15 +76,15 @@ button{
 
 .tab-icon-group {
   display: flex;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .tab-icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
   background: transparent;
   border: none;
@@ -125,8 +121,8 @@ button{
 
 .window-btn {
   /* Layout */
-  width: 32px;
-  height: 32px;
+  width: 2rem;
+  height: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -134,7 +130,7 @@ button{
   /* Reset */
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 0.375rem;
   cursor: pointer;
   
   /* Visuals */
@@ -154,18 +150,18 @@ button{
 }
 
 .window-btn.active {
-  color: var(--accent-green);
+  color: var(--accent-green-strong);
   /* background: rgba(255, 255, 255, 0.08); */
 }
 
 .window-btn.active:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--accent-green-soft);
 }
 
 /* -- Title Flip Animation -- */
 
 .title-wrapper {
-  perspective: 400px;
+  perspective: 25rem;
 }
 
 .title-flipper {
@@ -196,5 +192,5 @@ button{
 
 .window-title.is-reason {
   color: var(--accent-yellow);
-  text-shadow: 0 0 8px rgba(254, 188, 46, 0.15);
+  text-shadow: 0 0 0.5rem rgba(254, 188, 46, 0.15);
 }
