@@ -137,6 +137,8 @@ mod tests {
             edge_stop_right: 40,
             edge_stop_bottom: 40,
             edge_stop_left: 40,
+            input_type: 0,
+            key_code: 0,
         }
     }
 

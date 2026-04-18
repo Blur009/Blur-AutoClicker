@@ -7,6 +7,7 @@ import {
   MOUSE_BUTTON_OPTIONS,
   SETTINGS_LIMITS,
 } from "../../settingsSchema";
+import KeyCaptureInput from "../KeyCaptureInput";
 import "./Modes.css";
 import "./SimplePanel.css";
 // I HATE MAKING UI, FUCK UI DESIGN IN CODE, WHY CANT I JUST PHOTOSHOP THIS SHIT
@@ -132,35 +133,49 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
 
       <div className="hcontainer">
         <div className="InputBox">
-          <button
-            type="button"
-            className="simple-cycle-btn"
-            title={t("simple.selectMouseButton")}
-            onClick={(e) =>
-              cycleWithClick(e, () =>
-                update({
-                  mouseButton: cycleOption(
-                    MOUSE_BUTTON_OPTIONS,
-                    settings.mouseButton,
-                    1,
-                  ),
-                }),
-              )
-            }
-            onContextMenu={(e) =>
-              cycleWithClick(e, () =>
-                update({
-                  mouseButton: cycleOption(
-                    MOUSE_BUTTON_OPTIONS,
-                    settings.mouseButton,
-                    -1,
-                  ),
-                }),
-              )
-            }
-          >
-            {t(`options.mouseClick.${settings.mouseButton}` as TranslationKey)}
-          </button>
+          {settings.inputType === "mouse" ? (
+            <button
+              type="button"
+              className="simple-cycle-btn"
+              title="Click to change button. Right-click to switch to Keyboard mode."
+              onClick={(e) =>
+                cycleWithClick(e, () =>
+                  update({
+                    mouseButton: cycleOption(
+                      MOUSE_BUTTON_OPTIONS,
+                      settings.mouseButton,
+                      1,
+                    ),
+                  }),
+                )
+              }
+              onContextMenu={(e) =>
+                cycleWithClick(e, () =>
+                  update({ inputType: "keyboard" }),
+                )
+              }
+            >
+              {
+                {
+                  Left: "Left Click",
+                  Middle: "Middle Click",
+                  Right: "Right Click",
+                }[settings.mouseButton]
+              }
+            </button>
+          ) : (
+            <KeyCaptureInput
+              className="simple-cycle-btn"
+              value={settings.keyboardKey}
+              onChange={(key) => update({ keyboardKey: key })}
+              style={{ width: "90px" }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                update({ inputType: "mouse" });
+              }}
+            />
+          )}
         </div>
 
         <div className="InputBox">

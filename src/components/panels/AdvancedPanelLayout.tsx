@@ -21,6 +21,7 @@ import {
   TIME_LIMIT_UNIT_OPTIONS,
 } from "../../settingsSchema";
 import HotkeyCaptureInput from "../HotkeyCaptureInput";
+import KeyCaptureInput from "../KeyCaptureInput";
 
 interface Props {
   settings: Settings;
@@ -409,16 +410,43 @@ export default function AdvancedPanelLayout({
               <div className="adv-row" style={{ marginTop: rowSpacing }}>
                 <span className="adv-label">{t("advanced.mouseButton")}</span>
                 <div className="simple-seg-group">
-                  {MOUSE_BUTTON_OPTIONS.map((mouseButtonOption) => (
+                  {(["mouse", "keyboard"] as const).map((inputOpt) => (
                     <button
-                      key={mouseButtonOption}
-                      className={`simple-seg-btn ${settings.mouseButton === mouseButtonOption ? "active" : ""}`}
-                      onClick={() => update({ mouseButton: mouseButtonOption })}
+                      key={inputOpt}
+                      className={`simple-seg-btn ${settings.inputType === inputOpt ? "active" : ""}`}
+                      onClick={() => update({ inputType: inputOpt })}
                     >
-                      {t(`options.mouseButton.${mouseButtonOption}` as TranslationKey)}
+                      {inputOpt === "mouse" ? "Mouse" : "Keyboard"}
                     </button>
                   ))}
                 </div>
+                {settings.inputType === "mouse" ? (
+                  <div className="simple-seg-group">
+                    {(["Left", "Middle", "Right"] as const).map((b) => (
+                      <button
+                        key={b}
+                        className={`simple-seg-btn ${settings.mouseButton === b ? "active" : ""}`}
+                        onClick={() => update({ mouseButton: b })}
+                      >
+                        {b}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="adv-textbox">
+                    <KeyCaptureInput
+                      className="adv-textbox-text"
+                      value={settings.keyboardKey}
+                      onChange={(key) => update({ keyboardKey: key })}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                        width: "100px",
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -873,16 +901,43 @@ export default function AdvancedPanelLayout({
             <div className="adv-row" style={{ marginTop: rowSpacing }}>
               <span className="adv-label">{t("advanced.mouseButton")}</span>
               <div className="simple-seg-group">
-                {MOUSE_BUTTON_OPTIONS.map((mouseButtonOption) => (
+                {(["mouse", "keyboard"] as const).map((inputOpt) => (
                   <button
-                    key={mouseButtonOption}
-                    className={`simple-seg-btn ${settings.mouseButton === mouseButtonOption ? "active" : ""}`}
-                    onClick={() => update({ mouseButton: mouseButtonOption })}
+                    key={inputOpt}
+                    className={`simple-seg-btn ${settings.inputType === inputOpt ? "active" : ""}`}
+                    onClick={() => update({ inputType: inputOpt })}
                   >
-                    {t(`options.mouseButton.${mouseButtonOption}` as TranslationKey)}
+                    {inputOpt === "mouse" ? "Mouse" : "Keyboard"}
                   </button>
                 ))}
               </div>
+              {settings.inputType === "mouse" ? (
+                <div className="simple-seg-group">
+                  {(["Left", "Middle", "Right"] as const).map((b) => (
+                    <button
+                      key={b}
+                      className={`simple-seg-btn ${settings.mouseButton === b ? "active" : ""}`}
+                      onClick={() => update({ mouseButton: b })}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="adv-textbox">
+                  <KeyCaptureInput
+                    className="adv-textbox-text"
+                    value={settings.keyboardKey}
+                    onChange={(key) => update({ keyboardKey: key })}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      outline: "none",
+                      width: "100px",
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 

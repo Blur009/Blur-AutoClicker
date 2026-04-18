@@ -76,6 +76,8 @@ export interface Settings extends PresetSnapshot {
   showStopReason: boolean;
   showStopOverlay: boolean;
   strictHotkeyModifiers: boolean;
+  inputType: "mouse" | "keyboard";
+  keyboardKey: string;
   minimizeToTray: boolean;
   theme: Theme;
   alwaysOnTop: boolean;
@@ -260,6 +262,8 @@ export function createDefaultSettings(version: string): Settings {
     showStopReason: true,
     showStopOverlay: true,
     strictHotkeyModifiers: false,
+    inputType: "mouse" as const,
+    keyboardKey: "",
     minimizeToTray: false,
     theme: "dark",
     alwaysOnTop: false,
@@ -703,6 +707,8 @@ export function sanitizeSettings(
     lastPanel: sanitizeSavedPanel(saved.lastPanel),
     theme: sanitizeTheme(saved.theme),
     strictHotkeyModifiers: sanitizeBoolean(saved.strictHotkeyModifiers, defaults.strictHotkeyModifiers),
+    inputType: saved.inputType === "keyboard" ? "keyboard" : "mouse",
+    keyboardKey: typeof saved.keyboardKey === "string" ? saved.keyboardKey : "",
     minimizeToTray: sanitizeBoolean(saved.minimizeToTray, defaults.minimizeToTray),
     alwaysOnTop: sanitizeBoolean(saved.alwaysOnTop, defaults.alwaysOnTop),
     accentColor: sanitizeHexColor(saved.accentColor, defaults.accentColor),
