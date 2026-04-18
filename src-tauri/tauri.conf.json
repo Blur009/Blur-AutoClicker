@@ -49,14 +49,13 @@
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIyREY0RTc2QTU4Qjc1N0UKUldSK2RZdWxkazdmSW1IQmI4ZVMwOTRzWnBiVENhMFNYMFRtN0V4R3N0Q2JXQUdqM2t4VnRnNUYK"
     },
-<<<<<<< HEAD
     "windows": {
       "installMode": "passive"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "zip"],
+    "targets": "nsis",
     "createUpdaterArtifacts": true,
     "icon": ["icons/icon.ico"]
   }

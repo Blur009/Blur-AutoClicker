@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and release
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workdir: src-tauri
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: BlurAutoClicker ${{ github.ref_name }}
+          releaseBody: See CHANGELOG for details.
+          releaseDraft: true
+
+      - name: Create portable zip
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "BlurAutoClicker.exe" | Select-Object -First 1
+          if (-not $exe) { Write-Error "BlurAutoClicker.exe not found"; exit 1 }
+          $tag = "${{ github.ref_name }}"
+          $zipName = "BlurAutoClicker-${tag}-portable.zip"
+          Compress-Archive -Path $exe.FullName -DestinationPath $zipName
+          echo "ZIP_PATH=$zipName" >> $env:GITHUB_ENV
+
+      - name: Upload portable zip to release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" "$env:ZIP_PATH" --clobber
