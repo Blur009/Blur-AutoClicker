@@ -209,6 +209,8 @@ export default function SettingsPanel({
   onReset,
 }: Props) {
   const [resetting, setResetting] = useState(false);
+  const [resettingStats, setResettingStats] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [stats, setStats] = useState<CumulativeStats | null>(null);
   const [atBottom, setAtBottom] = useState(false);
   const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(null);
