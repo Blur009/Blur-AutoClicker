@@ -290,12 +290,17 @@ export default function AdvancedPanelLayout({
   });
   const doubleClickDisabled = getMaxDoubleClickDelayMs(settings) <= 20;
   const doubleClickDisabledReason = doubleClickDisabled
-    ? `Double Click is unavailable at ${formatClicksPerSecond(currentClicksPerSecond)} clicks/sec. Lower the effective click rate below 50 clicks/sec to turn it on.`
+    ? t("advanced.doubleClickUnavailable", { cps: formatClicksPerSecond(currentClicksPerSecond) })
     : undefined;
   const pickPositionDisabledReason = pickingPosition
     ? pickCountdown
-      ? `Position capture starts in ${pickCountdown} second${pickCountdown === 1 ? "" : "s"}. Move your cursor to the target spot and wait for it to be saved.`
-      : "Position capture is already in progress. Wait for the current pick to finish."
+      ? t(
+          pickCountdown === 1
+            ? "advanced.pickCountdownSingularUnavailable"
+            : "advanced.pickCountdownUnavailable",
+          { seconds: pickCountdown },
+        )
+      : t("advanced.pickInProgressUnavailable")
     : undefined;
 
   const requestCursorPosition = async (): Promise<CursorPoint> => {
@@ -503,7 +508,7 @@ export default function AdvancedPanelLayout({
                 <div className="adv-row" style={{ gap: 8 }}>
                   <Disableable
                     enabled={settings.speedVariationEnabled}
-                    disabledReason="Enable Speed Variation to edit how much the app randomizes your click timing."
+                    disabledReason={t("advanced.speedVariationUnavailable")}
                   >
                     <div className="adv-numbox-sm">
                       <NumInput
@@ -523,7 +528,7 @@ export default function AdvancedPanelLayout({
               </div>
               <Disableable
                 enabled={settings.speedVariationEnabled}
-                disabledReason="Enable Speed Variation to edit how much the app randomizes your click timing."
+                disabledReason={t("advanced.speedVariationUnavailable")}
               >
                 {showDesc("advanced.speedVariationDescription")}
               </Disableable>
@@ -554,7 +559,7 @@ export default function AdvancedPanelLayout({
               </div>
               <Disableable
                 enabled={settings.doubleClickEnabled}
-                disabledReason="Enable Double Click to adjust the delay between the first and second click."
+                disabledReason={t("advanced.doubleClickContentUnavailable")}
               >
                 {showDesc("advanced.doubleClickDescription")}
               </Disableable>
@@ -607,7 +612,7 @@ export default function AdvancedPanelLayout({
                 <div className="adv-row" style={{ gap: 6 }}>
                   <Disableable
                     enabled={settings.clickLimitEnabled}
-                    disabledReason="Enable Click Limit to stop automatically after a set number of clicks."
+                    disabledReason={t("advanced.clickLimitUnavailable")}
                   >
                     <div className="adv-numbox-sm">
                       <NumInput
@@ -634,7 +639,7 @@ export default function AdvancedPanelLayout({
                 <div className="adv-row" style={{ gap: 6 }}>
                   <Disableable
                     enabled={settings.timeLimitEnabled}
-                    disabledReason="Enable Time Limit to stop automatically after a set amount of time."
+                    disabledReason={t("advanced.timeLimitUnavailable")}
                   >
                     <div className="adv-row" style={{ gap: 6 }}>
                       <div className="adv-numbox-sm">
@@ -679,7 +684,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               <Disableable
                 enabled={settings.cornerStopEnabled}
-                disabledReason="Enable Corner Stop to edit the corner failsafe hitboxes."
+                disabledReason={t("advanced.cornerStopUnavailable")}
               >
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
@@ -721,7 +726,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               <Disableable
                 enabled={settings.edgeStopEnabled}
-                disabledReason="Enable Edge Stop to edit the edge failsafe hitboxes."
+                disabledReason={t("advanced.edgeStopUnavailable")}
               >
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
@@ -766,7 +771,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               <Disableable
                 enabled={settings.positionEnabled}
-                disabledReason="Enable Position to edit or pick a fixed cursor target before each click."
+                disabledReason={t("advanced.positionUnavailable")}
               >
                 <div className="adv-row" style={{ marginTop: 8, gap: 6 }}>
                   {showExplanations && (
@@ -983,7 +988,7 @@ export default function AdvancedPanelLayout({
               </div>
               <Disableable
                 enabled={settings.doubleClickEnabled}
-                disabledReason="Enable Double Click to adjust the delay between the first and second click."
+                disabledReason={t("advanced.doubleClickContentUnavailable")}
               >
                 <div className={cardBodyClass}>
                   <div className="adv-inline-controls adv-inline-controls-start">
@@ -1021,7 +1026,7 @@ export default function AdvancedPanelLayout({
             <CardDivider />
             <Disableable
               enabled={settings.positionEnabled}
-              disabledReason="Enable Position to edit or pick a fixed cursor target before each click."
+              disabledReason={t("advanced.positionUnavailable")}
             >
               <div className={featureBodyClass}>
                 <div className="adv-inline-controls adv-inline-controls-start adv-position-inline">
@@ -1173,7 +1178,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               <Disableable
                 enabled={settings.clickLimitEnabled}
-                disabledReason="Enable Click Limit to stop automatically after a set number of clicks."
+                disabledReason={t("advanced.clickLimitUnavailable")}
               >
                 <div className={cardBodyClass}>
                   <div className="adv-inline-controls adv-inline-controls-start adv-limit-inputs">
@@ -1203,7 +1208,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               <Disableable
                 enabled={settings.timeLimitEnabled}
-                disabledReason="Enable Time Limit to stop automatically after a set amount of time."
+                disabledReason={t("advanced.timeLimitUnavailable")}
               >
                 <div className={cardBodyClass}>
                   <div className="adv-inline-controls adv-inline-controls-start adv-limit-inputs">
@@ -1242,7 +1247,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               <Disableable
                 enabled={settings.dutyCycleEnabled}
-                disabledReason="Enable Duty Cycle to edit how long each click is held."
+                disabledReason={t("advanced.dutyCycleUnavailable")}
               >
                 <div className={cardBodyClass}>
                   <div className="adv-inline-controls adv-inline-controls-start">
@@ -1275,7 +1280,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               <Disableable
                 enabled={settings.speedVariationEnabled}
-                disabledReason="Enable Speed Variation to edit how much the app randomizes your click timing."
+                disabledReason={t("advanced.speedVariationUnavailable")}
               >
                 <div className={cardBodyClass}>
                   <div className="adv-inline-controls adv-inline-controls-start">
@@ -1306,7 +1311,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               <Disableable
                 enabled={settings.cornerStopEnabled}
-                disabledReason="Enable Corner Stop to edit the corner failsafe hitboxes."
+                disabledReason={t("advanced.cornerStopUnavailable")}
               >
                 <div className={featureBodyClass}>
                   <div className="adv-corner-grid">
@@ -1343,7 +1348,7 @@ export default function AdvancedPanelLayout({
               <CardDivider />
               <Disableable
                 enabled={settings.edgeStopEnabled}
-                disabledReason="Enable Edge Stop to edit the edge failsafe hitboxes."
+                disabledReason={t("advanced.edgeStopUnavailable")}
               >
                 <div className={featureBodyClass}>
                   <div className="adv-corner-grid">

@@ -68,10 +68,10 @@ export default function UpdateBanner({
   const installDisabledReason =
     stage === "installing"
       ? statusKey === "update.installing"
-        ? "The update is already installing. Wait for it to finish before trying again."
+        ? t("update.installAlreadyInstalling")
         : statusKey === "update.downloading"
-          ? "The update is already downloading. Wait for the current install to finish."
-          : "The update is already being prepared. Wait for it to finish before trying again."
+          ? t("update.installAlreadyDownloading")
+          : t("update.installAlreadyPreparing")
       : undefined;
 
   return (

@@ -115,7 +115,19 @@
     "customStopZone": "منطقة إيقاف مخصصة",
     "customStopZoneDescription": "توقف أداة النقر عندما يدخل المؤشر هذه المنطقة المستطيلة باستخدام إحداثيات مطلقة قد تمتد عبر عدة شاشات.",
     "customStopZoneSetTopLeft": "تحديد أعلى اليسار",
-    "customStopZoneSetBottomRight": "تحديد أسفل اليمين"
+    "customStopZoneSetBottomRight": "تحديد أسفل اليمين",
+    "speedVariationUnavailable": "Enable Speed Variation to edit how much the app randomizes your click timing.",
+    "doubleClickUnavailable": "Double Click is unavailable at {cps} clicks/sec. Lower the effective click rate below 50 clicks/sec to turn it on.",
+    "doubleClickContentUnavailable": "Enable Double Click to adjust the delay between the first and second click.",
+    "clickLimitUnavailable": "Enable Click Limit to stop automatically after a set number of clicks.",
+    "timeLimitUnavailable": "Enable Time Limit to stop automatically after a set amount of time.",
+    "cornerStopUnavailable": "Enable Corner Stop to edit the corner failsafe hitboxes.",
+    "edgeStopUnavailable": "Enable Edge Stop to edit the edge failsafe hitboxes.",
+    "positionUnavailable": "Enable Position to edit or pick a fixed cursor target before each click.",
+    "dutyCycleUnavailable": "Enable Duty Cycle to edit how long each click is held.",
+    "pickInProgressUnavailable": "Position capture is already in progress. Wait for the current pick to finish.",
+    "pickCountdownUnavailable": "Position capture starts in {seconds} seconds. Move your cursor to the target spot and wait for it to be saved.",
+    "pickCountdownSingularUnavailable": "Position capture starts in 1 second. Move your cursor to the target spot and wait for it to be saved."
   },
   "options": {
     "interval": {
@@ -218,7 +230,10 @@
     "installFailed": "فشل تثبيت التحديث.",
     "restartFailed": "فشلت إعادة التشغيل. أعد فتح التطبيق يدويا.",
     "restartToApply": "إعادة التشغيل للتطبيق",
-    "downloadAndInstall": "تنزيل وتثبيت"
+    "downloadAndInstall": "تنزيل وتثبيت",
+    "installAlreadyInstalling": "The update is already installing. Wait for it to finish before trying again.",
+    "installAlreadyDownloading": "The update is already downloading. Wait for the current install to finish.",
+    "installAlreadyPreparing": "The update is already being prepared. Wait for it to finish before trying again."
   },
   "stopReason": {
     "stoppedFromUi": "تم الإيقاف من الواجهة",
