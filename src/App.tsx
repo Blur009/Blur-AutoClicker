@@ -13,11 +13,62 @@ import {
   DEFAULT_SETTINGS,
   type AppInfo,
   type ClickerStatus,
+  type CustomThemeColors,
   type Settings,
   clearSavedSettings,
   loadSettings,
   saveSettings,
 } from "./store";
+
+import { CUSTOM_THEME_VAR_MAP, isLightColor } from "./utils/theme";
+
+function clearCustomTheme(root: HTMLElement) {
+  for (const [, cssVar] of CUSTOM_THEME_VAR_MAP) root.style.removeProperty(cssVar);
+  root.style.removeProperty("--theme-tint");
+  root.style.removeProperty("--theme-bg-image");
+  root.style.removeProperty("--theme-bg-opacity");
+  root.style.removeProperty("--theme-bg-blur");
+}
+
+function applyCustomTheme(root: HTMLElement, c: CustomThemeColors) {
+  root.style.setProperty("--theme-tint", isLightColor(c.bgBase) ? "#000" : "#fff");
+  for (const [key, cssVar] of CUSTOM_THEME_VAR_MAP) {
+    const val = c[key];
+    if (typeof val === "string" && val.length > 0) {
+      root.style.setProperty(cssVar, val);
+    } else {
+      root.style.removeProperty(cssVar);
+    }
+  }
+  if (c.backgroundImage) {
+    root.style.setProperty("--theme-bg-image", `url("${c.backgroundImage}")`);
+    root.style.setProperty(
+      "--theme-bg-opacity",
+      String((c.backgroundOpacity ?? 30) / 100),
+    );
+    root.style.setProperty("--theme-bg-blur", `${c.backgroundBlur ?? 0}px`);
+  } else {
+    root.style.removeProperty("--theme-bg-image");
+    root.style.removeProperty("--theme-bg-opacity");
+    root.style.removeProperty("--theme-bg-blur");
+  }
+  const panelOpacity = c.panelOpacity ?? 100;
+  // If panel opacity < 100, override --bg-surface and --bg-elevated that were
+  // already set by the loop above; transparency is applied via color-mix.
+  if (panelOpacity < 100) {
+    const tint = isLightColor(c.bgBase) ? "#000" : "#fff";
+    const surfaceSrc = c.bgSurface || `color-mix(in oklab, ${c.bgBase} 95%, ${tint})`;
+    const elevatedSrc = c.bgElevated || `color-mix(in oklab, ${c.bgBase} 90%, ${tint})`;
+    root.style.setProperty(
+      "--bg-surface",
+      `color-mix(in srgb, ${surfaceSrc} ${panelOpacity}%, transparent)`,
+    );
+    root.style.setProperty(
+      "--bg-elevated",
+      `color-mix(in srgb, ${elevatedSrc} ${panelOpacity}%, transparent)`,
+    );
+  }
+}
 
 const SimplePanel = lazy(() => import("./components/panels/SimplePanel"));
 const AdvancedPanel = lazy(() => import("./components/panels/AdvancedPanel"));
@@ -408,8 +459,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = settings.theme ?? "dark";
-  }, [settings.theme]);
+    const root = document.documentElement;
+    if (settings.theme === "custom") {
+      root.dataset.theme = "custom";
+      applyCustomTheme(root, settings.customTheme);
+    } else {
+      clearCustomTheme(root);
+      root.dataset.theme = settings.theme ?? "dark";
+    }
+  }, [settings.theme, settings.customTheme]);
 
   const handleTabChange = (nextTab: Tab) => {
     setTab(nextTab);
