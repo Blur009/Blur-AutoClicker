@@ -2,17 +2,24 @@
 
 Describe the change in a few sentences.
 
-## Related issue
+## Related issue(s)
 
 Link the related issue here, or write `N/A`.
 
-## Testing
+## Change type
 
-Describe how you tested this change.
-If you did not test it, explain why.
+- [ ] Bug fix
+- [ ] Documentation
+- [ ] Contributor workflow / CI
+- [ ] Refactor
+- [ ] Other
+
+## Validation
+
+List the exact commands you ran and the result for each one.
 
 ## Checklist
 
-- [ ] I tested the change locally
-- [ ] I kept the change focused and relevant
-- [ ] I updated any related documentation if needed
+- [ ] I ran the relevant local validation commands and recorded them above
+- [ ] I kept the change focused and avoided unrelated refactors
+- [ ] I updated related documentation, templates, or contributor guidance when needed

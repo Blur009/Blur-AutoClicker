@@ -6,9 +6,11 @@ pub mod worker;
 use std::sync::atomic::AtomicI64;
 pub use worker::start_clicker;
 
-#[derive(Clone, Copy, Debug)]
+use self::mouse::VirtualScreenRect;
+
+#[derive(Clone, Debug)]
 pub struct ClickerConfig {
-    pub interval: f64,
+    pub interval_secs: f64,
     pub variation: f64,
     pub limit: i32,
     pub duty: f64,
@@ -19,9 +21,13 @@ pub struct ClickerConfig {
     pub position_enabled: bool,
     pub pos_x: i32,
     pub pos_y: i32,
+    pub sequence_enabled: bool,
+    pub sequence_points: Vec<(i32, i32)>,
     pub offset: f64,
     pub offset_chance: f64,
     pub smoothing: i32,
+    pub custom_stop_zone_enabled: bool,
+    pub custom_stop_zone: VirtualScreenRect,
     pub corner_stop_enabled: bool,
     pub corner_stop_tl: i32,
     pub corner_stop_tr: i32,

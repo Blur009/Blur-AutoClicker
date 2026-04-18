@@ -23,6 +23,11 @@
   --text-dim:      hsla(180, 67%, 99%, 0.25);
 
   --accent-green:  hsla(129, 77%, 43%, 0.75);
+  --accent-green-strong: hsla(129, 77%, 43%, 0.92);
+  --accent-green-soft: hsla(129, 77%, 43%, 0.15);
+  --accent-green-ring: hsla(129, 77%, 43%, 0.35);
+  --accent-green-glow-1: hsla(129, 77%, 43%, 0.2);
+  --accent-green-glow-2: hsla(129, 77%, 43%, 0.12);
   --accent-yellow: hsla(41, 99%, 59%, 0.75);
   --accent-red:    hsla(4, 100%, 71%, 0.75);
 
@@ -61,6 +66,11 @@
   --text-dim:      hsla(0, 0%, 0%, 0.65);
 
   --accent-green:  hsla(129, 77%, 30%, 0.9);
+  --accent-green-strong: hsla(129, 77%, 30%, 1);
+  --accent-green-soft: hsla(129, 77%, 30%, 0.2);
+  --accent-green-ring: hsla(129, 77%, 30%, 0.4);
+  --accent-green-glow-1: hsla(129, 77%, 30%, 0.16);
+  --accent-green-glow-2: hsla(129, 77%, 30%, 0.08);
   --accent-yellow: hsla(41, 99%, 35%, 0.9);
   --accent-red:    hsla(4, 100%, 45%, 0.9);
 
@@ -88,7 +98,7 @@
 
 body {
   color: var(--text-primary);
-  font-family: 'DMSans', sans-serif;
+  font-family: var(--font-family-base);
   font-size: 1rem;
   overflow: hidden;
   user-select: none;
@@ -111,7 +121,7 @@ body {
 
 .panel-area {
   flex: 1;
-  padding: 1.25rem 1.25rem 1.25rem 1.25rem;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
   overflow: auto;

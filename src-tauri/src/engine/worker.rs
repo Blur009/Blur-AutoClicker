@@ -12,7 +12,9 @@ use crate::ClickerStatusPayload;
 use crate::STATUS_EVENT;
 
 use super::failsafe::should_stop_for_failsafe;
-use super::mouse::{get_button_flags, get_cursor_pos, move_mouse, send_clicks, smooth_move};
+use super::mouse::{
+    get_button_flags, get_cursor_pos, move_mouse, send_clicks, smooth_move, VirtualScreenRect,
+};
 use super::rng::SmallRng;
 use super::ClickerConfig;
 use super::NtSetTimerResolution;
@@ -51,7 +53,7 @@ fn calibrate_cycle_freq() -> f64 {
 
     let cycle_delta = thread_cycles().saturating_sub(start_cycles);
     let wall_secs = start.elapsed().as_secs_f64();
-    
+
     if wall_secs > 0.0 && cycle_delta > 0 {
         let freq = cycle_delta as f64 / wall_secs;
         log::info!("CPU: calibrated at {:.0} MHz", freq / 1_000_000.0);
@@ -145,17 +147,41 @@ pub fn stop_clicker_inner(
     Ok(payload)
 }
 
-pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String> {
+fn duration_interval_secs(settings: &ClickerSettings) -> f64 {
+    let total_millis = u64::from(settings.duration_minutes) * 60_000
+        + u64::from(settings.duration_seconds) * 1_000
+        + u64::from(settings.duration_milliseconds);
+    (total_millis.max(1) as f64) / 1000.0
+}
+
+fn interval_secs_from_settings(settings: &ClickerSettings) -> Result<f64, String> {
+    if settings.rate_input_mode == "duration" {
+        return Ok(duration_interval_secs(settings));
+    }
+
     if settings.click_speed <= 0.0 {
         return Err(String::from("Click speed must be greater than zero"));
     }
 
-    let base_interval_secs = match settings.click_interval.as_str() {
+    Ok(match settings.click_interval.as_str() {
         "m" => 60.0 / settings.click_speed,
         "h" => 3600.0 / settings.click_speed,
         "d" => 86400.0 / settings.click_speed,
         _ => 1.0 / settings.click_speed,
-    };
+    })
+}
+
+fn current_cycle_target(config: &ClickerConfig, sequence_index: usize) -> (i32, i32) {
+    if config.sequence_enabled && !config.sequence_points.is_empty() {
+        let safe_index = sequence_index % config.sequence_points.len();
+        config.sequence_points[safe_index]
+    } else {
+        (config.pos_x, config.pos_y)
+    }
+}
+
+pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String> {
+    let base_interval_secs = interval_secs_from_settings(settings)?;
 
     let button = match settings.mouse_button.as_str() {
         "Right" => 2,
@@ -173,8 +199,14 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         None
     };
 
+    if settings.sequence_enabled && settings.sequence_points.is_empty() {
+        return Err(String::from(
+            "Add at least one sequence point before starting sequence clicking",
+        ));
+    }
+
     Ok(ClickerConfig {
-        interval: base_interval_secs,
+        interval_secs: base_interval_secs,
         variation: if settings.speed_variation_enabled {
             settings.speed_variation
         } else {
@@ -197,9 +229,22 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         position_enabled: settings.position_enabled,
         pos_x: settings.position_x,
         pos_y: settings.position_y,
+        sequence_enabled: settings.sequence_enabled,
+        sequence_points: settings
+            .sequence_points
+            .iter()
+            .map(|point| (point.x, point.y))
+            .collect(),
         offset: 0.0,
         offset_chance: 0.0,
         smoothing: 0,
+        custom_stop_zone_enabled: settings.custom_stop_zone_enabled,
+        custom_stop_zone: VirtualScreenRect::new(
+            settings.custom_stop_zone_x,
+            settings.custom_stop_zone_y,
+            settings.custom_stop_zone_width.max(1),
+            settings.custom_stop_zone_height.max(1),
+        ),
         corner_stop_enabled: settings.corner_stop_enabled,
         corner_stop_tl: settings.corner_stop_tl,
         corner_stop_tr: settings.corner_stop_tr,
@@ -261,8 +306,8 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     let mut rng = SmallRng::new();
     let mut click_count: i64 = 0;
     let (down_flag, up_flag) = get_button_flags(config.button);
-    let cps = if config.interval > 0.0 {
-        1.0 / config.interval
+    let cps = if config.interval_secs > 0.0 {
+        1.0 / config.interval_secs
     } else {
         0.0
     };
@@ -272,12 +317,12 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
         1usize
     };
 
-    let batch_interval = config.interval * batch_size as f64;
-    let has_position = config.position_enabled;
+    let batch_interval = config.interval_secs * batch_size as f64;
+    let has_position = config.position_enabled || config.sequence_enabled;
     let use_smoothing = config.smoothing == 1 && cps < 50.0;
 
-    let mut target_x = config.pos_x;
-    let mut target_y = config.pos_y;
+    let mut sequence_index = 0usize;
+    let (mut target_x, mut target_y) = current_cycle_target(&config, sequence_index);
     let mut next_batch_time = Instant::now();
     let mut stop_reason = String::from("Stopped");
 
@@ -307,16 +352,20 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
         } else {
             batch_interval
         };
-        let hold_ms = (config.interval * (config.duty.max(0.0) / 100.0) * 1000.0) as u32;
+        let hold_ms = (config.interval_secs * (config.duty.max(0.0) / 100.0) * 1000.0) as u32;
 
         next_batch_time += Duration::from_secs_f64(batch_duration.max(0.001));
 
         if has_position {
+            let (base_x, base_y) = current_cycle_target(&config, sequence_index);
             if config.offset_chance <= 0.0 || rng.next_f64() * 100.0 <= config.offset_chance {
                 let angle = rng.next_f64() * 2.0 * PI;
                 let radius = rng.next_f64().sqrt() * config.offset;
-                target_x = (config.pos_x as f64 + radius * angle.cos()) as i32;
-                target_y = (config.pos_y as f64 + radius * angle.sin()) as i32;
+                target_x = (base_x as f64 + radius * angle.cos()) as i32;
+                target_y = (base_y as f64 + radius * angle.sin()) as i32;
+            } else {
+                target_x = base_x;
+                target_y = base_y;
             }
 
             if use_smoothing {
@@ -372,6 +421,10 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
         click_count += clicks_this_cycle as i64;
         CLICK_COUNT.store(click_count, Ordering::Relaxed);
 
+        if config.sequence_enabled && !config.sequence_points.is_empty() {
+            sequence_index = (sequence_index + 1) % config.sequence_points.len();
+        }
+
         let remaining = next_batch_time.saturating_duration_since(Instant::now());
         if remaining > Duration::ZERO {
             sleep_interruptible(remaining, &control);
@@ -414,5 +467,84 @@ pub fn sleep_interruptible(remaining: Duration, control: &RunControl) {
     while control.is_active() && start.elapsed() < remaining {
         let left = remaining.saturating_sub(start.elapsed());
         std::thread::sleep(left.min(tick));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_settings() -> ClickerSettings {
+        ClickerSettings::default()
+    }
+
+    fn sample_config() -> ClickerConfig {
+        ClickerConfig {
+            interval_secs: 0.04,
+            variation: 0.0,
+            limit: 0,
+            duty: 45.0,
+            time_limit: 0.0,
+            button: 1,
+            double_click_enabled: false,
+            double_click_delay_ms: 40,
+            position_enabled: false,
+            pos_x: 0,
+            pos_y: 0,
+            sequence_enabled: false,
+            sequence_points: Vec::new(),
+            offset: 0.0,
+            offset_chance: 0.0,
+            smoothing: 0,
+            custom_stop_zone_enabled: false,
+            custom_stop_zone: VirtualScreenRect::new(0, 0, 100, 100),
+            corner_stop_enabled: true,
+            corner_stop_tl: 50,
+            corner_stop_tr: 50,
+            corner_stop_bl: 50,
+            corner_stop_br: 50,
+            edge_stop_enabled: true,
+            edge_stop_top: 40,
+            edge_stop_right: 40,
+            edge_stop_bottom: 40,
+            edge_stop_left: 40,
+        }
+    }
+
+    #[test]
+    fn duration_mode_interval_calculation_uses_one_millisecond_minimum() {
+        let mut settings = sample_settings();
+        settings.rate_input_mode = "duration".to_string();
+
+        let interval = interval_secs_from_settings(&settings).expect("duration should work");
+        assert!((interval - 0.040).abs() < f64::EPSILON);
+
+        settings.duration_milliseconds = 0;
+        let minimum_interval =
+            interval_secs_from_settings(&settings).expect("duration should work");
+        assert!((minimum_interval - 0.001).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn duration_mode_interval_calculation_handles_multi_part_duration() {
+        let mut settings = sample_settings();
+        settings.rate_input_mode = "duration".to_string();
+        settings.duration_minutes = 1;
+        settings.duration_seconds = 35;
+        settings.duration_milliseconds = 250;
+
+        let interval = interval_secs_from_settings(&settings).expect("duration should work");
+        assert!((interval - 95.25).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn sequence_point_rotation_is_round_robin() {
+        let mut config = sample_config();
+        config.sequence_enabled = true;
+        config.sequence_points = vec![(10, 10), (20, 20)];
+
+        assert_eq!(current_cycle_target(&config, 0), (10, 10));
+        assert_eq!(current_cycle_target(&config, 1), (20, 20));
+        assert_eq!(current_cycle_target(&config, 2), (10, 10));
     }
 }

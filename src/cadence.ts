@@ -1,0 +1,71 @@
+import type { RateInputMode, Settings } from "./store";
+
+type CadenceSettings = Pick<
+  Settings,
+  | "clickSpeed"
+  | "clickInterval"
+  | "rateInputMode"
+  | "durationMinutes"
+  | "durationSeconds"
+  | "durationMilliseconds"
+>;
+
+export const RATE_INPUT_MODE_OPTIONS: RateInputMode[] = ["rate", "duration"];
+
+export function getDurationTotalMs(settings: CadenceSettings): number {
+  return (
+    settings.durationMinutes * 60_000 +
+    settings.durationSeconds * 1_000 +
+    settings.durationMilliseconds
+  );
+}
+
+export function getEffectiveIntervalMs(settings: CadenceSettings): number {
+  if (settings.rateInputMode === "duration") {
+    return Math.max(1, getDurationTotalMs(settings));
+  }
+
+  if (settings.clickSpeed <= 0) {
+    return 1_000;
+  }
+
+  const intervalMs = (() => {
+    switch (settings.clickInterval) {
+      case "m":
+        return 60_000 / settings.clickSpeed;
+      case "h":
+        return 3_600_000 / settings.clickSpeed;
+      case "d":
+        return 86_400_000 / settings.clickSpeed;
+      default:
+        return 1_000 / settings.clickSpeed;
+    }
+  })();
+
+  return Math.max(1, intervalMs);
+}
+
+export function getEffectiveClicksPerSecond(settings: CadenceSettings): number {
+  return 1_000 / getEffectiveIntervalMs(settings);
+}
+
+export function getMaxDoubleClickDelayMs(settings: CadenceSettings): number {
+  const cps = Math.min(getEffectiveClicksPerSecond(settings), 50);
+  return cps > 0 ? Math.max(20, Math.floor(1000 / cps) - 2) : 9999;
+}
+
+export function formatDurationSummary(settings: CadenceSettings): string {
+  const parts: string[] = [];
+
+  if (settings.durationMinutes > 0) {
+    parts.push(`${settings.durationMinutes}m`);
+  }
+  if (settings.durationSeconds > 0) {
+    parts.push(`${settings.durationSeconds}s`);
+  }
+  if (settings.durationMilliseconds > 0 || parts.length === 0) {
+    parts.push(`${settings.durationMilliseconds}ms`);
+  }
+
+  return parts.join(" ");
+}

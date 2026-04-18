@@ -1,2 +1,11 @@
 blank_issues_enabled: false
-
+contact_links:
+  - name: Search existing issues and pull requests
+    url: https://github.com/Blur009/Blur-AutoClicker/issues?q=
+    about: Check whether the problem, request, or question has already been reported or proposed.
+  - name: Contributor and setup guide
+    url: https://github.com/Blur009/Blur-AutoClicker/blob/dev/CONTRIBUTING.md
+    about: Review setup steps, validation commands, and pull request expectations before contributing.
+  - name: Windows installer trust and SmartScreen guidance
+    url: https://github.com/Blur009/Blur-AutoClicker/blob/dev/docs/windows-release-trust.md
+    about: Read the existing Windows signing and SmartScreen guidance for antivirus or installer-trust questions.

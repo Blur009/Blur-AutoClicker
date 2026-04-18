@@ -137,7 +137,10 @@ fn compact_runs(runs: &mut Vec<RunRecord>) {
     let avg_cpu = if valid_cpu.is_empty() {
         -1.0
     } else {
-        let weighted_sum: f64 = valid_cpu.iter().map(|(cpu, count)| cpu * *count as f64).sum();
+        let weighted_sum: f64 = valid_cpu
+            .iter()
+            .map(|(cpu, count)| cpu * *count as f64)
+            .sum();
         let weight: u64 = valid_cpu.iter().map(|(_, count)| *count as u64).sum();
         round2(weighted_sum / weight as f64)
     };
@@ -237,15 +240,12 @@ pub fn reset_stats() -> Result<CumulativeStats, String> {
 }
 
 pub fn print_run_stats(click_count: i64, elapsed_secs: f64, avg_cpu: f64) {
-    log::info!("╔══════════════════════════════════════╗");
-    log::info!("║          RUN STATISTICS              ║");
-    log::info!("╠══════════════════════════════════════╣");
-    log::info!("║  Clicks:  {:>20}       ║", click_count);
-    log::info!("║  Duration:   {:>17.1}s      ║", elapsed_secs);
+    log::info!("=== Run Statistics ===");
+    log::info!("Clicks: {}", click_count);
+    log::info!("Duration: {:.1}s", elapsed_secs);
     if avg_cpu >= 0.0 {
-        log::info!("║  Avg CPU:    {:>17.1}%      ║", avg_cpu);
+        log::info!("Avg CPU: {:.1}%", avg_cpu);
     } else {
-        log::info!("║  Avg CPU:    {:>20}      ║", "N/A");
+        log::info!("Avg CPU: N/A");
     }
-    log::info!("╚══════════════════════════════════════╝");
 }

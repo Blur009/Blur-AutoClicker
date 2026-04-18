@@ -1,5 +1,12 @@
 import type { Settings } from "../../store";
+import { useTranslation, type TranslationKey } from "../../i18n";
+import CadenceInput from "../CadenceInput";
 import HotkeyCaptureInput from "../HotkeyCaptureInput";
+import {
+  MODE_OPTIONS,
+  MOUSE_BUTTON_OPTIONS,
+  SETTINGS_LIMITS,
+} from "../../settingsSchema";
 import "./Modes.css";
 import "./SimplePanel.css";
 // I HATE MAKING UI, FUCK UI DESIGN IN CODE, WHY CANT I JUST PHOTOSHOP THIS SHIT
@@ -9,17 +16,8 @@ interface SimplePanelProps {
   update: (patch: Partial<Settings>) => void;
 }
 
-const INTERVAL_OPTIONS = [
-  { value: "s", label: "Second" },
-  { value: "m", label: "Minute" },
-  { value: "h", label: "Hour" },
-  { value: "d", label: "Day" },
-] as const;
-
-const MODE_OPTIONS = ["Toggle", "Hold"] as const;
-const MOUSE_BUTTON_OPTIONS = ["Left", "Middle", "Right"] as const;
-
 export default function SimplePanel({ settings, update }: SimplePanelProps) {
+  const { t } = useTranslation();
   const normalizeRaw = (raw: string) => raw.replace(/^0+(?=\d)/, "");
 
   const parseRawNumber = (raw: string) => {
@@ -75,82 +73,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
   return (
     <div className="vcontainer">
       <div className="hcontainer">
-        <div className="InputBox">
-          <input
-            type="number"
-            className="simple-inline-input"
-            value={settings.clickSpeed}
-            min={1}
-            max={500}
-            onChange={(e) => {
-              const normalized = normalizeRaw(e.target.value);
-              if (normalized !== e.target.value) {
-                e.target.value = normalized;
-              }
-              update({ clickSpeed: parseRawNumber(normalized) });
-            }}
-            onBlur={(e) => {
-              const normalized = normalizeRaw(e.target.value);
-              if (normalized !== e.target.value) {
-                e.target.value = normalized;
-              }
-              update({
-                clickSpeed: clamp(parseRawNumber(normalized), 1, 500),
-              });
-            }}
-            onWheel={(e) =>
-              handleWheelStep(e, settings.clickSpeed, 1, 500, (next) =>
-                update({ clickSpeed: next }),
-              )
-            }
-          />
-          <div className="vertical-devider" />
-          <button
-            type="button"
-            className="simple-cycle-btn"
-            title="Change Click Interval"
-            style={{ display: "flex", alignItems: "center", gap: "4px" }}
-            onClick={(e) =>
-              cycleWithClick(e, () =>
-                update({
-                  clickInterval: cycleOption(
-                    INTERVAL_OPTIONS.map((o) => o.value),
-                    settings.clickInterval,
-                    1,
-                  ),
-                }),
-              )
-            }
-            onContextMenu={(e) =>
-              cycleWithClick(e, () =>
-                update({
-                  clickInterval: cycleOption(
-                    INTERVAL_OPTIONS.map((o) => o.value),
-                    settings.clickInterval,
-                    -1,
-                  ),
-                }),
-              )
-            }
-          >
-            {INTERVAL_OPTIONS.find((o) => o.value === settings.clickInterval)
-              ?.label ?? "Second"}
-          </button>
-          <svg
-            className="Icon clock-icon"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-        </div>
+        <CadenceInput settings={settings} update={update} variant="simple" />
 
         <div className="InputBox">
           <div className="faderbox">
@@ -186,7 +109,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           <button
             type="button"
             className="simple-cycle-btn"
-            title="Switch between hotkey Toggle and Hold mode"
+            title={t("simple.switchMode")}
             onClick={(e) =>
               cycleWithClick(e, () =>
                 update({
@@ -202,7 +125,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
               )
             }
           >
-            {settings.mode}
+            {t(`options.mode.${settings.mode}` as TranslationKey)}
           </button>
         </div>
       </div>
@@ -212,7 +135,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           <button
             type="button"
             className="simple-cycle-btn"
-            title="Select which mouse button gets clicked"
+            title={t("simple.selectMouseButton")}
             onClick={(e) =>
               cycleWithClick(e, () =>
                 update({
@@ -236,22 +159,16 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
               )
             }
           >
-            {
-              {
-                Left: "Left Click",
-                Middle: "Middle Click",
-                Right: "Right Click",
-              }[settings.mouseButton]
-            }
+            {t(`options.mouseClick.${settings.mouseButton}` as TranslationKey)}
           </button>
         </div>
 
         <div className="InputBox">
-          <div className="muted">Hold</div>
+          <div className="muted">{t("simple.hold")}</div>
           <div className="vertical-devider" />
           <input
             type="number"
-            title="How long the mouse button gets held down during each click"
+            title={t("simple.holdDescription")}
             className="simple-inline-input numbervalue"
             style={{
               width: dynamicChWidth(settings.dutyCycle),
@@ -273,12 +190,20 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
                 e.target.value = normalized;
               }
               update({
-                dutyCycle: clamp(parseRawNumber(normalized), 0, 100),
+                dutyCycle: clamp(
+                  parseRawNumber(normalized),
+                  SETTINGS_LIMITS.dutyCycle.min,
+                  SETTINGS_LIMITS.dutyCycle.max,
+                ),
               });
             }}
             onWheel={(e) =>
-              handleWheelStep(e, settings.dutyCycle, 0, 100, (next) =>
-                update({ dutyCycle: next }),
+              handleWheelStep(
+                e,
+                settings.dutyCycle,
+                SETTINGS_LIMITS.dutyCycle.min,
+                SETTINGS_LIMITS.dutyCycle.max,
+                (next) => update({ dutyCycle: next }),
               )
             }
           />
@@ -286,11 +211,11 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
         </div>
 
         <div className="InputBox">
-          <div className="muted">Randomization</div>
+          <div className="muted">{t("simple.randomization")}</div>
           <div className="vertical-devider" />
           <input
             type="number"
-            title="Randomly changes clicks speed in % range of set CPS"
+            title={t("simple.randomizationDescription")}
             className="simple-inline-input numbervalue"
             style={{
               width: dynamicChWidth(settings.speedVariation),
@@ -312,12 +237,20 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
                 e.target.value = normalized;
               }
               update({
-                speedVariation: clamp(parseRawNumber(normalized), 0, 200),
+                speedVariation: clamp(
+                  parseRawNumber(normalized),
+                  SETTINGS_LIMITS.speedVariation.min,
+                  SETTINGS_LIMITS.speedVariation.max,
+                ),
               });
             }}
             onWheel={(e) =>
-              handleWheelStep(e, settings.speedVariation, 0, 200, (next) =>
-                update({ speedVariation: next }),
+              handleWheelStep(
+                e,
+                settings.speedVariation,
+                SETTINGS_LIMITS.speedVariation.min,
+                SETTINGS_LIMITS.speedVariation.max,
+                (next) => update({ speedVariation: next }),
               )
             }
           />

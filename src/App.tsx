@@ -6,8 +6,17 @@ import {
   LogicalSize,
 } from "@tauri-apps/api/window";
 import { lazy, useEffect, useRef, useState } from "react";
+import { applyAccentTheme } from "./accentTheme";
 import UpdateBanner from "./components/Updatebanner";
 import { canonicalizeHotkeyForBackend } from "./hotkeys";
+import { I18nProvider, isRtlLanguage } from "./i18n";
+import {
+  buildPresetSnapshot,
+  createPresetDefinition,
+  MAX_PRESETS,
+  sanitizePresetName,
+  type PresetId,
+} from "./settingsSchema";
 import {
   APP_VERSION,
   DEFAULT_SETTINGS,
@@ -29,15 +38,20 @@ const AdvancedPanelCompact = lazy(
 
 export type Tab = "simple" | "advanced" | "settings";
 
-const BACKEND_SETTINGS_SCHEMA_VERSION = 5;
+const BACKEND_SETTINGS_SCHEMA_VERSION = 8;
+const OPERATIONAL_SETTING_KEYS = new Set<string>(Object.keys(buildPresetSnapshot(DEFAULT_SETTINGS)));
 
 function getPanelSize(tab: Tab, settings: Settings, hasUpdate: boolean) {
   const extra = hasUpdate ? 30 : 0;
-  if (tab === "settings") return { width: 500, height: 600 + extra };
-  if (tab === "simple") return { width: 550, height: 175 + extra };
+  if (tab === "settings") return { width: 560, height: 720 + extra };
+  if (tab === "simple") {
+    return settings.rateInputMode === "duration"
+      ? { width: 760, height: 175 + extra }
+      : { width: 640, height: 175 + extra };
+  }
   return settings.explanationMode === "off"
-    ? { width: 600, height: 600 + extra }
-    : { width: 800, height: 650 + extra };
+    ? { width: 860, height: 760 + extra }
+    : { width: 980, height: 860 + extra };
 }
 
 const textScale = await invoke<number>("get_text_scale_factor");
@@ -79,6 +93,10 @@ const DEFAULT_APP_INFO: AppInfo = {
   version: APP_VERSION,
   updateStatus: "Update checks are disabled in development",
   screenshotProtectionSupported: false,
+};
+
+type UpdateSettingsOptions = {
+  preserveActivePreset?: boolean;
 };
 
 async function syncSettingsToBackend(settings: Settings) {
@@ -206,12 +224,31 @@ export default function App() {
     }, 250);
   };
 
-  const updateSettings = (patch: Partial<Settings>) => {
+  const updateSettings = (
+    patch: Partial<Settings>,
+    options: UpdateSettingsOptions = {},
+  ) => {
     const { hotkey, ...rest } = patch;
+    const shouldClearActivePreset =
+      !options.preserveActivePreset &&
+      (hotkey !== undefined ||
+        Object.keys(rest).some((key) => OPERATIONAL_SETTING_KEYS.has(key)));
 
-    if (Object.keys(rest).length > 0) {
-      const nextUiSettings = { ...uiSettingsRef.current, ...rest };
-      const nextCommittedSettings = { ...committedSettingsRef.current, ...rest };
+    const restPatch: Partial<Settings> = { ...rest };
+    if (
+      shouldClearActivePreset &&
+      patch.activePresetId === undefined &&
+      committedSettingsRef.current.activePresetId !== null
+    ) {
+      restPatch.activePresetId = null;
+    }
+
+    if (Object.keys(restPatch).length > 0) {
+      const nextUiSettings = { ...uiSettingsRef.current, ...restPatch };
+      const nextCommittedSettings = {
+        ...committedSettingsRef.current,
+        ...restPatch,
+      };
       persistCommittedSettings(nextCommittedSettings, nextUiSettings);
     }
 
@@ -229,7 +266,192 @@ export default function App() {
   };
 
   const handleWindowClose = async () => {
-    await getCurrentWindow().close();
+    if (uiSettingsRef.current.minimizeToTray) {
+      await getCurrentWindow().hide();
+    } else {
+      await invoke("quit_app");
+    }
+  };
+
+  const handleToggleAlwaysOnTop = async () => {
+    const nextValue = !committedSettingsRef.current.alwaysOnTop;
+
+    try {
+      await getCurrentWindow().setAlwaysOnTop(nextValue);
+      updateSettings(
+        {
+          alwaysOnTop: nextValue,
+        },
+        { preserveActivePreset: true },
+      );
+    } catch (err) {
+      console.error("Failed to set always on top:", err);
+    }
+  };
+
+  const handleSavePreset = (name: string) => {
+    if (status.running) {
+      return false;
+    }
+
+    if (committedSettingsRef.current.presets.length >= MAX_PRESETS) {
+      return false;
+    }
+
+    const preset = createPresetDefinition(name, committedSettingsRef.current);
+    if (!preset.name) {
+      return false;
+    }
+
+    const nextPresets = [...committedSettingsRef.current.presets, preset];
+    const nextCommittedSettings = {
+      ...committedSettingsRef.current,
+      presets: nextPresets,
+      activePresetId: preset.id,
+    };
+    const nextUiSettings = {
+      ...uiSettingsRef.current,
+      presets: nextPresets,
+      activePresetId: preset.id,
+    };
+
+    persistCommittedSettings(nextCommittedSettings, nextUiSettings);
+    return true;
+  };
+
+  const handleApplyPreset = (presetId: PresetId) => {
+    if (status.running) {
+      return false;
+    }
+
+    const preset = committedSettingsRef.current.presets.find(
+      (item) => item.id === presetId,
+    );
+    if (!preset) {
+      return false;
+    }
+
+    updateSettings(
+      {
+        ...preset.settings,
+        activePresetId: presetId,
+      },
+      { preserveActivePreset: true },
+    );
+    return true;
+  };
+
+  const handleUpdatePreset = (presetId: PresetId) => {
+    if (status.running) {
+      return false;
+    }
+
+    const nextSnapshot = buildPresetSnapshot(committedSettingsRef.current);
+
+    let updated = false;
+    const nextPresets = committedSettingsRef.current.presets.map((preset) => {
+      if (preset.id !== presetId) {
+        return preset;
+      }
+
+      updated = true;
+      return {
+        ...preset,
+        updatedAt: new Date().toISOString(),
+        settings: nextSnapshot,
+      };
+    });
+
+    if (!updated) {
+      return false;
+    }
+
+    const nextCommittedSettings = {
+      ...committedSettingsRef.current,
+      presets: nextPresets,
+      activePresetId: presetId,
+    };
+    const nextUiSettings = {
+      ...uiSettingsRef.current,
+      presets: nextPresets,
+      activePresetId: presetId,
+    };
+
+    persistCommittedSettings(nextCommittedSettings, nextUiSettings);
+    return true;
+  };
+
+  const handleRenamePreset = (presetId: PresetId, name: string) => {
+    if (status.running) {
+      return false;
+    }
+
+    const sanitizedName = sanitizePresetName(name);
+    if (!sanitizedName) {
+      return false;
+    }
+
+    let updated = false;
+    const nextPresets = committedSettingsRef.current.presets.map((preset) => {
+      if (preset.id !== presetId) {
+        return preset;
+      }
+
+      updated = true;
+      return {
+        ...preset,
+        name: sanitizedName,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+
+    if (!updated) {
+      return false;
+    }
+
+    const nextCommittedSettings = {
+      ...committedSettingsRef.current,
+      presets: nextPresets,
+    };
+    const nextUiSettings = {
+      ...uiSettingsRef.current,
+      presets: nextPresets,
+    };
+
+    persistCommittedSettings(nextCommittedSettings, nextUiSettings);
+    return true;
+  };
+
+  const handleDeletePreset = (presetId: PresetId) => {
+    if (status.running) {
+      return false;
+    }
+
+    const nextPresets = committedSettingsRef.current.presets.filter(
+      (preset) => preset.id !== presetId,
+    );
+    if (nextPresets.length === committedSettingsRef.current.presets.length) {
+      return false;
+    }
+
+    const nextActivePresetId =
+      committedSettingsRef.current.activePresetId === presetId
+        ? null
+        : committedSettingsRef.current.activePresetId;
+
+    const nextCommittedSettings = {
+      ...committedSettingsRef.current,
+      presets: nextPresets,
+      activePresetId: nextActivePresetId,
+    };
+    const nextUiSettings = {
+      ...uiSettingsRef.current,
+      presets: nextPresets,
+      activePresetId: nextActivePresetId,
+    };
+
+    persistCommittedSettings(nextCommittedSettings, nextUiSettings);
+    return true;
   };
 
   useEffect(() => {
@@ -243,6 +465,8 @@ export default function App() {
       .then(async ([loadedSettings, loadedAppInfo, loadedStatus]) => {
         if (!mounted) return;
 
+        let hydratedSettings = loadedSettings;
+
         let registeredHotkey = loadedSettings.hotkey;
         try {
           registeredHotkey = await registerHotkeyCandidate(loadedSettings.hotkey);
@@ -251,10 +475,22 @@ export default function App() {
           registeredHotkey = lastValidHotkeyRef.current;
         }
 
-        const hydratedSettings =
-          registeredHotkey !== loadedSettings.hotkey
-            ? { ...loadedSettings, hotkey: registeredHotkey }
-            : loadedSettings;
+        if (registeredHotkey !== hydratedSettings.hotkey) {
+          hydratedSettings = {
+            ...hydratedSettings,
+            hotkey: registeredHotkey,
+          };
+        }
+
+        try {
+          await getCurrentWindow().setAlwaysOnTop(hydratedSettings.alwaysOnTop);
+        } catch (err) {
+          console.error("Failed to restore always on top:", err);
+          hydratedSettings = {
+            ...hydratedSettings,
+            alwaysOnTop: false,
+          };
+        }
 
         lastValidHotkeyRef.current = hydratedSettings.hotkey;
         uiSettingsRef.current = hydratedSettings;
@@ -268,7 +504,10 @@ export default function App() {
 
         await syncSettingsToBackend(hydratedSettings);
 
-        if (hydratedSettings.hotkey !== loadedSettings.hotkey) {
+        if (
+          hydratedSettings.hotkey !== loadedSettings.hotkey ||
+          hydratedSettings.alwaysOnTop !== loadedSettings.alwaysOnTop
+        ) {
           await saveSettings(hydratedSettings);
         }
       })
@@ -408,8 +647,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = settings.theme ?? "dark";
-  }, [settings.theme]);
+    const theme = settings.theme ?? "dark";
+    document.documentElement.dataset.theme = theme;
+    applyAccentTheme(settings.accentColor, theme);
+  }, [settings.accentColor, settings.theme]);
+
+  useEffect(() => {
+    document.documentElement.lang = settings.language;
+    document.documentElement.dir = isRtlLanguage(settings.language)
+      ? "rtl"
+      : "ltr";
+  }, [settings.language]);
 
   const handleTabChange = (nextTab: Tab) => {
     setTab(nextTab);
@@ -432,6 +680,8 @@ export default function App() {
 
       await invoke("reset_settings");
       await clearSavedSettings();
+      await invoke("set_autostart_enabled", { enabled: false }).catch(() => {});
+      await getCurrentWindow().setAlwaysOnTop(DEFAULT_SETTINGS.alwaysOnTop);
 
       lastValidHotkeyRef.current = DEFAULT_SETTINGS.hotkey;
       committedSettingsRef.current = DEFAULT_SETTINGS;
@@ -450,6 +700,7 @@ export default function App() {
       const point = await invoke<{ x: number; y: number }>("pick_position");
       updateSettings({
         positionEnabled: true,
+        sequenceEnabled: false,
         positionX: point.x,
         positionY: point.y,
       });
@@ -459,7 +710,8 @@ export default function App() {
   };
 
   return (
-    <div className="app-root" data-tab={tab}>
+    <I18nProvider language={settings.language}>
+      <div className="app-root" data-tab={tab}>
       <TitleBar
         tab={tab}
         setTab={handleTabChange}
@@ -469,6 +721,8 @@ export default function App() {
             ? status.stopReason
             : null
         }
+        isAlwaysOnTop={settings.alwaysOnTop}
+        onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
         onRequestClose={handleWindowClose}
       />
       {updateInfo && (
@@ -500,11 +754,19 @@ export default function App() {
           <SettingsPanel
             settings={settings}
             update={updateSettings}
+            running={status.running}
             appInfo={appInfo}
+            onSavePreset={handleSavePreset}
+            onApplyPreset={handleApplyPreset}
+            onUpdatePreset={handleUpdatePreset}
+            onRenamePreset={handleRenamePreset}
+            onDeletePreset={handleDeletePreset}
+            onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
             onReset={handleResetSettings}
           />
         )}
       </main>
-    </div>
+      </div>
+    </I18nProvider>
   );
 }

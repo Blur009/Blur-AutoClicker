@@ -25,6 +25,11 @@
             background: rgba(255, 80, 80, 0.4);
             border-color: rgba(255, 80, 80, 0.9);
         }
+        .zone-custom {
+            background: rgba(255, 196, 0, 0.18);
+            border-color: rgba(255, 196, 0, 0.92);
+            border-style: dashed;
+        }
         .zone-disabled {
             background: rgba(128, 128, 128, 0.15);
             border-color: rgba(128, 128, 128, 0.5);
@@ -91,6 +96,16 @@
 
             for (const monitor of monitors) {
                 addZone(monitor.x, monitor.y, monitor.width, monitor.height, 'zone-monitor');
+            }
+
+            if (data.customStopZoneEnabled && data.customStopZone) {
+                addZone(
+                    data.customStopZone.x,
+                    data.customStopZone.y,
+                    data.customStopZone.width,
+                    data.customStopZone.height,
+                    'zone-custom'
+                );
             }
 
             for (const monitor of monitors) {

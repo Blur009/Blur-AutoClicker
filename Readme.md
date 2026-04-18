@@ -87,18 +87,18 @@ rustup default stable-x86_64-pc-windows-msvc
 
 Run the app in development:
 ```powershell
-npm exec tauri dev
+npm run dev
 ```
 
 Build a release bundle:
 ```powershell
-npm exec tauri build
+npm run build
 ```
 
 Useful validation commands:
 ```powershell
 npm run lint
-npm run build
+npm run frontend:build
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 

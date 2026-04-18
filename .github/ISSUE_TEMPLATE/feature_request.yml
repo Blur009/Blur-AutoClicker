@@ -10,6 +10,14 @@ body:
         Thanks for suggesting an improvement.
         Please describe the problem or use case first, then the solution you would like to see.
 
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and pull requests for similar requests.
+          required: true
+
   - type: textarea
     id: problem
     attributes:
@@ -23,7 +31,7 @@ body:
     id: solution
     attributes:
       label: Proposed solution
-      description: Describe the feature or behavior you would like to see
+      description: Describe the feature or behavior you would like to see.
       placeholder: It would help if Blur Auto Clicker could ...
     validations:
       required: true
@@ -40,6 +48,15 @@ body:
         - Settings / Storage
         - Installer / Updates
         - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: why_needed
+    attributes:
+      label: Why this is needed
+      description: Explain why the current behavior is insufficient and why this should be prioritized.
+      placeholder: This is needed because ...
     validations:
       required: true
 
