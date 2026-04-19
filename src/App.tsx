@@ -29,7 +29,9 @@ import {
 } from "./store";
 
 const SimplePanel = lazy(() => import("./components/panels/SimplePanel"));
-const AdvancedPanel = lazy(() => import("./components/panels/AdvancedPanel"));
+const AdvancedPanel = lazy(
+  () => import("./components/panels/advanced/AdvancedPanel"),
+);
 const SettingsPanel = lazy(() => import("./components/panels/SettingsPanel"));
 const TitleBar = lazy(() => import("./components/TitleBar"));
 export type Tab = "simple" | "advanced" | "settings";
@@ -47,7 +49,7 @@ function getPanelSize(tab: Tab, settings: Settings, hasUpdate: boolean) {
       : { width: 640, height: 175 + extra };
   }
   if (tab === "settings") return { width: 560, height: 720 + extra };
-  return { width: 860, height: 760 + extra };
+  return { width: 860, height: 800 + extra };
 }
 
 const textScale = await invoke<number>("get_text_scale_factor");

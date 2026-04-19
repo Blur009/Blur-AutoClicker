@@ -1,5 +1,5 @@
 
-.simple-seg-group {
+.adv-seg-group {
   display: flex;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -7,10 +7,10 @@
   overflow: hidden;
   transition-duration: 0.2s;
 }
-.simple-seg-group:hover{
+.adv-seg-group:hover {
   border-color: var(--border-focus);
 }
-.simple-seg-btn {
+.adv-seg-btn {
   font-family: 'DMSans', sans-serif;
   font-size: 1rem;
   font-weight: var(--font-weight-md);
@@ -23,17 +23,17 @@
   transition: color 0.2s ease, background 0.2s ease;
 }
 
-.simple-seg-btn:hover {
+.adv-seg-btn:hover {
   color: var(--text-muted);
 }
 
-.simple-seg-btn.active {
+.adv-seg-btn.active {
   background: var(--bg-input);
   color: var(--text-primary);
 }
 
-.simple-seg-btn:focus,
-.simple-seg-btn:focus-visible {
+.adv-seg-btn:focus,
+.adv-seg-btn:focus-visible {
   outline: none;
   box-shadow: none;
 }
@@ -44,31 +44,27 @@ input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
 }
 
-.advanced-panel {
+.adv-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
-.adv-toggle-btn {
-  text-transform: uppercase;
-}
-
-.advanced-columns {
+.adv-columns {
   display: flex;
   gap: 0.625rem;
   flex: 1;
   overflow: hidden;
 }
 
-.advanced-col {
+.adv-col {
   display: flex;
   flex-direction: column;
   flex: 1;
 }
 
 /* Card */
-.sectioncontainer {
+.adv-sectioncontainer {
   background: var(--bg-surface);
   border: 2px solid var(--border);
   border-radius: 0.4375rem;
@@ -85,6 +81,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .adv-limits-card {
   flex: none;
 }
+
 .adv-card-header {
   display: flex;
   align-items: center;
@@ -155,15 +152,6 @@ input[type="number"]::-webkit-outer-spin-button {
   white-space: nowrap;
 }
 
-.adv-label-sm {
-  font-family: 'DMSans', sans-serif;
-  font-size: 0.75rem;
-  font-weight: var(--font-weight-hv);
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
-
 .adv-numbox-sm {
   display: flex;
   align-items: center;
@@ -171,7 +159,7 @@ input[type="number"]::-webkit-outer-spin-button {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding:0.1875rem 0.375rem;
+  padding: 0.1875rem 0.375rem;
 }
 
 .adv-number-sm {
@@ -232,6 +220,7 @@ input[type="number"]::-webkit-outer-spin-button {
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 4%;
+  text-transform: uppercase;
   padding: 0.25rem 0;
   min-width: 2.1875rem;
   text-align: center;
@@ -251,8 +240,7 @@ input[type="number"]::-webkit-outer-spin-button {
   color: var(--text-primary);
 }
 
-/*Corner/Edge Trigger grid */
-
+/* Corner/Edge Trigger grid */
 .adv-corner-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -440,17 +428,17 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 /* Container for the disabled section */
-.disabled-container {
+.adv-disabled-container {
   position: relative;
   transition: opacity 0.3s ease;
 }
 
-.disabled-content {
+.adv-disabled-content {
   opacity: 0.35;
   pointer-events: none;
 }
 
-.disabled-overlay {
+.adv-disabled-overlay {
   position: absolute;
   inset: -0.25rem;
   display: flex;
@@ -465,14 +453,14 @@ input[type="number"]::-webkit-outer-spin-button {
   z-index: 10;
 }
 
-.disabled-container:hover .disabled-overlay {
+.adv-disabled-container:hover .adv-disabled-overlay {
   opacity: 1;
   backdrop-filter: blur(2px);
   background: rgba(0, 0, 0, 0.1);
   pointer-events: auto;
 }
 
-.disabled-label {
+.adv-disabled-label {
   font-family: 'DMSans', sans-serif;
   font-size: 0.6875rem;
   font-weight: 700;
@@ -486,15 +474,25 @@ input[type="number"]::-webkit-outer-spin-button {
   box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2);
 }
 
-.disabled-content .adv-edge-bar,
-.disabled-content .adv-arc {
+.adv-disabled-content .adv-edge-bar,
+.adv-disabled-content .adv-arc {
   border-color: var(--border-subtle) !important;
   background: var(--border-subtle) !important;
   opacity: 0.3;
 }
 
-.adv-toggle-btn.disabled {
+.adv-toggle-btn.adv-disabled {
   opacity: 0.5;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+.adv-number-sm {
+  font-family: 'DMSans', sans-serif;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-hv);
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  outline: none;
 }

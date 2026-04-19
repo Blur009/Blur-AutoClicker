@@ -1,9 +1,6 @@
 import type { ChangeEvent, CSSProperties, FocusEvent, WheelEvent } from "react";
-
-import {
-  formatDurationSummary,
-  RATE_INPUT_MODE_OPTIONS,
-} from "../cadence";
+import "./panels/advanced/AdvancedPanel.css";
+import { formatDurationSummary, RATE_INPUT_MODE_OPTIONS } from "../cadence";
 import { normalizeIntegerRaw } from "../numberInput";
 import type { RateInputMode, Settings } from "../store";
 
@@ -154,7 +151,9 @@ export default function CadenceInput({ settings, update, variant }: Props) {
               min={1}
               max={500}
               onChange={(event) =>
-                handleNumberChange(event, (next) => update({ clickSpeed: next }))
+                handleNumberChange(event, (next) =>
+                  update({ clickSpeed: next }),
+                )
               }
               onBlur={(event) =>
                 handleNumberBlur(event, 1, 500, (next) =>
@@ -193,8 +192,9 @@ export default function CadenceInput({ settings, update, variant }: Props) {
                 });
               }}
             >
-              {INTERVAL_OPTIONS.find((option) => option.value === settings.clickInterval)
-                ?.label ?? "Second"}
+              {INTERVAL_OPTIONS.find(
+                (option) => option.value === settings.clickInterval,
+              )?.label ?? "Second"}
             </button>
           </>
         ) : (
@@ -240,7 +240,9 @@ export default function CadenceInput({ settings, update, variant }: Props) {
         <button
           type="button"
           className="simple-cycle-btn"
-          onClick={() => switchMode(settings.rateInputMode === "rate" ? "duration" : "rate")}
+          onClick={() =>
+            switchMode(settings.rateInputMode === "rate" ? "duration" : "rate")
+          }
           onContextMenu={(e) => {
             e.preventDefault();
             switchMode(settings.rateInputMode === "rate" ? "duration" : "rate");
@@ -257,12 +259,12 @@ export default function CadenceInput({ settings, update, variant }: Props) {
     <div className="adv-cadence-block">
       <div className="adv-row adv-cadence-header">
         <span className="adv-label">Cadence</span>
-        <div className="simple-seg-group">
+        <div className="adv-seg-group">
           {RATE_INPUT_MODE_OPTIONS.map((mode) => (
             <button
               key={mode}
               type="button"
-              className={`simple-seg-btn ${settings.rateInputMode === mode ? "active" : ""}`}
+              className={`adv-seg-btn ${settings.rateInputMode === mode ? "active" : ""}`}
               onClick={() => switchMode(mode)}
             >
               {mode === "rate" ? "Rate" : "Delay"}
@@ -280,7 +282,9 @@ export default function CadenceInput({ settings, update, variant }: Props) {
               min={1}
               max={500}
               onChange={(event) =>
-                handleNumberChange(event, (next) => update({ clickSpeed: next }))
+                handleNumberChange(event, (next) =>
+                  update({ clickSpeed: next }),
+                )
               }
               onBlur={(event) =>
                 handleNumberBlur(event, 1, 500, (next) =>
@@ -301,12 +305,12 @@ export default function CadenceInput({ settings, update, variant }: Props) {
             />
           </div>
           <span className="adv-label">Clicks Per</span>
-          <div className="simple-seg-group">
+          <div className="adv-seg-group">
             {INTERVAL_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                className={`simple-seg-btn ${settings.clickInterval === option.value ? "active" : ""}`}
+                className={`adv-seg-btn ${settings.clickInterval === option.value ? "active" : ""}`}
                 onClick={() => update({ clickInterval: option.value })}
               >
                 {option.value}
