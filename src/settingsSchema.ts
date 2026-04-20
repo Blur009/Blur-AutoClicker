@@ -80,6 +80,7 @@ export interface Settings extends PresetSnapshot {
   accentColor: string;
   presets: PresetDefinition[];
   activePresetId: PresetId | null;
+  onboardingCompleted: boolean;
 }
 
 export const DEFAULT_ACCENT_COLOR = "#22c55e";
@@ -245,6 +246,7 @@ export function createDefaultSettings(version: string): Settings {
     accentColor: DEFAULT_ACCENT_COLOR,
     presets: [],
     activePresetId: null,
+    onboardingCompleted: false,
   };
 }
 
@@ -690,5 +692,9 @@ export function sanitizeSettings(
       presets.some((preset) => preset.id === saved.activePresetId)
         ? saved.activePresetId
         : null,
+    onboardingCompleted: sanitizeBoolean(
+      saved.onboardingCompleted,
+      defaults.onboardingCompleted,
+    ),
   };
 }

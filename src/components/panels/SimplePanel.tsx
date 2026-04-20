@@ -70,11 +70,13 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
   };
 
   return (
-    <div className="vcontainer">
+    <div className="vcontainer" data-tour="simple-panel">
       <div className="hcontainer">
-        <CadenceInput settings={settings} update={update} variant="simple" />
+        <div data-tour="simple-cadence">
+          <CadenceInput settings={settings} update={update} variant="simple" />
+        </div>
 
-        <div className="InputBox">
+        <div className="InputBox" data-tour="simple-hotkey">
           <div className="faderbox">
             <HotkeyCaptureInput
               className="simple-hotkey-input"
@@ -129,7 +131,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
         </div>
       </div>
 
-      <div className="hcontainer">
+      <div className="hcontainer" data-tour="simple-controls">
         <div className="InputBox">
           <button
             type="button"

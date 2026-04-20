@@ -1,0 +1,130 @@
+/* ── Overlay ─────────────────────────────────────────────────────────────── */
+.driver-overlay {
+  z-index: 9998 !important;
+}
+
+/* ── Popover container ───────────────────────────────────────────────────── */
+.driver-popover.onboarding-popover {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-family: var(--font-family-base);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+  max-width: 320px;
+  min-width: 260px;
+  padding: 1.25rem 1.25rem 1rem;
+  z-index: 9999 !important;
+}
+
+/* ── Arrow ───────────────────────────────────────────────────────────────── */
+.driver-popover.onboarding-popover.driver-popover-arrow-side-top::before {
+  border-top-color: var(--bg-elevated) !important;
+}
+.driver-popover.onboarding-popover.driver-popover-arrow-side-bottom::before {
+  border-bottom-color: var(--bg-elevated) !important;
+}
+.driver-popover.onboarding-popover.driver-popover-arrow-side-left::before {
+  border-left-color: var(--bg-elevated) !important;
+}
+.driver-popover.onboarding-popover.driver-popover-arrow-side-right::before {
+  border-right-color: var(--bg-elevated) !important;
+}
+
+/* ── Title ───────────────────────────────────────────────────────────────── */
+.driver-popover.onboarding-popover .driver-popover-title {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-hv);
+  margin-bottom: 0.5rem;
+  padding-right: 1.25rem; /* leave room for close btn */
+}
+
+/* ── Description ─────────────────────────────────────────────────────────── */
+.driver-popover.onboarding-popover .driver-popover-description {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  margin-bottom: 0;
+}
+
+/* ── Close button ────────────────────────────────────────────────────────── */
+.driver-popover.onboarding-popover .driver-popover-close-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease;
+  z-index: 1;
+}
+.driver-popover.onboarding-popover .driver-popover-close-btn:hover {
+  color: var(--text-primary);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.driver-popover.onboarding-popover .driver-popover-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* ── Progress text ───────────────────────────────────────────────────────── */
+.driver-popover.onboarding-popover .driver-popover-progress-text {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-md);
+  margin-right: auto;
+}
+
+/* ── Shared button base ──────────────────────────────────────────────────── */
+.driver-popover.onboarding-popover .driver-popover-prev-btn,
+.driver-popover.onboarding-popover .driver-popover-next-btn {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3125rem 0.875rem;
+  font-size: 0.8rem;
+  font-weight: var(--font-weight-md);
+  font-family: var(--font-family-base);
+  cursor: pointer;
+  line-height: 1.4;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    filter 0.15s ease;
+  white-space: nowrap;
+}
+
+/* ── Next / Done button: accent-colored ─────────────────────────────────── */
+.driver-popover.onboarding-popover .driver-popover-next-btn {
+  background: var(--accent-green-strong);
+  border-color: transparent;
+  color: #fff;
+}
+
+.driver-popover.onboarding-popover .driver-popover-prev-btn:hover {
+  background: var(--bg-input-off);
+  border-color: var(--border-focus);
+}
+.driver-popover.onboarding-popover .driver-popover-next-btn:hover {
+  filter: brightness(1.12);
+}
+
+/* ── Highlighted element ring ────────────────────────────────────────────── */
+.driver-active .driver-active-element {
+  outline: 2px solid var(--accent-green) !important;
+  outline-offset: 3px !important;
+  border-radius: var(--radius-sm) !important;
+}

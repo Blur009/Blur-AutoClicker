@@ -64,16 +64,26 @@ export default function AdvancedPanel({
     <div className="adv-panel adv-panel-text">
       <div className="adv-columns">
         <div className="adv-col">
-          <CadenceSection settings={settings} update={update} showInfo={showInfo} />
-          <DutyCycleSection settings={settings} update={update} showInfo={showInfo} />
-          <SpeedVariationSection settings={settings} update={update} showInfo={showInfo} />
+          <div data-tour="adv-cadence">
+            <CadenceSection settings={settings} update={update} showInfo={showInfo} />
+          </div>
+          <div data-tour="adv-dutycycle">
+            <DutyCycleSection settings={settings} update={update} showInfo={showInfo} />
+          </div>
+          <div data-tour="adv-speed">
+            <SpeedVariationSection settings={settings} update={update} showInfo={showInfo} />
+          </div>
           <DoubleClickSection settings={settings} update={update} showInfo={showInfo} />
           <SequenceSection settings={settings} update={update} showInfo={showInfo} />
         </div>
 
         <div className="adv-col">
-          <LimitsSection settings={settings} update={update} showInfo={showInfo} />
-          <FailsafeSection settings={settings} update={update} showInfo={showInfo} />
+          <div data-tour="adv-limits">
+            <LimitsSection settings={settings} update={update} showInfo={showInfo} />
+          </div>
+          <div data-tour="adv-failsafe">
+            <FailsafeSection settings={settings} update={update} showInfo={showInfo} />
+          </div>
           <PositionSection settings={settings} update={update} showInfo={showInfo} onPickPosition={onPickPosition} />
           <CustomStopZoneSection settings={settings} update={update} showInfo={showInfo} />
         </div>

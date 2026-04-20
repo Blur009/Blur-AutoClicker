@@ -41,6 +41,7 @@ interface Props {
   onDeletePreset: (presetId: PresetId) => boolean;
   onToggleAlwaysOnTop: () => Promise<void>;
   onReset: () => Promise<void>;
+  onStartTour: () => void;
 }
 
 function formatTime(totalSeconds: number, language: Language): string {
@@ -229,6 +230,7 @@ export default function SettingsPanel({
   onDeletePreset,
   onToggleAlwaysOnTop,
   onReset,
+  onStartTour,
 }: Props) {
   const [resetting, setResetting] = useState(false);
   const [resettingStats, setResettingStats] = useState(false);
@@ -367,7 +369,7 @@ export default function SettingsPanel({
   };
 
   return (
-    <div className="settings-wrapper">
+    <div className="settings-wrapper" data-tour="settings-panel">
       <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
         <div className="social-links">
           <span className="settings-label">{t("settings.supportMe")}</span>
@@ -672,7 +674,7 @@ export default function SettingsPanel({
 
         <div className="settings-divider" />
 
-        <div className="settings-row">
+        <div className="settings-row" data-tour="settings-theme">
           <div className="settings-label-group">
             <span className="settings-label">{t("settings.theme")}</span>
             <span className="settings-sublabel">
@@ -722,7 +724,7 @@ export default function SettingsPanel({
 
         <div className="settings-divider" />
 
-        <div className="settings-row settings-row--stacked">
+        <div className="settings-row settings-row--stacked" data-tour="settings-presets">
           <div className="settings-label-group">
             <span className="settings-label">{t("settings.presets")}</span>
             <span className="settings-sublabel">
@@ -807,6 +809,22 @@ export default function SettingsPanel({
         </div>
 
         <div className="settings-divider" />
+
+        <div className="settings-row" data-tour="settings-tour-btn">
+          <div className="settings-label-group">
+            <span className="settings-label">Guided Tour</span>
+            <span className="settings-sublabel">
+              Restart the interactive walkthrough of all features.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="settings-btn-secondary"
+            onClick={onStartTour}
+          >
+            Start Tour
+          </button>
+        </div>
 
         <div className="settings-row">
           <div className="settings-label-group">

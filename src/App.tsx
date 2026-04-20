@@ -34,6 +34,7 @@ const AdvancedPanel = lazy(
 );
 const SettingsPanel = lazy(() => import("./components/panels/SettingsPanel"));
 const TitleBar = lazy(() => import("./components/TitleBar"));
+const OnboardingTour = lazy(() => import("./components/OnboardingTour"));
 export type Tab = "simple" | "advanced" | "settings";
 
 const BACKEND_SETTINGS_SCHEMA_VERSION = 8;
@@ -125,6 +126,7 @@ export default function App() {
     currentVersion: string;
     latestVersion: string;
   } | null>(null);
+  const [tourActive, setTourActive] = useState(false);
 
   const hotkeyTimer = useRef<number | null>(null);
   const hotkeyRequestIdRef = useRef(0);
@@ -502,6 +504,10 @@ export default function App() {
         setStatus(loadedStatus);
         setSettingsLoaded(true);
 
+        if (!hydratedSettings.onboardingCompleted) {
+          setTourActive(true);
+        }
+
         await syncSettingsToBackend(hydratedSettings);
 
         if (
@@ -695,6 +701,16 @@ export default function App() {
     }
   };
 
+  const handleTourComplete = () => {
+    setTourActive(false);
+    updateSettings({ onboardingCompleted: true });
+  };
+
+  const handleStartTour = () => {
+    setTourActive(false);
+    requestAnimationFrame(() => setTourActive(true));
+  };
+
   const handlePickPosition = async () => {
     try {
       const point = await invoke<{ x: number; y: number }>("pick_position");
@@ -712,6 +728,11 @@ export default function App() {
   return (
     <I18nProvider language={settings.language}>
       <div className="app-root" data-tab={tab}>
+        <OnboardingTour
+          active={tourActive}
+          onComplete={handleTourComplete}
+          setTab={handleTabChange}
+        />
         <TitleBar
           tab={tab}
           setTab={handleTabChange}
@@ -757,6 +778,7 @@ export default function App() {
               onDeletePreset={handleDeletePreset}
               onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
               onReset={handleResetSettings}
+              onStartTour={handleStartTour}
             />
           )}
         </main>
