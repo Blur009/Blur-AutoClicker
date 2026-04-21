@@ -9,13 +9,13 @@
 .settings-panel::-webkit-scrollbar {
   width: 0.375rem;
   background: var(--bg-elevated);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-scrollbar);
 }
 
 
 .settings-panel::-webkit-scrollbar-thumb {
   background: var(--text-dim);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-scrollbar-thumb);
 }
 .settings-panel::-webkit-scrollbar-thumb:hover {
   background: #777;
@@ -206,7 +206,7 @@
 .social-icon--kofi {
   width: 114px;
   height: 30px;
-  border-radius: 10px;
+  border-radius: var(--radius-kofi);
   border: 1px solid var(--border-subtle);
 }
 

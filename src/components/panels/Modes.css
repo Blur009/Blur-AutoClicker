@@ -270,7 +270,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .sectioncontainer {
   background: var(--bg-surface);
   border: 2px solid var(--border);
-  border-radius: 0.4375rem;
+  border-radius: var(--radius-section);
   padding: 0.625rem 0.75rem;
   margin-bottom: 0.625rem;
   flex: 1;
@@ -517,7 +517,7 @@ input[type="number"]::-webkit-outer-spin-button {
   gap: 2px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   padding: 0.25rem 0.5rem;
   position: relative;
   overflow: hidden;
@@ -536,28 +536,28 @@ input[type="number"]::-webkit-outer-spin-button {
   top: 0px; left: 0px;
   border-right: none;
   border-bottom: none;
-  border-top-left-radius: 0.375rem;
+  border-top-left-radius: var(--radius-sm);
 }
 
 .adv-arc-tr {
   top: 0px; right: 0px;
   border-left: none;
   border-bottom: none;
-  border-top-right-radius: 0.375rem;
+  border-top-right-radius: var(--radius-sm);
 }
 
 .adv-arc-bl {
   bottom: 0px; left: 0px;
   border-right: none;
   border-top: none;
-  border-bottom-left-radius: 0.375rem;
+  border-bottom-left-radius: var(--radius-sm);
 }
 
 .adv-arc-br {
   bottom: 0px; right: 0px;
   border-left: none;
   border-top: none;
-  border-bottom-right-radius: 0.375rem;
+  border-bottom-right-radius: var(--radius-sm);
 }
 
 /* Edge bars for edge stop */
@@ -639,7 +639,7 @@ input[type="number"]::-webkit-outer-spin-button {
   color: var(--text-muted);
   background: var(--bg-surface);
   padding: 0.25rem 0.625rem;
-  border-radius: 1.25rem;
+  border-radius: var(--radius-disabled);
   border: 1px solid var(--border-subtle);
   box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2);
 }

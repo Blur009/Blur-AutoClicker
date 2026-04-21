@@ -8,6 +8,7 @@ export const APP_VERSION = await getVersion();
 export type SavedPanel = "simple" | "advanced";
 export type ExplanationMode = "off" | "text";
 export type Theme = "dark" | "light";
+export type CornerStyle = "rounded" | "sharp";
 
 export interface Settings {
   version: string;
@@ -48,6 +49,7 @@ export interface Settings {
   showStopOverlay: boolean;
   strictHotkeyModifiers: boolean;
   theme: Theme;
+  cornerStyle: CornerStyle;
 }
 
 export interface ClickerStatus {
@@ -102,6 +104,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showStopOverlay: true,
   strictHotkeyModifiers: false,
   theme: "dark",
+  cornerStyle: "rounded",
 };
 
 function sanitizeSavedPanel(value: unknown): SavedPanel {
@@ -235,6 +238,7 @@ function sanitizeSettings(input?: Partial<Settings> | null): Settings {
     explanationMode: sanitizeExplanationMode(saved),
     lastPanel: sanitizeSavedPanel(saved.lastPanel),
     theme: saved.theme === "light" ? "light" : "dark",
+    cornerStyle: saved.cornerStyle === "sharp" ? "sharp" : "rounded",
   };
 }
 

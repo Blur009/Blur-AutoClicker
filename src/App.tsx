@@ -411,6 +411,11 @@ export default function App() {
     document.documentElement.dataset.theme = settings.theme ?? "dark";
   }, [settings.theme]);
 
+  useEffect(() => {
+    document.documentElement.dataset.corners =
+      settings.cornerStyle === "sharp" ? "sharp" : "rounded";
+  }, [settings.cornerStyle]);
+
   const handleTabChange = (nextTab: Tab) => {
     setTab(nextTab);
 

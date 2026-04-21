@@ -29,6 +29,11 @@
   --radius-sm:     0.375rem;
   --radius-md:     0.625rem;
   --radius-lg:     0.875rem;
+  --radius-section: 0.4375rem;
+  --radius-disabled: 1.25rem;
+  --radius-scrollbar: 0.5rem;
+  --radius-scrollbar-thumb: 0.25rem;
+  --radius-kofi: 10px;
 
   --container-shadow: 0 2px 0.5rem rgba(0, 0, 0, 0.3);
 
@@ -43,6 +48,17 @@
   --update-banner-text-bg: hsl(0, 0%, 80%);
   --status-success: hsl(129, 77%, 60%);
   --status-error: hsl(4, 100%, 71%);
+}
+
+[data-corners="sharp"] {
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-section: 0;
+  --radius-disabled: 0;
+  --radius-scrollbar: 0;
+  --radius-scrollbar-thumb: 0;
+  --radius-kofi: 0;
 }
 
 [data-theme="light"] {

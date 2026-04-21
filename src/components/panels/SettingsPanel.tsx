@@ -296,6 +296,27 @@ export default function SettingsPanel({
             ))}
           </div>
         </div>
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Corner Style</span>
+            <span className="settings-sublabel">
+              Switch between rounded and sharp UI corners.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {(["Rounded", "Sharp"] as const).map((o) => (
+              <button
+                key={o}
+                className={`settings-seg-btn ${(settings.cornerStyle === "sharp" ? "Sharp" : "Rounded") === o ? "active" : ""}`}
+                onClick={() =>
+                  update({ cornerStyle: o.toLowerCase() as "rounded" | "sharp" })
+                }
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="settings-divider" />
         <div className="settings-row">
           <div className="settings-label-group">
