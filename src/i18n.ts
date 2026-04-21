@@ -16,17 +16,17 @@ import es from "./locales/es.json";
 import fr from "./locales/fr.json";
 import pt from "./locales/pt.json";
 
-export const LANGUAGE_CODES = ["en", "de", "es", "fr", "pt", "ar"] as const;
+export const LANGUAGE_CODES = ["ar", "de", "en", "es", "fr", "pt"] as const;
 export type Language = (typeof LANGUAGE_CODES)[number];
 
 export const DEFAULT_LANGUAGE: Language = "en";
 export const LANGUAGE_OPTIONS: readonly { code: Language; label: string }[] = [
-  { code: "en", label: "English" },
+  { code: "ar", label: "العربية" },
   { code: "de", label: "Deutsch" },
+  { code: "en", label: "English" },
   { code: "es", label: "Español" },
   { code: "fr", label: "Français" },
   { code: "pt", label: "Português (Brasil)" },
-  { code: "ar", label: "العربية" },
 ];
 
 type TranslationTree = typeof en;
