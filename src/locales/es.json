@@ -1,9 +1,11 @@
 {
   "language": {
+    "ar": "العربية",
+    "de": "Alemán",
     "en": "English",
     "es": "Español",
     "fr": "Français",
-    "ar": "العربية"
+    "pt": "Portugués (Brasil)"
   },
   "common": {
     "on": "Activado",
