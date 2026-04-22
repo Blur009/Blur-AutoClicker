@@ -14,8 +14,82 @@ use crate::hotkeys::register_hotkey_inner;
 use crate::hotkeys::start_hotkey_listener;
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::{Arc, Mutex};
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager};
 const STATUS_EVENT: &str = "clicker-status";
+
+fn build_main_tray(app: &AppHandle) -> Result<(), String> {
+    let open_item = MenuItem::with_id(app, "tray_open", "Open BlurAutoClicker", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let quit_item = MenuItem::with_id(app, "tray_quit", "Quit", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let menu = Menu::with_items(app, &[&open_item, &quit_item]).map_err(|e| e.to_string())?;
+
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.ico"))
+        .map_err(|e| e.to_string())?;
+
+    let tray = TrayIconBuilder::with_id("main-tray")
+        .icon(icon)
+        .tooltip("BlurAutoClicker")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "tray_open" => {
+                if let Err(err) = show_main_window(app) {
+                    log::error!("[Tray] Failed to show main window: {}", err);
+                }
+            }
+            "tray_quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                if let Err(err) = show_main_window(&app) {
+                    log::error!("[Tray] Failed to show main window: {}", err);
+                }
+            }
+        })
+        .build(app)
+        .map_err(|e| e.to_string())?;
+
+    tray.set_visible(false).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+pub(crate) fn set_main_tray_visible(app: &AppHandle, visible: bool) -> Result<(), String> {
+    if visible && app.tray_by_id("main-tray").is_none() {
+        build_main_tray(app)?;
+    }
+
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        tray.set_visible(visible).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn show_main_window(app: &AppHandle) -> Result<(), String> {
+    let main = app
+        .get_webview_window("main")
+        .ok_or_else(|| String::from("main window not found"))?;
+
+    if main.is_minimized().map_err(|e| e.to_string())? {
+        main.unminimize().map_err(|e| e.to_string())?;
+    }
+
+    main.show().map_err(|e| e.to_string())?;
+    main.set_focus().map_err(|e| e.to_string())?;
+    set_main_tray_visible(app, false)?;
+    Ok(())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -95,6 +169,7 @@ pub fn run() {
             ui_commands::start_clicker,
             ui_commands::stop_clicker,
             ui_commands::toggle_clicker,
+            ui_commands::handle_minimize_click,
             ui_commands::update_settings,
             ui_commands::get_settings,
             ui_commands::reset_settings,

@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
 import type { Tab } from "../App";
@@ -6,7 +7,14 @@ import "./TitleBar.css";
 const appWindow = getCurrentWindow();
 const DEFAULT_TITLE = "BlurAutoClicker";
 
-const handleMinimize = async () => await appWindow.minimize();
+const handleMinimize = async () => {
+    try {
+        await invoke("handle_minimize_click");
+    } catch (err) {
+        console.error("Failed to handle minimize action:", err);
+        await appWindow.minimize();
+    }
+};
 
 interface Props {
   tab: Tab;

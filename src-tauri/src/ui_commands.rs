@@ -68,6 +68,41 @@ pub fn toggle_clicker(app: AppHandle) -> Result<ClickerStatusPayload, String> {
 }
 
 #[tauri::command]
+pub fn handle_minimize_click(app: AppHandle) -> Result<(), String> {
+    let minimize_to_tray = {
+        let state = app.state::<ClickerState>();
+        let minimize = state.settings.lock().unwrap().minimise_to_system_tray;
+        minimize
+    };
+
+    let main = app
+        .get_webview_window("main")
+        .ok_or_else(|| String::from("main window not found"))?;
+
+    if minimize_to_tray {
+        if let Err(err) = crate::set_main_tray_visible(&app, true) {
+            log::error!("[Tray] Failed to enable tray minimize: {}", err);
+            main.minimize().map_err(|e| e.to_string())?;
+            return Ok(());
+        }
+
+        if let Err(err) = main.hide() {
+            let _ = crate::set_main_tray_visible(&app, false);
+            return Err(err.to_string());
+        }
+
+        if let Some(overlay) = app.get_webview_window("overlay") {
+            let _ = overlay.hide();
+        }
+    } else {
+        let _ = crate::set_main_tray_visible(&app, false);
+        main.minimize().map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn update_settings(
     app: AppHandle,
     settings: ClickerSettings,
