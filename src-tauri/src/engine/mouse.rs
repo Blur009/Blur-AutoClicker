@@ -211,6 +211,7 @@ pub fn send_clicks(
         if hold_ms > 0 {
             sleep_interruptible(Duration::from_millis(hold_ms as u64), control);
             if !control.is_active() {
+                send_mouse_event(up);
                 return;
             }
         }
