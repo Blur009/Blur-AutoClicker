@@ -47,6 +47,7 @@ export interface Settings {
   showStopReason: boolean;
   showStopOverlay: boolean;
   strictHotkeyModifiers: boolean;
+  minimiseToSystemTray: boolean;
   theme: Theme;
 }
 
@@ -101,6 +102,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showStopReason: true,
   showStopOverlay: true,
   strictHotkeyModifiers: false,
+  minimiseToSystemTray: false,
   theme: "dark",
 };
 
@@ -234,6 +236,10 @@ function sanitizeSettings(input?: Partial<Settings> | null): Settings {
     disableScreenshots: false,
     explanationMode: sanitizeExplanationMode(saved),
     lastPanel: sanitizeSavedPanel(saved.lastPanel),
+    minimiseToSystemTray: sanitizeBoolean(
+      saved.minimiseToSystemTray,
+      DEFAULT_SETTINGS.minimiseToSystemTray,
+    ),
     theme: saved.theme === "light" ? "light" : "dark",
   };
 }
