@@ -1,0 +1,124 @@
+name: Bug report
+description: Report a reproducible problem in Blur Auto Clicker
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+        Please fill out the form as clearly as possible so the problem can be reproduced.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and pull requests for the same problem.
+          required: true
+        - label: I reproduced this on the latest release or latest local source build, if applicable.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Blur Auto Clicker version
+      description: Example: 3.4.1
+      placeholder: 3.4.1
+    validations:
+      required: true
+
+  - type: input
+    id: windows_version
+    attributes:
+      label: Windows version
+      description: Example: Windows 11 24H2
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_type
+    attributes:
+      label: Installation type
+      options:
+        - Installed release build
+        - Built from source
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected_area
+    attributes:
+      label: Affected area
+      options:
+        - Simple
+        - Advanced
+        - Settings / General
+        - Clicking engine
+        - Hotkeys
+        - Overlay
+        - Installer / Updates
+        - Not sure / N/A
+    validations:
+      required: true
+
+  - type: input
+    id: click_rate
+    attributes:
+      label: Click speed / rate
+      description: Include unit if relevant, for example 50 CPS or 120 clicks per minute
+      placeholder: 50 CPS
+
+  - type: textarea
+    id: affected_settings
+    attributes:
+      label: Relevant settings
+      description: List any settings that seem relevant, such as duty cycle, speed variation, double click, edge stop, corner stop, position clicking, strict hotkey modifiers, or update settings.
+      placeholder: |
+        Duty cycle enabled
+        Speed variation 40-60 CPS
+        Edge stop enabled
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Write clear steps so the bug can be reproduced reliably
+      placeholder: |
+        1. Open the app
+        2. Switch to Advanced mode
+        3. Set the click speed to ...
+        4. Start the clicker
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: The clicker should ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: What happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs, screenshots, or recordings
+      description: Add anything else that may help, such as screenshots, recordings, logs, or unusual system behavior.
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add any extra context that may help explain the problem.
