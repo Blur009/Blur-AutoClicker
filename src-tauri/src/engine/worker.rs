@@ -13,7 +13,8 @@ use crate::STATUS_EVENT;
 
 use super::failsafe::should_stop_for_failsafe;
 use super::mouse::{
-    get_button_flags, get_cursor_pos, move_mouse, send_clicks, smooth_move, VirtualScreenRect,
+    get_button_flags, get_cursor_pos, move_mouse, send_clicks, send_mouse_event, smooth_move,
+    VirtualScreenRect,
 };
 use super::rng::SmallRng;
 use super::ClickerConfig;
@@ -237,6 +238,7 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         },
         time_limit: time_limit_secs.unwrap_or(0.0),
         button,
+        send_release: settings.click_action != "downOnly",
         double_click_enabled: settings.double_click_enabled,
         double_click_delay_ms: settings.double_click_delay,
         position_enabled: settings.position_enabled,
@@ -450,6 +452,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             hold_ms,
             config.double_click_enabled,
             config.double_click_delay_ms,
+            config.send_release,
             &control,
         );
 
@@ -480,6 +483,10 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     }
 
     unsafe { NtSetTimerResolution(10000, 0, &mut current) };
+
+    if !config.send_release {
+        send_mouse_event(up_flag);
+    }
 
     let elapsed_secs = start_time.elapsed().as_secs_f64();
     let cpu_cycles_end = thread_cycles();
@@ -534,6 +541,7 @@ mod tests {
             duty: 45.0,
             time_limit: 0.0,
             button: 1,
+            send_release: true,
             double_click_enabled: false,
             double_click_delay_ms: 40,
             position_enabled: false,
@@ -585,6 +593,15 @@ mod tests {
 
         let interval = interval_secs_from_settings(&settings).expect("duration should work");
         assert!((interval - 95.25).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn build_config_disables_release_when_click_action_is_down_only() {
+        let mut settings = sample_settings();
+        settings.click_action = "downOnly".to_string();
+
+        let config = build_config(&settings).expect("build config should work");
+        assert!(!config.send_release);
     }
 
     #[test]

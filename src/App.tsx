@@ -37,7 +37,7 @@ const SettingsPanel = lazy(() => import("./components/panels/SettingsPanel"));
 const TitleBar = lazy(() => import("./components/TitleBar"));
 export type Tab = "simple" | "advanced" | "zones" | "settings";
 
-const BACKEND_SETTINGS_SCHEMA_VERSION = 8;
+const BACKEND_SETTINGS_SCHEMA_VERSION = 9;
 const OPERATIONAL_SETTING_KEYS = new Set<string>(
   Object.keys(buildPresetSnapshot(DEFAULT_SETTINGS)),
 );
@@ -51,7 +51,7 @@ function getPanelSize(tab: Tab, settings: Settings, hasUpdate: boolean) {
   }
   if (tab === "settings") return { width: 560, height: 720 + extra };
   if (tab === "zones") return { width: 860, height: 800 + extra };
-  return { width: 860, height: 500 + extra };
+  return { width: 860, height: 530 + extra };
 }
 
 const textScale = await invoke<number>("get_text_scale_factor");

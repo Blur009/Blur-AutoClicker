@@ -184,10 +184,25 @@ pub fn send_batch(down: u32, up: u32, n: usize, _hold_ms: u32) {
     };
 }
 
+pub fn send_batch_down_only(down: u32, n: usize) {
+    let mut inputs: Vec<INPUT> = Vec::with_capacity(n);
+    for _ in 0..n {
+        inputs.push(make_input(down, 0));
+    }
+    unsafe {
+        SendInput(
+            inputs.len() as u32,
+            inputs.as_ptr(),
+            std::mem::size_of::<INPUT>() as i32,
+        )
+    };
+}
+
 fn dispatch_click<FSend, FSleep, FActive>(
     down: u32,
     up: u32,
     hold_ms: u32,
+    send_release: bool,
     send_event: &mut FSend,
     sleep_for: &mut FSleep,
     is_active: &FActive,
@@ -202,6 +217,10 @@ where
     }
 
     send_event(down);
+    if !send_release {
+        return true;
+    }
+
     if hold_ms > 0 {
         sleep_for(Duration::from_millis(hold_ms as u64));
         if !is_active() {
@@ -221,13 +240,19 @@ pub fn send_clicks(
     hold_ms: u32,
     use_double_click_gap: bool,
     double_click_delay_ms: u32,
+    send_release: bool,
     control: &RunControl,
 ) {
     if count == 0 {
         return;
     }
 
-    if !use_double_click_gap && count > 1 && hold_ms == 0 {
+    if !send_release && !use_double_click_gap && count > 1 {
+        send_batch_down_only(down, count);
+        return;
+    }
+
+    if send_release && !use_double_click_gap && count > 1 && hold_ms == 0 {
         send_batch(down, up, count, hold_ms);
         return;
     }
@@ -241,6 +266,7 @@ pub fn send_clicks(
             down,
             up,
             hold_ms,
+            send_release,
             &mut send_event,
             &mut sleep_for,
             &is_active,
@@ -336,7 +362,15 @@ mod tests {
         let mut sleep_for = |_| {};
         let is_active = || false;
 
-        let sent = dispatch_click(1, 2, 5, &mut send_event, &mut sleep_for, &is_active);
+        let sent = dispatch_click(
+            1,
+            2,
+            5,
+            true,
+            &mut send_event,
+            &mut sleep_for,
+            &is_active,
+        );
 
         assert!(!sent);
         assert!(events.borrow().is_empty());
@@ -350,7 +384,15 @@ mod tests {
         let mut sleep_for = |_| active.set(false);
         let is_active = || active.get();
 
-        let sent = dispatch_click(1, 2, 5, &mut send_event, &mut sleep_for, &is_active);
+        let sent = dispatch_click(
+            1,
+            2,
+            5,
+            true,
+            &mut send_event,
+            &mut sleep_for,
+            &is_active,
+        );
 
         assert!(!sent);
         assert_eq!(&*events.borrow(), &[1, 2]);
@@ -363,9 +405,38 @@ mod tests {
         let mut sleep_for = |_| {};
         let is_active = || true;
 
-        let sent = dispatch_click(1, 2, 5, &mut send_event, &mut sleep_for, &is_active);
+        let sent = dispatch_click(
+            1,
+            2,
+            5,
+            true,
+            &mut send_event,
+            &mut sleep_for,
+            &is_active,
+        );
 
         assert!(sent);
         assert_eq!(&*events.borrow(), &[1, 2]);
+    }
+
+    #[test]
+    fn dispatch_click_down_only_sends_press_without_release() {
+        let events = RefCell::new(Vec::new());
+        let mut send_event = |flags| events.borrow_mut().push(flags);
+        let mut sleep_for = |_| {};
+        let is_active = || true;
+
+        let sent = dispatch_click(
+            1,
+            2,
+            5,
+            false,
+            &mut send_event,
+            &mut sleep_for,
+            &is_active,
+        );
+
+        assert!(sent);
+        assert_eq!(&*events.borrow(), &[1]);
     }
 }

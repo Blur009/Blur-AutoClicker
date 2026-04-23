@@ -11,6 +11,7 @@ const store = new LazyStore("settings.json");
 export const APP_VERSION = await getVersion();
 
 export type {
+  ClickAction,
   ClickInterval,
   ClickMode,
   MouseButton,

@@ -1,9 +1,12 @@
 import type { Settings } from "../../../store";
 import { useTranslation, type TranslationKey } from "../../../i18n";
-import { MOUSE_BUTTON_OPTIONS } from "../../../settingsSchema";
+import {
+  CLICK_ACTION_OPTIONS,
+  MOUSE_BUTTON_OPTIONS,
+  type MouseButton,
+} from "../../../settingsSchema";
 import CadenceInput from "../../CadenceInput";
 import HotkeyCaptureInput from "../../HotkeyCaptureInput";
-import type { MouseButton } from "@tauri-apps/api/tray";
 import { InfoIcon } from "./shared";
 
 interface Props {
@@ -88,6 +91,33 @@ export default function CadenceSection({ settings, update, showInfo }: Props) {
                 }
               >
                 {t(`options.mouseButton.${mouseButtonOption}` as TranslationKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="adv-row" style={{ marginTop: rowSpacing }}>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          {showInfo ? (
+            <InfoIcon text={t("advanced.clickActionDescription")} />
+          ) : null}
+          <span className="adv-label">{t("advanced.clickAction")}</span>
+        </div>
+        <div className="adv-row" style={{ marginLeft: "auto" }}>
+          <div className="adv-seg-group adv-seg-group-click-action">
+            {CLICK_ACTION_OPTIONS.map((clickActionOption) => (
+              <button
+                key={clickActionOption}
+                className={`adv-seg-btn adv-seg-btn-click-action ${settings.clickAction === clickActionOption ? "active" : ""}`}
+                onClick={() => update({ clickAction: clickActionOption })}
+              >
+                {t(`options.clickAction.${clickActionOption}` as TranslationKey)}
               </button>
             ))}
           </div>

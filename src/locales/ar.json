@@ -91,6 +91,8 @@
     "hotkeyDescription": "Choose the key combo that starts and stops the clicker. Use Toggle for press-on/press-off, or Hold to click only while held.",
     "mouseButton": "زر الماوس",
     "mouseButtonDescription": "Select which mouse button the clicker will press on each click event.",
+    "clickAction": "Click Action",
+    "clickActionDescription": "Choose whether each click sends both press and release, or only press events while running.",
     "dutyCycle": "دورة الضغط",
     "dutyCycleDescription": "يعشوئ مدة بقاء زر الماوس مضغوطا بين النسب الدنيا والعليا لكل فاصل نقر.",
     "speedVariation": "تباين السرعة",
@@ -164,6 +166,10 @@
       "Left": "نقرة يسرى",
       "Middle": "نقرة وسطى",
       "Right": "نقرة يمنى"
+    },
+    "clickAction": {
+      "downUp": "Down + Up",
+      "downOnly": "Down Only"
     },
     "timeUnitShort": {
       "s": "ث",
