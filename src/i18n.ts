@@ -10,19 +10,17 @@ import {
   type ReactNode,
 } from "react";
 import ar from "./locales/ar.json";
-import de from "./locales/de.json";
 import en from "./locales/en.json";
 import es from "./locales/es.json";
 import fr from "./locales/fr.json";
 import pt from "./locales/pt.json";
 
-export const LANGUAGE_CODES = ["ar", "de", "en", "es", "fr", "pt"] as const;
+export const LANGUAGE_CODES = ["ar", "en", "es", "fr", "pt"] as const;
 export type Language = (typeof LANGUAGE_CODES)[number];
 
 export const DEFAULT_LANGUAGE: Language = "en";
 export const LANGUAGE_OPTIONS: readonly { code: Language; label: string }[] = [
   { code: "ar", label: "العربية" },
-  { code: "de", label: "Deutsch" },
   { code: "en", label: "English" },
   { code: "es", label: "Español" },
   { code: "fr", label: "Français" },
@@ -39,7 +37,6 @@ type TranslationVars = Record<string, string | number>;
 
 const translations: Record<Language, TranslationTree> = {
   ar,
-  de,
   en,
   es,
   fr,
