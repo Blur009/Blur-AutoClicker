@@ -5,15 +5,19 @@ import type {
   PresetId,
   Settings,
 } from "../../store";
-import {
-  LANGUAGE_OPTIONS,
-  useTranslation,
-  type Language,
-} from "../../i18n";
+import { LANGUAGE_OPTIONS, useTranslation, type Language } from "../../i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import ConfirmDialog from "../ConfirmDialog";
+
+// Settings Pannel TO-DO
+// TODO: Move presets under stats
+// TODO: Make presets only display 3 profiles at a time before turning into a scrollable area. Otherwise the settings window would infinitly expand downwards.
+// TODO: Change On/Off toggle to be the same as in advanced mode. Preferably we think about some kind of shared assets css instead of re-defining it every time.
+// TODO: Make language selector a drop down instead of section button.
+// TODO: Make Accent color actually be only accents say on hover and such.. "save new" should not be an accent.
+// Preferably all before 3.5 comes out.
 
 type PendingAction = "reset-settings" | "clear-stats" | null;
 import {
@@ -235,11 +239,15 @@ export default function SettingsPanel({
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [stats, setStats] = useState<CumulativeStats | null>(null);
   const [atBottom, setAtBottom] = useState(false);
-  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(null);
+  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(
+    null,
+  );
   const [newPresetName, setNewPresetName] = useState("");
   const [editingPresetId, setEditingPresetId] = useState<PresetId | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<PresetId | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<PresetId | null>(
+    null,
+  );
 
   const panelRef = useRef<HTMLDivElement>(null);
   const { language, t } = useTranslation();
@@ -464,7 +472,9 @@ export default function SettingsPanel({
         {hasStats ? (
           <div className="stats-grid">
             <div className="stats-cell">
-              <span className="stats-cell-label">{t("settings.totalClicks")}</span>
+              <span className="stats-cell-label">
+                {t("settings.totalClicks")}
+              </span>
               <span className="stats-cell-value">
                 {formatNumber(stats.totalClicks, language)}
               </span>
@@ -478,7 +488,9 @@ export default function SettingsPanel({
               </span>
             </div>
             <div className="stats-cell">
-              <span className="stats-cell-label">{t("settings.averageCpu")}</span>
+              <span className="stats-cell-label">
+                {t("settings.averageCpu")}
+              </span>
               <span className="stats-cell-value">
                 {formatCpu(stats.avgCpu, language, t("common.notAvailable"))}
               </span>
@@ -704,7 +716,9 @@ export default function SettingsPanel({
               <input
                 type="color"
                 value={settings.accentColor}
-                onChange={(event) => update({ accentColor: event.target.value })}
+                onChange={(event) =>
+                  update({ accentColor: event.target.value })
+                }
               />
             </label>
             <span className="settings-value settings-value--mono">
@@ -782,7 +796,11 @@ export default function SettingsPanel({
                   isEditing={activeEditingPresetId === preset.id}
                   isConfirmingDelete={activeConfirmingDeleteId === preset.id}
                   running={running}
-                  renameDraft={activeEditingPresetId === preset.id ? renameDraft : preset.name}
+                  renameDraft={
+                    activeEditingPresetId === preset.id
+                      ? renameDraft
+                      : preset.name
+                  }
                   onRenameDraftChange={setRenameDraft}
                   onStartRename={() => handleStartRename(preset)}
                   onCancelRename={handleCancelRename}

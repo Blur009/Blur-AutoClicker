@@ -32,9 +32,10 @@ const SimplePanel = lazy(() => import("./components/panels/SimplePanel"));
 const AdvancedPanel = lazy(
   () => import("./components/panels/advanced/AdvancedPanel"),
 );
+const ZonesPanel = lazy(() => import("./components/panels/zones/ZonesPanel"));
 const SettingsPanel = lazy(() => import("./components/panels/SettingsPanel"));
 const TitleBar = lazy(() => import("./components/TitleBar"));
-export type Tab = "simple" | "advanced" | "settings";
+export type Tab = "simple" | "advanced" | "zones" | "settings";
 
 const BACKEND_SETTINGS_SCHEMA_VERSION = 8;
 const OPERATIONAL_SETTING_KEYS = new Set<string>(
@@ -49,7 +50,8 @@ function getPanelSize(tab: Tab, settings: Settings, hasUpdate: boolean) {
       : { width: 640, height: 175 + extra };
   }
   if (tab === "settings") return { width: 560, height: 720 + extra };
-  return { width: 860, height: 800 + extra };
+  if (tab === "zones") return { width: 860, height: 800 + extra };
+  return { width: 860, height: 500 + extra };
 }
 
 const textScale = await invoke<number>("get_text_scale_factor");
@@ -85,6 +87,7 @@ const DEFAULT_STATUS: ClickerStatus = {
   clickCount: 0,
   lastError: null,
   stopReason: null,
+  activeSequenceIndex: null,
 };
 
 const DEFAULT_APP_INFO: AppInfo = {
@@ -695,20 +698,6 @@ export default function App() {
     }
   };
 
-  const handlePickPosition = async () => {
-    try {
-      const point = await invoke<{ x: number; y: number }>("pick_position");
-      updateSettings({
-        positionEnabled: true,
-        sequenceEnabled: false,
-        positionX: point.x,
-        positionY: point.y,
-      });
-    } catch (err) {
-      console.error("Failed to pick position:", err);
-    }
-  };
-
   return (
     <I18nProvider language={settings.language}>
       <div className="app-root" data-tab={tab}>
@@ -717,7 +706,7 @@ export default function App() {
           setTab={handleTabChange}
           running={status.running}
           stopReason={
-            settings.showStopReason && tab === "advanced"
+            settings.showStopReason && (tab === "advanced" || tab === "zones")
               ? status.stopReason
               : null
           }
@@ -740,7 +729,15 @@ export default function App() {
             <AdvancedPanel
               settings={settings}
               update={updateSettings}
-              onPickPosition={handlePickPosition}
+              showInfo={true}
+              running={status.running}
+              activeSequenceIndex={status.activeSequenceIndex}
+            />
+          )}
+          {tab === "zones" && (
+            <ZonesPanel
+              settings={settings}
+              update={updateSettings}
               showInfo={true}
             />
           )}

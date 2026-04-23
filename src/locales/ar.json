@@ -19,6 +19,7 @@
   "titleBar": {
     "simple": "بسيط",
     "advanced": "متقدم",
+    "zones": "المناطق",
     "settings": "الإعدادات",
     "enableAlwaysOnTop": "تفعيل البقاء في المقدمة",
     "disableAlwaysOnTop": "إيقاف البقاء في المقدمة",
@@ -96,6 +97,7 @@
     "speedVariationDescription": "يعشوئ توقيت النقر حول السرعة المحددة حتى هذه النسبة.",
     "doubleClick": "نقر مزدوج",
     "doubleClickDescription": "يضغط الزر مرتين في كل فاصل مع تأخير قابل للضبط بين النقرات.",
+    "limits": "الحدود",
     "clickLimit": "حد النقرات",
     "clickLimitDescription": "Stops automatically after the selected number of clicks.",
     "timeLimit": "حد الوقت",
@@ -118,6 +120,7 @@
     "sequenceMoveDown": "أسفل",
     "sequenceDelete": "حذف",
     "sequenceAddCurrentCursor": "إضافة موضع المؤشر الحالي",
+    "sequenceEndOfList": "هذا كل شيء :)",
     "customStopZone": "منطقة إيقاف مخصصة",
     "customStopZoneDescription": "توقف أداة النقر عندما يدخل المؤشر هذه المنطقة المستطيلة باستخدام إحداثيات مطلقة قد تمتد عبر عدة شاشات.",
     "customStopZoneSetTopLeft": "تحديد أعلى اليسار",

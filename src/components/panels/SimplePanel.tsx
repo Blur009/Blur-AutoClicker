@@ -10,6 +10,13 @@ import {
 import "./SimplePanel.css";
 // I HATE MAKING UI, FUCK UI DESIGN IN CODE, WHY CANT I JUST PHOTOSHOP THIS SHIT
 // ahem, made with love :3
+
+
+// TODO: this needs to be brought up to the styling of Advanced mode.
+// TODO: Make S/M/H/D button into drop-down. Make the other cycle buttons either clearer so the user understands that it is a button and not just an info text, or replace them with drop downs.
+// TODO: Preferably have the Rate click speed also have the text of "clicks per" in between the value and S/M/H/D so that ppl get it.. same styling as advanced.
+// TODO: Rename Hold to match Advanced Panel.
+// TODO: Remove Randomization from Simple Panel.
 interface SimplePanelProps {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;

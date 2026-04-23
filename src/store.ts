@@ -30,6 +30,7 @@ export interface ClickerStatus {
   clickCount: number;
   lastError: string | null;
   stopReason: string | null;
+  activeSequenceIndex: number | null;
 }
 
 export interface AppInfo {

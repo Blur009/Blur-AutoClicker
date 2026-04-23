@@ -8,19 +8,19 @@
 :root {
   --font-family-base: 'DMSans', sans-serif;
 
-  --bg-base:       rgb(18, 18, 18);
+  --bg-base:       rgb(12, 12, 14);
   --bg-surface:    hsl(0, 0%, 10%);
   --bg-elevated:   hsl(0, 0%, 15%);
   --bg-input:      hsl(0, 0%, 23%);
   --bg-input-off:  hsl(0, 0%, 20%);
 
-  --border:        hsl(90, 0%, 25%);
-  --border-focus:  hsl(0, 0%, 30%);
-  --border-subtle: hsl(0, 0%, 20%);
+  --border:        hsla(180, 67%, 99%, 0.2);
+  --border-focus:  hsla(180, 67%, 99%, 0.3);
+  --border-subtle: hsla(180, 67%, 99%, 0.1);
 
-  --text-primary:  hsla(180, 67%, 99%, 1);
-  --text-muted:    hsla(180, 67%, 99%, 0.5);
-  --text-dim:      hsla(180, 67%, 99%, 0.25);
+  --text-primary:  hsla(180, 67%, 99%, 0.9);
+  --text-muted:    hsla(180, 67%, 99%, 0.75);
+  --text-dim:      hsla(180, 67%, 99%, 0.5);
 
   --accent-green:  hsla(129, 77%, 43%, 0.75);
   --accent-green-strong: hsla(129, 77%, 43%, 0.92);
@@ -51,11 +51,11 @@
 }
 
 [data-theme="light"] {
-  --bg-base:       hsl(0, 0%, 100%);
+  --bg-base:       rgb(218, 218, 236);
   --bg-surface:    hsl(0, 0%, 100%);
   --bg-elevated:   hsl(0, 0%, 95%);
-  --bg-input:      hsl(0, 0%, 75%);
-  --bg-input-off:  hsl(0, 0%, 86%);
+  --bg-input:      hsl(0, 0%, 85%);
+  --bg-input-off:  hsl(0, 0%, 85%);
 
   --border:        hsl(0, 0%, 50%);
   --border-focus:  hsl(0, 0%, 45%);
@@ -121,7 +121,7 @@ body {
 
 .panel-area {
   flex: 1;
-  padding: 1.25rem;
+  padding: 1.25rem 1.25rem 0.75rem 1.25rem;
   display: flex;
   flex-direction: column;
   overflow: auto;

@@ -7,7 +7,7 @@ import {
   ToggleBtn,
   CardDivider,
   InfoIcon,
-} from "./shared";
+} from "../advanced/shared";
 
 interface Props {
   settings: Settings;
@@ -87,7 +87,9 @@ export default function FailsafeSection({ settings, update, showInfo }: Props) {
               gap: "0.5rem",
             }}
           >
-            {showInfo ? <InfoIcon text={t("advanced.edgeStopDescription")} /> : null}
+            {showInfo ? (
+              <InfoIcon text={t("advanced.edgeStopDescription")} />
+            ) : null}
             <span className="adv-card-title">{t("advanced.edgeStop")}</span>
           </div>
           <ToggleBtn

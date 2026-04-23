@@ -3,7 +3,13 @@ import type { Settings } from "../../../store";
 import { useTranslation } from "../../../i18n";
 import { SETTINGS_LIMITS } from "../../../settingsSchema";
 import UnavailableReason from "../../UnavailableReason";
-import { Disableable, NumInput, ToggleBtn, CardDivider, InfoIcon } from "./shared";
+import {
+  Disableable,
+  NumInput,
+  ToggleBtn,
+  CardDivider,
+  InfoIcon,
+} from "./shared";
 
 interface Props {
   settings: Settings;
@@ -12,7 +18,12 @@ interface Props {
   onPickPosition: () => Promise<void>;
 }
 
-export default function PositionSection({ settings, update, showInfo, onPickPosition }: Props) {
+export default function PositionSection({
+  settings,
+  update,
+  showInfo,
+  onPickPosition,
+}: Props) {
   const { t } = useTranslation();
   const [pickingPosition, setPickingPosition] = useState(false);
   const [pickCountdown, setPickCountdown] = useState<number | null>(null);
@@ -53,7 +64,9 @@ export default function PositionSection({ settings, update, showInfo, onPickPosi
             gap: "0.5rem",
           }}
         >
-          {showInfo ? <InfoIcon text={t("advanced.positionDescription")} /> : null}
+          {showInfo ? (
+            <InfoIcon text={t("advanced.positionDescription")} />
+          ) : null}
           <span className="adv-card-title">{t("advanced.position")}</span>
         </div>
         <ToggleBtn

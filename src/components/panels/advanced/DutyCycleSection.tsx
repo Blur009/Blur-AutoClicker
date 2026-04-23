@@ -9,7 +9,11 @@ interface Props {
   showInfo: boolean;
 }
 
-export default function DutyCycleSection({ settings, update, showInfo }: Props) {
+export default function DutyCycleSection({
+  settings,
+  update,
+  showInfo,
+}: Props) {
   const { t } = useTranslation();
 
   return (
@@ -22,7 +26,9 @@ export default function DutyCycleSection({ settings, update, showInfo }: Props) 
             gap: "0.5rem",
           }}
         >
-          {showInfo ? <InfoIcon text={t("advanced.dutyCycleDescription")} /> : null}
+          {showInfo ? (
+            <InfoIcon text={t("advanced.dutyCycleDescription")} />
+          ) : null}
           <span className="adv-card-title">{t("advanced.dutyCycle")}</span>
         </div>
         <div className="adv-row" style={{ gap: 6 }}>

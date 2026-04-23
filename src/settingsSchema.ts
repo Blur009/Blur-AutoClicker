@@ -4,14 +4,23 @@ export type ClickInterval = "s" | "m" | "h" | "d";
 export type MouseButton = "Left" | "Middle" | "Right";
 export type ClickMode = "Toggle" | "Hold";
 export type TimeLimitUnit = "s" | "m" | "h";
-export type SavedPanel = "simple" | "advanced";
+export type SavedPanel = "simple" | "advanced" | "zones";
 export type Theme = "dark" | "light";
 export type PresetId = string;
 export type RateInputMode = "rate" | "duration";
 
 export interface SequencePoint {
+  id: string;
   x: number;
   y: number;
+  clicks: number;
+}
+
+function createSequencePointId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `seq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  );
 }
 
 export interface PresetSnapshot {
@@ -58,6 +67,7 @@ export interface Settings extends PresetSnapshot {
   hotkey: string;
   language: Language;
   rateInputMode: RateInputMode;
+  durationHours: number;
   durationMinutes: number;
   durationSeconds: number;
   durationMilliseconds: number;
@@ -107,10 +117,12 @@ export const SETTINGS_LIMITS = {
   timeLimit: { min: 1 },
   stopBoundary: { min: 0, max: 999 },
   position: { min: 0 },
+  durationHours: { min: 0, max: 999 },
   durationMinutes: { min: 0 },
   durationSeconds: { min: 0, max: 59 },
   durationMilliseconds: { min: 0, max: 999 },
   stopZoneDimension: { min: 1 },
+  sequencePointClicks: { min: 1, max: 1000 },
 } as const;
 
 export const PRESET_SNAPSHOT_KEYS = [
@@ -161,7 +173,7 @@ export function sanitizeBoolean(value: unknown, fallback: boolean): boolean {
 }
 
 function sanitizeSavedPanel(value: unknown): SavedPanel {
-  return value === "advanced" ? value : "simple";
+  return value === "advanced" || value === "zones" ? value : "simple";
 }
 
 function sanitizeTheme(value: unknown): Theme {
@@ -223,6 +235,7 @@ export function createDefaultSettings(version: string): Settings {
     positionX: 0,
     positionY: 0,
     rateInputMode: "rate",
+    durationHours: 0,
     durationMinutes: 0,
     durationSeconds: 0,
     durationMilliseconds: 40,
@@ -471,10 +484,29 @@ function sanitizeSequencePoints(value: unknown): SequencePoint[] {
     .map((point) => {
       if (!point || typeof point !== "object") return null;
       const candidate = point as Partial<SequencePoint>;
+      const id =
+        typeof candidate.id === "string" && candidate.id.trim()
+          ? candidate.id.trim()
+          : createSequencePointId();
       const x = typeof candidate.x === "number" && Number.isFinite(candidate.x) ? Math.trunc(candidate.x) : null;
       const y = typeof candidate.y === "number" && Number.isFinite(candidate.y) ? Math.trunc(candidate.y) : null;
+      const clicks =
+        typeof candidate.clicks === "number" &&
+        Number.isFinite(candidate.clicks)
+          ? Math.trunc(candidate.clicks)
+          : 1;
       if (x === null || y === null) return null;
-      return { x, y };
+      return {
+        id,
+        x,
+        y,
+        clicks: clampNumber(
+          clicks,
+          1,
+          SETTINGS_LIMITS.sequencePointClicks.min,
+          SETTINGS_LIMITS.sequencePointClicks.max,
+        ),
+      };
     })
     .filter((point): point is SequencePoint => point !== null);
 }
@@ -667,6 +699,7 @@ export function sanitizeSettings(
       SETTINGS_LIMITS.position.min,
     ),
     rateInputMode: sanitizeRateInputMode(saved.rateInputMode),
+    durationHours: clampNumber(saved.durationHours, defaults.durationHours, SETTINGS_LIMITS.durationHours.min, SETTINGS_LIMITS.durationHours.max),
     durationMinutes: clampNumber(saved.durationMinutes, defaults.durationMinutes, SETTINGS_LIMITS.durationMinutes.min),
     durationSeconds: clampNumber(saved.durationSeconds, defaults.durationSeconds, SETTINGS_LIMITS.durationSeconds.min, SETTINGS_LIMITS.durationSeconds.max),
     durationMilliseconds: clampNumber(saved.durationMilliseconds, defaults.durationMilliseconds, SETTINGS_LIMITS.durationMilliseconds.min, SETTINGS_LIMITS.durationMilliseconds.max),

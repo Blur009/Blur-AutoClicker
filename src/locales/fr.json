@@ -19,6 +19,7 @@
   "titleBar": {
     "simple": "Simple",
     "advanced": "Avancé",
+    "zones": "Zones",
     "settings": "Réglages",
     "enableAlwaysOnTop": "Activer toujours au premier plan",
     "disableAlwaysOnTop": "Désactiver toujours au premier plan",
@@ -96,6 +97,7 @@
     "speedVariationDescription": "Rend aléatoire le délai entre les clics autour de la vitesse configurée jusqu'à ce pourcentage.",
     "doubleClick": "Double clic",
     "doubleClickDescription": "Clique deux fois par intervalle avec un délai configurable entre les clics.",
+    "limits": "Limites",
     "clickLimit": "Limite de clics",
     "clickLimitDescription": "Stops automatically after the selected number of clicks.",
     "timeLimit": "Limite de temps",
@@ -118,6 +120,7 @@
     "sequenceMoveDown": "Descendre",
     "sequenceDelete": "Supprimer",
     "sequenceAddCurrentCursor": "Ajouter la position actuelle",
+    "sequenceEndOfList": "C'est tout :)",
     "customStopZone": "Zone d'arrêt personnalisée",
     "customStopZoneDescription": "Arrête le clicker lorsque le curseur entre dans cette zone rectangulaire, avec des coordonnées absolues pouvant couvrir plusieurs écrans.",
     "customStopZoneSetTopLeft": "Définir haut-gauche",

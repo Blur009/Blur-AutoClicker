@@ -2,7 +2,15 @@ import { useState } from "react";
 import type { Settings } from "../../../store";
 import { useTranslation } from "../../../i18n";
 import { invoke } from "@tauri-apps/api/core";
-import { Disableable, NumInput, ToggleBtn, CardDivider, InfoIcon } from "./shared";
+import {
+  Disableable,
+  NumInput,
+  ToggleBtn,
+  CardDivider,
+  InfoIcon,
+} from "../advanced/shared";
+
+// TODO: Needs to have a timer before picking the location of the cursor. say 3 seconds. In the future I would like an overlay approach to this but for now this timer thing is good enough.
 
 interface Props {
   settings: Settings;
@@ -15,7 +23,11 @@ interface CursorPoint {
   y: number;
 }
 
-export default function CustomStopZoneSection({ settings, update, showInfo }: Props) {
+export default function CustomStopZoneSection({
+  settings,
+  update,
+  showInfo,
+}: Props) {
   const { t } = useTranslation();
   const [capturingCursor, setCapturingCursor] = useState(false);
 
@@ -61,10 +73,10 @@ export default function CustomStopZoneSection({ settings, update, showInfo }: Pr
             gap: "0.5rem",
           }}
         >
-          {showInfo ? <InfoIcon text={t("advanced.customStopZoneDescription")} /> : null}
-          <span className="adv-card-title">
-            {t("advanced.customStopZone")}
-          </span>
+          {showInfo ? (
+            <InfoIcon text={t("advanced.customStopZoneDescription")} />
+          ) : null}
+          <span className="adv-card-title">{t("advanced.customStopZone")}</span>
         </div>
         <ToggleBtn
           value={settings.customStopZoneEnabled}
@@ -115,7 +127,9 @@ export default function CustomStopZoneSection({ settings, update, showInfo }: Pr
               <button
                 type="button"
                 className="adv-secondary-btn"
-                onClick={() => { void setCustomStopZoneTopLeft(); }}
+                onClick={() => {
+                  void setCustomStopZoneTopLeft();
+                }}
                 disabled={capturingCursor}
               >
                 {t("advanced.customStopZoneSetTopLeft")}
@@ -123,7 +137,9 @@ export default function CustomStopZoneSection({ settings, update, showInfo }: Pr
               <button
                 type="button"
                 className="adv-secondary-btn"
-                onClick={() => { void setCustomStopZoneBottomRight(); }}
+                onClick={() => {
+                  void setCustomStopZoneBottomRight();
+                }}
                 disabled={capturingCursor}
               >
                 {t("advanced.customStopZoneSetBottomRight")}

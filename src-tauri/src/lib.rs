@@ -13,7 +13,7 @@ use crate::app_state::ClickerStatusPayload;
 use crate::engine::worker::emit_status;
 use crate::hotkeys::register_hotkey_inner;
 use crate::hotkeys::start_hotkey_listener;
-use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64};
 use std::sync::{Arc, Mutex};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -34,6 +34,7 @@ pub fn run() {
             settings: Mutex::new(ClickerSettings::default()),
             last_error: Mutex::new(None),
             stop_reason: Mutex::new(None),
+            active_sequence_index: AtomicI64::new(-1),
             registered_hotkey: Mutex::new(None),
             suppress_hotkey_until_ms: AtomicU64::new(0),
             suppress_hotkey_until_release: AtomicBool::new(false),

@@ -9,7 +9,11 @@ interface Props {
   showInfo: boolean;
 }
 
-export default function SpeedVariationSection({ settings, update, showInfo }: Props) {
+export default function SpeedVariationSection({
+  settings,
+  update,
+  showInfo,
+}: Props) {
   const { t } = useTranslation();
 
   return (
@@ -22,10 +26,10 @@ export default function SpeedVariationSection({ settings, update, showInfo }: Pr
             gap: "0.5rem",
           }}
         >
-          {showInfo ? <InfoIcon text={t("advanced.speedVariationDescription")} /> : null}
-          <span className="adv-card-title">
-            {t("advanced.speedVariation")}
-          </span>
+          {showInfo ? (
+            <InfoIcon text={t("advanced.speedVariationDescription")} />
+          ) : null}
+          <span className="adv-card-title">{t("advanced.speedVariation")}</span>
         </div>
         <div className="adv-row" style={{ gap: 8 }}>
           <Disableable

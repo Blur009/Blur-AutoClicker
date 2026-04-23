@@ -6,10 +6,18 @@
 - Info icons instead of always visible explanations for settings to reduce clutter.
 - Sequence clicking
 - Custom Stop Zones
+- Delay / Rate toggle for clicks per time and time per click.
+- Added a new tab for Safety settings (Edge / Corner Stop, Stop Zones, etc.)
 ## Changed
+- Layout of the UI has been made smaller
+- Changed the look of On/Off buttons to be more visible at a glance.
+- 
 - Centralized frontend settings bounds, options, and preset helpers.
 - Cleaned up runtime stats logging output and changelog encoding issues.
 - Split up Advanced page file for better organization.
+## Removed
+- Position picking as you can just set the position in Sequence clicking.
+
 
 # v3.4.1 - 16.04.2026 (d.m.y)
 ## New

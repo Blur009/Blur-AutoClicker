@@ -8,27 +8,27 @@ import SpeedVariationSection from "./SpeedVariationSection";
 import DoubleClickSection from "./DoubleClickSection";
 import SequenceSection from "./SequenceSection";
 import LimitsSection from "./LimitsSection";
-import FailsafeSection from "./FailsafeSection";
-import PositionSection from "./PositionSection";
-import CustomStopZoneSection from "./CustomStopZoneSection";
 
 interface Props {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
-  onPickPosition: () => Promise<void>;
   showInfo: boolean;
+  running: boolean;
+  activeSequenceIndex: number | null;
 }
 
 export default function AdvancedPanel({
   settings,
   update,
-  onPickPosition,
   showInfo,
+  running,
+  activeSequenceIndex,
 }: Props) {
   const {
     clickInterval,
     clickSpeed,
     doubleClickDelay,
+    durationHours,
     durationMilliseconds,
     durationMinutes,
     durationSeconds,
@@ -43,6 +43,7 @@ export default function AdvancedPanel({
       clickInterval,
       clickSpeed,
       rateInputMode,
+      durationHours,
       durationMinutes,
       durationSeconds,
       durationMilliseconds,
@@ -54,6 +55,7 @@ export default function AdvancedPanel({
     clickInterval,
     clickSpeed,
     doubleClickDelay,
+    durationHours,
     durationMilliseconds,
     durationMinutes,
     durationSeconds,
@@ -66,16 +68,19 @@ export default function AdvancedPanel({
         <div className="adv-col">
           <CadenceSection settings={settings} update={update} showInfo={showInfo} />
           <DutyCycleSection settings={settings} update={update} showInfo={showInfo} />
+          <LimitsSection settings={settings} update={update} showInfo={showInfo} />
           <SpeedVariationSection settings={settings} update={update} showInfo={showInfo} />
           <DoubleClickSection settings={settings} update={update} showInfo={showInfo} />
-          <SequenceSection settings={settings} update={update} showInfo={showInfo} />
         </div>
 
         <div className="adv-col">
-          <LimitsSection settings={settings} update={update} showInfo={showInfo} />
-          <FailsafeSection settings={settings} update={update} showInfo={showInfo} />
-          <PositionSection settings={settings} update={update} showInfo={showInfo} onPickPosition={onPickPosition} />
-          <CustomStopZoneSection settings={settings} update={update} showInfo={showInfo} />
+          <SequenceSection
+            settings={settings}
+            update={update}
+            showInfo={showInfo}
+            running={running}
+            activeSequenceIndex={activeSequenceIndex}
+          />
         </div>
       </div>
     </div>

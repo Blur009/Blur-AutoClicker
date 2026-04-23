@@ -1,6 +1,9 @@
 import type { Settings } from "../../../store";
 import { useTranslation } from "../../../i18n";
-import { getEffectiveClicksPerSecond, getMaxDoubleClickDelayMs } from "../../../cadence";
+import {
+  getEffectiveClicksPerSecond,
+  getMaxDoubleClickDelayMs,
+} from "../../../cadence";
 import { Disableable, InfoIcon, NumInput, ToggleBtn } from "./shared";
 
 interface Props {
@@ -19,13 +22,18 @@ function formatClicksPerSecond(value: number): string {
   return value.toFixed(3).replace(/\.?0+$/, "");
 }
 
-export default function DoubleClickSection({ settings, update, showInfo }: Props) {
+export default function DoubleClickSection({
+  settings,
+  update,
+  showInfo,
+}: Props) {
   const { t } = useTranslation();
 
   const currentClicksPerSecond = getEffectiveClicksPerSecond({
     clickInterval: settings.clickInterval,
     clickSpeed: settings.clickSpeed,
     rateInputMode: settings.rateInputMode,
+    durationHours: settings.durationHours,
     durationMinutes: settings.durationMinutes,
     durationSeconds: settings.durationSeconds,
     durationMilliseconds: settings.durationMilliseconds,
@@ -48,10 +56,10 @@ export default function DoubleClickSection({ settings, update, showInfo }: Props
             gap: "0.5rem",
           }}
         >
-          {showInfo ? <InfoIcon text={t("advanced.doubleClickDescription")} /> : null}
-          <span className="adv-card-title">
-            {t("advanced.doubleClick")}
-          </span>
+          {showInfo ? (
+            <InfoIcon text={t("advanced.doubleClickDescription")} />
+          ) : null}
+          <span className="adv-card-title">{t("advanced.doubleClick")}</span>
         </div>
         <div className="adv-row" style={{ gap: 8 }}>
           <Disableable enabled={settings.doubleClickEnabled}>

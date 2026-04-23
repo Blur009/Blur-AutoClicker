@@ -3,6 +3,12 @@
 pub struct SequencePoint {
     pub x: i32,
     pub y: i32,
+    #[serde(default = "default_sequence_point_clicks")]
+    pub clicks: u16,
+}
+
+fn default_sequence_point_clicks() -> u16 {
+    1
 }
 
 #[derive(Clone, serde::Deserialize, serde::Serialize, Debug)]
@@ -12,6 +18,7 @@ pub struct ClickerSettings {
     pub click_speed: f64,
     pub click_interval: String,
     pub rate_input_mode: String,
+    pub duration_hours: u32,
     pub duration_minutes: u32,
     pub duration_seconds: u32,
     pub duration_milliseconds: u32,
@@ -68,6 +75,7 @@ impl Default for ClickerSettings {
             click_speed: 25.0,
             click_interval: "s".to_string(),
             rate_input_mode: "rate".to_string(),
+            duration_hours: 0,
             duration_minutes: 0,
             duration_seconds: 0,
             duration_milliseconds: 40,

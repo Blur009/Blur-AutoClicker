@@ -1,10 +1,13 @@
 import type { ChangeEvent, CSSProperties, FocusEvent, WheelEvent } from "react";
 import "./panels/advanced/AdvancedPanel.css";
-import { formatDurationSummary, RATE_INPUT_MODE_OPTIONS } from "../cadence";
+import { RATE_INPUT_MODE_OPTIONS } from "../cadence";
 import { normalizeIntegerRaw } from "../numberInput";
 import type { RateInputMode, Settings } from "../store";
 import { useTranslation } from "../i18n";
-import { InfoIcon } from "./panels/advanced/shared";
+import { AdvDropdown } from "./panels/advanced/shared";
+import type { ClickInterval } from "../settingsSchema";
+
+// TODO: This should really be split up into what is in the advanced panel and what is in the simple panel. Having both in one feels kinda off i feel like.
 
 interface Props {
   settings: Settings;
@@ -137,16 +140,73 @@ function renderClockIcon() {
   );
 }
 
-export default function CadenceInput({
-  settings,
-  update,
-  variant,
-  showInfo = false,
-}: Props) {
+export default function CadenceInput({ settings, update, variant }: Props) {
   const { t } = useTranslation();
 
+  const INTERVAL_MS: Record<string, number> = {
+    s: 1000,
+    m: 60000,
+    h: 3600000,
+    d: 86400000,
+  };
+
   const switchMode = (mode: RateInputMode) => {
-    update({ rateInputMode: mode });
+    if (mode === settings.rateInputMode) return;
+
+    if (mode === "rate") {
+      const totalMs =
+        ((settings.durationHours * 60 + settings.durationMinutes) * 60 +
+          settings.durationSeconds) *
+          1000 +
+        settings.durationMilliseconds;
+      if (totalMs > 0) {
+        const intervalCandidates = ["s", "m", "h", "d"] as const;
+        let bestInterval: ClickInterval = "s";
+        let bestSpeed = 1;
+        let bestError = Number.POSITIVE_INFINITY;
+
+        for (const interval of intervalCandidates) {
+          const intervalMs = INTERVAL_MS[interval];
+          const speed = Math.max(
+            1,
+            Math.min(500, Math.round(intervalMs / totalMs)),
+          );
+          const actualMs = intervalMs / speed;
+          const error = Math.abs(actualMs - totalMs);
+
+          if (error < bestError) {
+            bestError = error;
+            bestInterval = interval;
+            bestSpeed = speed;
+          }
+        }
+
+        update({
+          rateInputMode: mode,
+          clickInterval: bestInterval,
+          clickSpeed: bestSpeed,
+        });
+      } else {
+        update({ rateInputMode: mode });
+      }
+    } else {
+      const intervalMs = INTERVAL_MS[settings.clickInterval] ?? 1000;
+      const totalMs = intervalMs / settings.clickSpeed;
+      const totalRounded = Math.round(totalMs);
+      const hours = Math.floor(totalRounded / 3_600_000);
+      const remainderAfterHours = totalRounded % 3_600_000;
+      const minutes = Math.floor(remainderAfterHours / 60_000);
+      const remainder = remainderAfterHours % 60_000;
+      const seconds = Math.floor(remainder / 1000);
+      const milliseconds = remainder % 1000;
+      update({
+        rateInputMode: mode,
+        durationHours: hours,
+        durationMinutes: minutes,
+        durationSeconds: seconds,
+        durationMilliseconds: milliseconds,
+      });
+    }
   };
 
   if (variant === "simple") {
@@ -211,8 +271,21 @@ export default function CadenceInput({
           <div className="simple-duration-group">
             <DurationField
               className="simple-duration-chip"
+              value={settings.durationHours}
+              min={0}
+              max={999}
+              onChange={(next) => update({ durationHours: next })}
+              style={{
+                width: dynamicChWidth(settings.durationHours, 1, 3),
+                minWidth: "1ch",
+              }}
+              unit="h"
+            />
+            <DurationField
+              className="simple-duration-chip"
               value={settings.durationMinutes}
               min={0}
+              max={59}
               onChange={(next) => update({ durationMinutes: next })}
               style={{
                 width: dynamicChWidth(settings.durationMinutes, 1, 2),
@@ -265,108 +338,199 @@ export default function CadenceInput({
     );
   }
 
+  const modeToggle = (
+    <div className="adv-seg-group">
+      {RATE_INPUT_MODE_OPTIONS.map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          className={`adv-seg-btn ${settings.rateInputMode === mode ? "active" : ""}`}
+          onClick={() => switchMode(mode)}
+        >
+          {mode === "rate" ? "Rate" : "Delay"}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="adv-cadence-block">
-      <div className="adv-row adv-cadence-header">
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          {showInfo ? <InfoIcon text={t("advanced.cadenceDescription")} /> : null}
-          <span className="adv-label">{t("advanced.cadence")}</span>
+      <div className="adv-row adv-cadence-main-row">
+        <div className="adv-cadence-value">
+          {settings.rateInputMode === "rate" ? (
+            <div className="adv-value-outline">
+              <div className="adv-foc">
+                <input
+                  type="number"
+                  className="adv-number-sm"
+                  value={settings.clickSpeed}
+                  min={1}
+                  max={500}
+                  style={{ width: "40px", textAlign: "right" }}
+                  onChange={(event) =>
+                    handleNumberChange(event, (next) =>
+                      update({ clickSpeed: next }),
+                    )
+                  }
+                  onBlur={(event) =>
+                    handleNumberBlur(event, 1, 500, (next) =>
+                      update({ clickSpeed: next }),
+                    )
+                  }
+                  onWheel={(event) =>
+                    handleWheelStep(
+                      event,
+                      settings.clickSpeed,
+                      1,
+                      500,
+                      (next) => update({ clickSpeed: next }),
+                    )
+                  }
+                />
+              </div>
+              <div className="adv-vdivider" />
+              <span className="adv-unf">{t("advanced.clicksPer")}</span>
+              <div className="adv-vdivider" />
+              <div className="adv-foc adv-foc-grow">
+                <AdvDropdown
+                  value={settings.clickInterval}
+                  options={INTERVAL_OPTIONS}
+                  onChange={(v) =>
+                    update({ clickInterval: v as ClickInterval })
+                  }
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="adv-value-outline">
+              <div className="adv-foc">
+                <input
+                  type="number"
+                  className="adv-number-sm"
+                  value={settings.durationHours}
+                  min={0}
+                  max={999}
+                  style={{ width: "34px", textAlign: "right" }}
+                  onChange={(event) =>
+                    handleNumberChange(event, (next) =>
+                      update({ durationHours: next }),
+                    )
+                  }
+                  onBlur={(event) =>
+                    handleNumberBlur(event, 0, 999, (next) =>
+                      update({ durationHours: next }),
+                    )
+                  }
+                  onWheel={(event) =>
+                    handleWheelStep(
+                      event,
+                      settings.durationHours,
+                      0,
+                      999,
+                      (next) => update({ durationHours: next }),
+                    )
+                  }
+                />
+                <span className="adv-unit">h</span>
+              </div>
+              <div className="adv-vdivider" />
+              <div className="adv-foc">
+                <input
+                  type="number"
+                  className="adv-number-sm"
+                  value={settings.durationMinutes}
+                  min={0}
+                  max={59}
+                  style={{ width: "26px", textAlign: "right" }}
+                  onChange={(event) =>
+                    handleNumberChange(event, (next) =>
+                      update({ durationMinutes: next }),
+                    )
+                  }
+                  onBlur={(event) =>
+                    handleNumberBlur(event, 0, 59, (next) =>
+                      update({ durationMinutes: next }),
+                    )
+                  }
+                  onWheel={(event) =>
+                    handleWheelStep(
+                      event,
+                      settings.durationMinutes,
+                      0,
+                      59,
+                      (next) => update({ durationMinutes: next }),
+                    )
+                  }
+                />
+                <span className="adv-unit">m</span>
+              </div>
+              <div className="adv-vdivider" />
+              <div className="adv-foc">
+                <input
+                  type="number"
+                  className="adv-number-sm"
+                  value={settings.durationSeconds}
+                  min={0}
+                  max={59}
+                  style={{ width: "26px", textAlign: "right" }}
+                  onChange={(event) =>
+                    handleNumberChange(event, (next) =>
+                      update({ durationSeconds: next }),
+                    )
+                  }
+                  onBlur={(event) =>
+                    handleNumberBlur(event, 0, 59, (next) =>
+                      update({ durationSeconds: next }),
+                    )
+                  }
+                  onWheel={(event) =>
+                    handleWheelStep(
+                      event,
+                      settings.durationSeconds,
+                      0,
+                      59,
+                      (next) => update({ durationSeconds: next }),
+                    )
+                  }
+                />
+                <span className="adv-unit">s</span>
+              </div>
+              <div className="adv-vdivider" />
+              <div className="adv-foc">
+                <input
+                  type="number"
+                  className="adv-number-sm"
+                  value={settings.durationMilliseconds}
+                  min={0}
+                  max={999}
+                  style={{ width: "34px", textAlign: "right" }}
+                  onChange={(event) =>
+                    handleNumberChange(event, (next) =>
+                      update({ durationMilliseconds: next }),
+                    )
+                  }
+                  onBlur={(event) =>
+                    handleNumberBlur(event, 0, 999, (next) =>
+                      update({ durationMilliseconds: next }),
+                    )
+                  }
+                  onWheel={(event) =>
+                    handleWheelStep(
+                      event,
+                      settings.durationMilliseconds,
+                      0,
+                      999,
+                      (next) => update({ durationMilliseconds: next }),
+                    )
+                  }
+                />
+                <span className="adv-unit">ms</span>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="adv-seg-group">
-          {RATE_INPUT_MODE_OPTIONS.map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              className={`adv-seg-btn ${settings.rateInputMode === mode ? "active" : ""}`}
-              onClick={() => switchMode(mode)}
-            >
-              {mode === "rate" ? "Rate" : "Delay"}
-            </button>
-          ))}
-        </div>
+        {modeToggle}
       </div>
-      {settings.rateInputMode === "rate" ? (
-        <div className="adv-row">
-          <div className="adv-numbox-sm">
-            <input
-              type="number"
-              className="adv-number-sm"
-              value={settings.clickSpeed}
-              min={1}
-              max={500}
-              onChange={(event) =>
-                handleNumberChange(event, (next) =>
-                  update({ clickSpeed: next }),
-                )
-              }
-              onBlur={(event) =>
-                handleNumberBlur(event, 1, 500, (next) =>
-                  update({ clickSpeed: next }),
-                )
-              }
-              onWheel={(event) =>
-                handleWheelStep(event, settings.clickSpeed, 1, 500, (next) =>
-                  update({ clickSpeed: next }),
-                )
-              }
-              style={{
-                background: "transparent",
-                border: "none",
-                outline: "none",
-                width: "36px",
-              }}
-            />
-          </div>
-          <span className="adv-label">{t("advanced.clicksPer")}</span>
-          <div className="adv-seg-group">
-            {INTERVAL_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`adv-seg-btn ${settings.clickInterval === option.value ? "active" : ""}`}
-                onClick={() => update({ clickInterval: option.value })}
-              >
-                {option.value}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="adv-cadence-duration-row">
-          <DurationField
-            value={settings.durationMinutes}
-            min={0}
-            onChange={(next) => update({ durationMinutes: next })}
-            style={{ width: "24px" }}
-            unit="m"
-          />
-          <DurationField
-            value={settings.durationSeconds}
-            min={0}
-            max={59}
-            onChange={(next) => update({ durationSeconds: next })}
-            style={{ width: "24px" }}
-            unit="s"
-          />
-          <DurationField
-            value={settings.durationMilliseconds}
-            min={0}
-            max={999}
-            onChange={(next) => update({ durationMilliseconds: next })}
-            style={{ width: "34px" }}
-            unit="ms"
-          />
-          <span className="adv-label-sm">
-            {formatDurationSummary(settings)}
-          </span>
-        </div>
-      )}
     </div>
   );
 }

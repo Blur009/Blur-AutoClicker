@@ -4,6 +4,8 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+// TODO: Stats are broken. I'm guessing I accidentally removed some kind of trigger for it to actually write it but i am not sure. I haven't looked into it but it needs to get fixed before 3.5
+
 static STATS_LOCK: Mutex<()> = Mutex::new(());
 
 const MAX_NORMAL_RUNS: usize = 100;

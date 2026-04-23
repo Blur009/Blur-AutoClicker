@@ -5,6 +5,7 @@ type CadenceSettings = Pick<
   | "clickSpeed"
   | "clickInterval"
   | "rateInputMode"
+  | "durationHours"
   | "durationMinutes"
   | "durationSeconds"
   | "durationMilliseconds"
@@ -14,6 +15,7 @@ export const RATE_INPUT_MODE_OPTIONS: RateInputMode[] = ["rate", "duration"];
 
 export function getDurationTotalMs(settings: CadenceSettings): number {
   return (
+    settings.durationHours * 3_600_000 +
     settings.durationMinutes * 60_000 +
     settings.durationSeconds * 1_000 +
     settings.durationMilliseconds
@@ -57,6 +59,9 @@ export function getMaxDoubleClickDelayMs(settings: CadenceSettings): number {
 export function formatDurationSummary(settings: CadenceSettings): string {
   const parts: string[] = [];
 
+  if (settings.durationHours > 0) {
+    parts.push(`${settings.durationHours}h`);
+  }
   if (settings.durationMinutes > 0) {
     parts.push(`${settings.durationMinutes}m`);
   }

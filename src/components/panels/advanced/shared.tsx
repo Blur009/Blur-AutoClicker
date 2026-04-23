@@ -2,6 +2,7 @@ import {
   type CSSProperties,
   type ChangeEvent,
   type FocusEvent,
+  type WheelEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -14,7 +15,7 @@ import { useTranslation } from "../../../i18n";
 import { normalizeIntegerRaw } from "../../../numberInput";
 import UnavailableReason from "../../UnavailableReason";
 
-// ToggleBtn
+// ToggleBtn ← These are here just for some visual space
 
 export function ToggleBtn({
   value,
@@ -38,14 +39,14 @@ export function ToggleBtn({
   const group = (
     <div className="adv-toggle-group">
       <button
-        className={`adv-toggle-btn ${!value ? "active" : ""} ${disabled ? "adv-disabled" : ""}`}
+        className={`adv-toggle-btn adv-toggle-off ${!value ? "active" : ""} ${disabled ? "adv-disabled" : ""}`}
         onClick={() => !disabled && onChange(false)}
         disabled={disabled}
       >
         {t("common.off")}
       </button>
       <button
-        className={`adv-toggle-btn ${value ? "active" : ""} ${disabled ? "adv-disabled" : ""}`}
+        className={`adv-toggle-btn adv-toggle-on ${value ? "active" : ""} ${disabled ? "adv-disabled" : ""}`}
         onClick={() => !disabled && onChange(true)}
         disabled={disabled}
       >
@@ -113,6 +114,12 @@ export function NumInput({
   style?: CSSProperties;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const clampValue = (next: number) => {
+    let clamped = next;
+    if (min !== undefined && clamped < min) clamped = min;
+    if (max !== undefined && clamped > max) clamped = max;
+    return clamped;
+  };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = normalizeIntegerRaw(e.target.value);
@@ -130,9 +137,15 @@ export function NumInput({
     }
     let val = Number(raw || e.target.value);
     if (Number.isNaN(val)) val = min ?? 0;
-    if (min !== undefined && val < min) val = min;
-    if (max !== undefined && val > max) val = max;
-    onChange(val);
+    onChange(clampValue(val));
+  };
+
+  const handleWheel = (e: WheelEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const direction = e.deltaY < 0 ? 1 : -1;
+    const current = Number.isFinite(value) ? value : min ?? 0;
+    onChange(clampValue(current + direction));
   };
 
   return (
@@ -145,6 +158,8 @@ export function NumInput({
       max={max}
       onChange={handleChange}
       onBlur={handleBlur}
+      onWheelCapture={handleWheel}
+      onWheel={handleWheel}
       style={{
         background: "transparent",
         border: "none",
@@ -156,9 +171,13 @@ export function NumInput({
   );
 }
 
+// CardDivider
+
 export function CardDivider() {
   return <div className="adv-card-divider" />;
 }
+
+// InfoIcon
 
 export function InfoIcon({ text }: { text: string }) {
   const iconRef = useRef<HTMLSpanElement>(null);
@@ -274,8 +293,7 @@ export function InfoIcon({ text }: { text: string }) {
               {
                 left: `${position.left}px`,
                 top: `${position.top}px`,
-                transform:
-                  placement === "above" ? "translateY(-100%)" : "none",
+                transform: placement === "above" ? "translateY(-100%)" : "none",
               } as CSSProperties
             }
           >
@@ -284,5 +302,89 @@ export function InfoIcon({ text }: { text: string }) {
           document.body,
         )}
     </span>
+  );
+}
+
+// DropDown
+
+export function AdvDropdown({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: readonly { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const ref = useRef<HTMLDivElement>(null);
+
+  const toggle = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen(!open);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const activeLabel = options.find((o) => o.value === value)?.label ?? value;
+
+  return (
+    <div className="adv-dropdown" ref={ref}>
+      <button
+        type="button"
+        className="adv-dropdown-trigger"
+        onClick={toggle}
+      >
+        <span>{activeLabel}</span>
+        <svg
+          width="10"
+          height="6"
+          viewBox="0 0 10 6"
+          fill="none"
+          style={{ marginLeft: 4, flexShrink: 0 }}
+        >
+          <path
+            d="M1 1L5 5L9 1"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {open && (
+        <div
+          className="adv-dropdown-menu"
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+        >
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`adv-dropdown-item ${option.value === value ? "active" : ""}`}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
