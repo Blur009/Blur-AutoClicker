@@ -414,7 +414,8 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             }
         }
 
-        let per_tick_clicks = batch_size.saturating_mul(if config.double_click_enabled { 2 } else { 1 });
+        let per_tick_clicks =
+            batch_size.saturating_mul(if config.double_click_enabled { 2 } else { 1 });
         let requested_clicks = if config.sequence_enabled && !config.sequence_points.is_empty() {
             sequence_clicks_remaining.min(per_tick_clicks)
         } else {

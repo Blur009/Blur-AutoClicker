@@ -21,21 +21,21 @@ export default function LimitsSection({ settings, update, showInfo }: Props) {
       : "clicks",
   );
 
-  useEffect(() => {
-    if (
-      settings.timeLimitEnabled &&
-      !settings.clickLimitEnabled &&
-      mode !== "time"
-    ) {
-      setMode("time");
-    } else if (
-      settings.clickLimitEnabled &&
-      !settings.timeLimitEnabled &&
-      mode !== "clicks"
-    ) {
-      setMode("clicks");
+  // Sync mode with settings if they change from the outside (e.g. presets)
+  const [prevSettings, setPrevSettings] = useState(settings);
+  if (
+    settings.clickLimitEnabled !== prevSettings.clickLimitEnabled ||
+    settings.timeLimitEnabled !== prevSettings.timeLimitEnabled
+  ) {
+    setPrevSettings(settings);
+    const nextMode =
+      settings.timeLimitEnabled && !settings.clickLimitEnabled
+        ? "time"
+        : "clicks";
+    if (nextMode !== mode) {
+      setMode(nextMode);
     }
-  }, [settings.clickLimitEnabled, settings.timeLimitEnabled, mode]);
+  }
 
   useEffect(() => {
     if (settings.clickLimitEnabled && settings.timeLimitEnabled) {

@@ -13,16 +13,18 @@ import ar from "./locales/ar.json";
 import en from "./locales/en.json";
 import es from "./locales/es.json";
 import fr from "./locales/fr.json";
+import pt from "./locales/pt.json";
 
-export const LANGUAGE_CODES = ["en", "es", "fr", "ar"] as const;
+export const LANGUAGE_CODES = ["ar", "en", "es", "fr", "pt"] as const;
 export type Language = (typeof LANGUAGE_CODES)[number];
 
 export const DEFAULT_LANGUAGE: Language = "en";
 export const LANGUAGE_OPTIONS: readonly { code: Language; label: string }[] = [
+  { code: "ar", label: "العربية" },
   { code: "en", label: "English" },
   { code: "es", label: "Español" },
   { code: "fr", label: "Français" },
-  { code: "ar", label: "العربية" },
+  { code: "pt", label: "Português (Brasil)" },
 ];
 
 type TranslationTree = typeof en;
@@ -34,10 +36,11 @@ export type TranslationKey = DotKeys<TranslationTree>;
 type TranslationVars = Record<string, string | number>;
 
 const translations: Record<Language, TranslationTree> = {
+  ar,
   en,
   es,
   fr,
-  ar,
+  pt,
 };
 
 type I18nContextValue = {
