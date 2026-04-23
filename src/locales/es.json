@@ -113,6 +113,8 @@
     "hotkeyDescription": "Elige la combinación de teclas que inicia y detiene el clicker. Usa Alternar para pulsar para activar/desactivar, o Mantener para hacer clic solo mientras se mantiene pulsado.",
     "mouseButton": "Botón del mouse",
     "mouseButtonDescription": "Selecciona qué botón del mouse pulsará el clicker en cada evento de clic.",
+    "clickAction": "Acción de clic",
+    "clickActionDescription": "Elige si cada clic envía tanto la pulsación como la liberación, o solo eventos de pulsación mientras está en ejecución.",
     "dutyCycle": "Duración del clic",
     "dutyCycleDescription": "Elige cuánto tiempo se mantiene pulsado el botón del mouse en cada clic. 50% a 1 clic por segundo = 0.5 seg pulsado, 0.5 seg liberado",
     "speedVariation": "Variación de velocidad",
@@ -169,6 +171,7 @@
     "mode": { "Toggle": "Alternar", "Hold": "Mantener" },
     "mouseButton": { "Left": "Izquierdo", "Middle": "Central", "Right": "Derecho" },
     "mouseClick": { "Left": "Clic izquierdo", "Middle": "Clic central", "Right": "Clic derecho" },
+    "clickAction": { "downUp": "Down + Up", "downOnly": "Down Only" },
     "timeUnitShort": { "s": "s", "m": "min", "h": "h" }
   },
   "hotkey": {
