@@ -22,19 +22,28 @@ export default function LimitsSection({ settings, update, showInfo }: Props) {
   );
 
   useEffect(() => {
+    let nextMode: "clicks" | "time" | null = null;
+
     if (
       settings.timeLimitEnabled &&
       !settings.clickLimitEnabled &&
       mode !== "time"
     ) {
-      setMode("time");
+      nextMode = "time";
     } else if (
       settings.clickLimitEnabled &&
       !settings.timeLimitEnabled &&
       mode !== "clicks"
     ) {
-      setMode("clicks");
+      nextMode = "clicks";
     }
+
+    if (nextMode === null) {
+      return;
+    }
+
+    const id = window.requestAnimationFrame(() => setMode(nextMode));
+    return () => window.cancelAnimationFrame(id);
   }, [settings.clickLimitEnabled, settings.timeLimitEnabled, mode]);
 
   useEffect(() => {

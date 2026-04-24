@@ -1,6 +1,10 @@
 import type { ChangeEvent, CSSProperties, FocusEvent, WheelEvent } from "react";
 import "./panels/advanced/AdvancedPanel.css";
-import { RATE_INPUT_MODE_OPTIONS } from "../cadence";
+import {
+  formatMillisecondsSummary,
+  getEffectiveIntervalMs,
+  RATE_INPUT_MODE_OPTIONS,
+} from "../cadence";
 import { normalizeIntegerRaw } from "../numberInput";
 import type { RateInputMode, Settings } from "../store";
 import { useTranslation } from "../i18n";
@@ -352,6 +356,9 @@ export default function CadenceInput({ settings, update, variant }: Props) {
       ))}
     </div>
   );
+  const rateCadenceDisplay = `${formatMillisecondsSummary(
+    getEffectiveIntervalMs(settings),
+  )} ${t("advanced.delay")}`;
 
   return (
     <div className="adv-cadence-block">
@@ -531,6 +538,11 @@ export default function CadenceInput({ settings, update, variant }: Props) {
         </div>
         {modeToggle}
       </div>
+      {settings.rateInputMode === "rate" ? (
+        <div className="adv-cadence-summary-row">
+          <span className="adv-cadence-summary">{rateCadenceDisplay}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
