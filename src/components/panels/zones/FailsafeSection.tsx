@@ -31,6 +31,18 @@ const EDGE_KEYS = {
 
 export default function FailsafeSection({ settings, update, showInfo }: Props) {
   const { t } = useTranslation();
+  const cornerControls = [
+    { key: "tl", label: t("advanced.cornerTopLeft") },
+    { key: "tr", label: t("advanced.cornerTopRight") },
+    { key: "bl", label: t("advanced.cornerBottomLeft") },
+    { key: "br", label: t("advanced.cornerBottomRight") },
+  ] as const;
+  const edgeControls = [
+    { key: "top", label: t("advanced.edgeTop") },
+    { key: "right", label: t("advanced.edgeRight") },
+    { key: "left", label: t("advanced.edgeLeft") },
+    { key: "bottom", label: t("advanced.edgeBottom") },
+  ] as const;
 
   return (
     <>
@@ -44,7 +56,9 @@ export default function FailsafeSection({ settings, update, showInfo }: Props) {
               gap: "0.5rem",
             }}
           >
-            <InfoIcon text={t("advanced.cornerStopDescription")} />
+            {showInfo ? (
+              <InfoIcon text={t("advanced.cornerStopDescription")} />
+            ) : null}
             <span className="adv-card-title">{t("advanced.cornerStop")}</span>
           </div>
           <ToggleBtn
@@ -57,19 +71,23 @@ export default function FailsafeSection({ settings, update, showInfo }: Props) {
           enabled={settings.cornerStopEnabled}
           disabledReason={t("advanced.cornerStopUnavailable")}
         >
-          <div className="adv-row" style={{ gap: 8 }}>
-            <div className="adv-corner-grid">
-              {(["tl", "tr", "bl", "br"] as const).map((cornerKey) => (
-                <div key={cornerKey} className="adv-corner-box">
-                  <div className={`adv-arc adv-arc-${cornerKey}`} />
-                  <NumInput
-                    value={settings[CORNER_KEYS[cornerKey]]}
-                    onChange={(v) => update({ [CORNER_KEYS[cornerKey]]: v })}
-                    min={SETTINGS_LIMITS.stopBoundary.min}
-                    max={SETTINGS_LIMITS.stopBoundary.max}
-                    style={{ width: "28px", textAlign: "right" }}
-                  />
-                  <span className="adv-unit">px</span>
+          <div className="zones-card-body">
+            <p className="zones-card-help">{t("advanced.cornerStopHelper")}</p>
+            <div className="zones-boundary-grid">
+              {cornerControls.map(({ key, label }) => (
+                <div key={key} className="zones-boundary-control">
+                  <span className="zones-boundary-label">{label}</span>
+                  <div className="adv-corner-box zones-boundary-input">
+                    <div className={`adv-arc adv-arc-${key}`} />
+                    <NumInput
+                      value={settings[CORNER_KEYS[key]]}
+                      onChange={(v) => update({ [CORNER_KEYS[key]]: v })}
+                      min={SETTINGS_LIMITS.stopBoundary.min}
+                      max={SETTINGS_LIMITS.stopBoundary.max}
+                      style={{ width: "34px", textAlign: "right" }}
+                    />
+                    <span className="adv-unit">px</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -102,19 +120,23 @@ export default function FailsafeSection({ settings, update, showInfo }: Props) {
           enabled={settings.edgeStopEnabled}
           disabledReason={t("advanced.edgeStopUnavailable")}
         >
-          <div className="adv-row" style={{ gap: 8 }}>
-            <div className="adv-corner-grid">
-              {(["top", "right", "left", "bottom"] as const).map((edgeSide) => (
-                <div key={edgeSide} className="adv-corner-box">
-                  <div className={`adv-edge-bar adv-edge-bar-${edgeSide}`} />
-                  <NumInput
-                    value={settings[EDGE_KEYS[edgeSide]]}
-                    onChange={(v) => update({ [EDGE_KEYS[edgeSide]]: v })}
-                    min={SETTINGS_LIMITS.stopBoundary.min}
-                    max={SETTINGS_LIMITS.stopBoundary.max}
-                    style={{ width: "28px", textAlign: "right" }}
-                  />
-                  <span className="adv-unit">px</span>
+          <div className="zones-card-body">
+            <p className="zones-card-help">{t("advanced.edgeStopHelper")}</p>
+            <div className="zones-boundary-grid">
+              {edgeControls.map(({ key, label }) => (
+                <div key={key} className="zones-boundary-control">
+                  <span className="zones-boundary-label">{label}</span>
+                  <div className="adv-corner-box zones-boundary-input">
+                    <div className={`adv-edge-bar adv-edge-bar-${key}`} />
+                    <NumInput
+                      value={settings[EDGE_KEYS[key]]}
+                      onChange={(v) => update({ [EDGE_KEYS[key]]: v })}
+                      min={SETTINGS_LIMITS.stopBoundary.min}
+                      max={SETTINGS_LIMITS.stopBoundary.max}
+                      style={{ width: "34px", textAlign: "right" }}
+                    />
+                    <span className="adv-unit">px</span>
+                  </div>
                 </div>
               ))}
             </div>

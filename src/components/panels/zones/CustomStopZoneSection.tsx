@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Settings } from "../../../store";
 import { useTranslation } from "../../../i18n";
 import { invoke } from "@tauri-apps/api/core";
+import { SETTINGS_LIMITS } from "../../../settingsSchema";
 import {
   Disableable,
   NumInput,
@@ -30,6 +31,9 @@ export default function CustomStopZoneSection({
 }: Props) {
   const { t } = useTranslation();
   const [capturingCursor, setCapturingCursor] = useState(false);
+  const zoneRight = settings.customStopZoneX + settings.customStopZoneWidth - 1;
+  const zoneBottom =
+    settings.customStopZoneY + settings.customStopZoneHeight - 1;
 
   const requestCursorPosition = async (): Promise<CursorPoint> => {
     setCapturingCursor(true);
@@ -84,45 +88,90 @@ export default function CustomStopZoneSection({
         />
       </div>
       <CardDivider />
-      <Disableable enabled={settings.customStopZoneEnabled}>
+      <Disableable
+        enabled={settings.customStopZoneEnabled}
+        disabledReason={t("advanced.customStopZoneDisabled")}
+      >
         <div className="adv-stop-zone-body">
+          <p className="zones-card-help">
+            {t("advanced.customStopZoneHelper")}
+          </p>
+          <div className="zones-zone-summary">
+            <div
+              className={`zones-zone-preview ${
+                settings.customStopZoneEnabled ? "active" : ""
+              }`}
+              aria-hidden="true"
+            >
+              <div className="zones-zone-preview-rect" />
+            </div>
+            <div className="zones-zone-summary-copy">
+              <span className="zones-boundary-label">
+                {t("advanced.customStopZoneCoordinates")}
+              </span>
+              <span className="zones-zone-summary-value">
+                {settings.customStopZoneX}, {settings.customStopZoneY}
+                {" -> "}
+                {zoneRight}, {zoneBottom}
+              </span>
+            </div>
+          </div>
           <div className="adv-stop-zone-controls">
             <div className="adv-stop-zone-grid">
-              <div className="adv-numbox-sm adv-sequence-coord">
-                <span className="adv-unit adv-axis-label">X</span>
-                <NumInput
-                  value={settings.customStopZoneX}
-                  onChange={(v) => update({ customStopZoneX: v })}
-                  style={{ width: "54px", textAlign: "right" }}
-                />
+              <div className="zones-coordinate-group">
+                <span className="zones-boundary-label">
+                  {t("advanced.customStopZoneOrigin")}
+                </span>
+                <div className="zones-coordinate-row">
+                  <div className="adv-numbox-sm adv-sequence-coord">
+                    <span className="adv-unit adv-axis-label">X</span>
+                    <NumInput
+                      value={settings.customStopZoneX}
+                      onChange={(v) => update({ customStopZoneX: v })}
+                      style={{ width: "54px", textAlign: "right" }}
+                    />
+                  </div>
+                  <div className="adv-numbox-sm adv-sequence-coord">
+                    <span className="adv-unit adv-axis-label">Y</span>
+                    <NumInput
+                      value={settings.customStopZoneY}
+                      onChange={(v) => update({ customStopZoneY: v })}
+                      style={{ width: "54px", textAlign: "right" }}
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="adv-numbox-sm adv-sequence-coord">
-                <span className="adv-unit adv-axis-label">Y</span>
-                <NumInput
-                  value={settings.customStopZoneY}
-                  onChange={(v) => update({ customStopZoneY: v })}
-                  style={{ width: "54px", textAlign: "right" }}
-                />
-              </div>
-              <div className="adv-numbox-sm adv-sequence-coord">
-                <span className="adv-unit">W</span>
-                <NumInput
-                  value={settings.customStopZoneWidth}
-                  onChange={(v) => update({ customStopZoneWidth: v })}
-                  min={1}
-                  style={{ width: "54px", textAlign: "right" }}
-                />
-              </div>
-              <div className="adv-numbox-sm adv-sequence-coord">
-                <span className="adv-unit">H</span>
-                <NumInput
-                  value={settings.customStopZoneHeight}
-                  onChange={(v) => update({ customStopZoneHeight: v })}
-                  min={1}
-                  style={{ width: "54px", textAlign: "right" }}
-                />
+              <div className="zones-coordinate-group">
+                <span className="zones-boundary-label">
+                  {t("advanced.customStopZoneSize")}
+                </span>
+                <div className="zones-coordinate-row">
+                  <div className="adv-numbox-sm adv-sequence-coord">
+                    <span className="adv-unit">W</span>
+                    <NumInput
+                      value={settings.customStopZoneWidth}
+                      onChange={(v) => update({ customStopZoneWidth: v })}
+                      min={SETTINGS_LIMITS.stopZoneDimension.min}
+                      style={{ width: "54px", textAlign: "right" }}
+                    />
+                  </div>
+                  <div className="adv-numbox-sm adv-sequence-coord">
+                    <span className="adv-unit">H</span>
+                    <NumInput
+                      value={settings.customStopZoneHeight}
+                      onChange={(v) => update({ customStopZoneHeight: v })}
+                      min={SETTINGS_LIMITS.stopZoneDimension.min}
+                      style={{ width: "54px", textAlign: "right" }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
+            <p className="zones-card-help zones-card-help-compact">
+              {capturingCursor
+                ? t("advanced.customStopZoneCapturing")
+                : t("advanced.customStopZonePickHelp")}
+            </p>
             <div className="adv-sequence-actions adv-stop-zone-actions">
               <button
                 type="button"
@@ -132,7 +181,9 @@ export default function CustomStopZoneSection({
                 }}
                 disabled={capturingCursor}
               >
-                {t("advanced.customStopZoneSetTopLeft")}
+                {capturingCursor
+                  ? t("advanced.picking")
+                  : t("advanced.customStopZoneSetTopLeft")}
               </button>
               <button
                 type="button"
@@ -142,7 +193,9 @@ export default function CustomStopZoneSection({
                 }}
                 disabled={capturingCursor}
               >
-                {t("advanced.customStopZoneSetBottomRight")}
+                {capturingCursor
+                  ? t("advanced.picking")
+                  : t("advanced.customStopZoneSetBottomRight")}
               </button>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import "../advanced/AdvancedPanel.css";
 import type { Settings } from "../../../store";
+import { useTranslation } from "../../../i18n";
 import FailsafeSection from "./FailsafeSection";
 import CustomStopZoneSection from "./CustomStopZoneSection";
 
@@ -13,8 +14,19 @@ interface Props {
 }
 
 export default function ZonesPanel({ settings, update, showInfo }: Props) {
+  const { t } = useTranslation();
+
   return (
     <div className="adv-panel adv-panel-text">
+      <div className="zones-panel-intro">
+        <div>
+          <div className="zones-panel-kicker">{t("advanced.zonesKicker")}</div>
+          <h2 className="zones-panel-title">{t("advanced.zonesTitle")}</h2>
+        </div>
+        <p className="zones-panel-copy">
+          {t("advanced.zonesDescription")}
+        </p>
+      </div>
       <div className="adv-columns">
         <div className="adv-col">
           <FailsafeSection
