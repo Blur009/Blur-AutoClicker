@@ -91,6 +91,8 @@
     "hotkeyDescription": "Choose the key combo that starts and stops the clicker. Use Toggle for press-on/press-off, or Hold to click only while held.",
     "mouseButton": "Botón del mouse",
     "mouseButtonDescription": "Select which mouse button the clicker will press on each click event.",
+    "clickAction": "Click Action",
+    "clickActionDescription": "Choose whether each click sends both press and release, or only press events while running.",
     "dutyCycle": "Ciclo de pulsación",
     "dutyCycleDescription": "Aleatoriza cuánto tiempo se mantiene pulsado el botón del mouse entre los porcentajes mínimo y máximo de cada intervalo de clic.",
     "speedVariation": "Variación de velocidad",
@@ -164,6 +166,10 @@
       "Left": "Clic izquierdo",
       "Middle": "Clic central",
       "Right": "Clic derecho"
+    },
+    "clickAction": {
+      "downUp": "Down + Up",
+      "downOnly": "Down Only"
     },
     "timeUnitShort": {
       "s": "s",

@@ -3,6 +3,7 @@ import { DEFAULT_LANGUAGE, isLanguage, type Language } from "./i18n";
 export type ClickInterval = "s" | "m" | "h" | "d";
 export type MouseButton = "Left" | "Middle" | "Right";
 export type ClickMode = "Toggle" | "Hold";
+export type ClickAction = "downUp" | "downOnly";
 export type TimeLimitUnit = "s" | "m" | "h";
 export type SavedPanel = "simple" | "advanced" | "zones";
 export type Theme = "dark" | "light";
@@ -27,6 +28,7 @@ export interface PresetSnapshot {
   clickSpeed: number;
   clickInterval: ClickInterval;
   mouseButton: MouseButton;
+  clickAction: ClickAction;
   mode: ClickMode;
   dutyCycleEnabled: boolean;
   dutyCycle: number;
@@ -105,6 +107,7 @@ export const CLICK_INTERVAL_OPTIONS = [
 
 export const MODE_OPTIONS = ["Toggle", "Hold"] as const satisfies ReadonlyArray<ClickMode>;
 export const MOUSE_BUTTON_OPTIONS = ["Left", "Middle", "Right"] as const satisfies ReadonlyArray<MouseButton>;
+export const CLICK_ACTION_OPTIONS = ["downUp", "downOnly"] as const satisfies ReadonlyArray<ClickAction>;
 export const TIME_LIMIT_UNIT_OPTIONS = ["s", "m", "h"] as const satisfies ReadonlyArray<TimeLimitUnit>;
 export const THEME_OPTIONS = ["dark", "light"] as const satisfies ReadonlyArray<Theme>;
 
@@ -129,6 +132,7 @@ export const PRESET_SNAPSHOT_KEYS = [
   "clickSpeed",
   "clickInterval",
   "mouseButton",
+  "clickAction",
   "mode",
   "dutyCycleEnabled",
   "dutyCycle",
@@ -207,6 +211,7 @@ export function createDefaultSettings(version: string): Settings {
     clickSpeed: 25,
     clickInterval: "s",
     mouseButton: "Left",
+    clickAction: "downUp",
     hotkey: "ctrl+y",
     language: DEFAULT_LANGUAGE,
     mode: "Toggle",
@@ -266,6 +271,7 @@ export function buildPresetSnapshot(settings: Settings): PresetSnapshot {
     clickSpeed: settings.clickSpeed,
     clickInterval: settings.clickInterval,
     mouseButton: settings.mouseButton,
+    clickAction: settings.clickAction,
     mode: settings.mode,
     dutyCycleEnabled: settings.dutyCycleEnabled,
     dutyCycle: settings.dutyCycle,
@@ -346,6 +352,7 @@ function sanitizePresetSnapshot(
       saved.mouseButton === "Middle" || saved.mouseButton === "Right"
         ? saved.mouseButton
         : defaults.mouseButton,
+    clickAction: sanitizeClickAction(saved.clickAction, defaults.clickAction),
     mode: saved.mode === "Hold" ? "Hold" : defaults.mode,
     dutyCycleEnabled: sanitizeBoolean(
       saved.dutyCycleEnabled,
@@ -475,6 +482,10 @@ function sanitizePresetSnapshot(
 
 function sanitizeRateInputMode(value: unknown): RateInputMode {
   return value === "duration" ? "duration" : "rate";
+}
+
+function sanitizeClickAction(value: unknown, fallback: ClickAction): ClickAction {
+  return value === "downOnly" || value === "downUp" ? value : fallback;
 }
 
 function sanitizeSequencePoints(value: unknown): SequencePoint[] {
@@ -698,6 +709,7 @@ export function sanitizeSettings(
       defaults.positionY,
       SETTINGS_LIMITS.position.min,
     ),
+    clickAction: sanitizeClickAction(saved.clickAction, defaults.clickAction),
     rateInputMode: sanitizeRateInputMode(saved.rateInputMode),
     durationHours: clampNumber(saved.durationHours, defaults.durationHours, SETTINGS_LIMITS.durationHours.min, SETTINGS_LIMITS.durationHours.max),
     durationMinutes: clampNumber(saved.durationMinutes, defaults.durationMinutes, SETTINGS_LIMITS.durationMinutes.min),

@@ -115,6 +115,7 @@ mod tests {
             duty: 45.0,
             time_limit: 0.0,
             button: 1,
+            send_release: true,
             double_click_enabled: false,
             double_click_delay_ms: 40,
             position_enabled: false,

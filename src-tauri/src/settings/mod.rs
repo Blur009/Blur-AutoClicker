@@ -23,6 +23,7 @@ pub struct ClickerSettings {
     pub duration_seconds: u32,
     pub duration_milliseconds: u32,
     pub mouse_button: String,
+    pub click_action: String,
     pub mode: String,
     pub hotkey: String,
     pub duty_cycle_enabled: bool,
@@ -71,7 +72,7 @@ pub struct ClickerSettings {
 impl Default for ClickerSettings {
     fn default() -> Self {
         Self {
-            version: 8,
+            version: 9,
             click_speed: 25.0,
             click_interval: "s".to_string(),
             rate_input_mode: "rate".to_string(),
@@ -80,6 +81,7 @@ impl Default for ClickerSettings {
             duration_seconds: 0,
             duration_milliseconds: 40,
             mouse_button: "Left".to_string(),
+            click_action: "downUp".to_string(),
             mode: "Toggle".to_string(),
             hotkey: "ctrl+y".to_string(),
             duty_cycle_enabled: true,
