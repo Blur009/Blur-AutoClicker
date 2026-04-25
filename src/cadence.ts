@@ -56,6 +56,32 @@ export function getMaxDoubleClickDelayMs(settings: CadenceSettings): number {
   return cps > 0 ? Math.max(20, Math.floor(1000 / cps) - 2) : 9999;
 }
 
+export function formatMillisecondsSummary(totalMs: number): string {
+  const roundedMs = Math.max(1, Math.round(totalMs));
+  const hours = Math.floor(roundedMs / 3_600_000);
+  const remainderAfterHours = roundedMs % 3_600_000;
+  const minutes = Math.floor(remainderAfterHours / 60_000);
+  const remainderAfterMinutes = remainderAfterHours % 60_000;
+  const seconds = Math.floor(remainderAfterMinutes / 1_000);
+  const milliseconds = remainderAfterMinutes % 1_000;
+  const parts: string[] = [];
+
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes}m`);
+  }
+  if (seconds > 0) {
+    parts.push(`${seconds}s`);
+  }
+  if (milliseconds > 0 || parts.length === 0) {
+    parts.push(`${milliseconds}ms`);
+  }
+
+  return parts.join(" ");
+}
+
 export function formatDurationSummary(settings: CadenceSettings): string {
   const parts: string[] = [];
 
