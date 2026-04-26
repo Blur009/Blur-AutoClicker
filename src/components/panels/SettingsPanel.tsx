@@ -1,4 +1,5 @@
 import "./SettingsPanel.css";
+import "./advanced/AdvancedPanel.css";
 import type {
   AppInfo,
   PresetDefinition,
@@ -15,6 +16,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import ConfirmDialog from "../ConfirmDialog";
+import { AdvDropdown } from "./advanced/shared";
 
 // Settings Pannel TO-DO
 // TODO: Move presets under stats
@@ -29,6 +31,11 @@ import {
   MAX_PRESETS,
   PRESET_NAME_MAX_LENGTH,
 } from "../../settingsSchema";
+
+const LANGUAGE_DROPDOWN_OPTIONS = LANGUAGE_OPTIONS.map((option) => ({
+  value: option.code,
+  label: option.label,
+}));
 
 interface CumulativeStats {
   totalClicks: number;
@@ -668,38 +675,23 @@ export default function SettingsPanel({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <label
-              className="settings-label"
-              htmlFor="settings-language-select"
-            >
-              {t("settings.language")}
-            </label>
+            <span className="settings-label">{t("settings.language")}</span>
             <span className="settings-sublabel">
               {t("settings.languageDescription")}
             </span>
           </div>
-          <div className="settings-select-wrap">
-            <select
-              id="settings-language-select"
-              className="settings-select"
-              value={settings.language}
-              onChange={(event) => {
-                const nextLanguage = event.currentTarget.value;
-                if (isLanguage(nextLanguage)) {
-                  update({ language: nextLanguage });
-                }
-              }}
-            >
-              {LANGUAGE_OPTIONS.map((option) => (
-                <option
-                  key={option.code}
-                  value={option.code}
-                  dir={option.code === "ar" ? "rtl" : "ltr"}
-                >
-                  {option.label}
-                </option>
-              ))}
-            </select>
+          <div className="adv-value-outline settings-language-outline">
+            <div className="adv-foc adv-foc-grow">
+              <AdvDropdown
+                value={settings.language}
+                options={LANGUAGE_DROPDOWN_OPTIONS}
+                onChange={(next) => {
+                  if (isLanguage(next)) {
+                    update({ language: next });
+                  }
+                }}
+              />
+            </div>
           </div>
         </div>
 

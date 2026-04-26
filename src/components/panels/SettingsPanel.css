@@ -114,69 +114,9 @@
   cursor: not-allowed;
 }
 
-.settings-select-wrap {
-  position: relative;
+.settings-language-outline {
   flex: 0 1 14rem;
   max-width: 100%;
-}
-
-.settings-select-wrap::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: 0.75rem;
-  width: 0.45rem;
-  height: 0.45rem;
-  border-right: 1.5px solid var(--text-dim);
-  border-bottom: 1.5px solid var(--text-dim);
-  pointer-events: none;
-  transform: translateY(-65%) rotate(45deg);
-}
-
-.settings-select {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  padding: 0.4375rem 2rem 0.4375rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  font-family: var(--font-family-base);
-  font-size: 0.875rem;
-  font-weight: var(--font-weight-md);
-  line-height: 1.25;
-  cursor: pointer;
-  outline: none;
-  appearance: none;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.settings-select:hover {
-  background: var(--bg-input);
-  border-color: var(--border-focus);
-}
-
-.settings-select:focus-visible {
-  border-color: var(--accent-green-ring);
-}
-
-.settings-select option {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-
-:dir(rtl) .settings-select {
-  padding-right: 0.75rem;
-  padding-left: 2rem;
-}
-
-:dir(rtl) .settings-select-wrap::after {
-  right: auto;
-  left: 0.75rem;
 }
 
 .settings-btn-primary,
