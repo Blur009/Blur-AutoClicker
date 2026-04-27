@@ -6,16 +6,19 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::engine::start_clicker as engine_start;
 use crate::engine::stats::{print_run_stats, record_run};
+use crate::hotkeys::parse_keyboard_output_binding;
 use crate::ClickerSettings;
 use crate::ClickerState;
 use crate::ClickerStatusPayload;
 use crate::STATUS_EVENT;
 
 use super::failsafe::should_stop_for_failsafe;
+use super::keyboard::send_key_presses;
 use super::mouse::{get_button_flags, get_cursor_pos, move_mouse, send_clicks, smooth_move};
 use super::rng::SmallRng;
 use super::ClickerConfig;
 use super::NtSetTimerResolution;
+use super::OutputAction;
 use super::RunOutcome;
 use super::CLICK_COUNT;
 
@@ -51,7 +54,7 @@ fn calibrate_cycle_freq() -> f64 {
 
     let cycle_delta = thread_cycles().saturating_sub(start_cycles);
     let wall_secs = start.elapsed().as_secs_f64();
-    
+
     if wall_secs > 0.0 && cycle_delta > 0 {
         let freq = cycle_delta as f64 / wall_secs;
         log::info!("CPU: calibrated at {:.0} MHz", freq / 1_000_000.0);
@@ -157,12 +160,6 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         _ => 1.0 / settings.click_speed,
     };
 
-    let button = match settings.mouse_button.as_str() {
-        "Right" => 2,
-        "Middle" => 3,
-        _ => 1,
-    };
-
     let time_limit_secs = if settings.time_limit_enabled {
         Some(match settings.time_limit_unit.as_str() {
             "m" => settings.time_limit * 60.0,
@@ -171,6 +168,25 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         })
     } else {
         None
+    };
+
+    let output = if settings.output_mode == "keyboard" {
+        let binding = parse_keyboard_output_binding(&settings.keyboard_binding)?;
+        OutputAction::Keyboard {
+            ctrl: binding.ctrl,
+            alt: binding.alt,
+            shift: binding.shift,
+            super_key: binding.super_key,
+            main_vk: binding.main_vk,
+        }
+    } else {
+        let button = match settings.mouse_button.as_str() {
+            "Right" => 2,
+            "Middle" => 3,
+            _ => 1,
+        };
+
+        OutputAction::Mouse { button }
     };
 
     Ok(ClickerConfig {
@@ -191,10 +207,10 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
             0.01
         },
         time_limit: time_limit_secs.unwrap_or(0.0),
-        button,
+        output,
         double_click_enabled: settings.double_click_enabled,
         double_click_delay_ms: settings.double_click_delay,
-        position_enabled: settings.position_enabled,
+        position_enabled: settings.output_mode == "mouse" && settings.position_enabled,
         pos_x: settings.position_x,
         pos_y: settings.position_y,
         offset: 0.0,
@@ -260,7 +276,6 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
 
     let mut rng = SmallRng::new();
     let mut click_count: i64 = 0;
-    let (down_flag, up_flag) = get_button_flags(config.button);
     let cps = if config.interval > 0.0 {
         1.0 / config.interval
     } else {
@@ -355,15 +370,40 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             break;
         }
 
-        send_clicks(
-            down_flag,
-            up_flag,
-            clicks_this_cycle,
-            hold_ms,
-            config.double_click_enabled,
-            config.double_click_delay_ms,
-            &control,
-        );
+        match &config.output {
+            OutputAction::Mouse { button } => {
+                let (down_flag, up_flag) = get_button_flags(*button);
+                send_clicks(
+                    down_flag,
+                    up_flag,
+                    clicks_this_cycle,
+                    hold_ms,
+                    config.double_click_enabled,
+                    config.double_click_delay_ms,
+                    &control,
+                );
+            }
+            OutputAction::Keyboard {
+                ctrl,
+                alt,
+                shift,
+                super_key,
+                main_vk,
+            } => {
+                send_key_presses(
+                    *ctrl,
+                    *alt,
+                    *shift,
+                    *super_key,
+                    *main_vk,
+                    clicks_this_cycle,
+                    hold_ms,
+                    config.double_click_enabled,
+                    config.double_click_delay_ms,
+                    &control,
+                );
+            }
+        }
 
         if !control.is_active() {
             break;

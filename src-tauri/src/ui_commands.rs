@@ -17,7 +17,6 @@ use crate::engine::worker::start_clicker_inner;
 use crate::engine::worker::stop_clicker_inner;
 use crate::hotkeys::register_hotkey_inner;
 
-
 #[tauri::command]
 pub fn get_text_scale_factor() -> f64 {
     #[cfg(target_os = "windows")]

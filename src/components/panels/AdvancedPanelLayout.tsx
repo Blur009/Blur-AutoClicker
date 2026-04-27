@@ -150,6 +150,11 @@ const EDGE_KEYS = {
   bottom: "edgeStopBottom",
 } as const;
 
+const OUTPUT_MODE_LABELS = {
+  mouse: "Mouse",
+  keyboard: "Keyboard",
+} as const;
+
 function maxDoubleClickDelayMs(
   clickSpeed: number,
   clickInterval: string,
@@ -174,6 +179,7 @@ export default function AdvancedPanelLayout({
 }: Props) {
   const [pickingPosition, setPickingPosition] = useState(false);
   const [pickCountdown, setPickCountdown] = useState<number | null>(null);
+  const isKeyboardOutput = settings.outputMode === "keyboard";
   const rowSpacing = compact ? 6 : 8;
   const cardBodyClass = `adv-card-body ${compact ? "adv-card-body-compact" : ""}`;
   const featureBodyClass = `adv-feature-body ${compact ? "adv-feature-body-compact" : ""}`;
@@ -269,18 +275,53 @@ export default function AdvancedPanelLayout({
                 </div>
               </div>
               <div className="adv-row" style={{ marginTop: rowSpacing }}>
-                <span className="adv-label">Mouse Button</span>
+                <span className="adv-label">Output</span>
                 <div className="simple-seg-group">
-                  {(["Left", "Middle", "Right"] as const).map((b) => (
+                  {(["mouse", "keyboard"] as const).map((mode) => (
                     <button
-                      key={b}
-                      className={`simple-seg-btn ${settings.mouseButton === b ? "active" : ""}`}
-                      onClick={() => update({ mouseButton: b })}
+                      key={mode}
+                      className={`simple-seg-btn ${settings.outputMode === mode ? "active" : ""}`}
+                      onClick={() => update({ outputMode: mode })}
                     >
-                      {b}
+                      {OUTPUT_MODE_LABELS[mode]}
                     </button>
                   ))}
                 </div>
+              </div>
+              <div className="adv-row" style={{ marginTop: rowSpacing }}>
+                <span className="adv-label">
+                  {isKeyboardOutput ? "Key Binding" : "Mouse Button"}
+                </span>
+                {isKeyboardOutput ? (
+                  <div className="adv-textbox">
+                    <HotkeyCaptureInput
+                      className="adv-textbox-text"
+                      value={settings.keyboardBinding}
+                      onChange={(keyboardBinding) => update({ keyboardBinding })}
+                      allowMouseButtons={false}
+                      allowWheel={false}
+                      placeholder="Press key or combo"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                        width: "150px",
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="simple-seg-group">
+                    {(["Left", "Middle", "Right"] as const).map((b) => (
+                      <button
+                        key={b}
+                        className={`simple-seg-btn ${settings.mouseButton === b ? "active" : ""}`}
+                        onClick={() => update({ mouseButton: b })}
+                      >
+                        {b}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -303,7 +344,7 @@ export default function AdvancedPanelLayout({
               </div>
               <CardDivider />
               {showDesc(
-                "Randomizes how long the mouse button stays held between the min and max percentages of each click interval.",
+                "Controls how long the active mouse button or keyboard key stays held during each action.",
               )}
             </div>
 
@@ -361,8 +402,8 @@ export default function AdvancedPanelLayout({
                 <div className="adv-row" style={{ gap: 8 }}>
                   {showExplanations && (
                     <p className="adv-desc" style={{ flex: 1 }}>
-                      Fires the button twice per interval with a configurable
-                      delay between the clicks.
+                      Sends the active input twice per interval with a
+                      configurable delay between repeats.
                     </p>
                   )}
                   <div
@@ -541,15 +582,18 @@ export default function AdvancedPanelLayout({
                 <ToggleBtn
                   value={settings.positionEnabled}
                   onChange={(v) => update({ positionEnabled: v })}
+                  disabled={isKeyboardOutput}
                 />
               </div>
               <CardDivider />
-              <Disableable enabled={settings.positionEnabled}>
+              <Disableable
+                enabled={settings.positionEnabled && !isKeyboardOutput}
+              >
                 <div className="adv-row" style={{ marginTop: 8, gap: 6 }}>
                   {showExplanations && (
                     <p className="adv-desc" style={{ flex: 1 }}>
-                      Moves the cursor to the saved point before each click
-                      while enabled.
+                      Moves the cursor to the saved point before each mouse
+                      click while enabled.
                     </p>
                   )}
                   <div
@@ -678,18 +722,53 @@ export default function AdvancedPanelLayout({
               </div>
             </div>
             <div className="adv-row" style={{ marginTop: rowSpacing }}>
-              <span className="adv-label">Mouse Button</span>
+              <span className="adv-label">Output</span>
               <div className="simple-seg-group">
-                {(["Left", "Middle", "Right"] as const).map((b) => (
+                {(["mouse", "keyboard"] as const).map((mode) => (
                   <button
-                    key={b}
-                    className={`simple-seg-btn ${settings.mouseButton === b ? "active" : ""}`}
-                    onClick={() => update({ mouseButton: b })}
+                    key={mode}
+                    className={`simple-seg-btn ${settings.outputMode === mode ? "active" : ""}`}
+                    onClick={() => update({ outputMode: mode })}
                   >
-                    {b}
+                    {OUTPUT_MODE_LABELS[mode]}
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="adv-row" style={{ marginTop: rowSpacing }}>
+              <span className="adv-label">
+                {isKeyboardOutput ? "Key Binding" : "Mouse Button"}
+              </span>
+              {isKeyboardOutput ? (
+                <div className="adv-textbox">
+                  <HotkeyCaptureInput
+                    className="adv-textbox-text"
+                    value={settings.keyboardBinding}
+                    onChange={(keyboardBinding) => update({ keyboardBinding })}
+                    allowMouseButtons={false}
+                    allowWheel={false}
+                    placeholder="Press key or combo"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      outline: "none",
+                      width: "150px",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="simple-seg-group">
+                  {(["Left", "Middle", "Right"] as const).map((b) => (
+                    <button
+                      key={b}
+                      className={`simple-seg-btn ${settings.mouseButton === b ? "active" : ""}`}
+                      onClick={() => update({ mouseButton: b })}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -745,10 +824,11 @@ export default function AdvancedPanelLayout({
               <ToggleBtn
                 value={settings.positionEnabled}
                 onChange={(v) => update({ positionEnabled: v })}
+                disabled={isKeyboardOutput}
               />
             </div>
             <CardDivider />
-            <Disableable enabled={settings.positionEnabled}>
+            <Disableable enabled={settings.positionEnabled && !isKeyboardOutput}>
               <div className={featureBodyClass}>
                 <div className="adv-inline-controls adv-inline-controls-start adv-position-inline">
                   <div

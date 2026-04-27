@@ -94,6 +94,7 @@ pub fn should_stop_for_failsafe(config: &ClickerConfig) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engine::OutputAction;
 
     fn sample_config() -> ClickerConfig {
         ClickerConfig {
@@ -102,7 +103,7 @@ mod tests {
             limit: 0,
             duty: 45.0,
             time_limit: 0.0,
-            button: 1,
+            output: OutputAction::Mouse { button: 1 },
             double_click_enabled: false,
             double_click_delay_ms: 40,
             position_enabled: false,

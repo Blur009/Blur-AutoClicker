@@ -13,7 +13,10 @@ export interface Settings {
   version: string;
   clickSpeed: number;
   clickInterval: "s" | "m" | "h" | "d";
+  outputMode: "mouse" | "keyboard";
+  customOutputConfigured: boolean;
   mouseButton: "Left" | "Middle" | "Right";
+  keyboardBinding: string;
   hotkey: string;
   mode: "Toggle" | "Hold";
   dutyCycleEnabled: boolean;
@@ -67,7 +70,10 @@ export const DEFAULT_SETTINGS: Settings = {
   version: APP_VERSION,
   clickSpeed: 25,
   clickInterval: "s",
+  outputMode: "mouse",
+  customOutputConfigured: false,
   mouseButton: "Left",
+  keyboardBinding: "space",
   hotkey: "ctrl+y",
   mode: "Toggle",
   dutyCycleEnabled: true,
@@ -106,6 +112,14 @@ export const DEFAULT_SETTINGS: Settings = {
 
 function sanitizeSavedPanel(value: unknown): SavedPanel {
   return value === "advanced" ? value : "simple";
+}
+
+function sanitizeOutputMode(value: unknown): Settings["outputMode"] {
+  return value === "keyboard" ? "keyboard" : "mouse";
+}
+
+function sanitizeMouseButton(value: unknown): Settings["mouseButton"] {
+  return value === "Middle" || value === "Right" ? value : "Left";
 }
 
 function sanitizeExplanationMode(
@@ -164,6 +178,16 @@ function sanitizeSettings(input?: Partial<Settings> | null): Settings {
       1,
       500,
     ),
+    outputMode: sanitizeOutputMode(saved.outputMode),
+    customOutputConfigured:
+      typeof saved.customOutputConfigured === "boolean"
+        ? saved.customOutputConfigured
+        : saved.outputMode === "keyboard",
+    mouseButton: sanitizeMouseButton(saved.mouseButton),
+    keyboardBinding:
+      typeof saved.keyboardBinding === "string"
+        ? saved.keyboardBinding
+        : DEFAULT_SETTINGS.keyboardBinding,
     dutyCycleEnabled: sanitizeBoolean(
       saved.dutyCycleEnabled,
       DEFAULT_SETTINGS.dutyCycleEnabled,
