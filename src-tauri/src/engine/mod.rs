@@ -1,4 +1,5 @@
 pub mod failsafe;
+pub mod keyboard;
 pub mod mouse;
 pub mod rng;
 pub mod stats;
@@ -6,14 +7,28 @@ pub mod worker;
 use std::sync::atomic::AtomicI64;
 pub use worker::start_clicker;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+pub enum OutputAction {
+    Mouse {
+        button: i32,
+    },
+    Keyboard {
+        ctrl: bool,
+        alt: bool,
+        shift: bool,
+        super_key: bool,
+        main_vk: i32,
+    },
+}
+
+#[derive(Clone, Debug)]
 pub struct ClickerConfig {
     pub interval: f64,
     pub variation: f64,
     pub limit: i32,
     pub duty: f64,
     pub time_limit: f64,
-    pub button: i32,
+    pub output: OutputAction,
     pub double_click_enabled: bool,
     pub double_click_delay_ms: u32,
     pub position_enabled: bool,

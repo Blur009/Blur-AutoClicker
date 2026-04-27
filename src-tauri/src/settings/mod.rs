@@ -4,7 +4,10 @@ pub struct ClickerSettings {
     pub version: u32,
     pub click_speed: f64,
     pub click_interval: String,
+    pub output_mode: String,
+    pub custom_output_configured: bool,
     pub mouse_button: String,
+    pub keyboard_binding: String,
     pub mode: String,
     pub hotkey: String,
     pub duty_cycle_enabled: bool,
@@ -47,10 +50,13 @@ pub struct ClickerSettings {
 impl Default for ClickerSettings {
     fn default() -> Self {
         Self {
-            version: 3,
+            version: 7,
             click_speed: 25.0,
             click_interval: "s".to_string(),
+            output_mode: "mouse".to_string(),
+            custom_output_configured: false,
             mouse_button: "Left".to_string(),
+            keyboard_binding: "space".to_string(),
             mode: "Toggle".to_string(),
             hotkey: "ctrl+y".to_string(),
             duty_cycle_enabled: true,

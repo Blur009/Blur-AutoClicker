@@ -13,6 +13,9 @@ interface Props {
   onChange: (next: string) => void;
   className: string;
   style?: React.CSSProperties;
+  allowMouseButtons?: boolean;
+  allowWheel?: boolean;
+  placeholder?: string;
 }
 
 export default function HotkeyCaptureInput({
@@ -20,6 +23,9 @@ export default function HotkeyCaptureInput({
   onChange,
   className,
   style,
+  allowMouseButtons = true,
+  allowWheel = true,
+  placeholder = "Click and press keys",
 }: Props) {
   const [listening, setListening] = useState(false);
   const [layoutMap, setLayoutMap] =
@@ -55,8 +61,12 @@ export default function HotkeyCaptureInput({
 
   const displayText = useMemo(
     () =>
-      listening ? "Press keys..." : formatHotkeyForDisplay(value, layoutMap),
-    [layoutMap, listening, value],
+      listening
+        ? "Press keys..."
+        : value
+          ? formatHotkeyForDisplay(value, layoutMap)
+          : placeholder,
+    [layoutMap, listening, placeholder, value],
   );
 
   const acceptHotkey = (
@@ -107,9 +117,9 @@ export default function HotkeyCaptureInput({
   };
 
   const handleMouseDown = (event: React.MouseEvent<HTMLInputElement>) => {
-    // Left click (button 0) is used to start listening — don't capture it
+    // Left click (button 0) is used to start listening - don't capture it
     // if no modifier is present.
-    if (!listening) return;
+    if (!allowMouseButtons || !listening) return;
 
     if (event.button === 0) {
       const hasModifier =
@@ -123,7 +133,7 @@ export default function HotkeyCaptureInput({
   };
 
   const handleWheel = (event: React.WheelEvent<HTMLInputElement>) => {
-    if (!listening) return;
+    if (!allowWheel || !listening) return;
 
     event.preventDefault();
     event.stopPropagation();

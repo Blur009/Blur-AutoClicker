@@ -29,7 +29,7 @@ const AdvancedPanelCompact = lazy(
 
 export type Tab = "simple" | "advanced" | "settings";
 
-const BACKEND_SETTINGS_SCHEMA_VERSION = 5;
+const BACKEND_SETTINGS_SCHEMA_VERSION = 7;
 
 function getPanelSize(tab: Tab, settings: Settings, hasUpdate: boolean) {
   const extra = hasUpdate ? 30 : 0;
@@ -207,7 +207,12 @@ export default function App() {
   };
 
   const updateSettings = (patch: Partial<Settings>) => {
-    const { hotkey, ...rest } = patch;
+    const { hotkey, ...restPatch } = patch;
+    const rest = { ...restPatch };
+
+    if (rest.outputMode === "keyboard" || rest.keyboardBinding !== undefined) {
+      rest.customOutputConfigured = true;
+    }
 
     if (Object.keys(rest).length > 0) {
       const nextUiSettings = { ...uiSettingsRef.current, ...rest };
@@ -480,7 +485,11 @@ export default function App() {
       )}
       <main className="panel-area">
         {tab === "simple" && (
-          <SimplePanel settings={settings} update={updateSettings} />
+          <SimplePanel
+            settings={settings}
+            update={updateSettings}
+            onOpenAdvanced={() => handleTabChange("advanced")}
+          />
         )}
         {tab === "advanced" &&
           (settings.explanationMode === "off" ? (

@@ -1,3 +1,11 @@
+# v3.4.2 - 27.04.2026 (d.m.y)
+## New:
+- Added keyboard output support so the clicker can send key presses and key combos instead of only mouse clicks.
+- Added a `Custom` output state in Simple mode that reflects advanced-configured custom output without turning the whole Simple tab into an editor.
+## Changed:
+- Custom output selections are now remembered, so switching back from a mouse button to `Custom` restores the previous custom output instead of forcing setup again.
+- Kept full custom output configuration in Advanced mode while Simple mode stays focused on quick switching.
+
 # v3.4.1 - 16.06.2026 (d.m.y)
 ## ❇️ New:
 - added a settings toggle for relaxed / strict keybind mode.

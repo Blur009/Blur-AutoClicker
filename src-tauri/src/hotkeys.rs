@@ -104,6 +104,29 @@ pub fn parse_hotkey_binding(hotkey: &str) -> Result<HotkeyBinding, String> {
     })
 }
 
+pub fn parse_keyboard_output_binding(binding: &str) -> Result<HotkeyBinding, String> {
+    let parsed = parse_hotkey_binding(binding)?;
+
+    if matches!(
+        parsed.main_vk,
+        value
+            if value == VK_LBUTTON as i32
+                || value == VK_RBUTTON as i32
+                || value == VK_MBUTTON as i32
+                || value == VK_XBUTTON1 as i32
+                || value == VK_XBUTTON2 as i32
+                || value == VK_SCROLL_UP_PSEUDO
+                || value == VK_SCROLL_DOWN_PSEUDO
+    ) {
+        return Err(format!(
+            "Keyboard output does not support '{}'",
+            format_hotkey_binding(&parsed)
+        ));
+    }
+
+    Ok(parsed)
+}
+
 pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> Result<(i32, String), String> {
     let lower = token.trim().to_lowercase();
 
@@ -470,7 +493,7 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, w_param: usize, l_param: is
 
 #[cfg(test)]
 mod tests {
-    use super::{format_hotkey_binding, modifiers_match, parse_hotkey_binding};
+    use super::{format_hotkey_binding, modifiers_match, parse_hotkey_binding, parse_keyboard_output_binding};
 
     #[test]
     fn numpad_tokens_round_trip() {
@@ -518,5 +541,11 @@ mod tests {
         assert!(!modifiers_match(&binding, false, false, true, false, true));
         assert!(!modifiers_match(&binding, true, true, true, true, true));
         assert!(modifiers_match(&binding, false, false, false, false, true));
+    }
+
+    #[test]
+    fn keyboard_output_rejects_mouse_and_wheel_tokens() {
+        assert!(parse_keyboard_output_binding("mouseleft").is_err());
+        assert!(parse_keyboard_output_binding("scrollup").is_err());
     }
 }

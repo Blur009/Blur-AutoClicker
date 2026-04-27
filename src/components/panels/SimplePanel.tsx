@@ -7,6 +7,7 @@ import "./SimplePanel.css";
 interface SimplePanelProps {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
+  onOpenAdvanced: () => void;
 }
 
 const INTERVAL_OPTIONS = [
@@ -17,9 +18,13 @@ const INTERVAL_OPTIONS = [
 ] as const;
 
 const MODE_OPTIONS = ["Toggle", "Hold"] as const;
-const MOUSE_BUTTON_OPTIONS = ["Left", "Middle", "Right"] as const;
+const SIMPLE_OUTPUT_OPTIONS = ["Left", "Middle", "Right", "Custom"] as const;
 
-export default function SimplePanel({ settings, update }: SimplePanelProps) {
+export default function SimplePanel({
+  settings,
+  update,
+  onOpenAdvanced,
+}: SimplePanelProps) {
   const normalizeRaw = (raw: string) => raw.replace(/^0+(?=\d)/, "");
 
   const parseRawNumber = (raw: string) => {
@@ -37,6 +42,8 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
     const parts = raw.split("+").filter(Boolean);
     return parts.length <= 2 && raw.length <= 10;
   })();
+  const currentSimpleOutput =
+    settings.outputMode === "mouse" ? settings.mouseButton : "Custom";
 
   const cycleOption = <T extends string>(
     options: readonly T[],
@@ -56,6 +63,26 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
     e.preventDefault();
     e.stopPropagation();
     apply();
+  };
+
+  const applySimpleOutputSelection = (
+    next: (typeof SIMPLE_OUTPUT_OPTIONS)[number],
+  ) => {
+    if (next === "Custom") {
+      if (settings.customOutputConfigured) {
+        update({
+          outputMode: "keyboard",
+        });
+      } else {
+        onOpenAdvanced();
+      }
+      return;
+    }
+
+    update({
+      outputMode: "mouse",
+      mouseButton: next,
+    });
   };
 
   const handleWheelStep = (
@@ -212,37 +239,33 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           <button
             type="button"
             className="simple-cycle-btn"
-            title="Select which mouse button gets clicked"
+            title={
+              currentSimpleOutput === "Custom"
+                ? "Custom output is configured in Advanced"
+                : "Select which mouse button gets clicked"
+            }
             onClick={(e) =>
               cycleWithClick(e, () =>
-                update({
-                  mouseButton: cycleOption(
-                    MOUSE_BUTTON_OPTIONS,
-                    settings.mouseButton,
-                    1,
-                  ),
-                }),
+                applySimpleOutputSelection(
+                  cycleOption(SIMPLE_OUTPUT_OPTIONS, currentSimpleOutput, 1),
+                ),
               )
             }
             onContextMenu={(e) =>
               cycleWithClick(e, () =>
-                update({
-                  mouseButton: cycleOption(
-                    MOUSE_BUTTON_OPTIONS,
-                    settings.mouseButton,
-                    -1,
-                  ),
-                }),
+                applySimpleOutputSelection(
+                  cycleOption(SIMPLE_OUTPUT_OPTIONS, currentSimpleOutput, -1),
+                ),
               )
             }
           >
-            {
-              {
-                Left: "Left Click",
-                Middle: "Middle Click",
-                Right: "Right Click",
-              }[settings.mouseButton]
-            }
+            {currentSimpleOutput === "Custom"
+              ? "Custom"
+              : {
+                  Left: "Left Click",
+                  Middle: "Middle Click",
+                  Right: "Right Click",
+                }[currentSimpleOutput]}
           </button>
         </div>
 
@@ -251,7 +274,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
           <div className="vertical-devider" />
           <input
             type="number"
-            title="How long the mouse button gets held down during each click"
+            title="How long the active input is held during each action"
             className="simple-inline-input numbervalue"
             style={{
               width: dynamicChWidth(settings.dutyCycle),
