@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { Settings } from "../../../store";
-import { useTranslation } from "../../../i18n";
-import { invoke } from "@tauri-apps/api/core";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Settings } from '../../../store';
+import { useTranslation } from '../../../i18n';
+import { invoke } from '@tauri-apps/api/core';
 import {
   Disableable,
   NumInput,
   ToggleBtn,
   CardDivider,
   InfoIcon,
-} from "../advanced/shared";
+} from '../advanced/shared';
 
 interface Props {
   settings: Settings;
@@ -21,7 +21,7 @@ interface CursorPoint {
   y: number;
 }
 
-type PendingCapture = "topLeft" | "bottomRight";
+type PendingCapture = 'topLeft' | 'bottomRight';
 
 export default function CustomStopZoneSection({
   settings,
@@ -43,7 +43,7 @@ export default function CustomStopZoneSection({
   const requestCursorPosition = useCallback(async (): Promise<CursorPoint> => {
     setCapturingCursor(true);
     try {
-      return await invoke<CursorPoint>("pick_position");
+      return await invoke<CursorPoint>('pick_position');
     } finally {
       setCapturingCursor(false);
     }
@@ -84,7 +84,7 @@ export default function CustomStopZoneSection({
       try {
         const point = await requestCursorPosition();
 
-        if (action === "topLeft") {
+        if (action === 'topLeft') {
           update({
             customStopZoneX: point.x,
             customStopZoneY: point.y,
@@ -115,14 +115,14 @@ export default function CustomStopZoneSection({
   }, [countdown, requestCursorPosition, update]);
 
   const setCustomStopZoneTopLeft = () => {
-    pendingCaptureRef.current = "topLeft";
-    setPendingCapture("topLeft");
+    pendingCaptureRef.current = 'topLeft';
+    setPendingCapture('topLeft');
     setCountdown(4);
   };
 
   const setCustomStopZoneBottomRight = () => {
-    pendingCaptureRef.current = "bottomRight";
-    setPendingCapture("bottomRight");
+    pendingCaptureRef.current = 'bottomRight';
+    setPendingCapture('bottomRight');
     setCountdown(4);
   };
 
@@ -131,15 +131,15 @@ export default function CustomStopZoneSection({
       <div className="adv-card-header">
         <div
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.5rem",
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
           }}
         >
           {showInfo ? (
-            <InfoIcon text={t("advanced.customStopZoneDescription")} />
+            <InfoIcon text={t('advanced.customStopZoneDescription')} />
           ) : null}
-          <span className="adv-card-title">{t("advanced.customStopZone")}</span>
+          <span className="adv-card-title">{t('advanced.customStopZone')}</span>
         </div>
         <ToggleBtn
           value={settings.customStopZoneEnabled}
@@ -151,40 +151,72 @@ export default function CustomStopZoneSection({
         <div className="adv-stop-zone-body">
           <div className="adv-stop-zone-controls">
             <div className="adv-stop-zone-grid">
-              <div className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input">
-                <span className="adv-unit adv-axis-label">X</span>
+              <label
+                className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input"
+                style={{ gap: '6px' }}
+              >
+                <span
+                  className="adv-unit"
+                  style={{ minWidth: '0.75rem', textAlign: 'center' }}
+                >
+                  X
+                </span>
                 <NumInput
                   value={settings.customStopZoneX}
                   onChange={(v) => update({ customStopZoneX: v })}
-                  style={{ width: "54px", textAlign: "right" }}
+                  style={{ flex: 1, width: '100%', textAlign: 'left' }}
                 />
-              </div>
-              <div className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input">
-                <span className="adv-unit adv-axis-label">Y</span>
+              </label>
+              <label
+                className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input"
+                style={{ gap: '6px' }}
+              >
+                <span
+                  className="adv-unit"
+                  style={{ minWidth: '0.75rem', textAlign: 'center' }}
+                >
+                  Y
+                </span>
                 <NumInput
                   value={settings.customStopZoneY}
                   onChange={(v) => update({ customStopZoneY: v })}
-                  style={{ width: "54px", textAlign: "right" }}
+                  style={{ flex: 1, width: '100%', textAlign: 'left' }}
                 />
-              </div>
-              <div className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input">
-                <span className="adv-unit">W</span>
+              </label>
+              <label
+                className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input"
+                style={{ gap: '6px' }}
+              >
+                <span
+                  className="adv-unit"
+                  style={{ minWidth: '0.75rem', textAlign: 'center' }}
+                >
+                  W
+                </span>
                 <NumInput
                   value={settings.customStopZoneWidth}
                   onChange={(v) => update({ customStopZoneWidth: v })}
                   min={1}
-                  style={{ width: "54px", textAlign: "right" }}
+                  style={{ flex: 1, width: '100%', textAlign: 'left' }}
                 />
-              </div>
-              <div className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input">
-                <span className="adv-unit">H</span>
+              </label>
+              <label
+                className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input"
+                style={{ gap: '6px' }}
+              >
+                <span
+                  className="adv-unit"
+                  style={{ minWidth: '0.75rem', textAlign: 'center' }}
+                >
+                  H
+                </span>
                 <NumInput
                   value={settings.customStopZoneHeight}
                   onChange={(v) => update({ customStopZoneHeight: v })}
                   min={1}
-                  style={{ width: "54px", textAlign: "right" }}
+                  style={{ flex: 1, width: '100%', textAlign: 'left' }}
                 />
-              </div>
+              </label>
             </div>
             <div className="adv-sequence-actions adv-stop-zone-actions">
               <button
@@ -195,11 +227,11 @@ export default function CustomStopZoneSection({
                 }}
                 disabled={capturingCursor || countdown !== null}
               >
-                {pendingCapture === "topLeft" && countdown !== null
+                {pendingCapture === 'topLeft' && countdown !== null
                   ? countdown === 0
-                    ? t("advanced.customStopZoneCapturing")
-                    : `${t("advanced.customStopZoneAddingIn")} ${countdown}...`
-                  : t("advanced.customStopZoneSetTopLeft")}
+                    ? t('advanced.customStopZoneCapturing')
+                    : `${t('advanced.customStopZoneAddingIn')} ${countdown}...`
+                  : t('advanced.customStopZoneSetTopLeft')}
               </button>
               <button
                 type="button"
@@ -209,11 +241,11 @@ export default function CustomStopZoneSection({
                 }}
                 disabled={capturingCursor || countdown !== null}
               >
-                {pendingCapture === "bottomRight" && countdown !== null
+                {pendingCapture === 'bottomRight' && countdown !== null
                   ? countdown === 0
-                    ? t("advanced.customStopZoneCapturing")
-                    : `${t("advanced.customStopZoneAddingIn")} ${countdown}...`
-                  : t("advanced.customStopZoneSetBottomRight")}
+                    ? t('advanced.customStopZoneCapturing')
+                    : `${t('advanced.customStopZoneAddingIn')} ${countdown}...`
+                  : t('advanced.customStopZoneSetBottomRight')}
               </button>
             </div>
           </div>
