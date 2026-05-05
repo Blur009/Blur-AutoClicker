@@ -193,6 +193,19 @@ input[type="number"]::-webkit-outer-spin-button {
   gap: 0.5rem;
 }
 
+.adv-target-row {
+  min-width: 0;
+}
+
+.adv-target-controls {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+
 .adv-label {
   font-family: 'DMSans', sans-serif;
   font-size: 0.875rem;
@@ -248,6 +261,42 @@ input[type="number"]::-webkit-outer-spin-button {
   font-weight: var(--font-weight-md);
   color: var(--text-primary);
   cursor: pointer;
+}
+
+.adv-input-type-group {
+  flex: 0 0 auto;
+}
+
+.adv-icon-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2.375rem;
+  min-width: 2.375rem;
+  width: 2.375rem;
+  padding: 0;
+}
+
+.adv-input-type-icon {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.adv-target-mouse-buttons {
+  flex: 0 0 auto;
+}
+
+.adv-key-target-box {
+  width: 8.25rem;
+  min-width: 8.25rem;
+  overflow: hidden;
+}
+
+.adv-key-target-box .adv-key-input {
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  width: 0;
+  min-width: 0;
 }
 
 .adv-key-case-toggle {
