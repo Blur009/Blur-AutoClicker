@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
-    KEYEVENTF_SCANCODE, MapVirtualKeyW, MAPVK_VK_TO_VSC_EX,
+    MapVirtualKeyW, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY,
+    KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, MAPVK_VK_TO_VSC_EX,
 };
 
 use super::worker::{sleep_interruptible, RunControl};

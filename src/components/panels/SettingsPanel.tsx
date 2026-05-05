@@ -6,21 +6,28 @@ import type {
   Settings,
 } from "../../store";
 import {
+  isLanguage,
   LANGUAGE_OPTIONS,
   useTranslation,
   type Language,
 } from "../../i18n";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useRef, useState } from "react";
-import { open } from "@tauri-apps/plugin-shell";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import ConfirmDialog from "../ConfirmDialog";
-
-type PendingAction = "reset-settings" | "clear-stats" | null;
+import { AdvDropdown } from "./advanced/shared";
 import {
   DEFAULT_ACCENT_COLOR,
   MAX_PRESETS,
   PRESET_NAME_MAX_LENGTH,
 } from "../../settingsSchema";
+
+type PendingAction = "reset-settings" | "clear-stats" | null;
+
+const LANGUAGE_DROPDOWN_OPTIONS = LANGUAGE_OPTIONS.map((option) => ({
+  value: option.code,
+  label: option.label,
+}));
 
 interface CumulativeStats {
   totalClicks: number;
@@ -76,6 +83,40 @@ function formatCpu(
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   })}%`;
+}
+
+function SettingsSectionHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="settings-section-heading">
+      <span className="settings-section-title">{title}</span>
+      {description ? (
+        <span className="settings-section-description">{description}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function SettingsCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="settings-card">
+      <SettingsSectionHeading title={title} description={description} />
+      <div className="settings-card-content">{children}</div>
+    </section>
+  );
 }
 
 function PresetRow({
@@ -235,13 +276,19 @@ export default function SettingsPanel({
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [stats, setStats] = useState<CumulativeStats | null>(null);
   const [atBottom, setAtBottom] = useState(false);
-  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(null);
+  const [presetsAtBottom, setPresetsAtBottom] = useState(true);
+  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(
+    null,
+  );
   const [newPresetName, setNewPresetName] = useState("");
   const [editingPresetId, setEditingPresetId] = useState<PresetId | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<PresetId | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<PresetId | null>(
+    null,
+  );
 
   const panelRef = useRef<HTMLDivElement>(null);
+  const presetsListRef = useRef<HTMLDivElement>(null);
   const { language, t } = useTranslation();
 
   useEffect(() => {
@@ -282,6 +329,12 @@ export default function SettingsPanel({
     const el = panelRef.current;
     if (!el) return;
     setAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
+  };
+
+  const handlePresetsScroll = () => {
+    const el = presetsListRef.current;
+    if (!el) return;
+    setPresetsAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
   };
 
   const handleSavePreset = () => {
@@ -359,475 +412,547 @@ export default function SettingsPanel({
       const next = await invoke<CumulativeStats>("reset_stats");
       setStats(next);
     } catch {
-      // swallow — failure leaves stats unchanged
+      // swallow ? failure leaves stats unchanged
     } finally {
       setResettingStats(false);
       setPendingAction(null);
     }
   };
 
+  useEffect(() => {
+    handlePresetsScroll();
+  }, [settings.presets.length]);
+
   return (
     <div className="settings-wrapper">
       <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
-        <div className="social-links">
-          <span className="settings-label">{t("settings.supportMe")}</span>
-          <div className="social-icons">
-            <a
-              className="social-icon social-icon--kofi"
-              href="#"
-              title="Ko-fi"
-              onClick={(e) => {
-                e.preventDefault();
-                open("https://ko-fi.com/Z8Z71T8QD4");
-              }}
-            >
-              <img
-                height="28"
-                style={{ border: 0, height: "28px" }}
-                src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
-                alt="Buy Me a Coffee at ko-fi.com"
-              />
-            </a>
-
-            <a
-              className="social-icon social-icon--youtube"
-              href="#"
-              title="YouTube"
-              onClick={(e) => {
-                e.preventDefault();
-                open("https://youtube.com/@Blur009");
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                width="18"
-                height="18"
-              >
-                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-              </svg>
-            </a>
-            <a
-              className="social-icon social-icon--twitch"
-              href="#"
-              title="Twitch"
-              onClick={(e) => {
-                e.preventDefault();
-                open("https://twitch.tv/Blur009");
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                width="18"
-                height="18"
-              >
-                <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
-              </svg>
-            </a>
-            <a
-              className="social-icon social-icon--github"
-              href="#"
-              title="GitHub"
-              onClick={(e) => {
-                e.preventDefault();
-                open("https://github.com/Blur009/Blur-AutoClicker");
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                width="18"
-                height="18"
-              >
-                <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.2-1.7-1.2-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 .1.8 1.8 3.4 1.2.1-.7.4-1.2.7-1.5-2.7-.3-5.4-1.3-5.4-6a4.7 4.7 0 0 1 1.2-3.2c-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.2 11.2 0 0 1 6.1 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2a4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.8 5.7-5.4 6 .4.3.8 1 .8 2.1v3.1c0 .4.2.7.8.6A12 12 0 0 0 12 .3" />
-              </svg>
-            </a>
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <span className="settings-label">{t("settings.version")}</span>
-          <span className="settings-value">v{appInfo.version}</span>
-        </div>
-
-        <div className="settings-divider" />
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">{t("settings.usageData")}</span>
-            <span className="settings-sublabel">
-              {t("settings.usageDataDescription")}
-            </span>
-          </div>
-        </div>
-        {hasStats ? (
-          <div className="stats-grid">
-            <div className="stats-cell">
-              <span className="stats-cell-label">{t("settings.totalClicks")}</span>
-              <span className="stats-cell-value">
-                {formatNumber(stats.totalClicks, language)}
-              </span>
-            </div>
-            <div className="stats-cell">
-              <span className="stats-cell-label">
-                {t("settings.totalTimeClicking")}
-              </span>
-              <span className="stats-cell-value">
-                {formatTime(stats.totalTimeSecs, language)}
-              </span>
-            </div>
-            <div className="stats-cell">
-              <span className="stats-cell-label">{t("settings.averageCpu")}</span>
-              <span className="stats-cell-value">
-                {formatCpu(stats.avgCpu, language, t("common.notAvailable"))}
-              </span>
-            </div>
-            <div className="stats-cell">
-              <span className="stats-cell-label">{t("settings.sessions")}</span>
-              <span className="stats-cell-value">
-                {formatNumber(stats.totalSessions, language)}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div className="stats-empty">{t("settings.noRuns")}</div>
-        )}
-
-        <div className="settings-divider" />
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">{t("settings.alwaysOnTop")}</span>
-            <span className="settings-sublabel">
-              {t("settings.alwaysOnTopDescription")}
-            </span>
-          </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.alwaysOnTop === option.value ? "active" : ""}`}
-                onClick={() => handleAlwaysOnTopChange(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">
-              {t("settings.stopHitboxOverlay")}
-            </span>
-            <span className="settings-sublabel">
-              {t("settings.stopHitboxOverlayDescription")}
-            </span>
-          </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.showStopOverlay === option.value ? "active" : ""}`}
-                onClick={() => update({ showStopOverlay: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">
-              {t("settings.stopReasonAlert")}
-            </span>
-            <span className="settings-sublabel">
-              {t("settings.stopReasonAlertDescription")}
-            </span>
-          </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.showStopReason === option.value ? "active" : ""}`}
-                onClick={() => update({ showStopReason: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">
-              {t("settings.strictHotkeyModifiers")}
-            </span>
-            <span className="settings-sublabel">
-              {t("settings.strictHotkeyModifiersDescription")}
-            </span>
-          </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.strictHotkeyModifiers === option.value ? "active" : ""}`}
-                onClick={() => update({ strictHotkeyModifiers: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-divider" />
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">
-              {t("settings.minimizeToTray")}
-            </span>
-            <span className="settings-sublabel">
-              {t("settings.minimizeToTrayDescription")}
-            </span>
-          </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.minimizeToTray === option.value ? "active" : ""}`}
-                onClick={() => update({ minimizeToTray: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">{t("settings.runOnStartup")}</span>
-            <span className="settings-sublabel">
-              {t("settings.runOnStartupDescription")}
-            </span>
-          </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${autostartEnabled === option.value ? "active" : ""}`}
-                disabled={autostartEnabled === null}
-                onClick={() => {
-                  invoke("set_autostart_enabled", { enabled: option.value })
-                    .then(() => setAutostartEnabled(option.value))
-                    .catch(console.error);
+        <SettingsCard
+          title={t("settings.sectionAbout")}
+          description={t("settings.sectionAboutDescription")}
+        >
+          <div className="social-links">
+            <span className="settings-label">{t("settings.supportMe")}</span>
+            <div className="social-icons">
+              <a
+                className="social-icon social-icon--kofi"
+                href="#"
+                title="Ko-fi"
+                onClick={(e) => {
+                  e.preventDefault();
+                  void openUrl("https://ko-fi.com/Z8Z71T8QD4");
                 }}
               >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
+                <img
+                  height="28"
+                  style={{ border: 0, height: "28px" }}
+                  src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
+                  alt="Buy Me a Coffee at ko-fi.com"
+                />
+              </a>
 
-        <div className="settings-divider" />
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">{t("settings.language")}</span>
-            <span className="settings-sublabel">
-              {t("settings.languageDescription")}
-            </span>
-          </div>
-          <div className="settings-seg-group">
-            {LANGUAGE_OPTIONS.map((option) => (
-              <button
-                key={option.code}
-                className={`settings-seg-btn ${settings.language === option.code ? "active" : ""}`}
-                onClick={() => update({ language: option.code })}
+              <a
+                className="social-icon social-icon--youtube"
+                href="#"
+                title="YouTube"
+                onClick={(e) => {
+                  e.preventDefault();
+                  void openUrl("https://youtube.com/@Blur009");
+                }}
               >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-divider" />
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">{t("settings.theme")}</span>
-            <span className="settings-sublabel">
-              {t("settings.themeDescription")}
-            </span>
-          </div>
-          <div className="settings-seg-group">
-            {(["dark", "light"] as const).map((theme) => (
-              <button
-                key={theme}
-                className={`settings-seg-btn ${settings.theme === theme ? "active" : ""}`}
-                onClick={() => update({ theme })}
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  width="18"
+                  height="18"
+                >
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                </svg>
+              </a>
+              <a
+                className="social-icon social-icon--twitch"
+                href="#"
+                title="Twitch"
+                onClick={(e) => {
+                  e.preventDefault();
+                  void openUrl("https://twitch.tv/Blur009");
+                }}
               >
-                {t(theme === "dark" ? "common.dark" : "common.light")}
-              </button>
-            ))}
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  width="18"
+                  height="18"
+                >
+                  <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
+                </svg>
+              </a>
+              <a
+                className="social-icon social-icon--github"
+                href="#"
+                title="GitHub"
+                onClick={(e) => {
+                  e.preventDefault();
+                  void openUrl("https://github.com/Blur009/Blur-AutoClicker");
+                }}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  width="18"
+                  height="18"
+                >
+                  <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.2-1.7-1.2-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 .1.8 1.8 3.4 1.2.1-.7.4-1.2.7-1.5-2.7-.3-5.4-1.3-5.4-6a4.7 4.7 0 0 1 1.2-3.2c-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.2 11.2 0 0 1 6.1 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2a4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.8 5.7-5.4 6 .4.3.8 1 .8 2.1v3.1c0 .4.2.7.8.6A12 12 0 0 0 12 .3" />
+                </svg>
+              </a>
+            </div>
           </div>
-        </div>
 
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">{t("settings.accentColor")}</span>
-            <span className="settings-sublabel">
-              {t("settings.accentColorDescription")}
-            </span>
+          <div className="settings-row">
+            <span className="settings-label">{t("settings.version")}</span>
+            <span className="settings-value">v{appInfo.version}</span>
           </div>
-          <div className="settings-color-controls">
-            <label className="settings-color-picker">
+        </SettingsCard>
+
+        <SettingsCard
+          title={t("settings.sectionUsage")}
+          description={t("settings.sectionUsageDescription")}
+        >
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">{t("settings.usageData")}</span>
+              <span className="settings-sublabel">
+                {t("settings.usageDataDescription")}
+              </span>
+            </div>
+          </div>
+          {hasStats ? (
+            <div className="stats-grid">
+              <div className="stats-cell">
+                <span className="stats-cell-label">
+                  {t("settings.totalClicks")}
+                </span>
+                <span className="stats-cell-value">
+                  {formatNumber(stats.totalClicks, language)}
+                </span>
+              </div>
+              <div className="stats-cell">
+                <span className="stats-cell-label">
+                  {t("settings.totalTimeClicking")}
+                </span>
+                <span className="stats-cell-value">
+                  {formatTime(stats.totalTimeSecs, language)}
+                </span>
+              </div>
+              <div className="stats-cell">
+                <span className="stats-cell-label">
+                  {t("settings.averageCpu")}
+                </span>
+                <span className="stats-cell-value">
+                  {formatCpu(stats.avgCpu, language, t("common.notAvailable"))}
+                </span>
+              </div>
+              <div className="stats-cell">
+                <span className="stats-cell-label">
+                  {t("settings.sessions")}
+                </span>
+                <span className="stats-cell-value">
+                  {formatNumber(stats.totalSessions, language)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="stats-empty">{t("settings.noRuns")}</div>
+          )}
+          {hasStats && (
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <span className="settings-label">
+                  {t("settings.clearStats")}
+                </span>
+                <span className="settings-sublabel">
+                  {t("settings.clearStatsDescription")}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="settings-btn-danger settings-btn-danger--compact"
+                onClick={() => setPendingAction("clear-stats")}
+              >
+                {t("settings.clearStats")}
+              </button>
+            </div>
+          )}
+        </SettingsCard>
+
+        <SettingsCard
+          title={t("settings.sectionPresets")}
+          description={t("settings.sectionPresetsDescription")}
+        >
+          <div className="settings-row settings-row--stacked">
+            <div className="settings-label-group">
+              <span className="settings-label">{t("settings.presets")}</span>
+              <span className="settings-sublabel">
+                {t("settings.presetsDescription")}
+              </span>
+            </div>
+            <div className="preset-compose">
               <input
-                type="color"
-                value={settings.accentColor}
-                onChange={(event) => update({ accentColor: event.target.value })}
+                className="preset-name-input"
+                placeholder={t("settings.presetNamePlaceholder")}
+                value={newPresetName}
+                maxLength={PRESET_NAME_MAX_LENGTH}
+                onChange={(event) => setNewPresetName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    if (
+                      !running &&
+                      !presetLimitReached &&
+                      newPresetName.trim()
+                    ) {
+                      handleSavePreset();
+                    }
+                  }
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setNewPresetName("");
+                  }
+                }}
+                disabled={running}
               />
-            </label>
-            <span className="settings-value settings-value--mono">
-              {settings.accentColor.toUpperCase()}
-            </span>
+              <button
+                className="settings-btn-primary"
+                onClick={handleSavePreset}
+                disabled={
+                  running ||
+                  presetLimitReached ||
+                  newPresetName.trim().length === 0
+                }
+              >
+                {t("settings.saveNewPreset")}
+              </button>
+            </div>
+            {presetLimitReached && (
+              <span className="settings-note">
+                {t("settings.presetLimitReached")}
+              </span>
+            )}
+            {running && (
+              <span className="settings-note">
+                {t("settings.presetActionsDisabled")}
+              </span>
+            )}
+            {settings.presets.length > 0 ? (
+              <div className="preset-list-shell">
+                <div
+                  className="preset-list"
+                  ref={presetsListRef}
+                  onScroll={handlePresetsScroll}
+                >
+                  {settings.presets.map((preset) => (
+                    <PresetRow
+                      key={preset.id}
+                      preset={preset}
+                      isActive={settings.activePresetId === preset.id}
+                      isEditing={activeEditingPresetId === preset.id}
+                      isConfirmingDelete={
+                        activeConfirmingDeleteId === preset.id
+                      }
+                      running={running}
+                      renameDraft={
+                        activeEditingPresetId === preset.id
+                          ? renameDraft
+                          : preset.name
+                      }
+                      onRenameDraftChange={setRenameDraft}
+                      onStartRename={() => handleStartRename(preset)}
+                      onCancelRename={handleCancelRename}
+                      onCommitRename={handleCommitRename}
+                      onApply={() => {
+                        setConfirmingDeleteId(null);
+                        onApplyPreset(preset.id);
+                      }}
+                      onUpdatePreset={() => {
+                        setConfirmingDeleteId(null);
+                        onUpdatePreset(preset.id);
+                      }}
+                      onRequestDelete={() => handleRequestDelete(preset.id)}
+                      onCancelDelete={() => setConfirmingDeleteId(null)}
+                      onConfirmDelete={() => handleConfirmDelete(preset.id)}
+                    />
+                  ))}
+                </div>
+                <div
+                  className={`preset-list-fade ${presetsAtBottom ? "preset-list-fade--hidden" : ""}`}
+                />
+              </div>
+            ) : (
+              <div className="stats-empty">{t("settings.noPresets")}</div>
+            )}
+          </div>
+        </SettingsCard>
+
+        <SettingsCard
+          title={t("settings.sectionBehavior")}
+          description={t("settings.sectionBehaviorDescription")}
+        >
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.alwaysOnTop")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.alwaysOnTopDescription")}
+              </span>
+            </div>
+            <div className="settings-seg-group">
+              {onOffOptions.map((option) => (
+                <button
+                  key={String(option.value)}
+                  className={`settings-seg-btn ${settings.alwaysOnTop === option.value ? "active" : ""}`}
+                  onClick={() => handleAlwaysOnTopChange(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.stopHitboxOverlay")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.stopHitboxOverlayDescription")}
+              </span>
+            </div>
+            <div className="settings-seg-group">
+              {onOffOptions.map((option) => (
+                <button
+                  key={String(option.value)}
+                  className={`settings-seg-btn ${settings.showStopOverlay === option.value ? "active" : ""}`}
+                  onClick={() => update({ showStopOverlay: option.value })}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.stopReasonAlert")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.stopReasonAlertDescription")}
+              </span>
+            </div>
+            <div className="settings-seg-group">
+              {onOffOptions.map((option) => (
+                <button
+                  key={String(option.value)}
+                  className={`settings-seg-btn ${settings.showStopReason === option.value ? "active" : ""}`}
+                  onClick={() => update({ showStopReason: option.value })}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.strictHotkeyModifiers")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.strictHotkeyModifiersDescription")}
+              </span>
+            </div>
+            <div className="settings-seg-group">
+              {onOffOptions.map((option) => (
+                <button
+                  key={String(option.value)}
+                  className={`settings-seg-btn ${settings.strictHotkeyModifiers === option.value ? "active" : ""}`}
+                  onClick={() =>
+                    update({ strictHotkeyModifiers: option.value })
+                  }
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard
+          title={t("settings.sectionStartup")}
+          description={t("settings.sectionStartupDescription")}
+        >
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.minimizeToTray")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.minimizeToTrayDescription")}
+              </span>
+            </div>
+            <div className="settings-seg-group">
+              {onOffOptions.map((option) => (
+                <button
+                  key={String(option.value)}
+                  className={`settings-seg-btn ${settings.minimizeToTray === option.value ? "active" : ""}`}
+                  onClick={() => update({ minimizeToTray: option.value })}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.runOnStartup")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.runOnStartupDescription")}
+              </span>
+            </div>
+            <div className="settings-seg-group">
+              {onOffOptions.map((option) => (
+                <button
+                  key={String(option.value)}
+                  className={`settings-seg-btn ${autostartEnabled === option.value ? "active" : ""}`}
+                  disabled={autostartEnabled === null}
+                  onClick={() => {
+                    invoke("set_autostart_enabled", { enabled: option.value })
+                      .then(() => setAutostartEnabled(option.value))
+                      .catch(console.error);
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard
+          title={t("settings.sectionAppearance")}
+          description={t("settings.sectionAppearanceDescription")}
+        >
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">{t("settings.language")}</span>
+              <span className="settings-sublabel">
+                {t("settings.languageDescription")}
+              </span>
+            </div>
+            <AdvDropdown
+              value={settings.language}
+              options={LANGUAGE_DROPDOWN_OPTIONS}
+              onChange={(next) => {
+                if (isLanguage(next)) {
+                  update({ language: next });
+                }
+              }}
+            />
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">{t("settings.theme")}</span>
+              <span className="settings-sublabel">
+                {t("settings.themeDescription")}
+              </span>
+            </div>
+            <div className="settings-seg-group">
+              {(["dark", "light"] as const).map((theme) => (
+                <button
+                  key={theme}
+                  className={`settings-seg-btn ${settings.theme === theme ? "active" : ""}`}
+                  onClick={() => update({ theme })}
+                >
+                  {t(theme === "dark" ? "common.dark" : "common.light")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.accentColor")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.accentColorDescription")}
+              </span>
+            </div>
+            <div className="settings-color-controls">
+              <label className="settings-color-picker">
+                <input
+                  type="color"
+                  value={settings.accentColor}
+                  onChange={(event) =>
+                    update({ accentColor: event.target.value })
+                  }
+                />
+              </label>
+              <span className="settings-value settings-value--mono">
+                {settings.accentColor.toUpperCase()}
+              </span>
+              <button
+                className="settings-btn-secondary"
+                onClick={() => update({ accentColor: DEFAULT_ACCENT_COLOR })}
+                disabled={settings.accentColor === DEFAULT_ACCENT_COLOR}
+              >
+                {t("common.reset")}
+              </button>
+            </div>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard
+          title={t("settings.sectionReset")}
+          description={t("settings.sectionResetDescription")}
+        >
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">{t("settings.resetAll")}</span>
+              <span className="settings-sublabel">
+                {t("settings.resetAllDescription")}
+              </span>
+            </div>
             <button
-              className="settings-btn-secondary"
-              onClick={() => update({ accentColor: DEFAULT_ACCENT_COLOR })}
-              disabled={settings.accentColor === DEFAULT_ACCENT_COLOR}
+              className="settings-btn-danger"
+              onClick={() => setPendingAction("reset-settings")}
             >
               {t("common.reset")}
             </button>
           </div>
-        </div>
-
-        <div className="settings-divider" />
-
-        <div className="settings-row settings-row--stacked">
-          <div className="settings-label-group">
-            <span className="settings-label">{t("settings.presets")}</span>
-            <span className="settings-sublabel">
-              {t("settings.presetsDescription")}
-            </span>
-          </div>
-          <div className="preset-compose">
-            <input
-              className="preset-name-input"
-              placeholder={t("settings.presetNamePlaceholder")}
-              value={newPresetName}
-              maxLength={PRESET_NAME_MAX_LENGTH}
-              onChange={(event) => setNewPresetName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  if (!running && !presetLimitReached && newPresetName.trim()) {
-                    handleSavePreset();
-                  }
-                }
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  setNewPresetName("");
-                }
-              }}
-              disabled={running}
-            />
-            <button
-              className="settings-btn-primary"
-              onClick={handleSavePreset}
-              disabled={
-                running ||
-                presetLimitReached ||
-                newPresetName.trim().length === 0
-              }
-            >
-              {t("settings.saveNewPreset")}
-            </button>
-          </div>
-          {presetLimitReached && (
-            <span className="settings-note">
-              {t("settings.presetLimitReached")}
-            </span>
-          )}
-          {running && (
-            <span className="settings-note">
-              {t("settings.presetActionsDisabled")}
-            </span>
-          )}
-          {settings.presets.length > 0 ? (
-            <div className="preset-list">
-              {settings.presets.map((preset) => (
-                <PresetRow
-                  key={preset.id}
-                  preset={preset}
-                  isActive={settings.activePresetId === preset.id}
-                  isEditing={activeEditingPresetId === preset.id}
-                  isConfirmingDelete={activeConfirmingDeleteId === preset.id}
-                  running={running}
-                  renameDraft={activeEditingPresetId === preset.id ? renameDraft : preset.name}
-                  onRenameDraftChange={setRenameDraft}
-                  onStartRename={() => handleStartRename(preset)}
-                  onCancelRename={handleCancelRename}
-                  onCommitRename={handleCommitRename}
-                  onApply={() => {
-                    setConfirmingDeleteId(null);
-                    onApplyPreset(preset.id);
-                  }}
-                  onUpdatePreset={() => {
-                    setConfirmingDeleteId(null);
-                    onUpdatePreset(preset.id);
-                  }}
-                  onRequestDelete={() => handleRequestDelete(preset.id)}
-                  onCancelDelete={() => setConfirmingDeleteId(null)}
-                  onConfirmDelete={() => handleConfirmDelete(preset.id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="stats-empty">{t("settings.noPresets")}</div>
-          )}
-        </div>
-
-        <div className="settings-divider" />
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">{t("settings.resetAll")}</span>
-            <span className="settings-sublabel">
-              {t("settings.resetAllDescription")}
-            </span>
-          </div>
-          <button
-            className="settings-btn-danger"
-            onClick={() => {
-              setResetting(true);
-              onReset()
-                .then(() => setAutostartEnabled(false))
-                .finally(() => setResetting(false));
-            }}
-          >
-            {resetting ? t("common.resetting") : t("common.reset")}
-          </button>
-        </div>
+        </SettingsCard>
       </div>
       <div
         className={`settings-fade ${atBottom ? "settings-fade--hidden" : ""}`}
       ></div>
       <ConfirmDialog
         open={pendingAction === "reset-settings"}
-        title="Reset all settings?"
-        message="All inputs, hotkeys, and preferences will return to their defaults. This can't be undone."
-        confirmLabel="Reset"
+        title={t("settings.resetDialogTitle")}
+        message={t("settings.resetDialogMessage")}
+        confirmLabel={t("settings.resetDialogConfirm")}
         busy={resetting}
         onConfirm={handleConfirmResetSettings}
         onCancel={() => setPendingAction(null)}
       />
       <ConfirmDialog
         open={pendingAction === "clear-stats"}
-        title="Clear usage data?"
-        message="Your total clicks, session count, time spent clicking, and CPU averages will be permanently erased."
-        confirmLabel="Clear"
+        title={t("settings.clearStatsDialogTitle")}
+        message={t("settings.clearStatsDialogMessage")}
+        confirmLabel={t("settings.clearStatsDialogConfirm")}
         busy={resettingStats}
         onConfirm={handleConfirmClearStats}
         onCancel={() => setPendingAction(null)}

@@ -1,7 +1,7 @@
 {
   "name": "blur-autoclicker",
   "private": true,
-  "version": "3.4.1",
+  "version": "3.5.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -15,8 +15,8 @@
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/cli": "^2.10.1",
+    "@tauri-apps/plugin-opener": "^2.5.2",
     "@tauri-apps/plugin-process": "^2.3.1",
-    "@tauri-apps/plugin-shell": "^2.3.5",
     "@tauri-apps/plugin-store": "^2.4.2",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "react": "^19.2.4",

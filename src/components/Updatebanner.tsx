@@ -2,6 +2,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 import { useTranslation, type TranslationKey } from "../i18n";
+import UnavailableReason from "./UnavailableReason";
 import "./Updatebanner.css";
 
 interface UpdateBannerProps {
@@ -64,6 +65,15 @@ export default function UpdateBanner({
     }
   };
 
+  const installDisabledReason =
+    stage === "installing"
+      ? statusKey === "update.installing"
+        ? t("update.installAlreadyInstalling")
+        : statusKey === "update.downloading"
+          ? t("update.installAlreadyDownloading")
+          : t("update.installAlreadyPreparing")
+      : undefined;
+
   return (
     <div className="update-banner">
       <span className="update-banner-text-old-version">v{currentVersion}</span>
@@ -80,15 +90,17 @@ export default function UpdateBanner({
           {t("update.restartToApply")}
         </button>
       ) : (
-        <button
-          className="update-banner-btn"
-          onClick={handleUpdate}
-          disabled={stage === "installing"}
-        >
-          {stage === "installing"
-            ? t("update.installingButton")
-            : t("update.downloadAndInstall")}
-        </button>
+        <UnavailableReason reason={installDisabledReason}>
+          <button
+            className="update-banner-btn"
+            onClick={handleUpdate}
+            disabled={stage === "installing"}
+          >
+            {stage === "installing"
+              ? t("update.installingButton")
+              : t("update.downloadAndInstall")}
+          </button>
+        </UnavailableReason>
       )}
     </div>
   );

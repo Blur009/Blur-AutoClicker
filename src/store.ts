@@ -13,7 +13,7 @@ export const APP_VERSION = await getVersion();
 export type {
   ClickInterval,
   ClickMode,
-  ExplanationMode,
+  InputType,
   MouseButton,
   PresetDefinition,
   PresetId,
@@ -31,6 +31,7 @@ export interface ClickerStatus {
   clickCount: number;
   lastError: string | null;
   stopReason: string | null;
+  activeSequenceIndex: number | null;
 }
 
 export interface AppInfo {

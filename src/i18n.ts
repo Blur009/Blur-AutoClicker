@@ -13,8 +13,9 @@ import ar from "./locales/ar.json";
 import en from "./locales/en.json";
 import es from "./locales/es.json";
 import fr from "./locales/fr.json";
+import de from "./locales/de.json";
 
-export const LANGUAGE_CODES = ["en", "es", "fr", "ar"] as const;
+export const LANGUAGE_CODES = ["en", "es", "fr", "ar", "de"] as const;
 export type Language = (typeof LANGUAGE_CODES)[number];
 
 export const DEFAULT_LANGUAGE: Language = "en";
@@ -23,6 +24,7 @@ export const LANGUAGE_OPTIONS: readonly { code: Language; label: string }[] = [
   { code: "es", label: "Español" },
   { code: "fr", label: "Français" },
   { code: "ar", label: "العربية" },
+  { code: "de", label: "Deutsch"},
 ];
 
 type TranslationTree = typeof en;
@@ -38,6 +40,7 @@ const translations: Record<Language, TranslationTree> = {
   es,
   fr,
   ar,
+  de,
 };
 
 type I18nContextValue = {

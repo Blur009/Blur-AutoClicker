@@ -1,4 +1,5 @@
-import type { Settings } from "../../store";
+import type { CSSProperties, ChangeEvent, ReactNode, WheelEvent } from "react";
+import type { MouseButton, Settings } from "../../store";
 import { useTranslation, type TranslationKey } from "../../i18n";
 import CadenceInput from "../CadenceInput";
 import HotkeyCaptureInput from "../HotkeyCaptureInput";
@@ -8,28 +9,121 @@ import {
   SETTINGS_LIMITS,
 } from "../../settingsSchema";
 import KeyCaptureInput from "../KeyCaptureInput";
-import "./Modes.css";
+import { AdvDropdown } from "./advanced/shared";
 import "./SimplePanel.css";
-// I HATE MAKING UI, FUCK UI DESIGN IN CODE, WHY CANT I JUST PHOTOSHOP THIS SHIT
-// ahem, made with love :3
+
 interface SimplePanelProps {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
 }
 
+function normalizeRaw(raw: string) {
+  return raw.replace(/^0+(?=\d)/, "");
+}
+
+function parseRawNumber(raw: string) {
+  const normalized = normalizeRaw(raw);
+  return normalized === "" ? 0 : Number(normalized);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function dynamicChWidth(value: number, min = 1, max = 3) {
+  return `${clamp(String(value).length, min, max)}ch`;
+}
+
+function handleWheelStep(
+  event: WheelEvent<HTMLInputElement>,
+  current: number,
+  min: number,
+  max: number,
+  apply: (next: number) => void,
+) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.currentTarget.blur();
+  const delta = event.deltaY < 0 ? 1 : -1;
+  apply(clamp(current + delta, min, max));
+}
+
+function ControlBox({
+  className,
+  children,
+  style,
+}: {
+  className?: string;
+  children: ReactNode;
+  style?: CSSProperties;
+}) {
+  return (
+    <div
+      className={`InputBox simple-control-box ${className ?? ""}`.trim()}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+  width,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (next: number) => void;
+  width: string;
+}) {
+  return (
+    <>
+      <span className="simple-control-label">{label}</span>
+      <div className="vertical-devider vertical-devider--stretch" />
+      <input
+        type="number"
+        title={label}
+        aria-label={label}
+        className="simple-inline-input simple-number-input"
+        style={{
+          width,
+          minWidth: "1ch",
+        }}
+        value={value}
+        min={min}
+        max={max}
+        onChange={(event: ChangeEvent<HTMLInputElement>) => {
+          const normalized = normalizeRaw(event.target.value);
+          if (normalized !== event.target.value) {
+            event.target.value = normalized;
+          }
+          onChange(parseRawNumber(normalized));
+        }}
+        onBlur={(event) => {
+          const normalized = normalizeRaw(event.target.value);
+          if (normalized !== event.target.value) {
+            event.target.value = normalized;
+          }
+          onChange(clamp(parseRawNumber(normalized), min, max));
+        }}
+        onWheel={(event) =>
+          handleWheelStep(event, value, min, max, (next) => onChange(next))
+        }
+      />
+      <div className="postfix">%</div>
+    </>
+  );
+}
+
 export default function SimplePanel({ settings, update }: SimplePanelProps) {
   const { t } = useTranslation();
-  const normalizeRaw = (raw: string) => raw.replace(/^0+(?=\d)/, "");
 
-  const parseRawNumber = (raw: string) => {
-    const normalized = normalizeRaw(raw);
-    return normalized === "" ? 0 : Number(normalized);
-  };
-
-  const clamp = (value: number, min: number, max: number) =>
-    Math.min(max, Math.max(min, value));
-  const dynamicChWidth = (value: number, min = 1, max = 3) =>
-    `${clamp(String(value).length, min, max)}ch`;
   const isShortHotkey = (() => {
     const raw = settings.hotkey.trim();
     if (!raw) return true;
@@ -37,47 +131,30 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
     return parts.length <= 2 && raw.length <= 10;
   })();
 
-  const cycleOption = <T extends string>(
-    options: readonly T[],
-    current: T,
-    direction: 1 | -1,
-  ): T => {
-    const currentIndex = options.indexOf(current);
-    const safeIndex = currentIndex === -1 ? 0 : currentIndex;
-    const nextIndex = (safeIndex + direction + options.length) % options.length;
-    return options[nextIndex];
-  };
+  const clickModeOptions = MODE_OPTIONS.map((mode) => ({
+    value: mode,
+    label: t(`options.mode.${mode}` as TranslationKey),
+  }));
 
-  const cycleWithClick = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    apply: () => void,
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-    apply();
-  };
+  const mouseButtonOptions = MOUSE_BUTTON_OPTIONS.map((button) => ({
+    value: button,
+    label: t(`options.mouseButton.${button}` as TranslationKey),
+  }));
 
-  const handleWheelStep = (
-    e: React.WheelEvent<HTMLInputElement>,
-    current: number,
-    min: number,
-    max: number,
-    apply: (next: number) => void,
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.blur();
-    const delta = e.deltaY < 0 ? 1 : -1;
-    apply(clamp(current + delta, min, max));
-  };
+  const inputTypeOptions = [
+    { value: "mouse", label: "Mouse" },
+    { value: "keyboard", label: "Key" },
+  ] as const;
 
   return (
-    <div className="vcontainer">
-      <div className="hcontainer">
-        <CadenceInput settings={settings} update={update} variant="simple" />
+    <div className="vcontainer simple-panel">
+      <div className="hcontainer simple-row simple-row--top">
+        <div className="simple-row-item">
+          <CadenceInput settings={settings} update={update} variant="simple" />
+        </div>
 
-        <div className="InputBox">
-          <div className="faderbox">
+        <ControlBox className="simple-hotkey-box simple-row-item">
+          <div className="faderbox simple-hotkey-field">
             <HotkeyCaptureInput
               className="simple-hotkey-input"
               style={{ width: isShortHotkey ? "90px" : "130px" }}
@@ -86,7 +163,7 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
             />
           </div>
           <svg
-            className="Icon"
+            className="Icon simple-hotkey-icon"
             width="20"
             height="20"
             viewBox="0 0 24 24"
@@ -106,66 +183,37 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
             <line x1="16" y1="12" x2="16" y2="12" />
             <line x1="7" y1="16" x2="17" y2="16" />
           </svg>
-          <div className="vertical-devider" />
-          <button
-            type="button"
-            className="simple-cycle-btn"
-            title={t("simple.switchMode")}
-            onClick={(e) =>
-              cycleWithClick(e, () =>
-                update({
-                  mode: cycleOption(MODE_OPTIONS, settings.mode, 1),
-                }),
-              )
-            }
-            onContextMenu={(e) =>
-              cycleWithClick(e, () =>
-                update({
-                  mode: cycleOption(MODE_OPTIONS, settings.mode, -1),
-                }),
-              )
-            }
-          >
-            {t(`options.mode.${settings.mode}` as TranslationKey)}
-          </button>
-        </div>
+          <div className="vertical-devider vertical-devider--stretch" />
+          <AdvDropdown
+            value={settings.mode}
+            options={clickModeOptions}
+            allowWindowOverflow
+            onChange={(value) => update({ mode: value as Settings["mode"] })}
+          />
+        </ControlBox>
       </div>
 
-      <div className="hcontainer">
-        <div className="InputBox">
+      <div className="hcontainer simple-row simple-row--bottom">
+        <ControlBox className="simple-input-box simple-row-item">
+          <AdvDropdown
+            value={settings.inputType}
+            options={inputTypeOptions}
+            allowWindowOverflow
+            onChange={(value) =>
+              update({ inputType: value as Settings["inputType"] })
+            }
+          />
+          <div className="vertical-devider vertical-devider--stretch" />
           {settings.inputType === "mouse" ? (
-            <button
-              type="button"
-              className="simple-cycle-btn"
-              title="Click to change button. Right-click to switch to Keyboard mode."
-              onClick={(e) =>
-                cycleWithClick(e, () =>
-                  update({
-                    mouseButton: cycleOption(
-                      MOUSE_BUTTON_OPTIONS,
-                      settings.mouseButton,
-                      1,
-                    ),
-                  }),
-                )
-              }
-              onContextMenu={(e) =>
-                cycleWithClick(e, () =>
-                  update({ inputType: "keyboard" }),
-                )
-              }
-            >
-              {
-                {
-                  Left: "Left Click",
-                  Middle: "Middle Click",
-                  Right: "Right Click",
-                }[settings.mouseButton]
-              }
-            </button>
+            <AdvDropdown
+              value={settings.mouseButton}
+              options={mouseButtonOptions}
+              allowWindowOverflow
+              onChange={(value) => update({ mouseButton: value as MouseButton })}
+            />
           ) : (
             <KeyCaptureInput
-              className="simple-cycle-btn"
+              className="simple-key-input"
               value={settings.keyboardKey}
               onChange={(key) => update({ keyboardKey: key })}
               style={{ width: "90px" }}
@@ -176,101 +224,29 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
               }}
             />
           )}
-        </div>
+        </ControlBox>
 
-        <div className="InputBox">
-          <div className="muted">{t("simple.hold")}</div>
-          <div className="vertical-devider" />
-          <input
-            type="number"
-            title={t("simple.holdDescription")}
-            className="simple-inline-input numbervalue"
-            style={{
-              width: dynamicChWidth(settings.dutyCycle),
-              minWidth: "1ch",
-            }}
+        <ControlBox className="simple-row-item">
+          <NumberField
+            label={t("simple.hold")}
             value={settings.dutyCycle}
-            min={0}
-            max={100}
-            onChange={(e) => {
-              const normalized = normalizeRaw(e.target.value);
-              if (normalized !== e.target.value) {
-                e.target.value = normalized;
-              }
-              update({ dutyCycle: parseRawNumber(normalized) });
-            }}
-            onBlur={(e) => {
-              const normalized = normalizeRaw(e.target.value);
-              if (normalized !== e.target.value) {
-                e.target.value = normalized;
-              }
-              update({
-                dutyCycle: clamp(
-                  parseRawNumber(normalized),
-                  SETTINGS_LIMITS.dutyCycle.min,
-                  SETTINGS_LIMITS.dutyCycle.max,
-                ),
-              });
-            }}
-            onWheel={(e) =>
-              handleWheelStep(
-                e,
-                settings.dutyCycle,
-                SETTINGS_LIMITS.dutyCycle.min,
-                SETTINGS_LIMITS.dutyCycle.max,
-                (next) => update({ dutyCycle: next }),
-              )
-            }
+            min={SETTINGS_LIMITS.dutyCycle.min}
+            max={SETTINGS_LIMITS.dutyCycle.max}
+            onChange={(next) => update({ dutyCycle: next })}
+            width={dynamicChWidth(settings.dutyCycle)}
           />
-          <div className="postfix">%</div>
-        </div>
+        </ControlBox>
 
-        <div className="InputBox">
-          <div className="muted">{t("simple.randomization")}</div>
-          <div className="vertical-devider" />
-          <input
-            type="number"
-            title={t("simple.randomizationDescription")}
-            className="simple-inline-input numbervalue"
-            style={{
-              width: dynamicChWidth(settings.speedVariation),
-              minWidth: "1ch",
-            }}
+        <ControlBox className="simple-row-item">
+          <NumberField
+            label={t("simple.randomization")}
             value={settings.speedVariation}
-            min={0}
-            max={200}
-            onChange={(e) => {
-              const normalized = normalizeRaw(e.target.value);
-              if (normalized !== e.target.value) {
-                e.target.value = normalized;
-              }
-              update({ speedVariation: parseRawNumber(normalized) });
-            }}
-            onBlur={(e) => {
-              const normalized = normalizeRaw(e.target.value);
-              if (normalized !== e.target.value) {
-                e.target.value = normalized;
-              }
-              update({
-                speedVariation: clamp(
-                  parseRawNumber(normalized),
-                  SETTINGS_LIMITS.speedVariation.min,
-                  SETTINGS_LIMITS.speedVariation.max,
-                ),
-              });
-            }}
-            onWheel={(e) =>
-              handleWheelStep(
-                e,
-                settings.speedVariation,
-                SETTINGS_LIMITS.speedVariation.min,
-                SETTINGS_LIMITS.speedVariation.max,
-                (next) => update({ speedVariation: next }),
-              )
-            }
+            min={SETTINGS_LIMITS.speedVariation.min}
+            max={SETTINGS_LIMITS.speedVariation.max}
+            onChange={(next) => update({ speedVariation: next })}
+            width={dynamicChWidth(settings.speedVariation)}
           />
-          <div className="postfix">%</div>
-        </div>
+        </ControlBox>
       </div>
     </div>
   );

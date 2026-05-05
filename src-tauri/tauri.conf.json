@@ -1,13 +1,14 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "BlurAutoClicker",
-  "version": "3.4.1",
+  "version": "3.5.0",
   "identifier": "BlurAutoClicker",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run vite",
-    "beforeBuildCommand": "npm run frontend:build"
+    "beforeBuildCommand": "npm run frontend:build",
+    "removeUnusedCommands": true
   },
   "app": {
     "withGlobalTauri": true,
@@ -49,14 +50,38 @@
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIyREY0RTc2QTU4Qjc1N0UKUldSK2RZdWxkazdmSW1IQmI4ZVMwOTRzWnBiVENhMFNYMFRtN0V4R3N0Q2JXQUdqM2t4VnRnNUYK"
     },
-    "windows": {
-      "installMode": "passive"
+    "bundle": {
+      "active": true,
+      "targets": "nsis",
+      "createUpdaterArtifacts": true,
+      "publisher": "Blur009",
+      "copyright": "Copyright (c) Blur009",
+      "category": "Utility",
+      "shortDescription": "Configurable auto clicker with accurate CPS timing.",
+      "longDescription": "Performance-focused auto clicker with global hotkeys, optional overlay, and advanced timing. Licensed under GPLv3.",
+      "homepage": "https://github.com/Blur009/Blur-AutoClicker",
+      "icon": ["icons/icon.ico"],
+      "windows": {
+        "webviewInstallMode": {
+          "type": "embedBootstrapper",
+          "silent": true
+        },
+        "nsis": {
+          "compression": "zlib"
+        }
+      }
     }
   },
   "bundle": {
     "active": true,
     "targets": "nsis",
     "createUpdaterArtifacts": true,
-    "icon": ["icons/icon.ico"]
+    "icon": ["icons/icon.ico"],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      }
+    }
   }
 }

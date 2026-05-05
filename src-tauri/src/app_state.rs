@@ -1,7 +1,7 @@
 use crate::hotkeys::HotkeyBinding;
 use crate::ClickerSettings;
 
-use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64};
 use std::sync::{Arc, Mutex};
 
 pub struct ClickerState {
@@ -10,6 +10,7 @@ pub struct ClickerState {
     pub settings: Mutex<ClickerSettings>,
     pub last_error: Mutex<Option<String>>,
     pub stop_reason: Mutex<Option<String>>,
+    pub active_sequence_index: AtomicI64,
     pub suppress_hotkey_until_ms: AtomicU64,
     pub suppress_hotkey_until_release: AtomicBool,
     pub hotkey_capture_active: AtomicBool,
@@ -24,6 +25,7 @@ pub struct ClickerStatusPayload {
     pub click_count: i64,
     pub last_error: Option<String>,
     pub stop_reason: Option<String>,
+    pub active_sequence_index: Option<usize>,
 }
 
 #[derive(Clone, serde::Serialize)]

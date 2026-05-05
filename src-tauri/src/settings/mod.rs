@@ -3,6 +3,12 @@
 pub struct SequencePoint {
     pub x: i32,
     pub y: i32,
+    #[serde(default = "default_sequence_point_clicks")]
+    pub clicks: u16,
+}
+
+fn default_sequence_point_clicks() -> u16 {
+    1
 }
 
 #[derive(Clone, serde::Deserialize, serde::Serialize, Debug)]
@@ -12,6 +18,7 @@ pub struct ClickerSettings {
     pub click_speed: f64,
     pub click_interval: String,
     pub rate_input_mode: String,
+    pub duration_hours: u32,
     pub duration_minutes: u32,
     pub duration_seconds: u32,
     pub duration_milliseconds: u32,
@@ -43,9 +50,6 @@ pub struct ClickerSettings {
     pub edge_stop_right: i32,
     pub edge_stop_bottom: i32,
     pub edge_stop_left: i32,
-    pub position_enabled: bool,
-    pub position_x: i32,
-    pub position_y: i32,
     pub sequence_enabled: bool,
     pub sequence_points: Vec<SequencePoint>,
     pub custom_stop_zone_enabled: bool,
@@ -55,7 +59,6 @@ pub struct ClickerSettings {
     pub custom_stop_zone_height: i32,
     pub disable_screenshots: bool,
     pub advanced_settings_enabled: bool,
-    pub explanation_mode: String,
     pub last_panel: String,
     pub show_stop_reason: bool,
     pub show_stop_overlay: bool,
@@ -71,6 +74,7 @@ impl Default for ClickerSettings {
             click_speed: 25.0,
             click_interval: "s".to_string(),
             rate_input_mode: "rate".to_string(),
+            duration_hours: 0,
             duration_minutes: 0,
             duration_seconds: 0,
             duration_milliseconds: 40,
@@ -98,9 +102,6 @@ impl Default for ClickerSettings {
             edge_stop_right: 40,
             edge_stop_bottom: 40,
             edge_stop_left: 40,
-            position_enabled: false,
-            position_x: 0,
-            position_y: 0,
             sequence_enabled: false,
             sequence_points: Vec::new(),
             custom_stop_zone_enabled: false,
@@ -110,7 +111,6 @@ impl Default for ClickerSettings {
             custom_stop_zone_height: 100,
             disable_screenshots: false,
             advanced_settings_enabled: true,
-            explanation_mode: "text".to_string(),
             last_panel: "simple".to_string(),
             show_stop_reason: true,
             show_stop_overlay: true,

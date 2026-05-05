@@ -24,8 +24,8 @@ body:
     id: version
     attributes:
       label: Blur Auto Clicker version
-      description: Example: 3.4.1
-      placeholder: 3.4.1
+      description: "Example: 3.5.0"
+      placeholder: 3.5.0
     validations:
       required: true
 
@@ -33,8 +33,8 @@ body:
     id: windows_version
     attributes:
       label: Windows version
-      description: Example: Windows 11 24H2
-      placeholder: Windows 11 24H2
+      description: "Example: Windows 11 25H2"
+      placeholder: Windows 11 25H2
     validations:
       required: true
 
@@ -50,17 +50,37 @@ body:
       required: true
 
   - type: dropdown
-    id: affected_area
+    id: mode
     attributes:
-      label: Affected area
+      label: Affected mode
       options:
         - Simple
         - Advanced
         - Settings / General
-        - Clicking engine
-        - Hotkeys
-        - Overlay
-        - Installer / Updates
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mouse_button
+    attributes:
+      label: Mouse button
+      options:
+        - Left
+        - Right
+        - Middle
+        - Multiple
+        - Not sure / N/A
+    validations:
+      required: true
+
+  - type: dropdown
+    id: activation_mode
+    attributes:
+      label: Activation mode
+      options:
+        - Hold
+        - Toggle
         - Not sure / N/A
     validations:
       required: true
@@ -112,14 +132,7 @@ body:
       required: true
 
   - type: textarea
-    id: evidence
-    attributes:
-      label: Logs, screenshots, or recordings
-      description: Add anything else that may help, such as screenshots, recordings, logs, or unusual system behavior.
-
-  - type: textarea
     id: additional_context
     attributes:
       label: Additional context
-      description: Add any extra context that may help explain the problem.
-
+      description: Add anything else that may help, such as screenshots, recordings, logs, or unusual system behavior

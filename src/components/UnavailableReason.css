@@ -1,0 +1,80 @@
+.unavailable-reason {
+  --unavailable-reason-offset-x: 0px;
+  --unavailable-reason-surface: color-mix(
+    in srgb,
+    var(--bg-surface) 92%,
+    black 8%
+  );
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.unavailable-reason--block {
+  display: block;
+}
+
+.unavailable-reason-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(calc(-50% + var(--unavailable-reason-offset-x)))
+    translateY(4px);
+  width: max-content;
+  max-width: min(260px, calc(100vw - 48px));
+  padding: 8px 10px;
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm);
+  background: var(--unavailable-reason-surface);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  color: var(--text-primary);
+  font-family: 'DMSans', sans-serif;
+  font-size: 11px;
+  font-weight: var(--font-weight-md);
+  line-height: 1.35;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 30;
+}
+
+.unavailable-reason-tooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 8px;
+  height: 8px;
+  background: var(--unavailable-reason-surface);
+  border-right: 1px solid var(--border-focus);
+  border-bottom: 1px solid var(--border-focus);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.unavailable-reason[data-placement="below"] .unavailable-reason-tooltip {
+  top: calc(100% + 8px);
+  bottom: auto;
+  transform: translateX(calc(-50% + var(--unavailable-reason-offset-x)))
+    translateY(-4px);
+}
+
+.unavailable-reason[data-placement="below"] .unavailable-reason-tooltip::after {
+  top: auto;
+  bottom: 100%;
+  border-right: 1px solid var(--border-focus);
+  border-bottom: 1px solid var(--border-focus);
+  transform: translateX(-50%) rotate(225deg);
+}
+
+.unavailable-reason[data-open="true"] .unavailable-reason-tooltip {
+  opacity: 1;
+  transform: translateX(calc(-50% + var(--unavailable-reason-offset-x)))
+    translateY(0);
+}
+
+.unavailable-reason[data-open="true"][data-placement="below"]
+  .unavailable-reason-tooltip {
+  transform: translateX(calc(-50% + var(--unavailable-reason-offset-x)))
+    translateY(0);
+}

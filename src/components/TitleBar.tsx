@@ -96,6 +96,26 @@ const TAB_ITEMS: readonly TabItem[] = [
       </svg>
     ),
   },
+  {
+    value: "zones",
+    labelKey: "titleBar.zones",
+    color: "hsl(208 85% 58%)",
+    icon: ({ active }) => (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={active ? "2.2" : "2"}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="8" />
+      </svg>
+    ),
+  },
 ] as const;
 
 export default function TitleBar({

@@ -2,22 +2,33 @@ import { DEFAULT_LANGUAGE, isLanguage, type Language } from "./i18n";
 
 export type ClickInterval = "s" | "m" | "h" | "d";
 export type MouseButton = "Left" | "Middle" | "Right";
+export type InputType = "mouse" | "keyboard";
 export type ClickMode = "Toggle" | "Hold";
 export type TimeLimitUnit = "s" | "m" | "h";
-export type SavedPanel = "simple" | "advanced";
-export type ExplanationMode = "off" | "text";
+export type SavedPanel = "simple" | "advanced" | "zones";
 export type Theme = "dark" | "light";
 export type PresetId = string;
 export type RateInputMode = "rate" | "duration";
 
 export interface SequencePoint {
+  id: string;
   x: number;
   y: number;
+  clicks: number;
+}
+
+function createSequencePointId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `seq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  );
 }
 
 export interface PresetSnapshot {
   clickSpeed: number;
   clickInterval: ClickInterval;
+  inputType: InputType;
+  keyboardKey: string;
   mouseButton: MouseButton;
   mode: ClickMode;
   dutyCycleEnabled: boolean;
@@ -41,9 +52,6 @@ export interface PresetSnapshot {
   edgeStopBottom: number;
   edgeStopLeft: number;
   edgeStopRight: number;
-  positionEnabled: boolean;
-  positionX: number;
-  positionY: number;
 }
 
 export interface PresetDefinition {
@@ -59,6 +67,7 @@ export interface Settings extends PresetSnapshot {
   hotkey: string;
   language: Language;
   rateInputMode: RateInputMode;
+  durationHours: number;
   durationMinutes: number;
   durationSeconds: number;
   durationMilliseconds: number;
@@ -71,12 +80,11 @@ export interface Settings extends PresetSnapshot {
   customStopZoneHeight: number;
   disableScreenshots: boolean;
   advancedSettingsEnabled: boolean;
-  explanationMode: ExplanationMode;
   lastPanel: SavedPanel;
   showStopReason: boolean;
   showStopOverlay: boolean;
   strictHotkeyModifiers: boolean;
-  inputType: "mouse" | "keyboard";
+  inputType: InputType;
   keyboardKey: string;
   minimizeToTray: boolean;
   theme: Theme;
@@ -111,15 +119,19 @@ export const SETTINGS_LIMITS = {
   timeLimit: { min: 1 },
   stopBoundary: { min: 0, max: 999 },
   position: { min: 0 },
+  durationHours: { min: 0, max: 999 },
   durationMinutes: { min: 0 },
   durationSeconds: { min: 0, max: 59 },
   durationMilliseconds: { min: 0, max: 999 },
   stopZoneDimension: { min: 1 },
+  sequencePointClicks: { min: 1, max: 1000 },
 } as const;
 
 export const PRESET_SNAPSHOT_KEYS = [
   "clickSpeed",
   "clickInterval",
+  "inputType",
+  "keyboardKey",
   "mouseButton",
   "mode",
   "dutyCycleEnabled",
@@ -143,9 +155,6 @@ export const PRESET_SNAPSHOT_KEYS = [
   "edgeStopBottom",
   "edgeStopLeft",
   "edgeStopRight",
-  "positionEnabled",
-  "positionX",
-  "positionY",
 ] as const satisfies ReadonlyArray<keyof PresetSnapshot>;
 
 export function clampNumber(
@@ -165,25 +174,7 @@ export function sanitizeBoolean(value: unknown, fallback: boolean): boolean {
 }
 
 function sanitizeSavedPanel(value: unknown): SavedPanel {
-  return value === "advanced" ? value : "simple";
-}
-
-function sanitizeExplanationMode(
-  input: Partial<Settings> | null | undefined,
-): ExplanationMode {
-  const saved = (input ?? {}) as Partial<Settings> & {
-    functionExplanationsEnabled?: boolean;
-    toolTipsEnabled?: boolean;
-    explanationMode?: unknown;
-  };
-
-  if (saved.explanationMode === "off" || saved.explanationMode === "text") {
-    return saved.explanationMode;
-  }
-
-  if (saved.toolTipsEnabled) return "text";
-  if (saved.functionExplanationsEnabled === false) return "off";
-  return "text";
+  return value === "advanced" || value === "zones" ? value : "simple";
 }
 
 function sanitizeTheme(value: unknown): Theme {
@@ -241,10 +232,8 @@ export function createDefaultSettings(version: string): Settings {
     edgeStopBottom: 40,
     edgeStopLeft: 40,
     edgeStopRight: 40,
-    positionEnabled: false,
-    positionX: 0,
-    positionY: 0,
     rateInputMode: "rate",
+    durationHours: 0,
     durationMinutes: 0,
     durationSeconds: 0,
     durationMilliseconds: 40,
@@ -257,7 +246,6 @@ export function createDefaultSettings(version: string): Settings {
     customStopZoneHeight: 100,
     disableScreenshots: false,
     advancedSettingsEnabled: true,
-    explanationMode: "text",
     lastPanel: "simple",
     showStopReason: true,
     showStopOverlay: true,
@@ -277,6 +265,8 @@ export function buildPresetSnapshot(settings: Settings): PresetSnapshot {
   return {
     clickSpeed: settings.clickSpeed,
     clickInterval: settings.clickInterval,
+    inputType: settings.inputType,
+    keyboardKey: settings.keyboardKey,
     mouseButton: settings.mouseButton,
     mode: settings.mode,
     dutyCycleEnabled: settings.dutyCycleEnabled,
@@ -300,9 +290,6 @@ export function buildPresetSnapshot(settings: Settings): PresetSnapshot {
     edgeStopBottom: settings.edgeStopBottom,
     edgeStopLeft: settings.edgeStopLeft,
     edgeStopRight: settings.edgeStopRight,
-    positionEnabled: settings.positionEnabled,
-    positionX: settings.positionX,
-    positionY: settings.positionY,
   };
 }
 
@@ -354,6 +341,11 @@ function sanitizePresetSnapshot(
       saved.clickInterval === "d"
         ? saved.clickInterval
         : defaults.clickInterval,
+    inputType: saved.inputType === "keyboard" ? "keyboard" : defaults.inputType,
+    keyboardKey:
+      typeof saved.keyboardKey === "string"
+        ? saved.keyboardKey
+        : defaults.keyboardKey,
     mouseButton:
       saved.mouseButton === "Middle" || saved.mouseButton === "Right"
         ? saved.mouseButton
@@ -468,20 +460,6 @@ function sanitizePresetSnapshot(
       SETTINGS_LIMITS.stopBoundary.min,
       SETTINGS_LIMITS.stopBoundary.max,
     ),
-    positionEnabled: sanitizeBoolean(
-      saved.positionEnabled,
-      defaults.positionEnabled,
-    ),
-    positionX: clampNumber(
-      saved.positionX,
-      defaults.positionX,
-      SETTINGS_LIMITS.position.min,
-    ),
-    positionY: clampNumber(
-      saved.positionY,
-      defaults.positionY,
-      SETTINGS_LIMITS.position.min,
-    ),
   };
 }
 
@@ -496,10 +474,29 @@ function sanitizeSequencePoints(value: unknown): SequencePoint[] {
     .map((point) => {
       if (!point || typeof point !== "object") return null;
       const candidate = point as Partial<SequencePoint>;
+      const id =
+        typeof candidate.id === "string" && candidate.id.trim()
+          ? candidate.id.trim()
+          : createSequencePointId();
       const x = typeof candidate.x === "number" && Number.isFinite(candidate.x) ? Math.trunc(candidate.x) : null;
       const y = typeof candidate.y === "number" && Number.isFinite(candidate.y) ? Math.trunc(candidate.y) : null;
+      const clicks =
+        typeof candidate.clicks === "number" &&
+        Number.isFinite(candidate.clicks)
+          ? Math.trunc(candidate.clicks)
+          : 1;
       if (x === null || y === null) return null;
-      return { x, y };
+      return {
+        id,
+        x,
+        y,
+        clicks: clampNumber(
+          clicks,
+          1,
+          SETTINGS_LIMITS.sequencePointClicks.min,
+          SETTINGS_LIMITS.sequencePointClicks.max,
+        ),
+      };
     })
     .filter((point): point is SequencePoint => point !== null);
 }
@@ -680,18 +677,8 @@ export function sanitizeSettings(
       SETTINGS_LIMITS.stopBoundary.min,
       SETTINGS_LIMITS.stopBoundary.max,
     ),
-    positionEnabled: sequenceEnabled ? false : sanitizeBoolean(saved.positionEnabled, defaults.positionEnabled),
-    positionX: clampNumber(
-      saved.positionX,
-      defaults.positionX,
-      SETTINGS_LIMITS.position.min,
-    ),
-    positionY: clampNumber(
-      saved.positionY,
-      defaults.positionY,
-      SETTINGS_LIMITS.position.min,
-    ),
     rateInputMode: sanitizeRateInputMode(saved.rateInputMode),
+    durationHours: clampNumber(saved.durationHours, defaults.durationHours, SETTINGS_LIMITS.durationHours.min, SETTINGS_LIMITS.durationHours.max),
     durationMinutes: clampNumber(saved.durationMinutes, defaults.durationMinutes, SETTINGS_LIMITS.durationMinutes.min),
     durationSeconds: clampNumber(saved.durationSeconds, defaults.durationSeconds, SETTINGS_LIMITS.durationSeconds.min, SETTINGS_LIMITS.durationSeconds.max),
     durationMilliseconds: clampNumber(saved.durationMilliseconds, defaults.durationMilliseconds, SETTINGS_LIMITS.durationMilliseconds.min, SETTINGS_LIMITS.durationMilliseconds.max),
@@ -703,7 +690,6 @@ export function sanitizeSettings(
     customStopZoneWidth: clampNumber(saved.customStopZoneWidth, defaults.customStopZoneWidth, SETTINGS_LIMITS.stopZoneDimension.min),
     customStopZoneHeight: clampNumber(saved.customStopZoneHeight, defaults.customStopZoneHeight, SETTINGS_LIMITS.stopZoneDimension.min),
     disableScreenshots: false,
-    explanationMode: sanitizeExplanationMode(saved),
     lastPanel: sanitizeSavedPanel(saved.lastPanel),
     theme: sanitizeTheme(saved.theme),
     strictHotkeyModifiers: sanitizeBoolean(saved.strictHotkeyModifiers, defaults.strictHotkeyModifiers),

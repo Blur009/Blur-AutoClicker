@@ -177,6 +177,12 @@
         }
 
         function addZone(x, y, w, h, cls) {
+            const scale = window.devicePixelRatio || 1;
+            x = x / scale;
+            y = y / scale;
+            w = w / scale;
+            h = h / scale;
+            
             if (w <= 0 || h <= 0) return;
             const div = document.createElement('div');
             div.className = 'zone ' + cls;
