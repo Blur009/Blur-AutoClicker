@@ -28,6 +28,7 @@ Performance is also a heavy focus of this. While version 3 and onwards run on a 
 Simple Mode:
 - On / Off Indicator (blur logo turns green when active)
 - Individual mouse button settings (left, right, middle)
+- Keyboard key pressing with lower/uppercase letter control
 - Hold / Toggle activation modes
 - customizable hotkeys
 
@@ -42,6 +43,12 @@ Advanced Mode (includes all simple mode features plus):
   
 Other Features:
 - click stats (total clicks, clicks per second, etc)
+
+### Mouse and keyboard targets
+
+Use the Mouse/Key target selector to choose what Blur Auto Clicker sends each cycle. In Mouse mode, pick left, middle, or right click. In Key mode, click the key field and press the key you want auto-pressed.
+
+For letter keys, use the small arrow control next to the key field to switch whether the key is sent as lowercase or uppercase. A large up arrow means uppercase, and a small down arrow means lowercase. Non-letter keys ignore this case control. Right-click the key field to clear the selected key before choosing a new one.
   
 ---
 

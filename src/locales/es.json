@@ -113,6 +113,8 @@
     "hotkeyDescription": "Elige la combinación de teclas que inicia y detiene el clicker. Usa Alternar para pulsar para activar/desactivar, o Mantener para hacer clic solo mientras se mantiene pulsado.",
     "mouseButton": "Botón del mouse",
     "mouseButtonDescription": "Selecciona qué botón del mouse pulsará el clicker en cada evento de clic.",
+    "keyboardKey": "Tecla",
+    "keyboardKeyDescription": "Selecciona qué tecla pulsará el clicker en cada evento de clic.",
     "dutyCycle": "Duración del clic",
     "dutyCycleDescription": "Elige cuánto tiempo se mantiene pulsado el botón del mouse en cada clic. 50% a 1 clic por segundo = 0.5 seg pulsado, 0.5 seg liberado",
     "speedVariation": "Variación de velocidad",

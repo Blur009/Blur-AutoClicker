@@ -11,6 +11,10 @@ fn default_sequence_point_clicks() -> u16 {
     1
 }
 
+fn default_keyboard_key_case() -> String {
+    "lower".to_string()
+}
+
 #[derive(Clone, serde::Deserialize, serde::Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ClickerSettings {
@@ -63,12 +67,16 @@ pub struct ClickerSettings {
     pub show_stop_reason: bool,
     pub show_stop_overlay: bool,
     pub strict_hotkey_modifiers: bool,
+    pub input_type: String,
+    pub keyboard_key: String,
+    #[serde(default = "default_keyboard_key_case")]
+    pub keyboard_key_case: String,
 }
 
 impl Default for ClickerSettings {
     fn default() -> Self {
         Self {
-            version: 8,
+            version: 9,
             click_speed: 25.0,
             click_interval: "s".to_string(),
             rate_input_mode: "rate".to_string(),
@@ -113,6 +121,9 @@ impl Default for ClickerSettings {
             show_stop_reason: true,
             show_stop_overlay: true,
             strict_hotkey_modifiers: false,
+            input_type: "mouse".to_string(),
+            keyboard_key: String::new(),
+            keyboard_key_case: default_keyboard_key_case(),
         }
     }
 }

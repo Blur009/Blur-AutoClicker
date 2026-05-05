@@ -112,6 +112,8 @@
     "hotkeyDescription": "Choose the key combo that starts and stops the clicker. Use Toggle for press-on/press-off, or Hold to click only while held.",
     "mouseButton": "Mouse Button",
     "mouseButtonDescription": "Select which mouse button the clicker will press on each click event.",
+    "keyboardKey": "Keyboard Key",
+    "keyboardKeyDescription": "Select which keyboard key the clicker will press on each click event.",
     "dutyCycle": "Click Duration",
     "dutyCycleDescription": "Choose how long the mouse button gets held during each click. 50% at 1 click per second = 0.5sec held, 0.5sec released",
     "speedVariation": "Speed Variation",

@@ -12,6 +12,7 @@ use crate::ClickerStatusPayload;
 use crate::STATUS_EVENT;
 
 use super::failsafe::should_stop_for_failsafe;
+use super::keyboard::{is_alphabetic_vk, send_key_presses};
 use super::mouse::{
     get_button_flags, get_cursor_pos, move_mouse, send_clicks, smooth_move, VirtualScreenRect,
 };
@@ -112,6 +113,29 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
 
     let settings = state.settings.lock().unwrap().clone();
     let config = build_config(&settings)?;
+
+    // Prevent feedback loop: keyboard key must not match a modifier-free hotkey
+    if config.input_type == 1 && config.key_code > 0 {
+        let hotkey_binding = state.registered_hotkey.lock().unwrap().clone();
+        if let Some(binding) = hotkey_binding {
+            if binding.main_vk == config.key_code as i32 {
+                let conflicts_with_plain_key =
+                    !binding.ctrl && !binding.alt && !binding.shift && !binding.super_key;
+                let conflicts_with_uppercase_key = config.keyboard_uppercase
+                    && binding.shift
+                    && !binding.ctrl
+                    && !binding.alt
+                    && !binding.super_key;
+
+                if conflicts_with_plain_key || conflicts_with_uppercase_key {
+                    return Err(String::from(
+                        "The auto-press key conflicts with your hotkey. Use a modifier on the hotkey (e.g. Ctrl+key) or pick a different key.",
+                    ));
+                }
+            }
+        }
+    }
+
     if config.use_sequence() {
         state.active_sequence_index.store(0, Ordering::SeqCst);
     }
@@ -203,6 +227,23 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         _ => 1,
     };
 
+    let is_keyboard = settings.input_type == "keyboard";
+    let key_code = if is_keyboard && !settings.keyboard_key.is_empty() {
+        match crate::hotkeys::parse_hotkey_main_key(&settings.keyboard_key, &settings.keyboard_key)
+        {
+            Ok((vk, _)) => vk as u16,
+            Err(_) => return Err(format!("Unknown keyboard key: '{}'", settings.keyboard_key)),
+        }
+    } else {
+        0u16
+    };
+
+    if is_keyboard && key_code == 0 {
+        return Err(String::from("Keyboard mode requires a key to be selected"));
+    }
+    let keyboard_uppercase =
+        is_keyboard && settings.keyboard_key_case == "upper" && is_alphabetic_vk(key_code);
+
     let time_limit_secs = if settings.time_limit_enabled {
         Some(match settings.time_limit_unit.as_str() {
             "m" => settings.time_limit * 60.0,
@@ -264,6 +305,9 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         edge_stop_right: settings.edge_stop_right,
         edge_stop_bottom: settings.edge_stop_bottom,
         edge_stop_left: settings.edge_stop_left,
+        input_type: if is_keyboard { 1 } else { 0 },
+        key_code,
+        keyboard_uppercase,
     })
 }
 
@@ -320,7 +364,12 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
 
     let mut rng = SmallRng::new();
     let mut click_count: i64 = 0;
-    let (down_flag, up_flag) = get_button_flags(config.button);
+    let is_keyboard = config.input_type == 1 && config.key_code > 0;
+    let (down_flag, up_flag) = if is_keyboard {
+        (0u32, 0u32)
+    } else {
+        get_button_flags(config.button)
+    };
     let cps = if config.interval_secs > 0.0 {
         1.0 / config.interval_secs
     } else {
@@ -442,15 +491,27 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             break;
         }
 
-        send_clicks(
-            down_flag,
-            up_flag,
-            clicks_this_cycle,
-            hold_ms,
-            config.double_click_enabled,
-            config.double_click_delay_ms,
-            &control,
-        );
+        if is_keyboard {
+            send_key_presses(
+                config.key_code,
+                clicks_this_cycle,
+                hold_ms,
+                config.keyboard_uppercase,
+                config.double_click_enabled,
+                config.double_click_delay_ms,
+                &control,
+            );
+        } else {
+            send_clicks(
+                down_flag,
+                up_flag,
+                clicks_this_cycle,
+                hold_ms,
+                config.double_click_enabled,
+                config.double_click_delay_ms,
+                &control,
+            );
+        }
 
         if !control.is_active() {
             break;
@@ -552,6 +613,9 @@ mod tests {
             edge_stop_right: 40,
             edge_stop_bottom: 40,
             edge_stop_left: 40,
+            input_type: 0,
+            key_code: 0,
+            keyboard_uppercase: false,
         }
     }
 
@@ -624,5 +688,22 @@ mod tests {
                 clicks: 1
             }
         );
+    }
+
+    #[test]
+    fn keyboard_uppercase_is_enabled_only_for_letter_keys() {
+        let mut settings = sample_settings();
+        settings.input_type = "keyboard".to_string();
+        settings.keyboard_key = "a".to_string();
+        settings.keyboard_key_case = "upper".to_string();
+
+        let config = build_config(&settings).expect("letter key should parse");
+        assert_eq!(config.key_code, b'A' as u16);
+        assert!(config.keyboard_uppercase);
+
+        settings.keyboard_key = "1".to_string();
+        let config = build_config(&settings).expect("digit key should parse");
+        assert_eq!(config.key_code, b'1' as u16);
+        assert!(!config.keyboard_uppercase);
     }
 }

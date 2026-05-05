@@ -113,6 +113,8 @@
     "hotkeyDescription": "Wählen Sie die Tastenkombination, die den Klicker startet und stoppt. Verwenden Sie Umschalten für Ein-/Ausschalten, oder Halten, um nur beim Gedrückthalten zu klicken.",
     "mouseButton": "Maustaste",
     "mouseButtonDescription": "Wählen Sie, welche Maustaste der Klicker bei jedem Klickereignis drückt.",
+    "keyboardKey": "Tastaturtaste",
+    "keyboardKeyDescription": "Wählen Sie, welche Tastaturtaste der Klicker bei jedem Klickereignis drückt.",
     "dutyCycle": "Klickdauer",
     "dutyCycleDescription": "Wählen Sie, wie lange die Maustaste bei jedem Klick gedrückt gehalten wird. 50% bei 1 Klick pro Sekunde = 0,5s gedrückt, 0,5s losgelassen",
     "speedVariation": "Geschwindigkeitsvariation",

@@ -13,6 +13,8 @@ export const APP_VERSION = await getVersion();
 export type {
   ClickInterval,
   ClickMode,
+  InputType,
+  KeyboardKeyCase,
   MouseButton,
   PresetDefinition,
   PresetId,

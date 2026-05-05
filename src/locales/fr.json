@@ -113,6 +113,8 @@
     "hotkeyDescription": "Choisissez la combinaison de touches qui démarre et arrête le clicker. Utilisez Alterner pour appuyer pour activer/désactiver, ou Maintenir pour cliquer uniquement lorsqu'il est maintenu.",
     "mouseButton": "Bouton de souris",
     "mouseButtonDescription": "Sélectionnez le bouton de souris que le clicker pressera à chaque événement de clic.",
+    "keyboardKey": "Touche clavier",
+    "keyboardKeyDescription": "Sélectionnez la touche clavier que le clicker pressera à chaque événement de clic.",
     "dutyCycle": "Durée du clic",
     "dutyCycleDescription": "Choisissez la durée pendant laquelle le bouton de souris reste enfoncé à chaque clic. 50 % à 1 clic par seconde = 0,5 s enfoncé, 0,5 s relâché",
     "speedVariation": "Variation de vitesse",

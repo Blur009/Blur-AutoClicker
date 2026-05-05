@@ -146,6 +146,53 @@
   cursor: pointer;
 }
 
+.simple-key-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.simple-key-case-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  margin-left: 0.25rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: 'DMSans', sans-serif;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.simple-key-case-toggle--upper {
+  font-size: 1.125rem;
+}
+
+.simple-key-case-toggle--lower {
+  font-size: 0.8125rem;
+}
+
+.simple-key-case-toggle:hover:not(:disabled) {
+  background: var(--bg-input);
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
+
+.simple-key-case-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .simple-hotkey-field {
   flex: 0 0 auto;
 }
