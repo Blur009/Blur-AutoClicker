@@ -55,6 +55,15 @@
   color: var(--text-primary);
 }
 
+.adv-seg-group-click-action {
+  min-width: 15rem;
+}
+
+.adv-seg-group-click-action .adv-seg-btn-click-action {
+  min-width: 7.5rem;
+  white-space: nowrap;
+}
+
 .adv-seg-btn:focus,
 .adv-seg-btn:focus-visible,
 .adv-seg-btn-dynamic:focus,

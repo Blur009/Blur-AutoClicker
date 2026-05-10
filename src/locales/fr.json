@@ -113,6 +113,8 @@
     "hotkeyDescription": "Choisissez la combinaison de touches qui démarre et arrête le clicker. Utilisez Alterner pour appuyer pour activer/désactiver, ou Maintenir pour cliquer uniquement lorsqu'il est maintenu.",
     "mouseButton": "Bouton de souris",
     "mouseButtonDescription": "Sélectionnez le bouton de souris que le clicker pressera à chaque événement de clic.",
+    "clickAction": "Action de clic",
+    "clickActionDescription": "Choisissez si chaque clic envoie à la fois l'appui et le relâchement, ou uniquement les événements d'appui pendant l'exécution.",
     "dutyCycle": "Durée du clic",
     "dutyCycleDescription": "Choisissez la durée pendant laquelle le bouton de souris reste enfoncé à chaque clic. 50 % à 1 clic par seconde = 0,5 s enfoncé, 0,5 s relâché",
     "speedVariation": "Variation de vitesse",
@@ -169,6 +171,7 @@
     "mode": { "Toggle": "Alterner", "Hold": "Maintenir" },
     "mouseButton": { "Left": "Gauche", "Middle": "Milieu", "Right": "Droit" },
     "mouseClick": { "Left": "Clic gauche", "Middle": "Clic milieu", "Right": "Clic droit" },
+    "clickAction": { "downUp": "Down + Up", "downOnly": "Down Only" },
     "timeUnitShort": { "s": "s", "m": "min", "h": "h" }
   },
   "hotkey": {
