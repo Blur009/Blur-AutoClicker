@@ -1,3 +1,9 @@
+# v3.6.1 - 12.05.2026 (d.m.y)
+## Fix
+- fixed sequence clicking not going through items correctly & movement with pointer percision issues should now be fixed as well. Within that fix i added always on movement & click randomization
+## Changed
+- made batch clicking work better with sequence clicking so cps can go up to 500 when sequence clicking items don't have a too low click count. 
+
 # v3.6.0 - 11.05.2026 (d.m.y)
 ## New
 - Added the ability to choose between mouse clicking and keyboard clicking

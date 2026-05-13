@@ -49,12 +49,10 @@ impl ClickerConfig {
     }
 }
 
-// Calibrates the CPU cycle frequency
 fn calibrate_cycle_freq() -> f64 {
     let start_cycles = thread_cycles();
     let start = Instant::now();
 
-    // Spin for ~5ms
     while start.elapsed().as_millis() < 5 {
         std::hint::spin_loop();
     }
@@ -288,9 +286,9 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
                 clicks: point.clicks.clamp(1, 100000) as usize,
             })
             .collect(),
-        offset: 0.0,
-        offset_chance: 0.0,
-        smoothing: 0,
+        offset: 2.0,
+        offset_chance: 21.6,
+        smoothing: 1,
         custom_stop_zone_enabled: settings.custom_stop_zone_enabled,
         custom_stop_zone: VirtualScreenRect::new(
             settings.custom_stop_zone_x,
@@ -386,8 +384,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
         1usize
     };
 
-    let batch_interval = config.interval_secs * batch_size as f64;
-    let has_position = config.sequence_enabled;
+    let has_position = config.use_sequence();
     let use_smoothing = config.smoothing == 1 && cps < 50.0;
 
     let mut sequence_index = 0usize;
@@ -400,11 +397,11 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     };
     let mut next_batch_time = Instant::now();
     let mut stop_reason = String::from("Stopped");
+    let mut moved_sequence_index: Option<usize> = None;
 
-    let (current_x, current_y) = get_cursor_pos();
-    let (diff_x, diff_y) = (target_x - current_x, target_y - current_y);
     if has_position {
-        move_mouse(diff_x, diff_y);
+        move_mouse(target_x, target_y);
+        moved_sequence_index = Some(sequence_index);
     }
 
     if config.use_sequence() {
@@ -434,11 +431,9 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
 
         cycle_target = current_cycle_target(&config, sequence_index);
 
-        let cycle_duration_base = batch_interval;
-
         if has_position {
             let (base_x, base_y) = (cycle_target.x, cycle_target.y);
-            if config.offset_chance <= 0.0 || rng.next_f64() * 100.0 <= config.offset_chance {
+            if config.offset_chance > 0.0 && rng.next_f64() * 100.0 <= config.offset_chance {
                 let angle = rng.next_f64() * 2.0 * PI;
                 let radius = rng.next_f64().sqrt() * config.offset;
                 target_x = (base_x as f64 + radius * angle.cos()) as i32;
@@ -448,24 +443,27 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
                 target_y = base_y;
             }
 
-            if use_smoothing {
+            let should_move_to_target =
+                moved_sequence_index != Some(sequence_index) || config.offset > 0.0;
+
+            if use_smoothing && should_move_to_target {
                 let (cur_x, cur_y) = get_cursor_pos();
                 if cur_x != target_x || cur_y != target_y {
                     let smooth_dur =
-                        ((cycle_duration_base * (0.2 + rng.next_f64() * 0.4)) * 1000.0) as u64;
+                        ((config.interval_secs * (0.2 + rng.next_f64() * 0.4)) * 1000.0) as u64;
                     smooth_move(
                         cur_x,
                         cur_y,
                         target_x,
                         target_y,
-                        smooth_dur.clamp(15, 200),
+                        smooth_dur.clamp(1, 200),
                         &mut rng,
                     );
                 }
-            } else {
-                let (current_x, current_y) = get_cursor_pos();
-                let (diff_x, diff_y) = (target_x - current_x, target_y - current_y);
-                move_mouse(diff_x, diff_y);
+                moved_sequence_index = Some(sequence_index);
+            } else if should_move_to_target {
+                move_mouse(target_x, target_y);
+                moved_sequence_index = Some(sequence_index);
             }
         }
 
