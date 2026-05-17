@@ -5,7 +5,8 @@
     "fr": "Français",
     "ar": "العربية",
     "de": "Deutsch",
-    "he": "עברית"
+    "he": "עברית",
+    "cn": "简体中文"
   },
   "common": {
     "on": "تشغيل",
@@ -168,7 +169,8 @@
     "sequenceAddingIn": "سيتم الإضافة خلال",
     "sequenceCapturing": "جارٍ الالتقاط...",
     "customStopZoneAddingIn": "سيتم التعيين خلال",
-    "customStopZoneCapturing": "جارٍ التعيين..."
+    "customStopZoneCapturing": "جارٍ التعيين...",
+    "perClick": "لكل نقرة"
   },
   "options": {
     "interval": {
@@ -197,6 +199,20 @@
       "Middle": "نقر وسط",
       "Right": "نقر أيمن"
     },
+    "inputType": {
+      "mouse": "ماوس",
+      "keyboard": "لوحة مفاتيح"
+    },
+    "rateInputMode": {
+      "rate": "معدل",
+      "duration": "تأخير"
+    },
+    "timeUnits": {
+      "h": "س",
+      "m": "د",
+      "s": "ث",
+      "ms": "مللي ث"
+    },
     "timeUnitShort": {
       "s": "ث",
       "m": "د",
@@ -205,7 +221,10 @@
   },
   "hotkey": {
     "pressKeys": "اضغط على المفاتيح...",
+    "pressKey": "اضغط على مفتاح...",
     "empty": "انقر واضغط على المفاتيح",
+    "selectKey": "اختر مفتاح",
+    "rightClickToClear": "انقر بزر الماوس الأيمن لحذف",
     "key": {
       "up": "أعلى",
       "down": "أسفل",

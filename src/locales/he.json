@@ -5,7 +5,8 @@
     "fr": "Français",
     "ar": "العربية",
     "de": "Deutsch",
-    "he": "עברית"
+    "he": "עברית",
+    "cn": "简体中文"
   },
   "common": {
     "on": "פועל",
@@ -168,7 +169,8 @@
     "sequenceAddingIn": "מוסיף בעוד",
     "sequenceCapturing": "לוכד...",
     "customStopZoneAddingIn": "מגדיר בעוד",
-    "customStopZoneCapturing": "מגדיר..."
+    "customStopZoneCapturing": "מגדיר...",
+    "perClick": "לכל לחיצה"
   },
   "options": {
     "interval": {
@@ -197,6 +199,20 @@
       "Middle": "לחיצה אמצעית",
       "Right": "לחיצה ימנית"
     },
+    "inputType": {
+      "mouse": "עכבר",
+      "keyboard": "מקלדת"
+    },
+    "rateInputMode": {
+      "rate": "קצב",
+      "duration": "השהיה"
+    },
+    "timeUnits": {
+      "h": "שע׳",
+      "m": "דק׳",
+      "s": "שנ׳",
+      "ms": "מ״ש"
+    },
     "timeUnitShort": {
       "s": "שנ׳",
       "m": "דק׳",
@@ -205,7 +221,10 @@
   },
   "hotkey": {
     "pressKeys": "לחץ על מקשים...",
+    "pressKey": "לחץ על מקש...",
     "empty": "לחץ כאן ואז הקש מקשים",
+    "selectKey": "בחר מקש",
+    "rightClickToClear": "לחץ עם כפתור ימני כדי למחוק",
     "key": {
       "up": "חץ למעלה",
       "down": "חץ למטה",

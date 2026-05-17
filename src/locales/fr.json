@@ -5,7 +5,8 @@
     "fr": "Français",
     "ar": "العربية",
     "de": "Deutsch",
-    "he": "עברית"
+    "he": "עברית",
+    "cn": "简体中文"
   },
   "common": {
     "on": "Activé",
@@ -168,7 +169,8 @@
     "sequenceAddingIn": "Ajout dans",
     "sequenceCapturing": "Capture...",
     "customStopZoneAddingIn": "Définition dans",
-    "customStopZoneCapturing": "Définition..."
+    "customStopZoneCapturing": "Définition...",
+    "perClick": "Par clic"
   },
   "options": {
     "interval": { "s": "Seconde", "m": "Minute", "h": "Heure", "d": "Jour" },
@@ -176,11 +178,17 @@
     "mode": { "Toggle": "Alterner", "Hold": "Maintenir" },
     "mouseButton": { "Left": "Gauche", "Middle": "Milieu", "Right": "Droit" },
     "mouseClick": { "Left": "Clic gauche", "Middle": "Clic milieu", "Right": "Clic droit" },
+    "inputType": { "mouse": "Souris", "keyboard": "Clavier" },
+    "rateInputMode": { "rate": "Taux", "duration": "Délai" },
+    "timeUnits": { "h": "h", "m": "min", "s": "s", "ms": "ms" },
     "timeUnitShort": { "s": "s", "m": "min", "h": "h" }
   },
   "hotkey": {
     "pressKeys": "Appuyez sur des touches...",
+    "pressKey": "Appuyez sur une touche...",
     "empty": "Cliquez et appuyez sur des touches",
+    "selectKey": "Sélectionner une touche",
+    "rightClickToClear": "Cliquez droit pour effacer",
     "key": {
       "up": "Haut", "down": "Bas", "left": "Gauche", "right": "Droite",
       "pageup": "Page préc.", "pagedown": "Page suiv.", "backspace": "Retour arrière",

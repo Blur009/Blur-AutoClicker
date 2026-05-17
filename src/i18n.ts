@@ -15,8 +15,9 @@ import es from "./locales/es.json";
 import fr from "./locales/fr.json";
 import de from "./locales/de.json";
 import he from "./locales/he.json";
+import cn from "./locales/cn.json";
 
-export const LANGUAGE_CODES = ["en", "es", "fr", "ar", "de", "he"] as const;
+export const LANGUAGE_CODES = ["en", "es", "fr", "ar", "de", "he", "cn"] as const;
 export type Language = (typeof LANGUAGE_CODES)[number];
 
 export const DEFAULT_LANGUAGE: Language = "en";
@@ -27,6 +28,7 @@ export const LANGUAGE_OPTIONS: readonly { code: Language; label: string }[] = [
   { code: "ar", label: "العربية" },
   { code: "de", label: "Deutsch"},
   { code: "he", label: "עברית"},
+  { code: "cn", label: "简体中文"},
 ];
 
 type TranslationTree = typeof en;
@@ -44,6 +46,7 @@ const translations: Record<Language, TranslationTree> = {
   ar,
   de,
   he,
+  cn,
 };
 
 type I18nContextValue = {

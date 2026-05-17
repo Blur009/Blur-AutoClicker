@@ -5,7 +5,8 @@
     "fr": "Français",
     "ar": "العربية",
     "de": "Deutsch",
-    "he": "עברית"
+    "he": "עברית",
+    "cn": "简体中文"
   },
   "common": {
     "on": "Activado",
@@ -168,7 +169,8 @@
     "sequenceAddingIn": "Añadiendo en",
     "sequenceCapturing": "Capturando...",
     "customStopZoneAddingIn": "Configurando en",
-    "customStopZoneCapturing": "Configurando..."
+    "customStopZoneCapturing": "Configurando...",
+    "perClick": "Por clic"
   },
   "options": {
     "interval": { "s": "Segundo", "m": "Minuto", "h": "Hora", "d": "Día" },
@@ -176,11 +178,17 @@
     "mode": { "Toggle": "Alternar", "Hold": "Mantener" },
     "mouseButton": { "Left": "Izquierdo", "Middle": "Central", "Right": "Derecho" },
     "mouseClick": { "Left": "Clic izquierdo", "Middle": "Clic central", "Right": "Clic derecho" },
+    "inputType": { "mouse": "Ratón", "keyboard": "Teclado" },
+    "rateInputMode": { "rate": "Tasa", "duration": "Retraso" },
+    "timeUnits": { "h": "h", "m": "min", "s": "s", "ms": "ms" },
     "timeUnitShort": { "s": "s", "m": "min", "h": "h" }
   },
   "hotkey": {
     "pressKeys": "Pulsa teclas...",
+    "pressKey": "Pulsa una tecla...",
     "empty": "Haz clic y pulsa teclas",
+    "selectKey": "Seleccionar tecla",
+    "rightClickToClear": "Haz clic derecho para limpiar",
     "key": {
       "up": "Arriba", "down": "Abajo", "left": "Izquierda", "right": "Derecha",
       "pageup": "Re Pág", "pagedown": "Av Pág", "backspace": "Retroceso", "delete": "Supr",

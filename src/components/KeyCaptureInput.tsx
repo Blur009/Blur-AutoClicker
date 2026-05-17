@@ -14,6 +14,7 @@ import {
 } from "../hotkeys";
 import { isAlphabeticKeyboardKey } from "../keyboardKeyCase";
 import type { KeyboardKeyCase, MouseButton } from "../store";
+import { useTranslation } from "../i18n";
 
 interface Props {
   value: string;
@@ -52,6 +53,7 @@ export default function KeyCaptureInput({
   keyboardKeyCase,
   onMouseButtonCapture,
 }: Props) {
+  const { t } = useTranslation();
   const [listening, setListening] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const rightClickStartedWhileListeningRef = useRef(false);
@@ -69,14 +71,14 @@ export default function KeyCaptureInput({
   }, []);
 
   const displayText = useMemo(() => {
-    if (listening) return "Press a key...";
-    if (!value) return "Select key";
+    if (listening) return t("hotkey.pressKey");
+    if (!value) return t("hotkey.selectKey");
     return applyKeyboardKeyCase(
       value,
       formatHotkeyForDisplay(value, layoutMap),
       keyboardKeyCase,
     );
-  }, [keyboardKeyCase, layoutMap, listening, value]);
+  }, [keyboardKeyCase, layoutMap, listening, value, t]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     event.preventDefault();
@@ -163,7 +165,7 @@ export default function KeyCaptureInput({
       onKeyDown={handleKeyDown}
       onContextMenu={handleContextMenu}
       spellCheck={false}
-      title="Right click input to clear"
+      title={t("hotkey.rightClickToClear")}
       style={{
         cursor: "pointer",
         textAlign: "center",

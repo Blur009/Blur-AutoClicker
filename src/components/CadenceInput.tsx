@@ -20,18 +20,6 @@ interface Props {
   showInfo?: boolean;
 }
 
-const INTERVAL_OPTIONS = [
-  { value: "s", label: "Second" },
-  { value: "m", label: "Minute" },
-  { value: "h", label: "Hour" },
-  { value: "d", label: "Day" },
-] as const;
-
-const SIMPLE_RATE_INPUT_MODE_OPTIONS = [
-  { value: "rate", label: "Rate" },
-  { value: "duration", label: "Delay" },
-] as const;
-
 function parseIntegerRaw(raw: string) {
   const normalized = normalizeIntegerRaw(raw);
   return normalized === "" || normalized === "-" ? 0 : Number(normalized);
@@ -121,6 +109,17 @@ function DurationField({
 
 export default function CadenceInput({ settings, update, variant }: Props) {
   const { t } = useTranslation();
+  const INTERVAL_OPTIONS = [
+    { value: "s", label: t("options.interval.s") },
+    { value: "m", label: t("options.interval.m") },
+    { value: "h", label: t("options.interval.h") },
+    { value: "d", label: t("options.interval.d") },
+  ] as const;
+
+  const SIMPLE_RATE_INPUT_MODE_OPTIONS = [
+    { value: "rate", label: t("options.rateInputMode.rate") },
+    { value: "duration", label: t("options.rateInputMode.duration") },
+  ] as const;
 
   const switchMode = (mode: RateInputMode) => {
     if (mode === settings.rateInputMode) return;
@@ -227,7 +226,7 @@ export default function CadenceInput({ settings, update, variant }: Props) {
                   width: dynamicChWidth(settings.durationHours, 1, 3),
                   minWidth: "1ch",
                 }}
-                unit="h"
+                unit={t("options.timeUnits.h")}
               />
               <DurationField
                 className="simple-duration-chip"
@@ -241,7 +240,7 @@ export default function CadenceInput({ settings, update, variant }: Props) {
                   width: dynamicChWidth(settings.durationMinutes, 1, 2),
                   minWidth: "1ch",
                 }}
-                unit="m"
+                unit={t("options.timeUnits.m")}
               />
               <DurationField
                 className="simple-duration-chip"
@@ -255,7 +254,7 @@ export default function CadenceInput({ settings, update, variant }: Props) {
                   width: dynamicChWidth(settings.durationSeconds, 1, 2),
                   minWidth: "1ch",
                 }}
-                unit="s"
+                unit={t("options.timeUnits.s")}
               />
               <DurationField
                 className="simple-duration-chip"
@@ -269,11 +268,11 @@ export default function CadenceInput({ settings, update, variant }: Props) {
                   width: dynamicChWidth(settings.durationMilliseconds, 1, 3),
                   minWidth: "1ch",
                 }}
-                unit="ms"
+                unit={t("options.timeUnits.ms")}
               />
             </div>
             <div className="vertical-devider vertical-devider--stretch" />
-            <span className="simple-control-label">Per Click</span>
+            <span className="simple-control-label">{t("advanced.perClick")}</span>
             <div className="vertical-devider vertical-devider--stretch" />
             <AdvDropdown
               value={settings.rateInputMode}
@@ -296,7 +295,7 @@ export default function CadenceInput({ settings, update, variant }: Props) {
           className={`adv-seg-btn ${settings.rateInputMode === mode ? "active" : ""}`}
           onClick={() => switchMode(mode)}
         >
-          {mode === "rate" ? "Rate" : "Delay"}
+          {mode === "rate" ? t("options.rateInputMode.rate") : t("options.rateInputMode.duration")}
         </button>
       ))}
     </div>

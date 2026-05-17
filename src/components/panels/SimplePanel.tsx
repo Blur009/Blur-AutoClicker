@@ -143,8 +143,8 @@ export default function SimplePanel({ settings, update }: SimplePanelProps) {
   }));
 
   const inputTypeOptions = [
-    { value: "mouse", label: "Mouse" },
-    { value: "keyboard", label: "Key" },
+    { value: "mouse", label: t("options.inputType.mouse") },
+    { value: "keyboard", label: t("options.inputType.keyboard") },
   ] as const;
   const canToggleKeyboardKeyCase = isAlphabeticKeyboardKey(
     settings.keyboardKey,
