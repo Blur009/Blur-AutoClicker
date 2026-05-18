@@ -153,7 +153,8 @@
     "sequenceMoveUp": "أعلى",
     "sequenceMoveDown": "أسفل",
     "sequenceDelete": "حذف",
-    "sequenceAddCurrentCursor": "إضافة المؤشر الحالي",
+    "sequenceStartPicking": "بدء الاختيار",
+    "sequenceCancelPicking": "إلغاء الاختيار",
     "customStopZone": "منطقة توقف مخصصة",
     "customStopZoneDescription": "يوقف النقر عندما يدخل المؤشر هذه المنطقة المستطيلة، باستخدام إحداثيات الشاشة المطلقة التي يمكن أن تمتد عبر شاشات متعددة.",
     "customStopZoneSetTopLeft": "تعيين أعلى اليسار",
@@ -169,8 +170,6 @@
     "pickInProgressUnavailable": "التقاط الموضع قيد التنفيذ بالفعل. انتظر حتى ينتهي الاختيار الحالي.",
     "pickCountdownUnavailable": "يبدأ التقاط الموضع خلال {seconds} ثوانٍ. انقل المؤشر إلى الموقع المستهدف وانتظر حتى يتم حفظه.",
     "pickCountdownSingularUnavailable": "يبدأ التقاط الموضع خلال ثانية واحدة. انقل المؤشر إلى الموقع المستهدف وانتظر حتى يتم حفظه.",
-    "sequenceAddingIn": "سيتم الإضافة خلال",
-    "sequenceCapturing": "جارٍ الالتقاط...",
     "customStopZoneAddingIn": "سيتم التعيين خلال",
     "customStopZoneCapturing": "جارٍ التعيين..."
   },

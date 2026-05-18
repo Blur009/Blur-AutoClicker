@@ -12,6 +12,11 @@
             overflow: hidden;
             background: transparent !important;
         }
+        .overlay-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
         .zone {
             position: absolute;
             pointer-events: none;
@@ -45,6 +50,39 @@
             height: 100%;
             position: relative;
         }
+        .sequence-dot {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            border: 2px solid rgba(255, 255, 255, 0.86);
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.28), 0 6px 18px rgba(0, 0, 0, 0.35);
+            pointer-events: none;
+        }
+        #pick-prompt {
+            position: absolute;
+            max-width: 260px;
+            padding: 9px 11px;
+            border-radius: 8px;
+            background: rgb(12, 12, 14);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.36);
+            color: rgba(255, 255, 255, 0.92);
+            font: 600 13px/1.32 "DMSans", "Segoe UI", sans-serif;
+            pointer-events: none;
+            opacity: 0;
+            transform: translate(18px, 18px);
+            transition: opacity 120ms ease;
+        }
+        #pick-prompt.active {
+            opacity: 1;
+        }
+        #pick-prompt span {
+            display: block;
+            color: rgba(255, 255, 255, 0.66);
+            font-weight: 500;
+            margin-top: 3px;
+        }
         @keyframes fadeOut {
             0% { opacity: 1; }
             70% { opacity: 1; }
@@ -56,10 +94,22 @@
     </style>
 </head>
 <body>
-    <div id="overlay-container"></div>
+    <div id="overlay-container">
+        <div id="zone-layer" class="overlay-layer"></div>
+        <div id="sequence-layer" class="overlay-layer"></div>
+        <div id="pick-prompt">
+            Right click to add point.
+            <span>Shift + right click to add multiple.</span>
+            <span>Ctrl + right click to delete a point.</span>
+            <span>Esc to cancel.</span>
+        </div>
+    </div>
 
     <script>
-        const container = document.getElementById('overlay-container');
+        const zoneLayer = document.getElementById('zone-layer');
+        const sequenceLayer = document.getElementById('sequence-layer');
+        const pickPrompt = document.getElementById('pick-prompt');
+        let pickModeActive = false;
 
         function setupTauriListener() {
             if (!window.__TAURI__ || !window.__TAURI__.event) {
@@ -73,18 +123,30 @@
             });
 
             window.__TAURI__.event.listen('clear-zones', () => {
-                container.innerHTML = '';
-                container.classList.remove('fade-out');
+                zoneLayer.innerHTML = '';
+                zoneLayer.classList.remove('fade-out');
+            });
+
+            window.__TAURI__.event.listen('sequence-points-data', (event) => {
+                renderSequencePoints(event.payload);
+            });
+
+            window.__TAURI__.event.listen('sequence-pick-mode', (event) => {
+                setPickMode(Boolean(event.payload && event.payload.active));
+            });
+
+            window.__TAURI__.event.listen('sequence-pick-cursor', (event) => {
+                updatePickPrompt(event.payload);
             });
 
             console.log('[Overlay] Event listeners registered');
         }
 
         function renderZones(data) {
-            container.innerHTML = '';
-            container.classList.remove('fade-out');
-            void container.offsetWidth;
-            container.classList.add('fade-out');
+            zoneLayer.innerHTML = '';
+            zoneLayer.classList.remove('fade-out');
+            void zoneLayer.offsetWidth;
+            zoneLayer.classList.add('fade-out');
 
             if (!data) return;
 
@@ -190,7 +252,68 @@
             div.style.top = y + 'px';
             div.style.width = w + 'px';
             div.style.height = h + 'px';
-            container.appendChild(div);
+            zoneLayer.appendChild(div);
+        }
+
+        function renderSequencePoints(data) {
+            sequenceLayer.innerHTML = '';
+            sequenceLayer.classList.remove('fade-out');
+
+            if (!data || !Array.isArray(data.points)) return;
+
+            for (let index = 0; index < data.points.length; index += 1) {
+                const point = data.points[index];
+                addSequenceDot(point, index);
+            }
+
+            if (!data.persistent && !pickModeActive) {
+                void sequenceLayer.offsetWidth;
+                sequenceLayer.classList.add('fade-out');
+            }
+        }
+
+        function addSequenceDot(point, index) {
+            const scale = window.devicePixelRatio || 1;
+            const dot = document.createElement('div');
+            dot.className = 'sequence-dot';
+            dot.style.left = (point.x / scale - 5) + 'px';
+            dot.style.top = (point.y / scale - 5) + 'px';
+            dot.style.background = stableDotColor(point, index);
+            sequenceLayer.appendChild(dot);
+        }
+
+        function stableDotColor(point, index) {
+            const key = point.id || `${index}:${point.x}:${point.y}`;
+            let hash = 0;
+
+            for (let i = 0; i < key.length; i += 1) {
+                hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
+            }
+
+            const hue = Math.abs(hash) % 360;
+            return `hsl(${hue} 84% 58%)`;
+        }
+
+        function setPickMode(active) {
+            pickModeActive = active;
+            pickPrompt.classList.toggle('active', active);
+            if (active) {
+                sequenceLayer.classList.remove('fade-out');
+            }
+        }
+
+        function updatePickPrompt(point) {
+            if (!point || !pickModeActive) return;
+
+            const scale = window.devicePixelRatio || 1;
+            const gap = 18;
+            const x = point.x / scale + gap;
+            const y = point.y / scale + gap;
+            const maxX = Math.max(0, window.innerWidth - pickPrompt.offsetWidth - 8);
+            const maxY = Math.max(0, window.innerHeight - pickPrompt.offsetHeight - 8);
+
+            pickPrompt.style.left = Math.min(Math.max(8, x), maxX) + 'px';
+            pickPrompt.style.top = Math.min(Math.max(8, y), maxY) + 'px';
         }
 
         if (document.readyState === 'loading') {

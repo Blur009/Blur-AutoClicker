@@ -87,6 +87,8 @@ pub fn update_settings(
         || old.custom_stop_zone_y != settings.custom_stop_zone_y
         || old.custom_stop_zone_width != settings.custom_stop_zone_width
         || old.custom_stop_zone_height != settings.custom_stop_zone_height;
+    let sequence_changed = old.sequence_enabled != settings.sequence_enabled
+        || old.sequence_points != settings.sequence_points;
     drop(old);
 
     *state.settings.lock().unwrap() = settings.clone();
@@ -99,6 +101,9 @@ pub fn update_settings(
 
     if zone_changed {
         let _ = crate::overlay::show_overlay(&app);
+    }
+    if sequence_changed && settings.sequence_enabled {
+        let _ = crate::overlay::show_sequence_points_overlay(&app);
     }
 
     Ok(settings)
@@ -155,6 +160,17 @@ pub fn pick_position() -> Result<PositionPayload, String> {
     let (x, y) =
         current_cursor_position().ok_or_else(|| String::from("Failed to read cursor position"))?;
     Ok(PositionPayload { x, y })
+}
+
+#[tauri::command]
+pub fn start_sequence_point_pick(app: AppHandle) -> Result<(), String> {
+    crate::sequence_picker::start_sequence_point_pick_inner(app)
+}
+
+#[tauri::command]
+pub fn cancel_sequence_point_pick(app: AppHandle) -> Result<(), String> {
+    crate::sequence_picker::cancel_sequence_point_pick_inner(&app);
+    Ok(())
 }
 
 #[tauri::command]

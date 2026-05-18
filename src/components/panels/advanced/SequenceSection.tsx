@@ -9,6 +9,7 @@ import { getEffectiveIntervalMs } from "../../../cadence";
 import type { SequencePoint, Settings } from "../../../store";
 import { useTranslation } from "../../../i18n";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   NumInput,
   Disableable,
@@ -26,7 +27,13 @@ interface Props {
   activeSequenceTick: number;
 }
 
-interface CursorPoint {
+interface SequencePointPickedPayload {
+  x: number;
+  y: number;
+  continuePicking: boolean;
+}
+
+interface SequencePointDeleteRequestedPayload {
   x: number;
   y: number;
 }
@@ -37,6 +44,8 @@ interface DragState {
   latestClientY: number;
   handle: HTMLButtonElement | null;
 }
+
+const SEQUENCE_DELETE_RADIUS_PX = 10;
 
 function createSequencePointId(): string {
   return (
@@ -84,65 +93,151 @@ export default function SequenceSection({
   activeSequenceTick,
 }: Props) {
   const { t } = useTranslation();
-  const [capturingCursor, setCapturingCursor] = useState(false);
+  const [pickingSequence, setPickingSequence] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [showBottomFade, setShowBottomFade] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
   const listViewportRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const latestPointsRef = useRef(settings.sequencePoints);
+  const updateRef = useRef(update);
   const dragStateRef = useRef<DragState | null>(null);
   const moveFrameRef = useRef<number | null>(null);
 
-  const requestCursorPosition = useCallback(async (): Promise<CursorPoint> => {
-    setCapturingCursor(true);
+  useEffect(() => {
+    updateRef.current = update;
+  }, [update]);
+
+  useEffect(() => {
+    let disposed = false;
+    let unlistenPicked: (() => void) | null = null;
+    let unlistenDeleteRequested: (() => void) | null = null;
+    let unlistenEnded: (() => void) | null = null;
+
+    void listen<SequencePointPickedPayload>(
+      "sequence-point-picked",
+      (event) => {
+        const nextPoints = [
+          ...latestPointsRef.current,
+          {
+            id: createSequencePointId(),
+            x: event.payload.x,
+            y: event.payload.y,
+            clicks: 1,
+          },
+        ];
+        latestPointsRef.current = nextPoints;
+        updateRef.current({
+          sequenceEnabled: true,
+          sequencePoints: nextPoints,
+        });
+
+        if (!event.payload.continuePicking) {
+          setPickingSequence(false);
+        }
+      },
+    ).then((cleanup) => {
+      if (disposed) {
+        cleanup();
+      } else {
+        unlistenPicked = cleanup;
+      }
+    });
+
+    void listen<SequencePointDeleteRequestedPayload>(
+      "sequence-point-delete-requested",
+      (event) => {
+        const radiusSquared = SEQUENCE_DELETE_RADIUS_PX ** 2;
+        let nearestIndex = -1;
+        let nearestDistanceSquared = Number.POSITIVE_INFINITY;
+
+        latestPointsRef.current.forEach((point, index) => {
+          const dx = point.x - event.payload.x;
+          const dy = point.y - event.payload.y;
+          const distanceSquared = dx * dx + dy * dy;
+
+          if (
+            distanceSquared <= radiusSquared &&
+            distanceSquared < nearestDistanceSquared
+          ) {
+            nearestIndex = index;
+            nearestDistanceSquared = distanceSquared;
+          }
+        });
+
+        if (nearestIndex === -1) {
+          return;
+        }
+
+        const nextPoints = latestPointsRef.current.filter(
+          (_point, index) => index !== nearestIndex,
+        );
+        latestPointsRef.current = nextPoints;
+        updateRef.current({ sequencePoints: nextPoints });
+      },
+    ).then((cleanup) => {
+      if (disposed) {
+        cleanup();
+      } else {
+        unlistenDeleteRequested = cleanup;
+      }
+    });
+
+    void listen("sequence-pick-ended", () => {
+      setPickingSequence(false);
+    }).then((cleanup) => {
+      if (disposed) {
+        cleanup();
+      } else {
+        unlistenEnded = cleanup;
+      }
+    });
+
+    return () => {
+      disposed = true;
+      unlistenPicked?.();
+      unlistenDeleteRequested?.();
+      unlistenEnded?.();
+      void invoke("cancel_sequence_point_pick");
+    };
+  }, []);
+
+  const startSequencePointPick = useCallback(async () => {
+    setPickingSequence(true);
     try {
-      return await invoke<CursorPoint>("pick_position");
-    } finally {
-      setCapturingCursor(false);
+      await invoke("start_sequence_point_pick");
+    } catch (error) {
+      setPickingSequence(false);
+      console.error("Failed to start sequence point picker", error);
+    }
+  }, []);
+
+  const cancelSequencePointPick = useCallback(async () => {
+    setPickingSequence(false);
+    try {
+      await invoke("cancel_sequence_point_pick");
+    } catch (error) {
+      console.error("Failed to cancel sequence point picker", error);
     }
   }, []);
 
   useEffect(() => {
-    if (countdown === null || countdown < 0) return;
+    if (!pickingSequence) {
+      return;
+    }
 
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [countdown]);
-
-  useEffect(() => {
-    if (countdown !== 0) return;
-
-    const captureAfterCountdown = async () => {
-      try {
-        const point = await requestCursorPosition();
-        update({
-          sequenceEnabled: true,
-          sequencePoints: [
-            ...settings.sequencePoints,
-            { id: createSequencePointId(), ...point, clicks: 1 },
-          ],
-        });
-      } finally {
-        setCountdown(null);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
       }
+
+      event.preventDefault();
+      event.stopPropagation();
+      void cancelSequencePointPick();
     };
 
-    void captureAfterCountdown();
-  }, [countdown, requestCursorPosition, settings.sequencePoints, update]);
-
-  const addCurrentCursorToSequence = async () => {
-    setCountdown(3);
-  };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [cancelSequencePointPick, pickingSequence]);
 
   const updateSequencePoint = (
     index: number,
@@ -260,7 +355,10 @@ export default function SequenceSection({
 
   useEffect(() => {
     latestPointsRef.current = settings.sequencePoints;
-    updateBottomFade();
+    const frame = window.requestAnimationFrame(() => {
+      updateBottomFade();
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [settings.sequencePoints, updateBottomFade]);
 
   useEffect(() => {
@@ -371,11 +469,14 @@ export default function SequenceSection({
         </div>
         <ToggleBtn
           value={settings.sequenceEnabled}
-          onChange={(v) =>
+          onChange={(v) => {
+            if (!v && pickingSequence) {
+              void cancelSequencePointPick();
+            }
             update({
               sequenceEnabled: v,
-            })
-          }
+            });
+          }}
         />
       </div>
       <CardDivider />
@@ -386,15 +487,14 @@ export default function SequenceSection({
               type="button"
               className="adv-secondary-btn"
               onClick={() => {
-                void addCurrentCursorToSequence();
+                void (pickingSequence
+                  ? cancelSequencePointPick()
+                  : startSequencePointPick());
               }}
-              disabled={capturingCursor || countdown !== null}
             >
-              {countdown !== null
-                ? countdown === 0
-                  ? t("advanced.sequenceCapturing")
-                  : `${t("advanced.sequenceAddingIn")} ${countdown}...`
-                : t("advanced.sequenceAddCurrentCursor")}
+              {pickingSequence
+                ? t("advanced.sequenceCancelPicking")
+                : t("advanced.sequenceStartPicking")}
             </button>
             <div className="adv-sequence-list-shell">
               <div ref={listViewportRef} className="adv-sequence-list">
@@ -485,7 +585,10 @@ export default function SequenceSection({
                           >
                             <span
                               className="adv-unit"
-                              style={{ minWidth: "0.125rem", textAlign: "center" }}
+                              style={{
+                                minWidth: "0.125rem",
+                                textAlign: "center",
+                              }}
                             >
                               X
                             </span>
@@ -494,7 +597,11 @@ export default function SequenceSection({
                               onChange={(value) =>
                                 updateSequencePoint(index, { x: value })
                               }
-                              style={{ flex: 1, width: "100%", textAlign: "right" }}
+                              style={{
+                                flex: 1,
+                                width: "100%",
+                                textAlign: "right",
+                              }}
                             />
                           </label>
                           <label
@@ -503,7 +610,10 @@ export default function SequenceSection({
                           >
                             <span
                               className="adv-unit"
-                              style={{ minWidth: "0.125rem", textAlign: "left" }}
+                              style={{
+                                minWidth: "0.125rem",
+                                textAlign: "left",
+                              }}
                             >
                               Y
                             </span>
@@ -512,7 +622,11 @@ export default function SequenceSection({
                               onChange={(value) =>
                                 updateSequencePoint(index, { y: value })
                               }
-                              style={{ flex: 1, width: "100%", textAlign: "right" }}
+                              style={{
+                                flex: 1,
+                                width: "100%",
+                                textAlign: "right",
+                              }}
                             />
                           </label>
                           <label
@@ -532,7 +646,11 @@ export default function SequenceSection({
                               onChange={(value) =>
                                 updateSequencePoint(index, { clicks: value })
                               }
-                              style={{ flex: 1, width: "100%", textAlign: "right" }}
+                              style={{
+                                flex: 1,
+                                width: "100%",
+                                textAlign: "right",
+                              }}
                             />
                           </label>
                           <div className="adv-sequence-actions">

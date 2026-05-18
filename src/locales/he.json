@@ -153,7 +153,8 @@
     "sequenceMoveUp": "למעלה",
     "sequenceMoveDown": "למטה",
     "sequenceDelete": "מחק",
-    "sequenceAddCurrentCursor": "הוסף את מיקום הסמן הנוכחי",
+    "sequenceStartPicking": "התחל בחירה",
+    "sequenceCancelPicking": "בטל בחירה",
     "customStopZone": "אזור עצירה מותאם אישית",
     "customStopZoneDescription": "עוצר את הלוחץ כשהסמן נכנס לאזור המלבני הזה, לפי קואורדינטות מסך מוחלטות שיכולות להתפרס על כמה מסכים.",
     "customStopZoneSetTopLeft": "הגדר פינה שמאלית-עליונה",
@@ -169,8 +170,6 @@
     "pickInProgressUnavailable": "לכידת מיקום כבר מתבצעת. המתן לסיום הבחירה הנוכחית.",
     "pickCountdownUnavailable": "לכידת מיקום תתחיל בעוד {seconds} שניות. הזז את הסמן לנקודת היעד והמתן עד שהיא תישמר.",
     "pickCountdownSingularUnavailable": "לכידת מיקום תתחיל בעוד שנייה אחת. הזז את הסמן לנקודת היעד והמתן עד שהיא תישמר.",
-    "sequenceAddingIn": "מוסיף בעוד",
-    "sequenceCapturing": "לוכד...",
     "customStopZoneAddingIn": "מגדיר בעוד",
     "customStopZoneCapturing": "מגדיר..."
   },

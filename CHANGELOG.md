@@ -1,5 +1,7 @@
 # v3.7.0 - 17.05.2026 (d.m.y)
 ## New
+- Added Sequence picking instead of a timer.
+- Added Sequence picking showing dots where clicks will happen. They only show if you change the value, and will disappear after a few seconds.
 - Added 1000 cps mode with warning (note that your click duration is now clamped to 1% at >500cps and <99% at >50cps otherwise you would not be able to achive those speeds)
 ## Fix
 - Removed dynamic adjustment of the panel size of the hotkey field in simple mode to prevent a scroll bar from showing up.

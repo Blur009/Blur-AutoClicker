@@ -153,7 +153,8 @@
     "sequenceMoveUp": "Up",
     "sequenceMoveDown": "Down",
     "sequenceDelete": "Delete",
-    "sequenceAddCurrentCursor": "Add Current Cursor",
+    "sequenceStartPicking": "Start Picking",
+    "sequenceCancelPicking": "Cancel Picking",
     "customStopZone": "Custom Stop Zone",
     "customStopZoneDescription": "Stops the clicker when the cursor enters this rectangular area, using absolute screen coordinates that can span multiple monitors.",
     "customStopZoneSetTopLeft": "Set Top-Left",
@@ -169,8 +170,6 @@
     "pickInProgressUnavailable": "Position capture is already in progress. Wait for the current pick to finish.",
     "pickCountdownUnavailable": "Position capture starts in {seconds} seconds. Move your cursor to the target spot and wait for it to be saved.",
     "pickCountdownSingularUnavailable": "Position capture starts in 1 second. Move your cursor to the target spot and wait for it to be saved.",
-    "sequenceAddingIn": "Adding in",
-    "sequenceCapturing": "Capturing...",
     "customStopZoneAddingIn": "Setting in",
     "customStopZoneCapturing": "Setting..."
   },

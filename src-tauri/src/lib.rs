@@ -5,6 +5,7 @@ mod autostart;
 mod engine;
 mod hotkeys;
 mod overlay;
+mod sequence_picker;
 mod ui_commands;
 mod updates;
 
@@ -40,6 +41,7 @@ pub fn run() {
             suppress_hotkey_until_ms: AtomicU64::new(0),
             suppress_hotkey_until_release: AtomicBool::new(false),
             hotkey_capture_active: AtomicBool::new(false),
+            sequence_pick_active: AtomicBool::new(false),
             settings_initialized: AtomicBool::new(false),
         })
         .setup(|app| {
@@ -69,6 +71,7 @@ pub fn run() {
                     "quit" => {
                         crate::overlay::OVERLAY_THREAD_RUNNING
                             .store(false, std::sync::atomic::Ordering::SeqCst);
+                        crate::sequence_picker::cancel_sequence_point_pick_inner(app);
                         app.exit(0);
                     }
                     _ => {}
@@ -152,6 +155,8 @@ pub fn run() {
             ui_commands::register_hotkey,
             ui_commands::set_hotkey_capture_active,
             ui_commands::pick_position,
+            ui_commands::start_sequence_point_pick,
+            ui_commands::cancel_sequence_point_pick,
             ui_commands::get_app_info,
             ui_commands::get_stats,
             ui_commands::reset_stats,
@@ -174,6 +179,7 @@ pub fn run() {
                     api.prevent_close();
                     crate::overlay::OVERLAY_THREAD_RUNNING
                         .store(false, std::sync::atomic::Ordering::SeqCst);
+                    crate::sequence_picker::cancel_sequence_point_pick_inner(app_handle);
                     app_handle.exit(0);
                 }
             }

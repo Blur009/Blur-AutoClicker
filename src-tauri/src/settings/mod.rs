@@ -2,9 +2,11 @@
 // When adding or changing a backend-facing setting, keep the section and
 // default in sync with the TypeScript field definitions.
 
-#[derive(Clone, serde::Deserialize, serde::Serialize, Debug)]
+#[derive(Clone, serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SequencePoint {
+    #[serde(default)]
+    pub id: String,
     pub x: i32,
     pub y: i32,
     #[serde(default = "default_sequence_point_clicks")]

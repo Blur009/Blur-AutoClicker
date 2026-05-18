@@ -153,7 +153,8 @@
     "sequenceMoveUp": "Subir",
     "sequenceMoveDown": "Bajar",
     "sequenceDelete": "Eliminar",
-    "sequenceAddCurrentCursor": "Agregar cursor actual",
+    "sequenceStartPicking": "Iniciar selección",
+    "sequenceCancelPicking": "Cancelar selección",
     "customStopZone": "Zona de parada personalizada",
     "customStopZoneDescription": "Detiene el clicker cuando el cursor entra en esta zona rectangular usando coordenadas absolutas que pueden abarcar varios monitores.",
     "customStopZoneSetTopLeft": "Definir esquina sup. izq.",
@@ -169,8 +170,6 @@
     "pickInProgressUnavailable": "La captura de posición ya está en curso. Espera a que termine la elección actual.",
     "pickCountdownUnavailable": "La captura de posición comienza en {seconds} segundos. Mueve el cursor al lugar objetivo y espera a que se guarde.",
     "pickCountdownSingularUnavailable": "La captura de posición comienza en 1 segundo. Mueve el cursor al lugar objetivo y espera a que se guarde.",
-    "sequenceAddingIn": "Añadiendo en",
-    "sequenceCapturing": "Capturando...",
     "customStopZoneAddingIn": "Configurando en",
     "customStopZoneCapturing": "Configurando..."
   },
