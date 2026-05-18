@@ -1,10 +1,7 @@
 import type { Settings } from "../../../store";
 import { useTranslation } from "../../../i18n";
-import {
-  getEffectiveClicksPerSecond,
-  getMaxDoubleClickDelayMs,
-} from "../../../cadence";
-import { Disableable, InfoIcon, NumInput, ToggleBtn } from "./shared";
+import { getEffectiveClicksPerSecond, isDoubleClickSupported } from "../../../cadence";
+import { InfoIcon, ToggleBtn } from "./shared";
 
 interface Props {
   settings: Settings;
@@ -39,7 +36,7 @@ export default function DoubleClickSection({
     durationMilliseconds: settings.durationMilliseconds,
   });
 
-  const doubleClickDisabled = getMaxDoubleClickDelayMs(settings) <= 20;
+  const doubleClickDisabled = !isDoubleClickSupported(settings);
   const doubleClickDisabledReason = doubleClickDisabled
     ? t("advanced.doubleClickUnavailable", {
         cps: formatClicksPerSecond(currentClicksPerSecond),
@@ -62,17 +59,6 @@ export default function DoubleClickSection({
           <span className="adv-card-title">{t("advanced.doubleClick")}</span>
         </div>
         <div className="adv-row" style={{ gap: 8 }}>
-          <Disableable enabled={settings.doubleClickEnabled}>
-            <div className="adv-numbox-sm">
-              <NumInput
-                value={settings.doubleClickDelay}
-                onChange={(v) => update({ doubleClickDelay: v })}
-                min={20}
-                max={getMaxDoubleClickDelayMs(settings)}
-              />
-              <span className="adv-unit">ms</span>
-            </div>
-          </Disableable>
           <ToggleBtn
             value={settings.doubleClickEnabled}
             onChange={(v) => update({ doubleClickEnabled: v })}

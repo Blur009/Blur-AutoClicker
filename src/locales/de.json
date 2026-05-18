@@ -160,7 +160,6 @@
     "customStopZoneSetBottomRight": "Unten-rechts setzen",
     "speedVariationUnavailable": "Aktivieren Sie die Geschwindigkeitsvariation, um einzustellen, wie stark die App Ihr Klick-Timing randomisiert.",
     "doubleClickUnavailable": "Doppelklick ist bei {cps} Klicks/Sek. nicht verfügbar. Senken Sie die effektive Klickrate unter 50 Klicks/Sek., um sie zu aktivieren.",
-    "doubleClickContentUnavailable": "Aktivieren Sie Doppelklick, um die Verzögerung zwischen dem ersten und zweiten Klick anzupassen.",
     "clickLimitUnavailable": "Aktivieren Sie das Klick-Limit, um nach einer festgelegten Anzahl von Klicks automatisch zu stoppen.",
     "timeLimitUnavailable": "Aktivieren Sie das Zeitlimit, um nach einer festgelegten Zeit automatisch zu stoppen.",
     "cornerStopUnavailable": "Aktivieren Sie den Ecken-Stopp, um die Fail-Safe-Trefferbereiche der Ecken zu bearbeiten.",

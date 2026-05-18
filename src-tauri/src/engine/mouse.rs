@@ -1,3 +1,4 @@
+use super::cycle::{execute_click_cycle, ClickCycleKind, ClickCyclePlan};
 use super::worker::{sleep_interruptible, RunControl};
 use std::time::Duration;
 use std::time::Instant;
@@ -202,7 +203,7 @@ pub fn send_mouse_event(flags: u32) {
     unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
 }
 
-pub fn send_batch(down: u32, up: u32, n: usize, _hold_ms: u32) {
+pub fn send_batch(down: u32, up: u32, n: usize) {
     let mut inputs: Vec<INPUT> = Vec::with_capacity(n * 2);
     for _ in 0..n {
         inputs.push(make_input(down, 0));
@@ -217,72 +218,34 @@ pub fn send_batch(down: u32, up: u32, n: usize, _hold_ms: u32) {
     };
 }
 
-fn dispatch_click<FSend, FSleep, FActive>(
-    down: u32,
-    up: u32,
-    hold_ms: u32,
-    send_event: &mut FSend,
-    sleep_for: &mut FSleep,
-    is_active: &FActive,
-) -> bool
-where
-    FSend: FnMut(u32),
-    FSleep: FnMut(Duration),
-    FActive: Fn() -> bool,
-{
-    if !is_active() {
-        return false;
-    }
-
-    send_event(down);
-    if hold_ms > 0 {
-        sleep_for(Duration::from_millis(hold_ms as u64));
-        if !is_active() {
-            send_event(up);
-            return false;
-        }
-    }
-
-    send_event(up);
-    true
-}
-
 pub fn send_clicks(
     down: u32,
     up: u32,
     count: usize,
-    hold_ms: u32,
-    use_double_click_gap: bool,
-    double_click_delay_ms: u32,
+    plan: ClickCyclePlan,
     control: &RunControl,
 ) {
     if count == 0 {
         return;
     }
 
-    if !use_double_click_gap && count > 1 && hold_ms == 0 {
-        send_batch(down, up, count, hold_ms);
+    if plan.kind == ClickCycleKind::Single && count > 1 && plan.first_hold_ms == 0 {
+        send_batch(down, up, count);
         return;
     }
 
     let is_active = || control.is_active();
-    let mut send_event = |flags| send_mouse_event(flags);
     let mut sleep_for = |duration| sleep_interruptible(duration, control);
 
-    for index in 0..count {
-        if !dispatch_click(
-            down,
-            up,
-            hold_ms,
-            &mut send_event,
+    for _ in 0..count {
+        if !execute_click_cycle(
+            plan,
+            &mut || send_mouse_event(down),
+            &mut || send_mouse_event(up),
             &mut sleep_for,
             &is_active,
         ) {
             return;
-        }
-
-        if index + 1 < count && use_double_click_gap && double_click_delay_ms > 0 {
-            sleep_interruptible(Duration::from_millis(double_click_delay_ms as u64), control);
         }
     }
 }
@@ -428,49 +391,3 @@ pub fn smooth_move(
     smooth_move_inner(start_x, start_y, end_x, end_y, duration_ms, rng, true);
 }
 
-#[cfg(test)]
-mod tests {
-    use std::cell::{Cell, RefCell};
-
-    use super::dispatch_click;
-
-    #[test]
-    fn dispatch_click_skips_events_when_run_is_already_stopped() {
-        let events = RefCell::new(Vec::new());
-        let mut send_event = |flags| events.borrow_mut().push(flags);
-        let mut sleep_for = |_| {};
-        let is_active = || false;
-
-        let sent = dispatch_click(1, 2, 5, &mut send_event, &mut sleep_for, &is_active);
-
-        assert!(!sent);
-        assert!(events.borrow().is_empty());
-    }
-
-    #[test]
-    fn dispatch_click_releases_button_when_run_stops_during_hold() {
-        let events = RefCell::new(Vec::new());
-        let mut send_event = |flags| events.borrow_mut().push(flags);
-        let active = Cell::new(true);
-        let mut sleep_for = |_| active.set(false);
-        let is_active = || active.get();
-
-        let sent = dispatch_click(1, 2, 5, &mut send_event, &mut sleep_for, &is_active);
-
-        assert!(!sent);
-        assert_eq!(&*events.borrow(), &[1, 2]);
-    }
-
-    #[test]
-    fn dispatch_click_sends_normal_down_and_up_when_run_stays_active() {
-        let events = RefCell::new(Vec::new());
-        let mut send_event = |flags| events.borrow_mut().push(flags);
-        let mut sleep_for = |_| {};
-        let is_active = || true;
-
-        let sent = dispatch_click(1, 2, 5, &mut send_event, &mut sleep_for, &is_active);
-
-        assert!(sent);
-        assert_eq!(&*events.borrow(), &[1, 2]);
-    }
-}

@@ -3,6 +3,7 @@
 - Added 1000 cps mode with warning (note that your click duration is now clamped to 1% at >500cps and <99% at >50cps otherwise you would not be able to achive those speeds)
 ## Fix
 - Removed dynamic adjustment of the panel size of the hotkey field in simple mode to prevent a scroll bar from showing up.
+- Refactored double click to use Windows double-click timing and made it work correctly with click duration / duty cycle.
 
 # v3.6.1 - 12.05.2026 (d.m.y)
 ## Fix

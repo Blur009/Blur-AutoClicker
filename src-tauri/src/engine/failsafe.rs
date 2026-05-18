@@ -116,7 +116,7 @@ mod tests {
             time_limit: 0.0,
             button: 1,
             double_click_enabled: false,
-            double_click_delay_ms: 40,
+            double_click_gap_ms: 450,
             sequence_enabled: false,
             sequence_points: Vec::new(),
             offset: 0.0,

@@ -1,3 +1,4 @@
+pub mod cycle;
 pub mod failsafe;
 pub mod keyboard;
 pub mod mouse;
@@ -25,7 +26,7 @@ pub struct ClickerConfig {
     pub time_limit: f64,
     pub button: i32,
     pub double_click_enabled: bool,
-    pub double_click_delay_ms: u32,
+    pub double_click_gap_ms: u32,
     pub sequence_enabled: bool,
     pub sequence_points: Vec<SequenceTarget>,
     pub offset: f64,

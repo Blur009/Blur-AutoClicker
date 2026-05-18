@@ -42,7 +42,6 @@ pub struct ClickerSettings {
     pub speed_variation: f64,
 
     pub double_click_enabled: bool,
-    pub double_click_delay: u32,
 
     pub click_limit_enabled: bool,
     pub click_limit: i32,
@@ -118,7 +117,6 @@ impl Default for ClickerSettings {
             speed_variation: 35.0,
 
             double_click_enabled: false,
-            double_click_delay: 40,
 
             click_limit_enabled: false,
             click_limit: 1000,

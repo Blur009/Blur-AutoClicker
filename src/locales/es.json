@@ -160,7 +160,6 @@
     "customStopZoneSetBottomRight": "Definir esquina inf. der.",
     "speedVariationUnavailable": "Activa la variación de velocidad para editar cuánto aleatoriza la app el tiempo de clic.",
     "doubleClickUnavailable": "El doble clic no está disponible a {cps} clics/seg. Reduce la tasa de clics efectiva a menos de 50 clics/seg para activarlo.",
-    "doubleClickContentUnavailable": "Activa el doble clic para ajustar el retraso entre el primer y el segundo clic.",
     "clickLimitUnavailable": "Activa el límite de clics para detenerse automáticamente después de un número determinado de clics.",
     "timeLimitUnavailable": "Activa el límite de tiempo para detenerse automáticamente después de un tiempo determinado.",
     "cornerStopUnavailable": "Activa la parada en esquina para editar las zonas de seguridad de las esquinas.",

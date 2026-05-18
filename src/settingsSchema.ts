@@ -128,11 +128,6 @@ const PRESET_FIELDS = {
     default: false,
     ui: { section: "limits", control: "toggle" },
   },
-  doubleClickDelay: {
-    default: 40,
-    limit: { min: 20, max: 9999 },
-    ui: { section: "limits", control: "number" },
-  },
   clickLimitEnabled: {
     default: false,
     ui: { section: "limits", control: "toggle" },

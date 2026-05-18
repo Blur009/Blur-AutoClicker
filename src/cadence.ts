@@ -143,9 +143,8 @@ export function getEffectiveClicksPerSecond(settings: CadenceSettings): number {
   return 1_000 / getEffectiveIntervalMs(settings);
 }
 
-export function getMaxDoubleClickDelayMs(settings: CadenceSettings): number {
-  const cps = Math.min(getEffectiveClicksPerSecond(settings), 50);
-  return cps > 0 ? Math.max(20, Math.floor(1000 / cps) - 2) : 9999;
+export function isDoubleClickSupported(settings: CadenceSettings): boolean {
+  return getEffectiveClicksPerSecond(settings) < 50;
 }
 
 export function formatDurationSummary(settings: CadenceSettings): string {

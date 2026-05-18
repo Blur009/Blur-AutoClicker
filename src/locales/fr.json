@@ -160,7 +160,6 @@
     "customStopZoneSetBottomRight": "Définir bas-droite",
     "speedVariationUnavailable": "Activez la variation de vitesse pour modifier la mesure dans laquelle l'application randomise le timing de vos clics.",
     "doubleClickUnavailable": "Le double clic n'est pas disponible à {cps} clics/sec. Abaissez le taux de clic effectif en dessous de 50 clics/sec pour l'activer.",
-    "doubleClickContentUnavailable": "Activez le double clic pour ajuster le délai entre le premier et le deuxième clic.",
     "clickLimitUnavailable": "Activez la limite de clics pour vous arrêter automatiquement après un nombre défini de clics.",
     "timeLimitUnavailable": "Activez la limite de temps pour vous arrêter automatiquement après un temps défini.",
     "cornerStopUnavailable": "Activez l'arrêt en coin pour modifier les zones de sécurité des coins.",

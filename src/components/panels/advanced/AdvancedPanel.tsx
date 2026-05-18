@@ -1,6 +1,4 @@
 import "./AdvancedPanel.css";
-import { useEffect, useEffectEvent } from "react";
-import { getMaxDoubleClickDelayMs } from "../../../cadence";
 import type { Settings } from "../../../store";
 import CadenceSection from "./CadenceSection";
 import DutyCycleSection from "./DutyCycleSection";
@@ -26,44 +24,6 @@ export default function AdvancedPanel({
   activeSequenceIndex,
   activeSequenceTick,
 }: Props) {
-  const {
-    clickInterval,
-    clickSpeed,
-    doubleClickDelay,
-    durationHours,
-    durationMilliseconds,
-    durationMinutes,
-    durationSeconds,
-    rateInputMode,
-  } = settings;
-  const clampDoubleClickDelay = useEffectEvent((maxDelay: number) => {
-    update({ doubleClickDelay: maxDelay });
-  });
-
-  useEffect(() => {
-    const max = getMaxDoubleClickDelayMs({
-      clickInterval,
-      clickSpeed,
-      rateInputMode,
-      durationHours,
-      durationMinutes,
-      durationSeconds,
-      durationMilliseconds,
-    });
-    if (doubleClickDelay > max) {
-      clampDoubleClickDelay(max);
-    }
-  }, [
-    clickInterval,
-    clickSpeed,
-    doubleClickDelay,
-    durationHours,
-    durationMilliseconds,
-    durationMinutes,
-    durationSeconds,
-    rateInputMode,
-  ]);
-
   const sequenceSection = (
     <SequenceSection
       settings={settings}

@@ -10,7 +10,9 @@ use crate::ClickerSettings;
 use crate::ClickerState;
 use crate::ClickerStatusPayload;
 use crate::STATUS_EVENT;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
+use super::cycle::ClickCyclePlan;
 use super::failsafe::should_stop_for_failsafe;
 use super::keyboard::{is_alphabetic_vk, send_key_presses};
 use super::mouse::{
@@ -209,6 +211,11 @@ fn interval_secs_from_settings(settings: &ClickerSettings) -> Result<f64, String
     })
 }
 
+fn system_double_click_gap_ms() -> u32 {
+    let system_timeout_ms = unsafe { GetDoubleClickTime() };
+    ((system_timeout_ms as f64) * 0.9).floor() as u32
+}
+
 fn current_cycle_target(config: &ClickerConfig, sequence_index: usize) -> SequenceTarget {
     if config.use_sequence() {
         let safe_index = sequence_index % config.sequence_points.len();
@@ -275,7 +282,7 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
         time_limit: time_limit_secs.unwrap_or(0.0),
         button,
         double_click_enabled: settings.double_click_enabled,
-        double_click_delay_ms: settings.double_click_delay,
+        double_click_gap_ms: system_double_click_gap_ms(),
         sequence_enabled: settings.sequence_enabled,
         sequence_points: settings
             .sequence_points
@@ -351,6 +358,42 @@ pub fn now_epoch_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct CycleBatchPlan {
+    cycles: usize,
+    double_cycles: usize,
+    single_cycles: usize,
+    physical_clicks: usize,
+}
+
+fn plan_cycle_batch(
+    requested_cycles: usize,
+    remaining_clicks: usize,
+    double_click_enabled: bool,
+) -> CycleBatchPlan {
+    if !double_click_enabled {
+        let cycles = requested_cycles.min(remaining_clicks);
+        return CycleBatchPlan {
+            cycles,
+            double_cycles: 0,
+            single_cycles: cycles,
+            physical_clicks: cycles,
+        };
+    }
+
+    let max_cycles_for_remaining = remaining_clicks / 2 + (remaining_clicks % 2);
+    let cycles = requested_cycles.min(max_cycles_for_remaining);
+    let double_cycles = cycles.min(remaining_clicks / 2);
+    let single_cycles = cycles.saturating_sub(double_cycles);
+
+    CycleBatchPlan {
+        cycles,
+        double_cycles,
+        single_cycles,
+        physical_clicks: double_cycles.saturating_mul(2) + single_cycles,
+    }
 }
 
 // -- Engine loop --
@@ -476,12 +519,10 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             }
         }
 
-        let per_tick_clicks =
-            batch_size.saturating_mul(if config.double_click_enabled { 2 } else { 1 });
-        let requested_clicks = if config.use_sequence() {
-            sequence_clicks_remaining.min(per_tick_clicks)
+        let requested_cycles = if config.use_sequence() {
+            sequence_clicks_remaining.min(batch_size)
         } else {
-            per_tick_clicks
+            batch_size
         };
 
         let remaining_clicks = if config.limit > 0 {
@@ -490,52 +531,78 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             usize::MAX
         };
 
-        let clicks_this_cycle = remaining_clicks.min(requested_clicks);
+        let cycle_batch = plan_cycle_batch(
+            requested_cycles,
+            remaining_clicks,
+            config.double_click_enabled,
+        );
 
-        if clicks_this_cycle == 0 {
+        if cycle_batch.cycles == 0 {
             stop_reason = format!("Click limit reached ({})", config.limit);
             break;
         }
 
         let variation_ratio = config.variation / 100.0;
         let hold_factor = effective_duty.max(0.0) / 100.0 * 1000.0;
-        let actual_duration_base = config.interval_secs * clicks_this_cycle as f64;
+        let actual_duration_base = config.interval_secs * cycle_batch.cycles as f64;
         let batch_duration = if config.variation > 0.0 {
             rng.next_gaussian(actual_duration_base, actual_duration_base * variation_ratio)
         } else {
             actual_duration_base
         };
-        let hold_ms = ((config.interval_secs * hold_factor) as u32)
-            .min((config.interval_secs * 1000.0) as u32);
+        let cycle_ms = (config.interval_secs * 1000.0).max(1.0) as u32;
+        let hold_ms = ((config.interval_secs * hold_factor) as u32).min(cycle_ms);
         next_batch_time += Duration::from_secs_f64(batch_duration.max(0.001));
 
+        let single_cycle_plan = ClickCyclePlan::single(hold_ms);
+        let double_cycle_plan =
+            ClickCyclePlan::double(hold_ms, cycle_ms, config.double_click_gap_ms);
+
         if is_keyboard {
-            send_key_presses(
-                config.key_code,
-                clicks_this_cycle,
-                hold_ms,
-                config.keyboard_uppercase,
-                config.double_click_enabled,
-                config.double_click_delay_ms,
-                &control,
-            );
+            if cycle_batch.double_cycles > 0 {
+                send_key_presses(
+                    config.key_code,
+                    cycle_batch.double_cycles,
+                    config.keyboard_uppercase,
+                    double_cycle_plan,
+                    &control,
+                );
+            }
+            if cycle_batch.single_cycles > 0 {
+                send_key_presses(
+                    config.key_code,
+                    cycle_batch.single_cycles,
+                    config.keyboard_uppercase,
+                    single_cycle_plan,
+                    &control,
+                );
+            }
         } else {
-            send_clicks(
-                down_flag,
-                up_flag,
-                clicks_this_cycle,
-                hold_ms,
-                config.double_click_enabled,
-                config.double_click_delay_ms,
-                &control,
-            );
+            if cycle_batch.double_cycles > 0 {
+                send_clicks(
+                    down_flag,
+                    up_flag,
+                    cycle_batch.double_cycles,
+                    double_cycle_plan,
+                    &control,
+                );
+            }
+            if cycle_batch.single_cycles > 0 {
+                send_clicks(
+                    down_flag,
+                    up_flag,
+                    cycle_batch.single_cycles,
+                    single_cycle_plan,
+                    &control,
+                );
+            }
         }
 
         if !control.is_active() {
             break;
         }
 
-        click_count += clicks_this_cycle as i64;
+        click_count += cycle_batch.physical_clicks as i64;
         CLICK_COUNT.store(click_count, Ordering::Relaxed);
 
         let remaining = next_batch_time.saturating_duration_since(Instant::now());
@@ -544,7 +611,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
         }
 
         if config.use_sequence() {
-            sequence_clicks_remaining = sequence_clicks_remaining.saturating_sub(clicks_this_cycle);
+            sequence_clicks_remaining = sequence_clicks_remaining.saturating_sub(cycle_batch.cycles);
             if sequence_clicks_remaining == 0 {
                 sequence_index = (sequence_index + 1) % config.sequence_points.len();
                 sequence_clicks_remaining = config.sequence_points[sequence_index].clicks.max(1);
@@ -614,7 +681,7 @@ mod tests {
             time_limit: 0.0,
             button: 1,
             double_click_enabled: false,
-            double_click_delay_ms: 40,
+            double_click_gap_ms: 450,
             sequence_enabled: false,
             sequence_points: Vec::new(),
             offset: 0.0,
@@ -636,6 +703,32 @@ mod tests {
             key_code: 0,
             keyboard_uppercase: false,
         }
+    }
+
+    #[test]
+    fn double_click_batch_uses_single_cycle_when_only_one_click_remains() {
+        assert_eq!(
+            plan_cycle_batch(1, 1, true),
+            CycleBatchPlan {
+                cycles: 1,
+                double_cycles: 0,
+                single_cycles: 1,
+                physical_clicks: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn double_click_batch_prefers_full_double_cycles_when_possible() {
+        assert_eq!(
+            plan_cycle_batch(2, 3, true),
+            CycleBatchPlan {
+                cycles: 2,
+                double_cycles: 1,
+                single_cycles: 1,
+                physical_clicks: 3,
+            }
+        );
     }
 
     #[test]

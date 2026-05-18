@@ -1,5 +1,4 @@
-use std::time::Duration;
-
+use super::cycle::{execute_click_cycle, ClickCycleKind, ClickCyclePlan};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     GetKeyState, MapVirtualKeyW, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT,
     KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, MAPVK_VK_TO_VSC_EX, VK_CAPITAL,
@@ -101,39 +100,32 @@ pub fn send_key_batch(vk: u16, n: usize, uppercase: bool) {
 pub fn send_key_presses(
     vk: u16,
     count: usize,
-    hold_ms: u32,
     uppercase: bool,
-    use_double_press_gap: bool,
-    double_press_delay_ms: u32,
+    plan: ClickCyclePlan,
     control: &RunControl,
 ) {
     if count == 0 {
         return;
     }
 
-    if !use_double_press_gap && count > 1 && hold_ms == 0 {
+    if plan.kind == ClickCycleKind::Single && count > 1 && plan.first_hold_ms == 0 {
         send_key_batch(vk, count, uppercase);
         return;
     }
 
-    for index in 0..count {
-        if !control.is_active() {
+    let use_shift = should_hold_shift_for_case(vk, uppercase);
+    let is_active = || control.is_active();
+    let mut sleep_for = |duration| sleep_interruptible(duration, control);
+
+    for _ in 0..count {
+        if !execute_click_cycle(
+            plan,
+            &mut || send_key_down(vk, use_shift),
+            &mut || send_key_up(vk, use_shift),
+            &mut sleep_for,
+            &is_active,
+        ) {
             return;
-        }
-
-        let use_shift = should_hold_shift_for_case(vk, uppercase);
-        send_key_down(vk, use_shift);
-        if hold_ms > 0 {
-            sleep_interruptible(Duration::from_millis(hold_ms as u64), control);
-        }
-        send_key_up(vk, use_shift);
-
-        if !control.is_active() {
-            return;
-        }
-
-        if index + 1 < count && use_double_press_gap && double_press_delay_ms > 0 {
-            sleep_interruptible(Duration::from_millis(double_press_delay_ms as u64), control);
         }
     }
 }
