@@ -81,6 +81,44 @@ fn send_key_up(vk: u16, use_shift: bool) {
     }
 }
 
+pub struct KeyboardHold {
+    vk: u16,
+    use_shift: bool,
+    released: bool,
+}
+
+impl KeyboardHold {
+    pub fn repeat(&self) {
+        send_key_event(self.vk, 0);
+    }
+
+    pub fn release(&mut self) {
+        if self.released {
+            return;
+        }
+
+        send_key_up(self.vk, self.use_shift);
+        self.released = true;
+    }
+}
+
+impl Drop for KeyboardHold {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
+pub fn hold_key(vk: u16, uppercase: bool) -> KeyboardHold {
+    let use_shift = should_hold_shift_for_case(vk, uppercase);
+    send_key_down(vk, use_shift);
+
+    KeyboardHold {
+        vk,
+        use_shift,
+        released: false,
+    }
+}
+
 pub fn send_key_batch(vk: u16, n: usize, uppercase: bool) {
     let use_shift = should_hold_shift_for_case(vk, uppercase);
     let inputs_per_press = if use_shift { 4 } else { 2 };
