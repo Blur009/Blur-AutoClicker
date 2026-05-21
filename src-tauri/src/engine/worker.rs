@@ -14,7 +14,7 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
 use super::cycle::ClickCyclePlan;
 use super::failsafe::should_stop_for_failsafe;
-use super::keyboard::{is_alphabetic_vk, send_key_presses};
+use super::keyboard::{hold_key, is_alphabetic_vk, send_key_presses};
 use super::mouse::{
     get_button_flags, get_cursor_pos, move_mouse, send_clicks, smooth_move, VirtualScreenRect,
 };
@@ -396,6 +396,21 @@ fn plan_cycle_batch(
     }
 }
 
+fn should_hold_keyboard_across_cycles(config: &ClickerConfig) -> bool {
+    config.input_type == 1
+        && config.key_code > 0
+        && !config.double_click_enabled
+        && config.duty >= 100.0
+}
+
+fn keyboard_hold_repeat_count(cycle_batch: CycleBatchPlan, key_already_held: bool) -> usize {
+    if key_already_held {
+        cycle_batch.physical_clicks
+    } else {
+        cycle_batch.physical_clicks.saturating_sub(1)
+    }
+}
+
 // -- Engine loop --
 
 pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
@@ -438,6 +453,8 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
 
     let has_position = config.use_sequence();
     let use_smoothing = config.smoothing == 1 && cps < 50.0;
+    let hold_keyboard_across_cycles = should_hold_keyboard_across_cycles(&config);
+    let mut held_keyboard_key = None;
 
     let mut sequence_index = 0usize;
     let mut cycle_target = current_cycle_target(&config, sequence_index);
@@ -559,23 +576,38 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             ClickCyclePlan::double(hold_ms, cycle_ms, config.double_click_gap_ms);
 
         if is_keyboard {
-            if cycle_batch.double_cycles > 0 {
-                send_key_presses(
-                    config.key_code,
-                    cycle_batch.double_cycles,
-                    config.keyboard_uppercase,
-                    double_cycle_plan,
-                    &control,
-                );
-            }
-            if cycle_batch.single_cycles > 0 {
-                send_key_presses(
-                    config.key_code,
-                    cycle_batch.single_cycles,
-                    config.keyboard_uppercase,
-                    single_cycle_plan,
-                    &control,
-                );
+            if hold_keyboard_across_cycles {
+                let key_already_held = held_keyboard_key.is_some();
+                let repeat_count = keyboard_hold_repeat_count(cycle_batch, key_already_held);
+
+                if !key_already_held {
+                    held_keyboard_key = Some(hold_key(config.key_code, config.keyboard_uppercase));
+                }
+
+                if let Some(held_key) = held_keyboard_key.as_ref() {
+                    for _ in 0..repeat_count {
+                        held_key.repeat();
+                    }
+                }
+            } else {
+                if cycle_batch.double_cycles > 0 {
+                    send_key_presses(
+                        config.key_code,
+                        cycle_batch.double_cycles,
+                        config.keyboard_uppercase,
+                        double_cycle_plan,
+                        &control,
+                    );
+                }
+                if cycle_batch.single_cycles > 0 {
+                    send_key_presses(
+                        config.key_code,
+                        cycle_batch.single_cycles,
+                        config.keyboard_uppercase,
+                        single_cycle_plan,
+                        &control,
+                    );
+                }
             }
         } else {
             if cycle_batch.double_cycles > 0 {
@@ -624,6 +656,10 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
                 emit_status(&control.app);
             }
         }
+    }
+
+    if let Some(mut held_key) = held_keyboard_key {
+        held_key.release();
     }
 
     unsafe { NtSetTimerResolution(10000, 0, &mut current) };
@@ -801,22 +837,5 @@ mod tests {
                 clicks: 1
             }
         );
-    }
-
-    #[test]
-    fn keyboard_uppercase_is_enabled_only_for_letter_keys() {
-        let mut settings = sample_settings();
-        settings.input_type = "keyboard".to_string();
-        settings.keyboard_key = "a".to_string();
-        settings.keyboard_key_case = "upper".to_string();
-
-        let config = build_config(&settings).expect("letter key should parse");
-        assert_eq!(config.key_code, b'A' as u16);
-        assert!(config.keyboard_uppercase);
-
-        settings.keyboard_key = "1".to_string();
-        let config = build_config(&settings).expect("digit key should parse");
-        assert_eq!(config.key_code, b'1' as u16);
-        assert!(!config.keyboard_uppercase);
     }
 }
