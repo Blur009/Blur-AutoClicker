@@ -55,6 +55,11 @@
     "stopReasonAlertDescription": "يظهر سبب توقف النقر في شريط العنوان.",
     "strictHotkeyModifiers": "معدّلات اختصار صارمة",
     "strictHotkeyModifiersDescription": "تشغيل: يتم تنشيط الاختصار فقط عند تطابق المعدّلات بالضبط. إيقاف: يتم تجاهل المعدّلات الإضافية المضغوطة.",
+    "extendedClickSpeedLimit": "حد سرعة النقر الموسع",
+    "extendedClickSpeedLimitDescription": "يرفع حد سرعة النقر إلى {limit} نقرة/ث. هذا غير موصى به؛ فمعظم الألعاب لا تسجل إلا حوالي 60 نقرة/ث.",
+    "extendedClickSpeedLimitDialogTitle": "⚠️ تفعيل حد 1000 نقرة/ث؟",
+    "extendedClickSpeedLimitDialogMessage": "قد يكون هذا التغيير غير موثوق وقد يتسبب في تعطل التطبيقات أو انهيارها. معظم الألعاب عبر الإنترنت لا تسجل سوى 60 نقرة/ث بسبب سرعة نبضات الخادم.",
+    "extendedClickSpeedLimitDialogConfirm": "فعّل على أي حال",
     "sectionStartup": "بدء التشغيل",
     "sectionStartupDescription": "يتحكم فيما يحدث عند بدء تشغيل Windows أو إغلاق النافذة.",
     "language": "اللغة",
@@ -149,14 +154,16 @@
     "sequenceMoveUp": "أعلى",
     "sequenceMoveDown": "أسفل",
     "sequenceDelete": "حذف",
-    "sequenceAddCurrentCursor": "إضافة المؤشر الحالي",
+    "sequenceStartPicking": "بدء الاختيار",
+    "sequenceCancelPicking": "إلغاء الاختيار",
     "customStopZone": "منطقة توقف مخصصة",
     "customStopZoneDescription": "يوقف النقر عندما يدخل المؤشر هذه المنطقة المستطيلة، باستخدام إحداثيات الشاشة المطلقة التي يمكن أن تمتد عبر شاشات متعددة.",
     "customStopZoneSetTopLeft": "تعيين أعلى اليسار",
     "customStopZoneSetBottomRight": "تعيين أسفل اليمين",
+    "customStopZoneDraw": "رسم المنطقة",
+    "customStopZoneCancelDrawing": "إلغاء الرسم",
     "speedVariationUnavailable": "قم بتفعيل تباين السرعة لتعديل مقدار العشوائية في توقيت النقر.",
     "doubleClickUnavailable": "النقر المزدوج غير متوفر عند {cps} نقرة/ثانية. قلل معدل النقر الفعلي إلى أقل من 50 نقرة/ثانية لتشغيله.",
-    "doubleClickContentUnavailable": "قم بتفعيل النقر المزدوج لضبط التأخير بين النقرة الأولى والثانية.",
     "clickLimitUnavailable": "قم بتفعيل حد النقر للتوقف تلقائياً بعد عدد محدد من النقرات.",
     "timeLimitUnavailable": "قم بتفعيل حد الوقت للتوقف تلقائياً بعد فترة زمنية محددة.",
     "cornerStopUnavailable": "قم بتفعيل التوقف عند الزاوية لتعديل مناطق الأمان في الزوايا.",
@@ -166,8 +173,6 @@
     "pickInProgressUnavailable": "التقاط الموضع قيد التنفيذ بالفعل. انتظر حتى ينتهي الاختيار الحالي.",
     "pickCountdownUnavailable": "يبدأ التقاط الموضع خلال {seconds} ثوانٍ. انقل المؤشر إلى الموقع المستهدف وانتظر حتى يتم حفظه.",
     "pickCountdownSingularUnavailable": "يبدأ التقاط الموضع خلال ثانية واحدة. انقل المؤشر إلى الموقع المستهدف وانتظر حتى يتم حفظه.",
-    "sequenceAddingIn": "سيتم الإضافة خلال",
-    "sequenceCapturing": "جارٍ الالتقاط...",
     "customStopZoneAddingIn": "سيتم التعيين خلال",
     "customStopZoneCapturing": "جارٍ التعيين...",
     "perClick": "لكل نقرة"
@@ -200,7 +205,7 @@
       "Right": "نقر أيمن"
     },
     "inputType": {
-      "mouse": "ماوس",
+      "mouse": "فأرة",
       "keyboard": "لوحة مفاتيح"
     },
     "rateInputMode": {
@@ -211,7 +216,7 @@
       "h": "س",
       "m": "د",
       "s": "ث",
-      "ms": "مللي ث"
+      "ms": "ملي ث"
     },
     "timeUnitShort": {
       "s": "ث",

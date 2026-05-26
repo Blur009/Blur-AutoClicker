@@ -1,15 +1,12 @@
 import type { ChangeEvent, CSSProperties, FocusEvent, WheelEvent } from "react";
 import "./panels/advanced/AdvancedPanel.css";
 import { RATE_INPUT_MODE_OPTIONS } from "../cadence";
-import {
-  convertDurationToRate,
-  convertRateToDuration,
-} from "../cadence";
+import { convertDurationToRate, convertRateToDuration } from "../cadence";
 import { normalizeIntegerRaw } from "../numberInput";
 import type { RateInputMode, Settings } from "../store";
 import { useTranslation } from "../i18n";
 import { AdvDropdown } from "./panels/advanced/shared";
-import type { ClickInterval } from "../settingsSchema";
+import { getMaxClickSpeed, type ClickInterval } from "../settingsSchema";
 
 // TODO: This should really be split up into what is in the advanced panel and what is in the simple panel. Having both in one feels kinda off i feel like.
 
@@ -109,6 +106,8 @@ function DurationField({
 
 export default function CadenceInput({ settings, update, variant }: Props) {
   const { t } = useTranslation();
+  const maxClickSpeed = getMaxClickSpeed(settings.extendedClickSpeedLimit);
+  
   const INTERVAL_OPTIONS = [
     { value: "s", label: t("options.interval.s") },
     { value: "m", label: t("options.interval.m") },
@@ -174,7 +173,7 @@ export default function CadenceInput({ settings, update, variant }: Props) {
               className="simple-inline-input simple-cadence-input"
               value={settings.clickSpeed}
               min={1}
-              max={500}
+              max={maxClickSpeed}
               aria-label={t("advanced.clicksPer")}
               onChange={(event) =>
                 handleNumberChange(event, (next) =>
@@ -182,13 +181,17 @@ export default function CadenceInput({ settings, update, variant }: Props) {
                 )
               }
               onBlur={(event) =>
-                handleNumberBlur(event, 1, 500, (next) =>
+                handleNumberBlur(event, 1, maxClickSpeed, (next) =>
                   updateSimpleCadence({ clickSpeed: next }),
                 )
               }
               onWheel={(event) =>
-                handleWheelStep(event, settings.clickSpeed, 1, 500, (next) =>
-                  updateSimpleCadence({ clickSpeed: next }),
+                handleWheelStep(
+                  event,
+                  settings.clickSpeed,
+                  1,
+                  maxClickSpeed,
+                  (next) => updateSimpleCadence({ clickSpeed: next }),
                 )
               }
             />
@@ -221,7 +224,9 @@ export default function CadenceInput({ settings, update, variant }: Props) {
                 value={settings.durationHours}
                 min={0}
                 max={999}
-                onChange={(next) => updateSimpleCadence({ durationHours: next })}
+                onChange={(next) =>
+                  updateSimpleCadence({ durationHours: next })
+                }
                 style={{
                   width: dynamicChWidth(settings.durationHours, 1, 3),
                   minWidth: "1ch",
@@ -287,7 +292,7 @@ export default function CadenceInput({ settings, update, variant }: Props) {
   }
 
   const modeToggle = (
-    <div className="adv-seg-group">
+    <div className="adv-seg-group adv-cadence-mode-toggle">
       {RATE_INPUT_MODE_OPTIONS.map((mode) => (
         <button
           key={mode}
@@ -313,7 +318,7 @@ export default function CadenceInput({ settings, update, variant }: Props) {
                   className="adv-number-sm"
                   value={settings.clickSpeed}
                   min={1}
-                  max={500}
+                  max={maxClickSpeed}
                   style={{ width: "40px", textAlign: "right" }}
                   onChange={(event) =>
                     handleNumberChange(event, (next) =>
@@ -321,7 +326,7 @@ export default function CadenceInput({ settings, update, variant }: Props) {
                     )
                   }
                   onBlur={(event) =>
-                    handleNumberBlur(event, 1, 500, (next) =>
+                    handleNumberBlur(event, 1, maxClickSpeed, (next) =>
                       update({ clickSpeed: next }),
                     )
                   }
@@ -330,7 +335,7 @@ export default function CadenceInput({ settings, update, variant }: Props) {
                       event,
                       settings.clickSpeed,
                       1,
-                      500,
+                      maxClickSpeed,
                       (next) => update({ clickSpeed: next }),
                     )
                   }
@@ -350,7 +355,7 @@ export default function CadenceInput({ settings, update, variant }: Props) {
               </div>
             </div>
           ) : (
-            <div className="adv-value-outline">
+            <div className="adv-value-outline adv-value-outline--duration">
               <div className="adv-foc">
                 <input
                   type="number"
