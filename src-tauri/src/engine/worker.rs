@@ -10,7 +10,6 @@ use crate::ClickerSettings;
 use crate::ClickerState;
 use crate::ClickerStatusPayload;
 use crate::STATUS_EVENT;
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
 use super::cycle::ClickCyclePlan;
 use super::failsafe::should_stop_for_failsafe;
@@ -25,17 +24,23 @@ use super::RunOutcome;
 use super::SequenceTarget;
 use super::CLICK_COUNT;
 
+#[cfg(target_os = "windows")]
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
+
 // -- CPU measurement --
 // changed from normal cpu measurement because it was not accurately
 // showing cpu usage for short clicker run times.
 
+#[cfg(target_os = "windows")]
 windows_targets::link!(
     "kernel32.dll" "system" fn QueryThreadCycleTime(thread: *mut core::ffi::c_void, cycles: *mut u64) -> i32
 );
+#[cfg(target_os = "windows")]
 windows_targets::link!(
     "kernel32.dll" "system" fn GetCurrentThread() -> *mut core::ffi::c_void
 );
 
+#[cfg(target_os = "windows")]
 #[inline]
 fn thread_cycles() -> u64 {
     let mut cycles: u64 = 0;
@@ -43,6 +48,12 @@ fn thread_cycles() -> u64 {
         QueryThreadCycleTime(GetCurrentThread(), &mut cycles);
     }
     cycles
+}
+
+#[cfg(not(target_os = "windows"))]
+#[inline]
+fn thread_cycles() -> u64 {
+    0
 }
 
 impl ClickerConfig {
@@ -211,9 +222,15 @@ fn interval_secs_from_settings(settings: &ClickerSettings) -> Result<f64, String
     })
 }
 
+#[cfg(target_os = "windows")]
 fn system_double_click_gap_ms() -> u32 {
     let system_timeout_ms = unsafe { GetDoubleClickTime() };
     ((system_timeout_ms as f64) * 0.9).floor() as u32
+}
+
+#[cfg(not(target_os = "windows"))]
+fn system_double_click_gap_ms() -> u32 {
+    450
 }
 
 fn current_cycle_target(config: &ClickerConfig, sequence_index: usize) -> SequenceTarget {

@@ -38,6 +38,9 @@ windows-targets = "0.48"
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.25"
+
 [profile.release]
 strip = true
 lto = "thin"

@@ -1,8 +1,11 @@
 use std::io;
 
+#[cfg(target_os = "windows")]
 const APP_NAME: &str = "BlurAutoClicker";
+#[cfg(target_os = "windows")]
 const RUN_KEY: &str = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 
+#[cfg(target_os = "windows")]
 pub fn get_autostart_enabled() -> bool {
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
@@ -14,6 +17,12 @@ pub fn get_autostart_enabled() -> bool {
     run_key.get_value::<String, _>(APP_NAME).is_ok()
 }
 
+#[cfg(not(target_os = "windows"))]
+pub fn get_autostart_enabled() -> bool {
+    false
+}
+
+#[cfg(target_os = "windows")]
 pub fn set_autostart_enabled(enabled: bool) -> io::Result<()> {
     use winreg::enums::{HKEY_CURRENT_USER, KEY_WRITE};
     use winreg::RegKey;
@@ -30,4 +39,12 @@ pub fn set_autostart_enabled(enabled: bool) -> io::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn set_autostart_enabled(_enabled: bool) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "autostart is currently only implemented on Windows",
+    ))
 }

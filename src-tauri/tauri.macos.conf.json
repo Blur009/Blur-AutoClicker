@@ -1,0 +1,20 @@
+{
+  "bundle": {
+    "targets": ["app", "dmg"],
+    "createUpdaterArtifacts": false,
+    "icon": ["icons/icon.png"],
+    "macOS": {
+      "minimumSystemVersion": "10.13"
+    }
+  },
+  "plugins": {
+    "bundle": {
+      "targets": ["app", "dmg"],
+      "createUpdaterArtifacts": false,
+      "icon": ["icons/icon.png"],
+      "macOS": {
+        "minimumSystemVersion": "10.13"
+      }
+    }
+  }
+}

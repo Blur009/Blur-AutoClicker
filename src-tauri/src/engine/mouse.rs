@@ -3,11 +3,21 @@ use super::worker::{sleep_interruptible, RunControl};
 use std::time::Duration;
 use std::time::Instant;
 
+#[cfg(target_os = "macos")]
+use core_graphics::display::CGDisplay;
+#[cfg(target_os = "macos")]
+use core_graphics::event::{CGEvent, CGEventTapLocation, CGEventType, CGMouseButton};
+#[cfg(target_os = "macos")]
+use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+#[cfg(target_os = "macos")]
+use core_graphics::geometry::{CGPoint, CGRect};
+#[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
     MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN,
     MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK, MOUSEINPUT,
 };
+#[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
 };
@@ -46,11 +56,14 @@ impl VirtualScreenRect {
         x >= self.left && x < self.right() && y >= self.top && y < self.bottom()
     }
 
+    #[cfg(target_os = "windows")]
     fn normalize_x(&self, pixel_x: i32) -> i32 {
         let relative_x = pixel_x as f64 - self.left as f64;
         let ratio = relative_x / self.width as f64;
         (ratio * 65535.0).round() as i32
     }
+
+    #[cfg(target_os = "windows")]
     fn normalize_y(&self, pixel_y: i32) -> i32 {
         let relative_y = pixel_y as f64 - self.top as f64;
         let ratio = relative_y / self.height as f64;
@@ -68,6 +81,7 @@ impl VirtualScreenRect {
     }
 }
 
+#[cfg(target_os = "windows")]
 pub fn current_cursor_position() -> Option<(i32, i32)> {
     use windows_sys::Win32::Foundation::POINT;
     use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
@@ -81,6 +95,20 @@ pub fn current_cursor_position() -> Option<(i32, i32)> {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub fn current_cursor_position() -> Option<(i32, i32)> {
+    let source = CGEventSource::new(CGEventSourceStateID::CombinedSessionState).ok()?;
+    let event = CGEvent::new(source).ok()?;
+    let point = event.location();
+    Some((point.x.round() as i32, point.y.round() as i32))
+}
+
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+pub fn current_cursor_position() -> Option<(i32, i32)> {
+    None
+}
+
+#[cfg(target_os = "windows")]
 pub fn current_virtual_screen_rect() -> Option<VirtualScreenRect> {
     let left = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
     let top = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
@@ -91,6 +119,43 @@ pub fn current_virtual_screen_rect() -> Option<VirtualScreenRect> {
     }
 
     Some(VirtualScreenRect::new(left, top, width, height))
+}
+
+#[cfg(target_os = "macos")]
+fn rect_from_cg(rect: CGRect) -> Option<VirtualScreenRect> {
+    let width = rect.size.width.round() as i32;
+    let height = rect.size.height.round() as i32;
+    if width <= 0 || height <= 0 {
+        return None;
+    }
+
+    Some(VirtualScreenRect::new(
+        rect.origin.x.round() as i32,
+        rect.origin.y.round() as i32,
+        width,
+        height,
+    ))
+}
+
+#[cfg(target_os = "macos")]
+pub fn current_virtual_screen_rect() -> Option<VirtualScreenRect> {
+    let monitors = current_monitor_rects()?;
+    let left = monitors.iter().map(|rect| rect.left).min()?;
+    let top = monitors.iter().map(|rect| rect.top).min()?;
+    let right = monitors.iter().map(|rect| rect.right()).max()?;
+    let bottom = monitors.iter().map(|rect| rect.bottom()).max()?;
+
+    Some(VirtualScreenRect::new(
+        left,
+        top,
+        right - left,
+        bottom - top,
+    ))
+}
+
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+pub fn current_virtual_screen_rect() -> Option<VirtualScreenRect> {
+    None
 }
 
 #[cfg(target_os = "windows")]
@@ -141,7 +206,23 @@ pub fn current_monitor_rects() -> Option<Vec<VirtualScreenRect>> {
     Some(monitors)
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
+pub fn current_monitor_rects() -> Option<Vec<VirtualScreenRect>> {
+    let displays = CGDisplay::active_displays().ok()?;
+    let mut monitors: Vec<_> = displays
+        .into_iter()
+        .filter_map(|id| rect_from_cg(CGDisplay::new(id).bounds()))
+        .collect();
+
+    if monitors.is_empty() {
+        rect_from_cg(CGDisplay::main().bounds()).map(|screen| vec![screen])
+    } else {
+        monitors.sort_by_key(|monitor| (monitor.top, monitor.left));
+        Some(monitors)
+    }
+}
+
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
 pub fn current_monitor_rects() -> Option<Vec<VirtualScreenRect>> {
     current_virtual_screen_rect().map(|screen| vec![screen])
 }
@@ -152,6 +233,7 @@ pub fn get_cursor_pos() -> (i32, i32) {
 }
 
 #[inline]
+#[cfg(target_os = "windows")]
 pub fn move_mouse(target_x: i32, target_y: i32) {
     if let Some(screen_rect) = current_virtual_screen_rect() {
         let end_x = screen_rect.normalize_x(target_x);
@@ -164,6 +246,26 @@ pub fn move_mouse(target_x: i32, target_y: i32) {
 }
 
 #[inline]
+#[cfg(target_os = "macos")]
+pub fn move_mouse(target_x: i32, target_y: i32) {
+    let point = CGPoint::new(target_x as f64, target_y as f64);
+    let _ = CGDisplay::warp_mouse_cursor_position(point);
+
+    if let Ok(source) = CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
+        if let Ok(event) =
+            CGEvent::new_mouse_event(source, CGEventType::MouseMoved, point, CGMouseButton::Left)
+        {
+            event.post(CGEventTapLocation::HID);
+        }
+    }
+}
+
+#[inline]
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+pub fn move_mouse(_target_x: i32, _target_y: i32) {}
+
+#[inline]
+#[cfg(target_os = "windows")]
 pub fn make_movement(end_x: i32, end_y: i32) -> INPUT {
     INPUT {
         r#type: INPUT_MOUSE,
@@ -181,6 +283,7 @@ pub fn make_movement(end_x: i32, end_y: i32) -> INPUT {
 }
 
 #[inline]
+#[cfg(target_os = "windows")]
 pub fn make_input(flags: u32, time: u32) -> INPUT {
     INPUT {
         r#type: INPUT_MOUSE,
@@ -198,11 +301,13 @@ pub fn make_input(flags: u32, time: u32) -> INPUT {
 }
 
 #[inline]
+#[cfg(target_os = "windows")]
 pub fn send_mouse_event(flags: u32) {
     let input = make_input(flags, 0);
     unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
 }
 
+#[cfg(target_os = "windows")]
 pub fn send_batch(down: u32, up: u32, n: usize) {
     let mut inputs: Vec<INPUT> = Vec::with_capacity(n * 2);
     for _ in 0..n {
@@ -218,6 +323,7 @@ pub fn send_batch(down: u32, up: u32, n: usize) {
     };
 }
 
+#[cfg(target_os = "windows")]
 pub fn send_clicks(down: u32, up: u32, count: usize, plan: ClickCyclePlan, control: &RunControl) {
     if count == 0 {
         return;
@@ -244,13 +350,100 @@ pub fn send_clicks(down: u32, up: u32, count: usize, plan: ClickCyclePlan, contr
     }
 }
 
+#[cfg(target_os = "macos")]
+fn mac_mouse_button(button: u32) -> (CGMouseButton, CGEventType, CGEventType) {
+    match button {
+        2 => (
+            CGMouseButton::Right,
+            CGEventType::RightMouseDown,
+            CGEventType::RightMouseUp,
+        ),
+        3 => (
+            CGMouseButton::Center,
+            CGEventType::OtherMouseDown,
+            CGEventType::OtherMouseUp,
+        ),
+        _ => (
+            CGMouseButton::Left,
+            CGEventType::LeftMouseDown,
+            CGEventType::LeftMouseUp,
+        ),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn post_mouse_button(button: u32, event_type: CGEventType) {
+    let Some((x, y)) = current_cursor_position() else {
+        return;
+    };
+    let point = CGPoint::new(x as f64, y as f64);
+    let (button, _, _) = mac_mouse_button(button);
+    if let Ok(source) = CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
+        if let Ok(event) = CGEvent::new_mouse_event(source, event_type, point, button) {
+            event.post(CGEventTapLocation::HID);
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub fn send_clicks(down: u32, _up: u32, count: usize, plan: ClickCyclePlan, control: &RunControl) {
+    if count == 0 {
+        return;
+    }
+
+    let (_, down_type, up_type) = mac_mouse_button(down);
+    let click_once = || {
+        post_mouse_button(down, down_type);
+        post_mouse_button(down, up_type);
+    };
+
+    if plan.kind == ClickCycleKind::Single && count > 1 && plan.first_hold_ms == 0 {
+        for _ in 0..count {
+            click_once();
+        }
+        return;
+    }
+
+    let is_active = || control.is_active();
+    let mut sleep_for = |duration| sleep_interruptible(duration, control);
+
+    for _ in 0..count {
+        if !execute_click_cycle(
+            plan,
+            &mut || post_mouse_button(down, down_type),
+            &mut || post_mouse_button(down, up_type),
+            &mut sleep_for,
+            &is_active,
+        ) {
+            return;
+        }
+    }
+}
+
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+pub fn send_clicks(
+    _down: u32,
+    _up: u32,
+    _count: usize,
+    _plan: ClickCyclePlan,
+    _control: &RunControl,
+) {
+}
+
 #[inline]
+#[cfg(target_os = "windows")]
 pub fn get_button_flags(button: i32) -> (u32, u32) {
     match button {
         2 => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
         3 => (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
         _ => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
     }
+}
+
+#[inline]
+#[cfg(not(target_os = "windows"))]
+pub fn get_button_flags(button: i32) -> (u32, u32) {
+    (button as u32, button as u32)
 }
 
 #[inline]

@@ -77,7 +77,7 @@ Unsigned GitHub-downloaded Windows installers can still show a SmartScreen warni
 
 ## Building From Source
 
-This project is currently Windows-first. The maintained desktop build path is the Rust `x86_64-pc-windows-msvc` toolchain plus Node.js.
+This project is currently Windows-first. The maintained desktop build path is the Rust `x86_64-pc-windows-msvc` toolchain plus Node.js, with an experimental macOS build path available for local testing.
 
 Requirements:
 - Node.js 20 or newer
@@ -110,6 +110,14 @@ cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 The built Windows installer is written to `src-tauri/target/release/bundle/nsis/`.
+
+Experimental macOS build:
+```bash
+npm install
+npm run build:mac
+```
+
+The macOS `.app` and `.dmg` outputs are written under `src-tauri/target/release/bundle/`. The core clicker, mouse movement, and keyboard output paths build on macOS; Windows-only picker overlays and autostart return unsupported errors until they are ported to native macOS APIs.
 
 ---
 

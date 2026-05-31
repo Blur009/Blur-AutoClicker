@@ -7,6 +7,7 @@
     "dev": "tauri dev",
     "vite": "vite",
     "build": "tauri build",
+    "build:mac": "tauri build --bundles app,dmg --no-sign",
     "frontend:build": "tsc -b && vite build",
     "tauri": "tauri",
     "lint": "eslint .",

@@ -6,6 +6,7 @@ version = 3
 name = "BlurAutoClicker"
 version = "3.7.0"
 dependencies = [
+ "core-graphics",
  "dirs",
  "hex",
  "hmac",

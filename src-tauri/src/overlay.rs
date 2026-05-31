@@ -1,7 +1,7 @@
 use crate::app_state::ClickerState;
-use crate::engine::mouse::{
-    current_cursor_position, current_monitor_rects, current_virtual_screen_rect, VirtualScreenRect,
-};
+#[cfg(target_os = "windows")]
+use crate::engine::mouse::current_cursor_position;
+use crate::engine::mouse::{current_monitor_rects, current_virtual_screen_rect, VirtualScreenRect};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -159,6 +159,7 @@ pub fn show_sequence_points_overlay(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
 pub fn show_sequence_pick_overlay(app: &AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window("overlay")
@@ -206,6 +207,7 @@ pub fn set_sequence_pick_mode(app: &AppHandle, active: bool) -> Result<(), Strin
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
 pub fn show_custom_stop_zone_pick_overlay(app: &AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window("overlay")
@@ -259,6 +261,7 @@ pub fn hide_custom_stop_zone_pick_overlay(app: &AppHandle) -> Result<(), String>
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
 pub fn end_custom_stop_zone_pick_overlay(app: &AppHandle) -> Result<(), String> {
     set_custom_stop_zone_pick_mode(app, false)?;
     if let Some(window) = app.get_webview_window("overlay") {
@@ -313,6 +316,8 @@ pub fn check_auto_hide(app: &AppHandle) {
             *last = None;
             if let Some(window) = app.get_webview_window("overlay") {
                 log::info!("[Overlay] Auto-hide: hiding window");
+                #[cfg(not(target_os = "windows"))]
+                let _ = window;
                 #[cfg(target_os = "windows")]
                 {
                     if let Ok(hwnd) = get_hwnd(&window) {
