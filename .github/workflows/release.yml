@@ -1,63 +1,64 @@
-name: Release
-
-on:
-  push:
-    tags:
-      - "v*"
-
-permissions:
-  contents: write
-
-jobs:
-  release:
-    name: Build and release
-    runs-on: windows-latest
-    timeout-minutes: 30
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workdir: src-tauri
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: BlurAutoClicker ${{ github.ref_name }}
-          releaseBody: See CHANGELOG for details.
-          releaseDraft: true
-
-      - name: Create portable zip
-        shell: pwsh
-        run: |
-          $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "BlurAutoClicker.exe" | Select-Object -First 1
-          if (-not $exe) { Write-Error "BlurAutoClicker.exe not found"; exit 1 }
-          $tag = "${{ github.ref_name }}"
-          $zipName = "BlurAutoClicker-${tag}-portable.zip"
-          Compress-Archive -Path $exe.FullName -DestinationPath $zipName
-          echo "ZIP_PATH=$zipName" >> $env:GITHUB_ENV
-
-      - name: Upload portable zip to release
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "${{ github.ref_name }}" "$env:ZIP_PATH" --clobber
+     1|name: Release
+     2|
+     3|on:
+     4|  push:
+     5|    tags:
+     6|      - "v*"
+     7|
+     8|permissions:
+     9|  contents: write
+    10|
+    11|jobs:
+    12|  release:
+    13|    name: Build and release
+    14|    runs-on: windows-latest
+    15|    timeout-minutes: 30
+    16|
+    17|    steps:
+    18|      - uses: actions/checkout@v4
+    19|
+    20|      - uses: actions/setup-node@v4
+    21|        with:
+    22|          node-version: 24
+    23|          cache: npm
+    24|
+    25|      - uses: dtolnay/rust-toolchain@stable
+    26|        with:
+    27|          targets: x86_64-pc-windows-msvc
+    28|
+    29|      - uses: Swatinem/rust-cache@v2
+    30|        with:
+    31|          workdir: src-tauri
+    32|
+    33|      - name: Install dependencies
+    34|        run: npm install
+    35|
+    36|      - name: Build
+    37|        uses: tauri-apps/tauri-action@v0
+    38|        env:
+    39|          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    40|          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+    41|          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    42|        with:
+    43|          tagName: ${{ github.ref_name }}
+    44|          releaseName: MrSchnirschuhHub ${{ github.ref_name }}
+    45|          releaseBody: See CHANGELOG for details.
+    46|          releaseDraft: true
+    47|
+    48|      - name: Create portable zip
+    49|        shell: pwsh
+    50|        run: |
+    51|          $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "MrSchnirschuhHub.exe" | Select-Object -First 1
+    52|          if (-not $exe) { Write-Error "MrSchnirschuhHub.exe not found"; exit 1 }
+    53|          $tag = "${{ github.ref_name }}"
+    54|          $zipName = "MrSchnirschuhHub-${tag}-portable.zip"
+    55|          Compress-Archive -Path $exe.FullName -DestinationPath $zipName
+    56|          echo "ZIP_PATH=$zipName" >> $env:GITHUB_ENV
+    57|
+    58|      - name: Upload portable zip to release
+    59|        shell: pwsh
+    60|        env:
+    61|          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    62|        run: |
+    63|          gh release upload "${{ github.ref_name }}" "$env:ZIP_PATH" --clobber
+    64|

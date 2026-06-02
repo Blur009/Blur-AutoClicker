@@ -1,75 +1,76 @@
-name: Feature request
-description: Suggest a new feature or improvement for Blur Auto Clicker
-title: "[Feature]: "
-labels:
-  - enhancement
-body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for suggesting an improvement.
-        Please describe the problem or use case first, then the solution you would like to see.
-
-  - type: checkboxes
-    id: checks
-    attributes:
-      label: Checks
-      options:
-        - label: I searched the existing issues and pull requests for similar requests.
-          required: true
-
-  - type: textarea
-    id: problem
-    attributes:
-      label: Problem or use case
-      description: What are you trying to do, and what is currently missing or inconvenient?
-      placeholder: I want to ...
-    validations:
-      required: true
-
-  - type: textarea
-    id: solution
-    attributes:
-      label: Proposed solution
-      description: Describe the feature or behavior you would like to see.
-      placeholder: It would help if Blur Auto Clicker could ...
-    validations:
-      required: true
-
-  - type: dropdown
-    id: area
-    attributes:
-      label: Area
-      options:
-        - UI / UX
-        - Clicking engine
-        - Hotkeys
-        - Overlay
-        - Settings / Storage
-        - Installer / Updates
-        - Other
-    validations:
-      required: true
-
-  - type: textarea
-    id: why_needed
-    attributes:
-      label: Why this is needed
-      description: Explain why the current behavior is insufficient and why this should be prioritized.
-      placeholder: This is needed because ...
-    validations:
-      required: true
-
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives considered
-      description: Optional - describe any workaround or alternative you have considered
-      placeholder: I currently work around this by ...
-
-  - type: textarea
-    id: additional_context
-    attributes:
-      label: Additional context
-      description: Optional - add mockups, references, screenshots, or anything else that helps explain the idea
-
+     1|name: Feature request
+     2|description: Suggest a new feature or improvement for Blur Auto Clicker
+     3|title: "[Feature]: "
+     4|labels:
+     5|  - enhancement
+     6|body:
+     7|  - type: markdown
+     8|    attributes:
+     9|      value: |
+    10|        Thanks for suggesting an improvement.
+    11|        Please describe the problem or use case first, then the solution you would like to see.
+    12|
+    13|  - type: checkboxes
+    14|    id: checks
+    15|    attributes:
+    16|      label: Checks
+    17|      options:
+    18|        - label: I searched the existing issues and pull requests for similar requests.
+    19|          required: true
+    20|
+    21|  - type: textarea
+    22|    id: problem
+    23|    attributes:
+    24|      label: Problem or use case
+    25|      description: What are you trying to do, and what is currently missing or inconvenient?
+    26|      placeholder: I want to ...
+    27|    validations:
+    28|      required: true
+    29|
+    30|  - type: textarea
+    31|    id: solution
+    32|    attributes:
+    33|      label: Proposed solution
+    34|      description: Describe the feature or behavior you would like to see.
+    35|      placeholder: It would help if Blur Auto Clicker could ...
+    36|    validations:
+    37|      required: true
+    38|
+    39|  - type: dropdown
+    40|    id: area
+    41|    attributes:
+    42|      label: Area
+    43|      options:
+    44|        - UI / UX
+    45|        - Clicking engine
+    46|        - Hotkeys
+    47|        - Overlay
+    48|        - Settings / Storage
+    49|        - Installer / Updates
+    50|        - Other
+    51|    validations:
+    52|      required: true
+    53|
+    54|  - type: textarea
+    55|    id: why_needed
+    56|    attributes:
+    57|      label: Why this is needed
+    58|      description: Explain why the current behavior is insufficient and why this should be prioritized.
+    59|      placeholder: This is needed because ...
+    60|    validations:
+    61|      required: true
+    62|
+    63|  - type: textarea
+    64|    id: alternatives
+    65|    attributes:
+    66|      label: Alternatives considered
+    67|      description: Optional - describe any workaround or alternative you have considered
+    68|      placeholder: I currently work around this by ...
+    69|
+    70|  - type: textarea
+    71|    id: additional_context
+    72|    attributes:
+    73|      label: Additional context
+    74|      description: Optional - add mockups, references, screenshots, or anything else that helps explain the idea
+    75|
+    76|

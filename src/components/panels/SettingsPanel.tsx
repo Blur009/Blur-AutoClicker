@@ -1,1052 +1,501 @@
-import "./SettingsPanel.css";
-import type {
-  AppInfo,
-  PresetDefinition,
-  PresetId,
-  Settings,
-} from "../../store";
-import {
-  isLanguage,
-  LANGUAGE_OPTIONS,
-  useTranslation,
-  type Language,
-} from "../../i18n";
-import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import ConfirmDialog from "../ConfirmDialog";
-import { AdvDropdown } from "./advanced/shared";
-import {
-  DEFAULT_MAX_CLICK_SPEED,
-  DEFAULT_ACCENT_COLOR,
-  getMaxClickSpeed,
-  MAX_PRESETS,
-  PRESET_NAME_MAX_LENGTH,
-} from "../../settingsSchema";
-
-type PendingAction =
-  | "reset-settings"
-  | "clear-stats"
-  | "extended-click-speed-limit"
-  | null;
-
-const LANGUAGE_DROPDOWN_OPTIONS = LANGUAGE_OPTIONS.map((option) => ({
-  value: option.code,
-  label: option.label,
-}));
-
-interface CumulativeStats {
-  totalClicks: number;
-  totalTimeSecs: number;
-  totalSessions: number;
-  avgCpu: number;
-}
-
-interface Props {
-  settings: Settings;
-  update: (patch: Partial<Settings>) => void;
-  running: boolean;
-  appInfo: AppInfo;
-  onSavePreset: (name: string) => boolean;
-  onApplyPreset: (presetId: PresetId) => boolean;
-  onUpdatePreset: (presetId: PresetId) => boolean;
-  onRenamePreset: (presetId: PresetId, name: string) => boolean;
-  onDeletePreset: (presetId: PresetId) => boolean;
-  onToggleAlwaysOnTop: () => Promise<void>;
-  onReset: () => Promise<void>;
-}
-
-function formatTime(totalSeconds: number, language: Language): string {
-  if (totalSeconds < 0.01) return "0s";
-  if (totalSeconds < 60) {
-    return `${Math.floor(totalSeconds).toLocaleString(language)}s`;
-  }
-  if (totalSeconds < 3600) {
-    const m = Math.floor(totalSeconds / 60);
-    const s = Math.floor(totalSeconds % 60);
-    return s > 0
-      ? `${m.toLocaleString(language)}m ${s.toLocaleString(language)}s`
-      : `${m.toLocaleString(language)}m`;
-  }
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  return m > 0
-    ? `${h.toLocaleString(language)}h ${m.toLocaleString(language)}m`
-    : `${h.toLocaleString(language)}h`;
-}
-
-function formatNumber(n: number, language: Language): string {
-  return Math.floor(n).toLocaleString(language);
-}
-
-function formatCpu(
-  cpu: number,
-  language: Language,
-  notAvailable: string,
-): string {
-  if (cpu < 0) return notAvailable;
-  return `${cpu.toLocaleString(language, {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  })}%`;
-}
-
-function SettingsSectionHeading({
-  title,
-  description,
-}: {
-  title: string;
-  description?: string;
-}) {
-  return (
-    <div className="settings-section-heading">
-      <span className="settings-section-title">{title}</span>
-      {description ? (
-        <span className="settings-section-description">{description}</span>
-      ) : null}
-    </div>
-  );
-}
-
-function SettingsCard({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="settings-card">
-      <SettingsSectionHeading title={title} description={description} />
-      <div className="settings-card-content">{children}</div>
-    </section>
-  );
-}
-
-function PresetRow({
-  preset,
-  isActive,
-  isEditing,
-  isConfirmingDelete,
-  running,
-  renameDraft,
-  onRenameDraftChange,
-  onStartRename,
-  onCancelRename,
-  onCommitRename,
-  onApply,
-  onUpdatePreset,
-  onRequestDelete,
-  onCancelDelete,
-  onConfirmDelete,
-}: {
-  preset: PresetDefinition;
-  isActive: boolean;
-  isEditing: boolean;
-  isConfirmingDelete: boolean;
-  running: boolean;
-  renameDraft: string;
-  onRenameDraftChange: (value: string) => void;
-  onStartRename: () => void;
-  onCancelRename: () => void;
-  onCommitRename: () => void;
-  onApply: () => void;
-  onUpdatePreset: () => void;
-  onRequestDelete: () => void;
-  onCancelDelete: () => void;
-  onConfirmDelete: () => void;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <div
-      className={`preset-card ${isActive ? "preset-card--active" : ""}`}
-      data-preset-id={preset.id}
-    >
-      <div className="preset-card-head">
-        <div className="preset-card-meta">
-          {isEditing ? (
-            <input
-              className="preset-rename-input"
-              value={renameDraft}
-              maxLength={PRESET_NAME_MAX_LENGTH}
-              onChange={(event) => onRenameDraftChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  onCommitRename();
-                }
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  onCancelRename();
-                }
-              }}
-              autoFocus
-            />
-          ) : (
-            <span className="preset-name">{preset.name}</span>
-          )}
-          <div className="preset-badges">
-            {isActive && (
-              <span className="preset-badge preset-badge--active">
-                {t("settings.presetActive")}
-              </span>
-            )}
-            <span className="preset-badge">
-              {new Date(preset.updatedAt).toLocaleDateString()}
-            </span>
-          </div>
-        </div>
-        <div className="preset-actions">
-          {isEditing ? (
-            <>
-              <button
-                className="settings-btn-secondary"
-                onClick={onCommitRename}
-                disabled={running}
-              >
-                {t("settings.presetSave")}
-              </button>
-              <button className="settings-btn-quiet" onClick={onCancelRename}>
-                {t("settings.presetCancel")}
-              </button>
-            </>
-          ) : isConfirmingDelete ? (
-            <>
-              <button
-                className="settings-btn-danger settings-btn-danger--compact"
-                onClick={onConfirmDelete}
-                disabled={running}
-              >
-                {t("settings.presetConfirmDelete")}
-              </button>
-              <button className="settings-btn-quiet" onClick={onCancelDelete}>
-                {t("settings.presetCancel")}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                className="settings-btn-primary"
-                onClick={onApply}
-                disabled={running}
-              >
-                {t("settings.presetApply")}
-              </button>
-              <button
-                className="settings-btn-secondary"
-                onClick={onUpdatePreset}
-                disabled={running}
-              >
-                {t("settings.presetUpdate")}
-              </button>
-              <button
-                className="settings-btn-secondary"
-                onClick={onStartRename}
-                disabled={running}
-              >
-                {t("settings.presetRename")}
-              </button>
-              <button
-                className="settings-btn-danger settings-btn-danger--compact"
-                onClick={onRequestDelete}
-                disabled={running}
-              >
-                {t("settings.presetDelete")}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function SettingsPanel({
-  settings,
-  update,
-  running,
-  appInfo,
-  onSavePreset,
-  onApplyPreset,
-  onUpdatePreset,
-  onRenamePreset,
-  onDeletePreset,
-  onToggleAlwaysOnTop,
-  onReset,
-}: Props) {
-  const [resetting, setResetting] = useState(false);
-  const [resettingStats, setResettingStats] = useState(false);
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
-  const [stats, setStats] = useState<CumulativeStats | null>(null);
-  const [atBottom, setAtBottom] = useState(false);
-  const [presetsAtBottom, setPresetsAtBottom] = useState(true);
-  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(
-    null,
-  );
-  const [newPresetName, setNewPresetName] = useState("");
-  const [editingPresetId, setEditingPresetId] = useState<PresetId | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<PresetId | null>(
-    null,
-  );
-
-  const panelRef = useRef<HTMLDivElement>(null);
-  const presetsListRef = useRef<HTMLDivElement>(null);
-  const { language, t } = useTranslation();
-
-  useEffect(() => {
-    invoke<CumulativeStats>("get_stats")
-      .then(setStats)
-      .catch(() => {});
-    invoke<boolean>("get_autostart_enabled")
-      .then(setAutostartEnabled)
-      .catch(() => setAutostartEnabled(false));
-  }, []);
-
-  useEffect(() => {
-    if (!confirmingDeleteId) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Element)) {
-        return;
-      }
-
-      const presetCard = target.closest("[data-preset-id]");
-      if (presetCard?.getAttribute("data-preset-id") === confirmingDeleteId) {
-        return;
-      }
-
-      setConfirmingDeleteId(null);
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [confirmingDeleteId]);
-
-  const handleScroll = () => {
-    const el = panelRef.current;
-    if (!el) return;
-    setAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
-  };
-
-  const handlePresetsScroll = () => {
-    const el = presetsListRef.current;
-    if (!el) return;
-    setPresetsAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
-  };
-
-  const handleSavePreset = () => {
-    if (onSavePreset(newPresetName)) {
-      setNewPresetName("");
-      setConfirmingDeleteId(null);
-    }
-  };
-
-  const handleStartRename = (preset: PresetDefinition) => {
-    setConfirmingDeleteId(null);
-    setEditingPresetId(preset.id);
-    setRenameDraft(preset.name);
-  };
-
-  const handleCommitRename = () => {
-    if (!editingPresetId) {
-      return;
-    }
-
-    if (onRenamePreset(editingPresetId, renameDraft)) {
-      setEditingPresetId(null);
-      setRenameDraft("");
-    }
-  };
-
-  const handleCancelRename = () => {
-    setEditingPresetId(null);
-    setRenameDraft("");
-  };
-
-  const handleRequestDelete = (presetId: PresetId) => {
-    setEditingPresetId(null);
-    setRenameDraft("");
-    setConfirmingDeleteId(presetId);
-  };
-
-  const handleConfirmDelete = (presetId: PresetId) => {
-    if (onDeletePreset(presetId)) {
-      setConfirmingDeleteId(null);
-    }
-  };
-
-  const handleAlwaysOnTopChange = (nextValue: boolean) => {
-    if (settings.alwaysOnTop === nextValue) {
-      return;
-    }
-
-    void onToggleAlwaysOnTop();
-  };
-
-  const hasStats = stats !== null && stats.totalSessions > 0;
-  const presetLimitReached = settings.presets.length >= MAX_PRESETS;
-  const activeEditingPresetId = running ? null : editingPresetId;
-  const activeConfirmingDeleteId = running ? null : confirmingDeleteId;
-  const onOffOptions = [
-    { value: true, label: t("common.on") },
-    { value: false, label: t("common.off") },
-  ];
-  const advancedLayoutOptions = [
-    { value: "wide" as const, label: t("settings.advancedLayoutWide") },
-    { value: "tall" as const, label: t("settings.advancedLayoutTall") },
-  ];
-  const maxClickSpeed = getMaxClickSpeed(settings.extendedClickSpeedLimit);
-
-  const handleConfirmResetSettings = async () => {
-    setResetting(true);
-    try {
-      await onReset();
-      setAutostartEnabled(false);
-    } finally {
-      setResetting(false);
-      setPendingAction(null);
-    }
-  };
-
-  const handleConfirmClearStats = async () => {
-    setResettingStats(true);
-    try {
-      const next = await invoke<CumulativeStats>("reset_stats");
-      setStats(next);
-    } catch {
-      // swallow ? failure leaves stats unchanged
-    } finally {
-      setResettingStats(false);
-      setPendingAction(null);
-    }
-  };
-
-  const handleExtendedClickSpeedLimitChange = (nextValue: boolean) => {
-    if (settings.extendedClickSpeedLimit === nextValue) {
-      return;
-    }
-
-    if (nextValue) {
-      setPendingAction("extended-click-speed-limit");
-      return;
-    }
-
-    update({
-      extendedClickSpeedLimit: false,
-      clickSpeed: Math.min(settings.clickSpeed, DEFAULT_MAX_CLICK_SPEED),
-    });
-  };
-
-  const handleConfirmExtendedClickSpeedLimit = () => {
-    update({ extendedClickSpeedLimit: true });
-    setPendingAction(null);
-  };
-
-  useEffect(() => {
-    handlePresetsScroll();
-  }, [settings.presets.length]);
-
-  return (
-    <div className="settings-wrapper">
-      <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
-        <SettingsCard
-          title={t("settings.sectionAbout")}
-          description={t("settings.sectionAboutDescription")}
-        >
-          <div className="social-links">
-            <span className="settings-label">{t("settings.supportMe")}</span>
-            <div className="social-icons">
-              <a
-                className="social-icon social-icon--kofi"
-                href="#"
-                title="Ko-fi"
-                onClick={(e) => {
-                  e.preventDefault();
-                  void openUrl("https://ko-fi.com/Z8Z71T8QD4");
-                }}
-              >
-                <img
-                  height="28"
-                  style={{ border: 0, height: "28px" }}
-                  src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
-                  alt="Buy Me a Coffee at ko-fi.com"
-                />
-              </a>
-
-              <a
-                className="social-icon social-icon--youtube"
-                href="#"
-                title="YouTube"
-                onClick={(e) => {
-                  e.preventDefault();
-                  void openUrl("https://youtube.com/@Blur009");
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  width="18"
-                  height="18"
-                >
-                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                </svg>
-              </a>
-              <a
-                className="social-icon social-icon--twitch"
-                href="#"
-                title="Twitch"
-                onClick={(e) => {
-                  e.preventDefault();
-                  void openUrl("https://twitch.tv/Blur009");
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  width="18"
-                  height="18"
-                >
-                  <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
-                </svg>
-              </a>
-              <a
-                className="social-icon social-icon--github"
-                href="#"
-                title="GitHub"
-                onClick={(e) => {
-                  e.preventDefault();
-                  void openUrl("https://github.com/Blur009/Blur-AutoClicker");
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  width="18"
-                  height="18"
-                >
-                  <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.2-1.7-1.2-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 .1.8 1.8 3.4 1.2.1-.7.4-1.2.7-1.5-2.7-.3-5.4-1.3-5.4-6a4.7 4.7 0 0 1 1.2-3.2c-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.2 11.2 0 0 1 6.1 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2a4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.8 5.7-5.4 6 .4.3.8 1 .8 2.1v3.1c0 .4.2.7.8.6A12 12 0 0 0 12 .3" />
-                </svg>
-              </a>
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <span className="settings-label">{t("settings.version")}</span>
-            <span className="settings-value">v{appInfo.version}</span>
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          title={t("settings.sectionUsage")}
-          description={t("settings.sectionUsageDescription")}
-        >
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">{t("settings.usageData")}</span>
-              <span className="settings-sublabel">
-                {t("settings.usageDataDescription")}
-              </span>
-            </div>
-          </div>
-          {hasStats ? (
-            <div className="stats-grid">
-              <div className="stats-cell">
-                <span className="stats-cell-label">
-                  {t("settings.totalClicks")}
-                </span>
-                <span className="stats-cell-value">
-                  {formatNumber(stats.totalClicks, language)}
-                </span>
-              </div>
-              <div className="stats-cell">
-                <span className="stats-cell-label">
-                  {t("settings.totalTimeClicking")}
-                </span>
-                <span className="stats-cell-value">
-                  {formatTime(stats.totalTimeSecs, language)}
-                </span>
-              </div>
-              <div className="stats-cell">
-                <span className="stats-cell-label">
-                  {t("settings.averageCpu")}
-                </span>
-                <span className="stats-cell-value">
-                  {formatCpu(stats.avgCpu, language, t("common.notAvailable"))}
-                </span>
-              </div>
-              <div className="stats-cell">
-                <span className="stats-cell-label">
-                  {t("settings.sessions")}
-                </span>
-                <span className="stats-cell-value">
-                  {formatNumber(stats.totalSessions, language)}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="stats-empty">{t("settings.noRuns")}</div>
-          )}
-          {hasStats && (
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <span className="settings-label">
-                  {t("settings.clearStats")}
-                </span>
-                <span className="settings-sublabel">
-                  {t("settings.clearStatsDescription")}
-                </span>
-              </div>
-              <button
-                type="button"
-                className="settings-btn-danger settings-btn-danger--compact"
-                onClick={() => setPendingAction("clear-stats")}
-              >
-                {t("settings.clearStats")}
-              </button>
-            </div>
-          )}
-        </SettingsCard>
-
-        <SettingsCard
-          title={t("settings.sectionPresets")}
-          description={t("settings.sectionPresetsDescription")}
-        >
-          <div className="settings-row settings-row--stacked">
-            <div className="settings-label-group">
-              <span className="settings-label">{t("settings.presets")}</span>
-              <span className="settings-sublabel">
-                {t("settings.presetsDescription")}
-              </span>
-            </div>
-            <div className="preset-compose">
-              <input
-                className="preset-name-input"
-                placeholder={t("settings.presetNamePlaceholder")}
-                value={newPresetName}
-                maxLength={PRESET_NAME_MAX_LENGTH}
-                onChange={(event) => setNewPresetName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    if (
-                      !running &&
-                      !presetLimitReached &&
-                      newPresetName.trim()
-                    ) {
-                      handleSavePreset();
-                    }
-                  }
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    setNewPresetName("");
-                  }
-                }}
-                disabled={running}
-              />
-              <button
-                className="settings-btn-primary"
-                onClick={handleSavePreset}
-                disabled={
-                  running ||
-                  presetLimitReached ||
-                  newPresetName.trim().length === 0
-                }
-              >
-                {t("settings.saveNewPreset")}
-              </button>
-            </div>
-            {presetLimitReached && (
-              <span className="settings-note">
-                {t("settings.presetLimitReached")}
-              </span>
-            )}
-            {running && (
-              <span className="settings-note">
-                {t("settings.presetActionsDisabled")}
-              </span>
-            )}
-            {settings.presets.length > 0 ? (
-              <div className="preset-list-shell">
-                <div
-                  className="preset-list"
-                  ref={presetsListRef}
-                  onScroll={handlePresetsScroll}
-                >
-                  {settings.presets.map((preset) => (
-                    <PresetRow
-                      key={preset.id}
-                      preset={preset}
-                      isActive={settings.activePresetId === preset.id}
-                      isEditing={activeEditingPresetId === preset.id}
-                      isConfirmingDelete={
-                        activeConfirmingDeleteId === preset.id
-                      }
-                      running={running}
-                      renameDraft={
-                        activeEditingPresetId === preset.id
-                          ? renameDraft
-                          : preset.name
-                      }
-                      onRenameDraftChange={setRenameDraft}
-                      onStartRename={() => handleStartRename(preset)}
-                      onCancelRename={handleCancelRename}
-                      onCommitRename={handleCommitRename}
-                      onApply={() => {
-                        setConfirmingDeleteId(null);
-                        onApplyPreset(preset.id);
-                      }}
-                      onUpdatePreset={() => {
-                        setConfirmingDeleteId(null);
-                        onUpdatePreset(preset.id);
-                      }}
-                      onRequestDelete={() => handleRequestDelete(preset.id)}
-                      onCancelDelete={() => setConfirmingDeleteId(null)}
-                      onConfirmDelete={() => handleConfirmDelete(preset.id)}
-                    />
-                  ))}
-                </div>
-                <div
-                  className={`preset-list-fade ${presetsAtBottom ? "preset-list-fade--hidden" : ""}`}
-                />
-              </div>
-            ) : (
-              <div className="stats-empty">{t("settings.noPresets")}</div>
-            )}
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          title={t("settings.sectionBehavior")}
-          description={t("settings.sectionBehaviorDescription")}
-        >
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">
-                {t("settings.alwaysOnTop")}
-              </span>
-              <span className="settings-sublabel">
-                {t("settings.alwaysOnTopDescription")}
-              </span>
-            </div>
-            <div className="settings-seg-group">
-              {onOffOptions.map((option) => (
-                <button
-                  key={String(option.value)}
-                  className={`settings-seg-btn ${settings.alwaysOnTop === option.value ? "active" : ""}`}
-                  onClick={() => handleAlwaysOnTopChange(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">
-                {t("settings.stopHitboxOverlay")}
-              </span>
-              <span className="settings-sublabel">
-                {t("settings.stopHitboxOverlayDescription")}
-              </span>
-            </div>
-            <div className="settings-seg-group">
-              {onOffOptions.map((option) => (
-                <button
-                  key={String(option.value)}
-                  className={`settings-seg-btn ${settings.showStopOverlay === option.value ? "active" : ""}`}
-                  onClick={() => update({ showStopOverlay: option.value })}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">
-                {t("settings.stopReasonAlert")}
-              </span>
-              <span className="settings-sublabel">
-                {t("settings.stopReasonAlertDescription")}
-              </span>
-            </div>
-            <div className="settings-seg-group">
-              {onOffOptions.map((option) => (
-                <button
-                  key={String(option.value)}
-                  className={`settings-seg-btn ${settings.showStopReason === option.value ? "active" : ""}`}
-                  onClick={() => update({ showStopReason: option.value })}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">
-                {t("settings.strictHotkeyModifiers")}
-              </span>
-              <span className="settings-sublabel">
-                {t("settings.strictHotkeyModifiersDescription")}
-              </span>
-            </div>
-            <div className="settings-seg-group">
-              {onOffOptions.map((option) => (
-                <button
-                  key={String(option.value)}
-                  className={`settings-seg-btn ${settings.strictHotkeyModifiers === option.value ? "active" : ""}`}
-                  onClick={() =>
-                    update({ strictHotkeyModifiers: option.value })
-                  }
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">
-                {t("settings.extendedClickSpeedLimit")}
-              </span>
-              <span className="settings-sublabel">
-                {t("settings.extendedClickSpeedLimitDescription", {
-                  limit: maxClickSpeed,
-                })}
-              </span>
-            </div>
-            <div className="settings-seg-group">
-              {onOffOptions.map((option) => (
-                <button
-                  key={String(option.value)}
-                  className={`settings-seg-btn ${settings.extendedClickSpeedLimit === option.value ? "active" : ""}`}
-                  onClick={() =>
-                    handleExtendedClickSpeedLimitChange(option.value)
-                  }
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          title={t("settings.sectionStartup")}
-          description={t("settings.sectionStartupDescription")}
-        >
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">
-                {t("settings.minimizeToTray")}
-              </span>
-              <span className="settings-sublabel">
-                {t("settings.minimizeToTrayDescription")}
-              </span>
-            </div>
-            <div className="settings-seg-group">
-              {onOffOptions.map((option) => (
-                <button
-                  key={String(option.value)}
-                  className={`settings-seg-btn ${settings.minimizeToTray === option.value ? "active" : ""}`}
-                  onClick={() => update({ minimizeToTray: option.value })}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">
-                {t("settings.runOnStartup")}
-              </span>
-              <span className="settings-sublabel">
-                {t("settings.runOnStartupDescription")}
-              </span>
-            </div>
-            <div className="settings-seg-group">
-              {onOffOptions.map((option) => (
-                <button
-                  key={String(option.value)}
-                  className={`settings-seg-btn ${autostartEnabled === option.value ? "active" : ""}`}
-                  disabled={autostartEnabled === null}
-                  onClick={() => {
-                    invoke("set_autostart_enabled", { enabled: option.value })
-                      .then(() => setAutostartEnabled(option.value))
-                      .catch(console.error);
-                  }}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          title={t("settings.sectionAppearance")}
-          description={t("settings.sectionAppearanceDescription")}
-        >
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">{t("settings.language")}</span>
-              <span className="settings-sublabel">
-                {t("settings.languageDescription")}
-              </span>
-            </div>
-            <AdvDropdown
-              value={settings.language}
-              options={LANGUAGE_DROPDOWN_OPTIONS}
-              onChange={(next) => {
-                if (isLanguage(next)) {
-                  update({ language: next });
-                }
-              }}
-            />
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">{t("settings.theme")}</span>
-              <span className="settings-sublabel">
-                {t("settings.themeDescription")}
-              </span>
-            </div>
-            <div className="settings-seg-group">
-              {(["dark", "light"] as const).map((theme) => (
-                <button
-                  key={theme}
-                  className={`settings-seg-btn ${settings.theme === theme ? "active" : ""}`}
-                  onClick={() => update({ theme })}
-                >
-                  {t(theme === "dark" ? "common.dark" : "common.light")}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">
-                {t("settings.advancedLayout")}
-              </span>
-              <span className="settings-sublabel">
-                {t("settings.advancedLayoutDescription")}
-              </span>
-            </div>
-            <div className="settings-seg-group">
-              {advancedLayoutOptions.map((option) => (
-                <button
-                  key={option.value}
-                  className={`settings-seg-btn ${settings.advancedSequenceLayout === option.value ? "active" : ""}`}
-                  onClick={() =>
-                    update({ advancedSequenceLayout: option.value })
-                  }
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">
-                {t("settings.accentColor")}
-              </span>
-              <span className="settings-sublabel">
-                {t("settings.accentColorDescription")}
-              </span>
-            </div>
-            <div className="settings-color-controls">
-              <label className="settings-color-picker">
-                <input
-                  type="color"
-                  value={settings.accentColor}
-                  onChange={(event) =>
-                    update({ accentColor: event.target.value })
-                  }
-                />
-              </label>
-              <span className="settings-value settings-value--mono">
-                {settings.accentColor.toUpperCase()}
-              </span>
-              <button
-                className="settings-btn-secondary"
-                onClick={() => update({ accentColor: DEFAULT_ACCENT_COLOR })}
-                disabled={settings.accentColor === DEFAULT_ACCENT_COLOR}
-              >
-                {t("common.reset")}
-              </button>
-            </div>
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          title={t("settings.sectionReset")}
-          description={t("settings.sectionResetDescription")}
-        >
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">{t("settings.resetAll")}</span>
-              <span className="settings-sublabel">
-                {t("settings.resetAllDescription")}
-              </span>
-            </div>
-            <button
-              className="settings-btn-danger"
-              onClick={() => setPendingAction("reset-settings")}
-            >
-              {t("common.reset")}
-            </button>
-          </div>
-        </SettingsCard>
-      </div>
-      <div
-        className={`settings-fade ${atBottom ? "settings-fade--hidden" : ""}`}
-      ></div>
-      <ConfirmDialog
-        open={pendingAction === "reset-settings"}
-        title={t("settings.resetDialogTitle")}
-        message={t("settings.resetDialogMessage")}
-        confirmLabel={t("settings.resetDialogConfirm")}
-        busy={resetting}
-        onConfirm={handleConfirmResetSettings}
-        onCancel={() => setPendingAction(null)}
-      />
-      <ConfirmDialog
-        open={pendingAction === "clear-stats"}
-        title={t("settings.clearStatsDialogTitle")}
-        message={t("settings.clearStatsDialogMessage")}
-        confirmLabel={t("settings.clearStatsDialogConfirm")}
-        busy={resettingStats}
-        onConfirm={handleConfirmClearStats}
-        onCancel={() => setPendingAction(null)}
-      />
-      <ConfirmDialog
-        open={pendingAction === "extended-click-speed-limit"}
-        title={t("settings.extendedClickSpeedLimitDialogTitle")}
-        message={t("settings.extendedClickSpeedLimitDialogMessage")}
-        confirmLabel={t("settings.extendedClickSpeedLimitDialogConfirm")}
-        onConfirm={handleConfirmExtendedClickSpeedLimit}
-        onCancel={() => setPendingAction(null)}
-      />
-    </div>
-  );
-}
+     1|import "./SettingsPanel.css";
+     2|import type {
+     3|  AppInfo,
+     4|  PresetDefinition,
+     5|  PresetId,
+     6|  Settings,
+     7|} from "../../store";
+     8|import {
+     9|  isLanguage,
+    10|  LANGUAGE_OPTIONS,
+    11|  useTranslation,
+    12|  type Language,
+    13|} from "../../i18n";
+    14|import { invoke } from "@tauri-apps/api/core";
+    15|import { useEffect, useRef, useState, type ReactNode } from "react";
+    16|import { openUrl } from "@tauri-apps/plugin-opener";
+    17|import ConfirmDialog from "../ConfirmDialog";
+    18|import { AdvDropdown } from "./advanced/shared";
+    19|import {
+    20|  DEFAULT_MAX_CLICK_SPEED,
+    21|  DEFAULT_ACCENT_COLOR,
+    22|  getMaxClickSpeed,
+    23|  MAX_PRESETS,
+    24|  PRESET_NAME_MAX_LENGTH,
+    25|} from "../../settingsSchema";
+    26|
+    27|type PendingAction =
+    28|  | "reset-settings"
+    29|  | "clear-stats"
+    30|  | "extended-click-speed-limit"
+    31|  | null;
+    32|
+    33|const LANGUAGE_DROPDOWN_OPTIONS = LANGUAGE_OPTIONS.map((option) => ({
+    34|  value: option.code,
+    35|  label: option.label,
+    36|}));
+    37|
+    38|interface CumulativeStats {
+    39|  totalClicks: number;
+    40|  totalTimeSecs: number;
+    41|  totalSessions: number;
+    42|  avgCpu: number;
+    43|}
+    44|
+    45|interface Props {
+    46|  settings: Settings;
+    47|  update: (patch: Partial<Settings>) => void;
+    48|  running: boolean;
+    49|  appInfo: AppInfo;
+    50|  onSavePreset: (name: string) => boolean;
+    51|  onApplyPreset: (presetId: PresetId) => boolean;
+    52|  onUpdatePreset: (presetId: PresetId) => boolean;
+    53|  onRenamePreset: (presetId: PresetId, name: string) => boolean;
+    54|  onDeletePreset: (presetId: PresetId) => boolean;
+    55|  onToggleAlwaysOnTop: () => Promise<void>;
+    56|  onReset: () => Promise<void>;
+    57|}
+    58|
+    59|function formatTime(totalSeconds: number, language: Language): string {
+    60|  if (totalSeconds < 0.01) return "0s";
+    61|  if (totalSeconds < 60) {
+    62|    return `${Math.floor(totalSeconds).toLocaleString(language)}s`;
+    63|  }
+    64|  if (totalSeconds < 3600) {
+    65|    const m = Math.floor(totalSeconds / 60);
+    66|    const s = Math.floor(totalSeconds % 60);
+    67|    return s > 0
+    68|      ? `${m.toLocaleString(language)}m ${s.toLocaleString(language)}s`
+    69|      : `${m.toLocaleString(language)}m`;
+    70|  }
+    71|  const h = Math.floor(totalSeconds / 3600);
+    72|  const m = Math.floor((totalSeconds % 3600) / 60);
+    73|  return m > 0
+    74|    ? `${h.toLocaleString(language)}h ${m.toLocaleString(language)}m`
+    75|    : `${h.toLocaleString(language)}h`;
+    76|}
+    77|
+    78|function formatNumber(n: number, language: Language): string {
+    79|  return Math.floor(n).toLocaleString(language);
+    80|}
+    81|
+    82|function formatCpu(
+    83|  cpu: number,
+    84|  language: Language,
+    85|  notAvailable: string,
+    86|): string {
+    87|  if (cpu < 0) return notAvailable;
+    88|  return `${cpu.toLocaleString(language, {
+    89|    minimumFractionDigits: 1,
+    90|    maximumFractionDigits: 1,
+    91|  })}%`;
+    92|}
+    93|
+    94|function SettingsSectionHeading({
+    95|  title,
+    96|  description,
+    97|}: {
+    98|  title: string;
+    99|  description?: string;
+   100|}) {
+   101|  return (
+   102|    <div className="settings-section-heading">
+   103|      <span className="settings-section-title">{title}</span>
+   104|      {description ? (
+   105|        <span className="settings-section-description">{description}</span>
+   106|      ) : null}
+   107|    </div>
+   108|  );
+   109|}
+   110|
+   111|function SettingsCard({
+   112|  title,
+   113|  description,
+   114|  children,
+   115|}: {
+   116|  title: string;
+   117|  description?: string;
+   118|  children: ReactNode;
+   119|}) {
+   120|  return (
+   121|    <section className="settings-card">
+   122|      <SettingsSectionHeading title={title} description={description} />
+   123|      <div className="settings-card-content">{children}</div>
+   124|    </section>
+   125|  );
+   126|}
+   127|
+   128|function PresetRow({
+   129|  preset,
+   130|  isActive,
+   131|  isEditing,
+   132|  isConfirmingDelete,
+   133|  running,
+   134|  renameDraft,
+   135|  onRenameDraftChange,
+   136|  onStartRename,
+   137|  onCancelRename,
+   138|  onCommitRename,
+   139|  onApply,
+   140|  onUpdatePreset,
+   141|  onRequestDelete,
+   142|  onCancelDelete,
+   143|  onConfirmDelete,
+   144|}: {
+   145|  preset: PresetDefinition;
+   146|  isActive: boolean;
+   147|  isEditing: boolean;
+   148|  isConfirmingDelete: boolean;
+   149|  running: boolean;
+   150|  renameDraft: string;
+   151|  onRenameDraftChange: (value: string) => void;
+   152|  onStartRename: () => void;
+   153|  onCancelRename: () => void;
+   154|  onCommitRename: () => void;
+   155|  onApply: () => void;
+   156|  onUpdatePreset: () => void;
+   157|  onRequestDelete: () => void;
+   158|  onCancelDelete: () => void;
+   159|  onConfirmDelete: () => void;
+   160|}) {
+   161|  const { t } = useTranslation();
+   162|
+   163|  return (
+   164|    <div
+   165|      className={`preset-card ${isActive ? "preset-card--active" : ""}`}
+   166|      data-preset-id={preset.id}
+   167|    >
+   168|      <div className="preset-card-head">
+   169|        <div className="preset-card-meta">
+   170|          {isEditing ? (
+   171|            <input
+   172|              className="preset-rename-input"
+   173|              value={renameDraft}
+   174|              maxLength={PRESET_NAME_MAX_LENGTH}
+   175|              onChange={(event) => onRenameDraftChange(event.target.value)}
+   176|              onKeyDown={(event) => {
+   177|                if (event.key === "Enter") {
+   178|                  event.preventDefault();
+   179|                  onCommitRename();
+   180|                }
+   181|                if (event.key === "Escape") {
+   182|                  event.preventDefault();
+   183|                  onCancelRename();
+   184|                }
+   185|              }}
+   186|              autoFocus
+   187|            />
+   188|          ) : (
+   189|            <span className="preset-name">{preset.name}</span>
+   190|          )}
+   191|          <div className="preset-badges">
+   192|            {isActive && (
+   193|              <span className="preset-badge preset-badge--active">
+   194|                {t("settings.presetActive")}
+   195|              </span>
+   196|            )}
+   197|            <span className="preset-badge">
+   198|              {new Date(preset.updatedAt).toLocaleDateString()}
+   199|            </span>
+   200|          </div>
+   201|        </div>
+   202|        <div className="preset-actions">
+   203|          {isEditing ? (
+   204|            <>
+   205|              <button
+   206|                className="settings-btn-secondary"
+   207|                onClick={onCommitRename}
+   208|                disabled={running}
+   209|              >
+   210|                {t("settings.presetSave")}
+   211|              </button>
+   212|              <button className="settings-btn-quiet" onClick={onCancelRename}>
+   213|                {t("settings.presetCancel")}
+   214|              </button>
+   215|            </>
+   216|          ) : isConfirmingDelete ? (
+   217|            <>
+   218|              <button
+   219|                className="settings-btn-danger settings-btn-danger--compact"
+   220|                onClick={onConfirmDelete}
+   221|                disabled={running}
+   222|              >
+   223|                {t("settings.presetConfirmDelete")}
+   224|              </button>
+   225|              <button className="settings-btn-quiet" onClick={onCancelDelete}>
+   226|                {t("settings.presetCancel")}
+   227|              </button>
+   228|            </>
+   229|          ) : (
+   230|            <>
+   231|              <button
+   232|                className="settings-btn-primary"
+   233|                onClick={onApply}
+   234|                disabled={running}
+   235|              >
+   236|                {t("settings.presetApply")}
+   237|              </button>
+   238|              <button
+   239|                className="settings-btn-secondary"
+   240|                onClick={onUpdatePreset}
+   241|                disabled={running}
+   242|              >
+   243|                {t("settings.presetUpdate")}
+   244|              </button>
+   245|              <button
+   246|                className="settings-btn-secondary"
+   247|                onClick={onStartRename}
+   248|                disabled={running}
+   249|              >
+   250|                {t("settings.presetRename")}
+   251|              </button>
+   252|              <button
+   253|                className="settings-btn-danger settings-btn-danger--compact"
+   254|                onClick={onRequestDelete}
+   255|                disabled={running}
+   256|              >
+   257|                {t("settings.presetDelete")}
+   258|              </button>
+   259|            </>
+   260|          )}
+   261|        </div>
+   262|      </div>
+   263|    </div>
+   264|  );
+   265|}
+   266|
+   267|export default function SettingsPanel({
+   268|  settings,
+   269|  update,
+   270|  running,
+   271|  appInfo,
+   272|  onSavePreset,
+   273|  onApplyPreset,
+   274|  onUpdatePreset,
+   275|  onRenamePreset,
+   276|  onDeletePreset,
+   277|  onToggleAlwaysOnTop,
+   278|  onReset,
+   279|}: Props) {
+   280|  const [resetting, setResetting] = useState(false);
+   281|  const [resettingStats, setResettingStats] = useState(false);
+   282|  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+   283|  const [stats, setStats] = useState<CumulativeStats | null>(null);
+   284|  const [atBottom, setAtBottom] = useState(false);
+   285|  const [presetsAtBottom, setPresetsAtBottom] = useState(true);
+   286|  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(
+   287|    null,
+   288|  );
+   289|  const [newPresetName, setNewPresetName] = useState("");
+   290|  const [editingPresetId, setEditingPresetId] = useState<PresetId | null>(null);
+   291|  const [renameDraft, setRenameDraft] = useState("");
+   292|  const [confirmingDeleteId, setConfirmingDeleteId] = useState<PresetId | null>(
+   293|    null,
+   294|  );
+   295|
+   296|  const panelRef = useRef<HTMLDivElement>(null);
+   297|  const presetsListRef = useRef<HTMLDivElement>(null);
+   298|  const { language, t } = useTranslation();
+   299|
+   300|  useEffect(() => {
+   301|    invoke<CumulativeStats>("get_stats")
+   302|      .then(setStats)
+   303|      .catch(() => {});
+   304|    invoke<boolean>("get_autostart_enabled")
+   305|      .then(setAutostartEnabled)
+   306|      .catch(() => setAutostartEnabled(false));
+   307|  }, []);
+   308|
+   309|  useEffect(() => {
+   310|    if (!confirmingDeleteId) {
+   311|      return;
+   312|    }
+   313|
+   314|    const handlePointerDown = (event: PointerEvent) => {
+   315|      const target = event.target;
+   316|      if (!(target instanceof Element)) {
+   317|        return;
+   318|      }
+   319|
+   320|      const presetCard = target.closest("[data-preset-id]");
+   321|      if (presetCard?.getAttribute("data-preset-id") === confirmingDeleteId) {
+   322|        return;
+   323|      }
+   324|
+   325|      setConfirmingDeleteId(null);
+   326|    };
+   327|
+   328|    document.addEventListener("pointerdown", handlePointerDown);
+   329|    return () => {
+   330|      document.removeEventListener("pointerdown", handlePointerDown);
+   331|    };
+   332|  }, [confirmingDeleteId]);
+   333|
+   334|  const handleScroll = () => {
+   335|    const el = panelRef.current;
+   336|    if (!el) return;
+   337|    setAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
+   338|  };
+   339|
+   340|  const handlePresetsScroll = () => {
+   341|    const el = presetsListRef.current;
+   342|    if (!el) return;
+   343|    setPresetsAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
+   344|  };
+   345|
+   346|  const handleSavePreset = () => {
+   347|    if (onSavePreset(newPresetName)) {
+   348|      setNewPresetName("");
+   349|      setConfirmingDeleteId(null);
+   350|    }
+   351|  };
+   352|
+   353|  const handleStartRename = (preset: PresetDefinition) => {
+   354|    setConfirmingDeleteId(null);
+   355|    setEditingPresetId(preset.id);
+   356|    setRenameDraft(preset.name);
+   357|  };
+   358|
+   359|  const handleCommitRename = () => {
+   360|    if (!editingPresetId) {
+   361|      return;
+   362|    }
+   363|
+   364|    if (onRenamePreset(editingPresetId, renameDraft)) {
+   365|      setEditingPresetId(null);
+   366|      setRenameDraft("");
+   367|    }
+   368|  };
+   369|
+   370|  const handleCancelRename = () => {
+   371|    setEditingPresetId(null);
+   372|    setRenameDraft("");
+   373|  };
+   374|
+   375|  const handleRequestDelete = (presetId: PresetId) => {
+   376|    setEditingPresetId(null);
+   377|    setRenameDraft("");
+   378|    setConfirmingDeleteId(presetId);
+   379|  };
+   380|
+   381|  const handleConfirmDelete = (presetId: PresetId) => {
+   382|    if (onDeletePreset(presetId)) {
+   383|      setConfirmingDeleteId(null);
+   384|    }
+   385|  };
+   386|
+   387|  const handleAlwaysOnTopChange = (nextValue: boolean) => {
+   388|    if (settings.alwaysOnTop === nextValue) {
+   389|      return;
+   390|    }
+   391|
+   392|    void onToggleAlwaysOnTop();
+   393|  };
+   394|
+   395|  const hasStats = stats !== null && stats.totalSessions > 0;
+   396|  const presetLimitReached = settings.presets.length >= MAX_PRESETS;
+   397|  const activeEditingPresetId = running ? null : editingPresetId;
+   398|  const activeConfirmingDeleteId = running ? null : confirmingDeleteId;
+   399|  const onOffOptions = [
+   400|    { value: true, label: t("common.on") },
+   401|    { value: false, label: t("common.off") },
+   402|  ];
+   403|  const advancedLayoutOptions = [
+   404|    { value: "wide" as const, label: t("settings.advancedLayoutWide") },
+   405|    { value: "tall" as const, label: t("settings.advancedLayoutTall") },
+   406|  ];
+   407|  const maxClickSpeed = getMaxClickSpeed(settings.extendedClickSpeedLimit);
+   408|
+   409|  const handleConfirmResetSettings = async () => {
+   410|    setResetting(true);
+   411|    try {
+   412|      await onReset();
+   413|      setAutostartEnabled(false);
+   414|    } finally {
+   415|      setResetting(false);
+   416|      setPendingAction(null);
+   417|    }
+   418|  };
+   419|
+   420|  const handleConfirmClearStats = async () => {
+   421|    setResettingStats(true);
+   422|    try {
+   423|      const next = await invoke<CumulativeStats>("reset_stats");
+   424|      setStats(next);
+   425|    } catch {
+   426|      // swallow ? failure leaves stats unchanged
+   427|    } finally {
+   428|      setResettingStats(false);
+   429|      setPendingAction(null);
+   430|    }
+   431|  };
+   432|
+   433|  const handleExtendedClickSpeedLimitChange = (nextValue: boolean) => {
+   434|    if (settings.extendedClickSpeedLimit === nextValue) {
+   435|      return;
+   436|    }
+   437|
+   438|    if (nextValue) {
+   439|      setPendingAction("extended-click-speed-limit");
+   440|      return;
+   441|    }
+   442|
+   443|    update({
+   444|      extendedClickSpeedLimit: false,
+   445|      clickSpeed: Math.min(settings.clickSpeed, DEFAULT_MAX_CLICK_SPEED),
+   446|    });
+   447|  };
+   448|
+   449|  const handleConfirmExtendedClickSpeedLimit = () => {
+   450|    update({ extendedClickSpeedLimit: true });
+   451|    setPendingAction(null);
+   452|  };
+   453|
+   454|  useEffect(() => {
+   455|    handlePresetsScroll();
+   456|  }, [settings.presets.length]);
+   457|
+   458|  return (
+   459|    <div className="settings-wrapper">
+   460|      <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
+   461|        <SettingsCard
+   462|          title={t("settings.sectionAbout")}
+   463|          description={t("settings.sectionAboutDescription")}
+   464|        >
+   465|          <div className="social-links">
+   466|            <span className="settings-label">{t("settings.supportMe")}</span>
+   467|            <div className="social-icons">
+   468|              <a
+   469|                className="social-icon social-icon--kofi"
+   470|                href="#"
+   471|                title="Ko-fi"
+   472|                onClick={(e) => {
+   473|                  e.preventDefault();
+   474|                  void openUrl("https://ko-fi.com/Z8Z71T8QD4");
+   475|                }}
+   476|              >
+   477|                <img
+   478|                  height="28"
+   479|                  style={{ border: 0, height: "28px" }}
+   480|                  src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
+   481|                  alt="Buy Me a Coffee at ko-fi.com"
+   482|                />
+   483|              </a>
+   484|
+   485|              <a
+   486|                className="social-icon social-icon--youtube"
+   487|                href="#"
+   488|                title="YouTube"
+   489|                onClick={(e) => {
+   490|                  e.preventDefault();
+   491|                  void openUrl("");
+   492|                }}
+   493|              >
+   494|                <svg
+   495|                  viewBox="0 0 24 24"
+   496|                  fill="currentColor"
+   497|                  width="18"
+   498|                  height="18"
+   499|                >
+   500|                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+   501|
