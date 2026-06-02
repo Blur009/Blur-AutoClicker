@@ -1,8 +1,8 @@
 use std::io;
 
-const APP_NAME: &str = "BlurAutoClicker";
+const APP_NAME: &str = "MrSchnirschuhHub";
 const AUTOSTART_DIR: &str = ".config/autostart";
-const DESKTOP_FILE: &str = "BlurAutoClicker.desktop";
+const DESKTOP_FILE: &str = "MrSchnirschuhHub.desktop";
 
 pub fn get_autostart_enabled() -> bool {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());

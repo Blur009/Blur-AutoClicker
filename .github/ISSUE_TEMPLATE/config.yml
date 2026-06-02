@@ -1,12 +1,12 @@
-     1|blank_issues_enabled: false
-     2|contact_links:
-     3|  - name: Search existing issues and pull requests
-     4|    url: https://github.com/MrSchnirschuh/Blur-AutoClicker-Linux/issues?q=
-     5|    about: Check whether the problem, request, or question has already been reported or proposed.
-     6|  - name: Contributor and setup guide
-     7|    url: https://github.com/MrSchnirschuh/Blur-AutoClicker-Linux/blob/dev/CONTRIBUTING.md
-     8|    about: Review setup steps, validation commands, and pull request expectations before contributing.
-     9|  - name: Windows installer trust and SmartScreen guidance
-    10|    url: https://github.com/MrSchnirschuh/Blur-AutoClicker-Linux/blob/dev/docs/windows-release-trust.md
-    11|    about: Read the existing Windows signing and SmartScreen guidance for antivirus or installer-trust questions.
-    12|
+     1|     1|blank_issues_enabled: false
+     2|     2|contact_links:
+     3|     3|  - name: Search existing issues and pull requests
+     4|     4|    url: https://github.com/MrSchnirschuh/MrSchnirschuhHub/issues?q=
+     5|     5|    about: Check whether the problem, request, or question has already been reported or proposed.
+     6|     6|  - name: Contributor and setup guide
+     7|     7|    url: https://github.com/MrSchnirschuh/MrSchnirschuhHub/blob/dev/CONTRIBUTING.md
+     8|     8|    about: Review setup steps, validation commands, and pull request expectations before contributing.
+     9|     9|  - name: Windows installer trust and SmartScreen guidance
+    10|    10|    url: https://github.com/MrSchnirschuh/MrSchnirschuhHub/blob/dev/docs/windows-release-trust.md
+    11|    11|    about: Read the existing Windows signing and SmartScreen guidance for antivirus or installer-trust questions.
+    12|    12|

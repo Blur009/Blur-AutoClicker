@@ -3,35 +3,6 @@
 version = 3
 
 [[package]]
-name = "BlurAutoClicker"
-version = "3.7.0"
-dependencies = [
- "dirs",
- "enigo",
- "hex",
- "hidapi",
- "hmac",
- "log",
- "raw-window-handle",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sha2",
- "tauri",
- "tauri-build",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-plugin-process",
- "tauri-plugin-store",
- "tauri-plugin-updater",
- "tokio",
- "windows-sys 0.52.0",
- "windows-targets 0.48.5",
- "winreg 0.52.0",
-]
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2559,6 +2530,35 @@ checksum = "bb85c154ba489f01b25c0d36ae69a87e4a1c73a72631fc6c0eb6dde34a73e44b"
 dependencies = [
  "num-traits",
  "pxfm",
+]
+
+[[package]]
+name = "mrschnirschuhhub"
+version = "1.0.0"
+dependencies = [
+ "dirs",
+ "enigo",
+ "hex",
+ "hidapi",
+ "hmac",
+ "log",
+ "raw-window-handle",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tauri-plugin-process",
+ "tauri-plugin-store",
+ "tauri-plugin-updater",
+ "tokio",
+ "windows-sys 0.52.0",
+ "windows-targets 0.48.5",
+ "winreg 0.52.0",
 ]
 
 [[package]]

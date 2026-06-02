@@ -6,8 +6,8 @@ mod platform {
         FindWindowW, SetForegroundWindow, ShowWindow, SW_RESTORE,
     };
 
-    const MUTEX_NAME: &str = r"Local\BlurAutoClicker.SingleInstance";
-    const MAIN_WINDOW_TITLE: &str = "BlurAutoClicker";
+    const MUTEX_NAME: &str = r"Local\MrSchnirschuhHub.SingleInstance";
+    const MAIN_WINDOW_TITLE: &str = "MrSchnirschuhHub";
 
     pub struct SingleInstanceGuard {
         mutex: HANDLE,

@@ -11,7 +11,7 @@ import { translateStopReason, useTranslation, type TranslationKey } from "../i18
 import "./TitleBar.css";
 
 const appWindow = getCurrentWindow();
-const DEFAULT_TITLE = "BlurAutoClicker";
+const DEFAULT_TITLE = "MrSchnirschuhHub";
 
 async function handleMinimize() {
   await appWindow.minimize();

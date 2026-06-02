@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "BlurAutoClicker",
+  "productName": "MrSchnirschuhHub",
   "version": "3.7.0",
-  "identifier": "com.blur.autoclicker",
+  "identifier": "com.mrschnirschuh.hub",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -15,7 +15,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "BlurAutoClicker",
+        "title": "MrSchnirschuhHub",
         "width": 500,
         "height": 150,
         "resizable": true,
@@ -48,11 +48,11 @@
     "targets": ["deb", "appimage", "rpm"],
     "createUpdaterArtifacts": true,
     "publisher": "Pandi",
-    "copyright": "Copyright (c) Blur009, Pandi",
+    "copyright": "Copyright (c) Pandi",
     "category": "Utility",
     "shortDescription": "Configurable auto clicker with Logitech device support.",
     "longDescription": "Performance-focused auto clicker with global hotkeys, Logitech G502/G502X device control (DPI, RGB, macros), and advanced timing. Linux native.",
-    "homepage": "https://github.com/MrSchnirschuh/Blur-AutoClicker-Linux",
+    "homepage": "https://github.com/MrSchnirschuh/MrSchnirschuhHub",
     "icon": ["icons/icon.png"],
     "linux": {
       "deb": {

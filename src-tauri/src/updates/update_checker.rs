@@ -14,12 +14,12 @@ pub async fn check_for_updates(app: AppHandle) -> Result<Option<CheckUpdateResul
         .version
         .clone()
         .unwrap_or_else(|| "0.0.0".into());
-    let url = "https://api.github.com/repos/Blur009/Blur-AutoClicker/releases/latest";
+    let url = "https://api.github.com/repos/MrSchnirschuh/MrSchnirschuhHub/releases/latest";
     let client = reqwest::Client::new();
 
     let response = client
         .get(url)
-        .header(USER_AGENT, "BlurAutoClicker")
+        .header(USER_AGENT, "MrSchnirschuhHub")
         .send()
         .await
         .map_err(|e| format!("Network error: {}", e))?;
