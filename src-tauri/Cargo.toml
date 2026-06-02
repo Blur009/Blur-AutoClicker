@@ -1,14 +1,14 @@
 [package]
-name = "BlurAutoClicker"
-version = "3.7.0"
-description = "BlurAutoClicker — accuracy and performance focused auto clicker. Linux + Logitech edition."
-authors = ["Blur009", "Pandi"]
+name = "mrschnirschuhhub"
+version = "1.0.0"
+description = "MrSchnirschuhHub — auto clicker with Logitech device control. Linux native."
+authors = ["Pandi"]
 license = "GPL-3.0"
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "app_lib"
+name = "mrschnirschuhhub_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
