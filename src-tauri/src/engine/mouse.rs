@@ -1,17 +1,9 @@
+use enigo::{Coordinate, Direction, Enigo, Mouse, Settings};
+
 use super::cycle::{execute_click_cycle, ClickCycleKind, ClickCyclePlan};
 use super::worker::{sleep_interruptible, RunControl};
-use std::time::Duration;
-use std::time::Instant;
 
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN,
-    MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK, MOUSEINPUT,
-};
-use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
-};
-
+/// Represents a rectangular region of the virtual screen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VirtualScreenRect {
     pub left: i32,
@@ -23,12 +15,7 @@ pub struct VirtualScreenRect {
 impl VirtualScreenRect {
     #[inline]
     pub fn new(left: i32, top: i32, width: i32, height: i32) -> Self {
-        Self {
-            left,
-            top,
-            width,
-            height,
-        }
+        Self { left, top, width, height }
     }
 
     #[inline]
@@ -45,105 +32,6 @@ impl VirtualScreenRect {
     pub fn contains(self, x: i32, y: i32) -> bool {
         x >= self.left && x < self.right() && y >= self.top && y < self.bottom()
     }
-
-    fn normalize_x(&self, pixel_x: i32) -> i32 {
-        let relative_x = pixel_x as f64 - self.left as f64;
-        let ratio = relative_x / self.width as f64;
-        (ratio * 65535.0).round() as i32
-    }
-    fn normalize_y(&self, pixel_y: i32) -> i32 {
-        let relative_y = pixel_y as f64 - self.top as f64;
-        let ratio = relative_y / self.height as f64;
-        (ratio * 65535.0).round() as i32
-    }
-
-    #[inline]
-    pub fn offset_from(self, origin: VirtualScreenRect) -> Self {
-        Self::new(
-            self.left - origin.left,
-            self.top - origin.top,
-            self.width,
-            self.height,
-        )
-    }
-}
-
-pub fn current_cursor_position() -> Option<(i32, i32)> {
-    use windows_sys::Win32::Foundation::POINT;
-    use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
-
-    let mut point = POINT { x: 0, y: 0 };
-    let ok = unsafe { GetCursorPos(&mut point) };
-    if ok == 0 {
-        None
-    } else {
-        Some((point.x, point.y))
-    }
-}
-
-pub fn current_virtual_screen_rect() -> Option<VirtualScreenRect> {
-    let left = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
-    let top = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
-    let width = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };
-    let height = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) };
-    if width <= 0 || height <= 0 {
-        return None;
-    }
-
-    Some(VirtualScreenRect::new(left, top, width, height))
-}
-
-#[cfg(target_os = "windows")]
-pub fn current_monitor_rects() -> Option<Vec<VirtualScreenRect>> {
-    use std::ptr;
-    use windows_sys::Win32::Foundation::RECT;
-    use windows_sys::Win32::Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, MONITORINFO};
-
-    unsafe extern "system" fn enum_monitor_proc(
-        monitor: isize,
-        _hdc: isize,
-        _clip_rect: *mut RECT,
-        user_data: isize,
-    ) -> i32 {
-        let monitors = &mut *(user_data as *mut Vec<VirtualScreenRect>);
-        let mut info = std::mem::zeroed::<MONITORINFO>();
-        info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
-
-        if GetMonitorInfoW(monitor, &mut info as *mut MONITORINFO as *mut _) == 0 {
-            return 1;
-        }
-
-        let rect = info.rcMonitor;
-        let width = rect.right - rect.left;
-        let height = rect.bottom - rect.top;
-        if width > 0 && height > 0 {
-            monitors.push(VirtualScreenRect::new(rect.left, rect.top, width, height));
-        }
-
-        1
-    }
-
-    let mut monitors = Vec::new();
-    let ok = unsafe {
-        EnumDisplayMonitors(
-            0,
-            ptr::null(),
-            Some(enum_monitor_proc),
-            &mut monitors as *mut Vec<VirtualScreenRect> as isize,
-        )
-    };
-
-    if ok == 0 || monitors.is_empty() {
-        return current_virtual_screen_rect().map(|screen| vec![screen]);
-    }
-
-    monitors.sort_by_key(|monitor: &VirtualScreenRect| (monitor.top, monitor.left));
-    Some(monitors)
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn current_monitor_rects() -> Option<Vec<VirtualScreenRect>> {
-    current_virtual_screen_rect().map(|screen| vec![screen])
 }
 
 #[inline]
@@ -151,80 +39,136 @@ pub fn get_cursor_pos() -> (i32, i32) {
     current_cursor_position().unwrap_or((0, 0))
 }
 
+pub fn current_cursor_position() -> Option<(i32, i32)> {
+    // We use the xdo-based approach (via command) since Wayland restricts
+    // absolute pointer queries. On X11, enigo::Mouse::location() works,
+    // but on Wayland we fall back to a known-working method.
+    // For a real production build, this should use libxdo or a Wayland
+    // protocol extension.
+    let output = std::process::Command::new("xdotool")
+        .args(["getmouselocation", "--shell"])
+        .output()
+        .ok()?;
+    let stdout = String::from_utf8(output.stdout).ok()?;
+    let mut x = 0i32;
+    let mut y = 0i32;
+    for line in stdout.lines() {
+        if let Some(val) = line.strip_prefix("X=") {
+            x = val.trim().parse().unwrap_or(0);
+        } else if let Some(val) = line.strip_prefix("Y=") {
+            y = val.trim().parse().unwrap_or(0);
+        }
+    }
+    Some((x, y))
+}
+
+pub fn current_virtual_screen_rect() -> Option<VirtualScreenRect> {
+    // On Linux with single monitor, use a default 1920x1080.
+    // In production, this should query via XRandR/Wayland.
+    let output = std::process::Command::new("xdotool")
+        .args(["getdisplaygeometry"])
+        .output()
+        .ok()?;
+    let stdout = String::from_utf8(output.stdout).ok()?;
+    let parts: Vec<&str> = stdout.trim().split_whitespace().collect();
+    if parts.len() >= 2 {
+        let w: i32 = parts[0].parse().unwrap_or(1920);
+        let h: i32 = parts[1].parse().unwrap_or(1080);
+        Some(VirtualScreenRect::new(0, 0, w, h))
+    } else {
+        Some(VirtualScreenRect::new(0, 0, 1920, 1080))
+    }
+}
+
+pub fn current_monitor_rects() -> Option<Vec<VirtualScreenRect>> {
+    current_virtual_screen_rect().map(|screen| vec![screen])
+}
+
+fn with_enigo<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut Enigo) -> R,
+{
+    let mut enigo = match Enigo::new(&Settings::default()) {
+        Ok(e) => e,
+        Err(_) => {
+            log::error!("[mouse] Failed to create Enigo instance");
+            // Return a dummy if we absolutely must — but this shouldn't fail.
+            // We create one here per call to avoid holding state across threads.
+            return f(&mut Enigo::new(&Settings::default()).unwrap());
+        }
+    };
+    f(&mut enigo)
+}
+
 #[inline]
 pub fn move_mouse(target_x: i32, target_y: i32) {
-    if let Some(screen_rect) = current_virtual_screen_rect() {
-        let end_x = screen_rect.normalize_x(target_x);
-        let end_y = screen_rect.normalize_y(target_y);
-
-        let movement = make_movement(end_x, end_y);
-        unsafe { SendInput(1, &movement, std::mem::size_of::<INPUT>() as i32) };
-        log::debug!("moved cursor x:{end_x}, y:{end_y}")
-    }
+    with_enigo(|enigo| {
+        let _ = enigo.move_mouse(target_x, target_y, Coordinate::Abs);
+    });
 }
 
-#[inline]
-pub fn make_movement(end_x: i32, end_y: i32) -> INPUT {
-    INPUT {
-        r#type: INPUT_MOUSE,
-        Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
-            mi: MOUSEINPUT {
-                dx: end_x,
-                dy: end_y,
-                mouseData: 0,
-                dwFlags: MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE | MOUSEEVENTF_VIRTUALDESK,
-                time: 0,
-                dwExtraInfo: 0,
-            },
-        },
-    }
-}
-
-#[inline]
-pub fn make_input(flags: u32, time: u32) -> INPUT {
-    INPUT {
-        r#type: INPUT_MOUSE,
-        Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
-            mi: MOUSEINPUT {
-                dx: 0,
-                dy: 0,
-                mouseData: 0,
-                dwFlags: flags,
-                time,
-                dwExtraInfo: 0,
-            },
-        },
-    }
-}
-
-#[inline]
-pub fn send_mouse_event(flags: u32) {
-    let input = make_input(flags, 0);
-    unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
-}
-
-pub fn send_batch(down: u32, up: u32, n: usize) {
-    let mut inputs: Vec<INPUT> = Vec::with_capacity(n * 2);
-    for _ in 0..n {
-        inputs.push(make_input(down, 0));
-        inputs.push(make_input(up, 0));
-    }
-    unsafe {
-        SendInput(
-            inputs.len() as u32,
-            inputs.as_ptr(),
-            std::mem::size_of::<INPUT>() as i32,
-        )
+fn press_button(button: i32) {
+    let btn = match button {
+        2 => enigo::Button::Right,
+        3 => enigo::Button::Middle,
+        _ => enigo::Button::Left,
     };
+    with_enigo(|enigo| {
+        let _ = enigo.button(btn, Direction::Click);
+    });
 }
 
-pub fn send_clicks(down: u32, up: u32, count: usize, plan: ClickCyclePlan, control: &RunControl) {
+fn press_button_down(button: i32) {
+    let btn = match button {
+        2 => enigo::Button::Right,
+        3 => enigo::Button::Middle,
+        _ => enigo::Button::Left,
+    };
+    with_enigo(|enigo| {
+        let _ = enigo.button(btn, Direction::Press);
+    });
+}
+
+fn press_button_up(button: i32) {
+    let btn = match button {
+        2 => enigo::Button::Right,
+        3 => enigo::Button::Middle,
+        _ => enigo::Button::Left,
+    };
+    with_enigo(|enigo| {
+        let _ = enigo.button(btn, Direction::Release);
+    });
+}
+
+#[inline]
+pub fn get_button_flags(button: i32) -> (i32, i32) {
+    // We still use the same interface: down_flag, up_flag
+    // but on Linux we route through enigo's button system.
+    (button, button)
+}
+
+pub fn send_mouse_event(button: i32) {
+    press_button(button);
+}
+
+pub fn send_batch(button: i32, n: usize) {
+    for _ in 0..n {
+        press_button(button);
+    }
+}
+
+pub fn send_clicks(
+    button: i32,
+    count: usize,
+    plan: ClickCyclePlan,
+    control: &RunControl,
+) {
     if count == 0 {
         return;
     }
 
     if plan.kind == ClickCycleKind::Single && count > 1 && plan.first_hold_ms == 0 {
-        send_batch(down, up, count);
+        send_batch(button, count);
         return;
     }
 
@@ -234,8 +178,8 @@ pub fn send_clicks(down: u32, up: u32, count: usize, plan: ClickCyclePlan, contr
     for _ in 0..count {
         if !execute_click_cycle(
             plan,
-            &mut || send_mouse_event(down),
-            &mut || send_mouse_event(up),
+            &mut || press_button_down(button),
+            &mut || press_button_up(button),
             &mut sleep_for,
             &is_active,
         ) {
@@ -244,15 +188,7 @@ pub fn send_clicks(down: u32, up: u32, count: usize, plan: ClickCyclePlan, contr
     }
 }
 
-#[inline]
-pub fn get_button_flags(button: i32) -> (u32, u32) {
-    match button {
-        2 => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
-        3 => (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
-        _ => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
-    }
-}
-
+// Smooth mouse movement (bezier-based, same as Windows version but using Enigo)
 #[inline]
 pub fn ease_in_out_quad(t: f64) -> f64 {
     if t < 0.5 {
@@ -299,8 +235,8 @@ fn smooth_move_inner(
         ((duration_ms / 8) as usize).clamp(4, 75)
     };
 
-    let tick_duration = Duration::from_millis(duration_ms) / steps as u32;
-    let start_time = Instant::now();
+    let tick_duration = std::time::Duration::from_millis(duration_ms) / steps as u32;
+    let start_time = std::time::Instant::now();
 
     let cp1_ratio = rng.next_f64() * 0.28 + 0.20;
     let cp2_ratio = rng.next_f64() * 0.24 + 0.55;

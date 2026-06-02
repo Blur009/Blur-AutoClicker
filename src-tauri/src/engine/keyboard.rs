@@ -1,106 +1,13 @@
-use super::cycle::{execute_click_cycle, ClickCycleKind, ClickCyclePlan};
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    GetKeyState, MapVirtualKeyW, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT,
-    KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, MAPVK_VK_TO_VSC_EX, VK_CAPITAL,
-    VK_SHIFT,
-};
+use enigo::{Direction, Enigo, Keyboard, Settings};
 
+use super::cycle::{execute_click_cycle, ClickCycleKind, ClickCyclePlan};
 use super::worker::{sleep_interruptible, RunControl};
 
 #[inline]
-fn vk_to_scan(vk: u16) -> (u16, bool) {
-    // MAPVK_VK_TO_VSC_EX returns the scan code in the low byte and, for
-    // extended keys (arrows, Ins/Del/Home/End/PgUp/PgDn, numpad Enter, etc.),
-    // a 0xE0/0xE1 prefix byte in the high byte. A non-zero high byte means
-    // KEYEVENTF_EXTENDEDKEY must be set so apps that key off the extended
-    // bit (or use raw input) see the correct key.
-    let raw = unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC_EX) };
-    ((raw & 0xFF) as u16, (raw >> 8) != 0)
-}
-
-#[inline]
-pub fn make_keyboard_input(vk: u16, flags: u32) -> INPUT {
-    let (scan, extended) = vk_to_scan(vk);
-    let ext_flag = if extended { KEYEVENTF_EXTENDEDKEY } else { 0 };
-    INPUT {
-        r#type: INPUT_KEYBOARD,
-        Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
-            ki: KEYBDINPUT {
-                wVk: vk,
-                wScan: scan,
-                dwFlags: flags | KEYEVENTF_SCANCODE | ext_flag,
-                time: 0,
-                dwExtraInfo: 0,
-            },
-        },
-    }
-}
-
-#[inline]
-pub fn send_key_event(vk: u16, flags: u32) {
-    let input = make_keyboard_input(vk, flags);
-    unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
-}
-
-pub fn is_alphabetic_vk(vk: u16) -> bool {
-    (b'A' as u16..=b'Z' as u16).contains(&vk)
-}
-
-fn caps_lock_enabled() -> bool {
-    unsafe { (GetKeyState(VK_CAPITAL as i32) & 1) != 0 }
-}
-
-fn should_hold_shift_for_case(vk: u16, uppercase: bool) -> bool {
-    is_alphabetic_vk(vk) && (caps_lock_enabled() != uppercase)
-}
-
-fn push_key_press(inputs: &mut Vec<INPUT>, vk: u16, use_shift: bool) {
-    if use_shift {
-        inputs.push(make_keyboard_input(VK_SHIFT, 0));
-    }
-
-    inputs.push(make_keyboard_input(vk, 0));
-    inputs.push(make_keyboard_input(vk, KEYEVENTF_KEYUP));
-
-    if use_shift {
-        inputs.push(make_keyboard_input(VK_SHIFT, KEYEVENTF_KEYUP));
-    }
-}
-
-fn send_key_down(vk: u16, use_shift: bool) {
-    if use_shift {
-        send_key_event(VK_SHIFT, 0);
-    }
-    send_key_event(vk, 0);
-}
-
-fn send_key_up(vk: u16, use_shift: bool) {
-    send_key_event(vk, KEYEVENTF_KEYUP);
-    if use_shift {
-        send_key_event(VK_SHIFT, KEYEVENTF_KEYUP);
-    }
-}
-
-pub fn send_key_batch(vk: u16, n: usize, uppercase: bool) {
-    let use_shift = should_hold_shift_for_case(vk, uppercase);
-    let inputs_per_press = if use_shift { 4 } else { 2 };
-    let mut inputs: Vec<INPUT> = Vec::with_capacity(n * inputs_per_press);
-    for _ in 0..n {
-        push_key_press(&mut inputs, vk, use_shift);
-    }
-    unsafe {
-        SendInput(
-            inputs.len() as u32,
-            inputs.as_ptr(),
-            std::mem::size_of::<INPUT>() as i32,
-        )
-    };
-}
-
 pub fn send_key_presses(
     vk: u16,
     count: usize,
-    uppercase: bool,
+    _uppercase: bool,
     plan: ClickCyclePlan,
     control: &RunControl,
 ) {
@@ -108,20 +15,26 @@ pub fn send_key_presses(
         return;
     }
 
+    let key_char = vk_to_char(vk);
+
     if plan.kind == ClickCycleKind::Single && count > 1 && plan.first_hold_ms == 0 {
-        send_key_batch(vk, count, uppercase);
+        let mut enigo = Enigo::new(&Settings::default()).unwrap();
+        for _ in 0..count {
+            if let Some(ch) = key_char {
+                let _ = enigo.text(&ch.to_string());
+            }
+        }
         return;
     }
 
-    let use_shift = should_hold_shift_for_case(vk, uppercase);
     let is_active = || control.is_active();
     let mut sleep_for = |duration| sleep_interruptible(duration, control);
 
     for _ in 0..count {
         if !execute_click_cycle(
             plan,
-            &mut || send_key_down(vk, use_shift),
-            &mut || send_key_up(vk, use_shift),
+            &mut || send_key_down(vk),
+            &mut || send_key_up(vk),
             &mut sleep_for,
             &is_active,
         ) {
@@ -129,3 +42,74 @@ pub fn send_key_presses(
         }
     }
 }
+
+fn send_key_down(vk: u16) {
+    let mut enigo = Enigo::new(&Settings::default()).unwrap();
+    let key = vk_to_enigo_key(vk);
+    let _ = enigo.key(key, Direction::Press);
+}
+
+fn send_key_up(vk: u16) {
+    let mut enigo = Enigo::new(&Settings::default()).unwrap();
+    let key = vk_to_enigo_key(vk);
+    let _ = enigo.key(key, Direction::Release);
+}
+
+pub fn is_alphabetic_vk(vk: u16) -> bool {
+    (b'A' as u16..=b'Z' as u16).contains(&vk)
+}
+
+/// Convert a Windows VK code to a enigo Key.
+/// Uses the ASCII value directly for letters/digits.
+fn vk_to_enigo_key(vk: u16) -> enigo::Key {
+    // For simple ASCII letters and digits, use the character directly
+    if let Some(ch) = vk_to_char(vk) {
+        return enigo::Key::Unicode(ch);
+    }
+    // Map well-known VK codes to enigo named keys
+    match vk as i32 {
+        // Function keys
+        0x70 => enigo::Key::F1,
+        0x71 => enigo::Key::F2,
+        0x72 => enigo::Key::F3,
+        0x73 => enigo::Key::F4,
+        0x74 => enigo::Key::F5,
+        0x75 => enigo::Key::F6,
+        0x76 => enigo::Key::F7,
+        0x77 => enigo::Key::F8,
+        0x78 => enigo::Key::F9,
+        0x79 => enigo::Key::F10,
+        0x7A => enigo::Key::F11,
+        0x7B => enigo::Key::F12,
+        _ => enigo::Key::Unicode(' '),
+    }
+}
+
+fn vk_to_char(vk: u16) -> Option<char> {
+    let c = vk as u8;
+    if c.is_ascii_alphanumeric() || c == b' ' || c.is_ascii_punctuation() {
+        Some(c as char)
+    } else {
+        None
+    }
+}
+
+/// Helper: map some common named keys to VK codes for the hotkey system.
+/// This mirrors the Windows Virtual-Key codes for cross-platform compatibility.
+pub const VK_SPACE: u16 = 0x20;
+pub const VK_RETURN: u16 = 0x0D;
+pub const VK_TAB: u16 = 0x09;
+pub const VK_BACK: u16 = 0x08;
+pub const VK_DELETE: u16 = 0x2E;
+pub const VK_ESCAPE: u16 = 0x1B;
+pub const VK_UP: u16 = 0x26;
+pub const VK_DOWN: u16 = 0x28;
+pub const VK_LEFT: u16 = 0x25;
+pub const VK_RIGHT: u16 = 0x27;
+pub const VK_SHIFT: u16 = 0x10;
+pub const VK_CONTROL: u16 = 0x11;
+pub const VK_MENU: u16 = 0x12; // Alt
+pub const VK_CAPITAL: u16 = 0x14;
+pub const VK_LWIN: u16 = 0x5B;
+pub const VK_RWIN: u16 = 0x5C;
+pub const VK_F1: u16 = 0x70;

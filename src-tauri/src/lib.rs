@@ -11,6 +11,9 @@ mod single_instance;
 mod ui_commands;
 mod updates;
 
+// Logitech HID++ module
+pub mod logitech;
+
 use crate::app_state::ClickerState;
 use crate::app_state::ClickerStatusPayload;
 use crate::engine::worker::emit_status;
@@ -176,6 +179,13 @@ pub fn run() {
             ui_commands::quit_app,
             ui_commands::get_autostart_enabled,
             ui_commands::set_autostart_enabled,
+            // Logitech commands
+            logitech::commands::scan_devices,
+            logitech::commands::get_device_info,
+            logitech::commands::set_dpi,
+            logitech::commands::get_battery,
+            logitech::commands::set_lighting,
+            logitech::commands::set_report_rate,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

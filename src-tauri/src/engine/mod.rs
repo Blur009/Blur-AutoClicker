@@ -57,12 +57,3 @@ pub struct RunOutcome {
     pub avg_cpu: f64,
 }
 static CLICK_COUNT: AtomicI64 = AtomicI64::new(0);
-
-#[link(name = "ntdll")]
-extern "system" {
-    fn NtSetTimerResolution(
-        DesiredResolution: u32,
-        SetResolution: u8,
-        CurrentResolution: *mut u32,
-    ) -> u32;
-}

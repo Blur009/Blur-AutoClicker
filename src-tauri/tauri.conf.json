@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "BlurAutoClicker",
   "version": "3.7.0",
-  "identifier": "BlurAutoClicker",
+  "identifier": "com.blur.autoclicker",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -43,44 +43,23 @@
       "csp": null
     }
   },
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://github.com/Blur009/Blur-AutoClicker/releases/latest/download/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIyREY0RTc2QTU4Qjc1N0UKUldSK2RZdWxkazdmSW1IQmI4ZVMwOTRzWnBiVENhMFNYMFRtN0V4R3N0Q2JXQUdqM2t4VnRnNUYK"
-    },
-    "bundle": {
-      "active": true,
-      "targets": "nsis",
-      "createUpdaterArtifacts": true,
-      "publisher": "Blur009",
-      "copyright": "Copyright (c) Blur009",
-      "category": "Utility",
-      "shortDescription": "Configurable auto clicker with accurate CPS timing.",
-      "longDescription": "Performance-focused auto clicker with global hotkeys, optional overlay, and advanced timing. Licensed under GPLv3.",
-      "homepage": "https://github.com/Blur009/Blur-AutoClicker",
-      "icon": ["icons/icon.ico"],
-      "windows": {
-        "webviewInstallMode": {
-          "type": "embedBootstrapper",
-          "silent": true
-        },
-        "nsis": {
-          "compression": "zlib"
-        }
-      }
-    }
-  },
   "bundle": {
     "active": true,
-    "targets": "nsis",
+    "targets": ["deb", "appimage", "rpm"],
     "createUpdaterArtifacts": true,
-    "icon": ["icons/icon.ico"],
-    "windows": {
-      "webviewInstallMode": {
-        "type": "embedBootstrapper",
-        "silent": true
+    "publisher": "Pandi",
+    "copyright": "Copyright (c) Blur009, Pandi",
+    "category": "Utility",
+    "shortDescription": "Configurable auto clicker with Logitech device support.",
+    "longDescription": "Performance-focused auto clicker with global hotkeys, Logitech G502/G502X device control (DPI, RGB, macros), and advanced timing. Linux native.",
+    "homepage": "https://github.com/MrSchnirschuh/Blur-AutoClicker-Linux",
+    "icon": ["icons/icon.png"],
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libhidapi-hidraw0", "xdotool"]
+      },
+      "appimage": {
+        "bundleMediaFramework": true
       }
     }
   }

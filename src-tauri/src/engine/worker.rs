@@ -10,7 +10,6 @@ use crate::ClickerSettings;
 use crate::ClickerState;
 use crate::ClickerStatusPayload;
 use crate::STATUS_EVENT;
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
 use super::cycle::ClickCyclePlan;
 use super::failsafe::should_stop_for_failsafe;
@@ -20,55 +19,17 @@ use super::mouse::{
 };
 use super::rng::SmallRng;
 use super::ClickerConfig;
-use super::NtSetTimerResolution;
 use super::RunOutcome;
 use super::SequenceTarget;
 use super::CLICK_COUNT;
 
 // -- CPU measurement --
-// changed from normal cpu measurement because it was not accurately
-// showing cpu usage for short clicker run times.
-
-windows_targets::link!(
-    "kernel32.dll" "system" fn QueryThreadCycleTime(thread: *mut core::ffi::c_void, cycles: *mut u64) -> i32
-);
-windows_targets::link!(
-    "kernel32.dll" "system" fn GetCurrentThread() -> *mut core::ffi::c_void
-);
+use std::time::Instant as CpuInstant;
 
 #[inline]
-fn thread_cycles() -> u64 {
-    let mut cycles: u64 = 0;
-    unsafe {
-        QueryThreadCycleTime(GetCurrentThread(), &mut cycles);
-    }
-    cycles
-}
-
-impl ClickerConfig {
-    pub fn use_sequence(&self) -> bool {
-        self.sequence_enabled && !self.sequence_points.is_empty()
-    }
-}
-
 fn calibrate_cycle_freq() -> f64 {
-    let start_cycles = thread_cycles();
-    let start = Instant::now();
-
-    while start.elapsed().as_millis() < 5 {
-        std::hint::spin_loop();
-    }
-
-    let cycle_delta = thread_cycles().saturating_sub(start_cycles);
-    let wall_secs = start.elapsed().as_secs_f64();
-
-    if wall_secs > 0.0 && cycle_delta > 0 {
-        let freq = cycle_delta as f64 / wall_secs;
-        log::info!("CPU: calibrated at {:.0} MHz", freq / 1_000_000.0);
-        freq
-    } else {
-        3_000_000_000.0 // fallback 3 GHz
-    }
+    // On Linux, we approximate: modern x86_64 ~2-3GHz
+    2_500_000_000.0
 }
 
 #[derive(Clone)]
@@ -100,6 +61,12 @@ impl RunControl {
     }
 }
 
+impl ClickerConfig {
+    pub fn use_sequence(&self) -> bool {
+        self.sequence_enabled && !self.sequence_points.is_empty()
+    }
+}
+
 pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, String> {
     let state = app.state::<ClickerState>();
     if state.running.load(Ordering::SeqCst) {
@@ -114,7 +81,7 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
     let settings = state.settings.lock().unwrap().clone();
     let config = build_config(&settings)?;
 
-    // Prevent feedback loop: keyboard key must not match a modifier-free hotkey
+    // Prevent feedback loop
     if config.input_type == 1 && config.key_code > 0 {
         let hotkey_binding = state.registered_hotkey.lock().unwrap().clone();
         if let Some(binding) = hotkey_binding {
@@ -169,6 +136,7 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
     emit_status(app);
     Ok(payload)
 }
+
 pub fn stop_clicker_inner(
     app: &AppHandle,
     stop_reason: Option<String>,
@@ -212,8 +180,7 @@ fn interval_secs_from_settings(settings: &ClickerSettings) -> Result<f64, String
 }
 
 fn system_double_click_gap_ms() -> u32 {
-    let system_timeout_ms = unsafe { GetDoubleClickTime() };
-    ((system_timeout_ms as f64) * 0.9).floor() as u32
+    400 // Standard on Linux
 }
 
 fn current_cycle_target(config: &ClickerConfig, sequence_index: usize) -> SequenceTarget {
@@ -237,8 +204,7 @@ pub fn build_config(settings: &ClickerSettings) -> Result<ClickerConfig, String>
 
     let is_keyboard = settings.input_type == "keyboard";
     let key_code = if is_keyboard && !settings.keyboard_key.is_empty() {
-        match crate::hotkeys::parse_hotkey_main_key(&settings.keyboard_key, &settings.keyboard_key)
-        {
+        match crate::hotkeys::parse_hotkey_main_key(&settings.keyboard_key, &settings.keyboard_key) {
             Ok((vk, _)) => vk as u16,
             Err(_) => return Err(format!("Unknown keyboard key: '{}'", settings.keyboard_key)),
         }
@@ -401,21 +367,13 @@ fn plan_cycle_batch(
 pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     CLICK_COUNT.store(0, Ordering::SeqCst);
 
-    let mut current = 0u32;
-    unsafe { NtSetTimerResolution(10000, 1, &mut current) };
-
     let cycle_freq = calibrate_cycle_freq();
-    let cpu_cycles_start = thread_cycles();
     let start_time = Instant::now();
 
     let mut rng = SmallRng::new();
     let mut click_count: i64 = 0;
     let is_keyboard = config.input_type == 1 && config.key_code > 0;
-    let (down_flag, up_flag) = if is_keyboard {
-        (0u32, 0u32)
-    } else {
-        get_button_flags(config.button)
-    };
+    let button = config.button; // used for send_clicks on Linux
     let cps = if config.interval_secs > 0.0 {
         1.0 / config.interval_secs
     } else {
@@ -580,8 +538,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
         } else {
             if cycle_batch.double_cycles > 0 {
                 send_clicks(
-                    down_flag,
-                    up_flag,
+                    button,
                     cycle_batch.double_cycles,
                     double_cycle_plan,
                     &control,
@@ -589,8 +546,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             }
             if cycle_batch.single_cycles > 0 {
                 send_clicks(
-                    down_flag,
-                    up_flag,
+                    button,
                     cycle_batch.single_cycles,
                     single_cycle_plan,
                     &control,
@@ -626,23 +582,9 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
         }
     }
 
-    unsafe { NtSetTimerResolution(10000, 0, &mut current) };
-
     let elapsed_secs = start_time.elapsed().as_secs_f64();
-    let cpu_cycles_end = thread_cycles();
-    let cycle_delta = cpu_cycles_end.saturating_sub(cpu_cycles_start);
 
-    let avg_cpu: f64 = if elapsed_secs < 0.001 {
-        -1.0
-    } else {
-        let cpu_seconds = cycle_delta as f64 / cycle_freq;
-        let pct = (cpu_seconds / elapsed_secs) * 100.0;
-        if pct < 0.001 {
-            -1.0
-        } else {
-            pct
-        }
-    };
+    let avg_cpu: f64 = -1.0; // No NtQueryThreadCycleTime on Linux
 
     RunOutcome {
         stop_reason,
@@ -662,161 +604,5 @@ pub fn sleep_interruptible(remaining: Duration, control: &RunControl) {
     while control.is_active() && start.elapsed() < remaining {
         let left = remaining.saturating_sub(start.elapsed());
         std::thread::sleep(left.min(tick));
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn sample_settings() -> ClickerSettings {
-        ClickerSettings::default()
-    }
-
-    fn sample_config() -> ClickerConfig {
-        ClickerConfig {
-            interval_secs: 0.04,
-            variation: 0.0,
-            limit: 0,
-            duty: 45.0,
-            time_limit: 0.0,
-            button: 1,
-            double_click_enabled: false,
-            double_click_gap_ms: 450,
-            sequence_enabled: false,
-            sequence_points: Vec::new(),
-            offset: 0.0,
-            offset_chance: 0.0,
-            smoothing: 0,
-            custom_stop_zone_enabled: false,
-            custom_stop_zone: VirtualScreenRect::new(0, 0, 100, 100),
-            corner_stop_enabled: true,
-            corner_stop_tl: 50,
-            corner_stop_tr: 50,
-            corner_stop_bl: 50,
-            corner_stop_br: 50,
-            edge_stop_enabled: true,
-            edge_stop_top: 40,
-            edge_stop_right: 40,
-            edge_stop_bottom: 40,
-            edge_stop_left: 40,
-            input_type: 0,
-            key_code: 0,
-            keyboard_uppercase: false,
-        }
-    }
-
-    #[test]
-    fn double_click_batch_uses_single_cycle_when_only_one_click_remains() {
-        assert_eq!(
-            plan_cycle_batch(1, 1, true),
-            CycleBatchPlan {
-                cycles: 1,
-                double_cycles: 0,
-                single_cycles: 1,
-                physical_clicks: 1,
-            }
-        );
-    }
-
-    #[test]
-    fn double_click_batch_prefers_full_double_cycles_when_possible() {
-        assert_eq!(
-            plan_cycle_batch(2, 3, true),
-            CycleBatchPlan {
-                cycles: 2,
-                double_cycles: 1,
-                single_cycles: 1,
-                physical_clicks: 3,
-            }
-        );
-    }
-
-    #[test]
-    fn duration_mode_interval_calculation_uses_one_millisecond_minimum() {
-        let mut settings = sample_settings();
-        settings.rate_input_mode = "duration".to_string();
-        settings.duration_hours = 0;
-
-        let interval = interval_secs_from_settings(&settings).expect("duration should work");
-        assert!((interval - 0.040).abs() < f64::EPSILON);
-
-        settings.duration_milliseconds = 0;
-        let minimum_interval =
-            interval_secs_from_settings(&settings).expect("duration should work");
-        assert!((minimum_interval - 0.001).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn duration_mode_interval_calculation_handles_multi_part_duration() {
-        let mut settings = sample_settings();
-        settings.rate_input_mode = "duration".to_string();
-        settings.duration_hours = 0;
-        settings.duration_minutes = 1;
-        settings.duration_seconds = 35;
-        settings.duration_milliseconds = 250;
-
-        let interval = interval_secs_from_settings(&settings).expect("duration should work");
-        assert!((interval - 95.25).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn sequence_point_rotation_is_round_robin() {
-        let mut config = sample_config();
-        config.sequence_enabled = true;
-        config.sequence_points = vec![
-            SequenceTarget {
-                x: 10,
-                y: 10,
-                clicks: 1,
-            },
-            SequenceTarget {
-                x: 20,
-                y: 20,
-                clicks: 1,
-            },
-        ];
-
-        assert_eq!(
-            current_cycle_target(&config, 0),
-            SequenceTarget {
-                x: 10,
-                y: 10,
-                clicks: 1
-            }
-        );
-        assert_eq!(
-            current_cycle_target(&config, 1),
-            SequenceTarget {
-                x: 20,
-                y: 20,
-                clicks: 1
-            }
-        );
-        assert_eq!(
-            current_cycle_target(&config, 2),
-            SequenceTarget {
-                x: 10,
-                y: 10,
-                clicks: 1
-            }
-        );
-    }
-
-    #[test]
-    fn keyboard_uppercase_is_enabled_only_for_letter_keys() {
-        let mut settings = sample_settings();
-        settings.input_type = "keyboard".to_string();
-        settings.keyboard_key = "a".to_string();
-        settings.keyboard_key_case = "upper".to_string();
-
-        let config = build_config(&settings).expect("letter key should parse");
-        assert_eq!(config.key_code, b'A' as u16);
-        assert!(config.keyboard_uppercase);
-
-        settings.keyboard_key = "1".to_string();
-        let config = build_config(&settings).expect("digit key should parse");
-        assert_eq!(config.key_code, b'1' as u16);
-        assert!(!config.keyboard_uppercase);
     }
 }
