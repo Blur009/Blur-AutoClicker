@@ -9,7 +9,6 @@ mod overlay;
 mod sequence_picker;
 mod single_instance;
 mod ui_commands;
-mod updates;
 
 // Logitech HID++ module
 pub mod logitech;
@@ -38,7 +37,6 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(ClickerState {
             running: Arc::new(AtomicBool::new(false)),
             run_generation: AtomicU64::new(0),
@@ -114,25 +112,7 @@ pub fn run() {
                 }
             });
 
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                match updates::update_checker::check_for_updates(handle.clone()).await {
-                    Ok(Some(result)) => {
-                        if result.update_available {
-                            log::info!(
-                                "[Updates] Update available: {} -> {}",
-                                result.current_version,
-                                result.latest_version
-                            );
-                            let _ = handle.emit("update-available", &result);
-                        } else {
-                            log::info!("[Updates] App is up to date (v{})", result.current_version);
-                        }
-                    }
-                    Ok(None) => log::info!("[Updates] Check returned none"),
-                    Err(e) => log::info!("[Updates] Check failed: {}", e),
-                }
-            });
+            // Update checks disabled on Linux
 
             let initial_hotkey = {
                 let state = app.state::<ClickerState>();
@@ -174,7 +154,6 @@ pub fn run() {
             ui_commands::get_app_info,
             ui_commands::get_stats,
             ui_commands::reset_stats,
-            updates::update_checker::check_for_updates,
             overlay::hide_overlay,
             ui_commands::quit_app,
             ui_commands::get_autostart_enabled,
