@@ -2,68 +2,59 @@ name: CI
 
 on:
   push:
-    branches: [main, dev, linux-rewrite]
+    branches: [main, linux-rewrite, develop]
   pull_request:
-    branches: [main, dev, linux-rewrite]
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+    branches: [main, linux-rewrite, develop]
 
 jobs:
-  frontend:
-    name: Frontend (lint + type check + build)
+  check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            libudev-dev \
+            libusb-1.0-0-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev \
+            libhidapi-hidraw0
 
-      - name: Install dependencies
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install npm dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check and build
-        run: npm run frontend:build
-
-  rust:
-    name: Rust (fmt + check + test)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          workdir: src-tauri
+          toolchain: stable
+          components: clippy
 
-      - name: Install system deps
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq \
-            libwebkit2gtk-4.1-dev libgtk-3-dev \
-            libayatana-appindicator3-dev librsvg2-dev \
-            libxdo-dev libudev-dev libusb-1.0-0-dev
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
-      - name: Format
-        working-directory: src-tauri
-        run: cargo fmt --check
+      - name: cargo check
+        run: cargo check --manifest-path src-tauri/Cargo.toml
 
-      - name: Check
-        working-directory: src-tauri
-        run: cargo check --locked
+      - name: cargo clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
-      - name: Test
-        working-directory: src-tauri
-        run: cargo test --locked
+      - name: cargo test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: TypeScript check
+        run: npx tsc --noEmit

@@ -1,6 +1,6 @@
 [package]
 name = "mrschnirschuhhub"
-version = "1.0.0"
+version = "3.8.0"
 description = "MrSchnirschuhHub — auto clicker with Logitech device control. Linux native."
 authors = ["Pandi"]
 license = "GPL-3.0"
@@ -15,7 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0", features = ["tray-icon", "image-ico"] }
+tauri = { version = "2.0", features = ["tray-icon"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 serde = { version = "1.0", features = ["derive"] }
 reqwest = { version = "0.12", features = ["json"] }
@@ -26,11 +26,6 @@ tauri-plugin-store = "2"
 tauri-plugin-global-shortcut = "2"
 log = "0.4"
 serde_json = "1.0"
-raw-window-handle = "0.6.2"
-tauri-plugin-updater = "2.10.0"
-hmac = "0.12"
-sha2 = "0.10"
-hex = "0.4"
 dirs = "6.0.0"
 
 # Linux input simulation
@@ -38,11 +33,6 @@ enigo = { version = "0.2", features = ["wayland"] }
 
 # HID for Logitech devices
 hidapi = "2.6"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_Security", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_UI_HiDpi"] }
-winreg = "0.52"
-windows-targets = "0.48"
 
 [profile.release]
 strip = true

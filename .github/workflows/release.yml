@@ -10,101 +10,60 @@ permissions:
 
 jobs:
   release-linux:
-    name: Linux (AppImage + deb)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workdir: src-tauri
-
-      - name: Install system deps
+      - name: Install system dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq \
-            libwebkit2gtk-4.1-dev libgtk-3-dev \
-            libayatana-appindicator3-dev librsvg2-dev \
-            libxdo-dev libudev-dev libusb-1.0-0-dev
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            libudev-dev \
+            libusb-1.0-0-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev \
+            libhidapi-hidraw0
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2"
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-      - name: Build frontend
-        run: npm ci && npm run frontend:build
+      - name: Install npm dependencies
+        run: npm ci
 
-      - name: Build Tauri app (Linux)
-        working-directory: src-tauri
-        run: cargo build --release --locked
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
 
-      - name: Build AppImage and deb
-        run: cargo tauri build --bundles appimage,deb
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
-      - name: Upload release assets
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Tauri deb
+        run: npm run frontend:build && cargo tauri build --bundles deb --manifest-path src-tauri/Cargo.toml
+
+      - name: Package raw binary tarball
         run: |
-          TAG="${{ github.ref_name }}"
-          echo "Uploading assets for ${TAG}..."
-          gh release upload "${TAG}" \
-            src-tauri/target/release/bundle/appimage/*.AppImage \
-            src-tauri/target/release/bundle/deb/*.deb \
-            --clobber
+          TAG="${GITHUB_REF_NAME#v}"
+          BINARY="src-tauri/target/release/mrschnirschuhhub"
+          tar czf "MrSchnirschuhHub-${TAG}-x86_64-linux.tar.gz" -C "$(dirname "$BINARY")" "$(basename "$BINARY")"
 
-  release-windows:
-    name: Windows (portable zip)
-    runs-on: windows-latest
-    timeout-minutes: 30
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workdir: src-tauri
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2"
-
-      - name: Build frontend
-        run: npm ci && npm run frontend:build
-
-      - name: Build Tauri app (Windows)
+      - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cargo tauri build --bundles msi
-
-      - name: Create portable zip
-        shell: pwsh
         run: |
-          $exe = "src-tauri/target/release/MrSchnirschuhHub.exe"
-          if (-not (Test-Path $exe)) { Write-Error "MrSchnirschuhHub.exe not found"; exit 1 }
-          $tag = "${{ github.ref_name }}"
-          $zipName = "MrSchnirschuhHub-${tag}-portable.zip"
-          Compress-Archive -Path $exe -DestinationPath $zipName
-          echo "ZIP_PATH=$zipName" >> $env:GITHUB_ENV
-
-      - name: Upload portable zip to release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "${{ github.ref_name }}" "$env:ZIP_PATH" --clobber
+          TAG="${{ github.ref_name }}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes "Release $TAG — MrSchnirschuhHub" \
+            src-tauri/target/release/bundle/deb/*.deb \
+            MrSchnirschuhHub-*.tar.gz

@@ -27,7 +27,6 @@
 
     "opener:default",
     "process:default",
-    "updater:default",
 
     "global-shortcut:allow-register",
     "global-shortcut:allow-is-registered"
