@@ -1,3 +1,10 @@
+# v3.7.1 - 13.06.2026 (d.m.y)
+## New
+## Fix
+- Behaviour of multiple windows was changed back to 3.6.1 | This makes close to Tray behaviour inconsistent but the multiple window feature seems to be more demanded.
+## Changed
+- Updated dependencies
+
 # v3.7.0 - 21.05.2026 (d.m.y)
 ## New
 - Added Sequence picking instead of a timer.
@@ -9,7 +16,7 @@
 
 # v3.6.1 - 12.05.2026 (d.m.y)
 ## Fix
-- fixed sequence clicking not going through items correctly & movement with pointer percision issues should now be fixed as well. Within that fix i added always on movement & click randomization
+- fixed sequence clicking not going through items correctly & movement with pointer precision issues should now be fixed as well. Within that fix i added always on movement & click randomization
 ## Changed
 - made batch clicking work better with sequence clicking so cps can go up to 500 when sequence clicking items don't have a too low click count. 
 
@@ -19,7 +26,7 @@
 - Added the ability to choose a vertical or horizontal layout for Advanced mode (feedback on this would be appriciated)
 ## Changed
 - Made batching more dynamic
-- Increased the maximum Sequence Click repitition amount to 100000 from 1000
+- Increased the maximum Sequence Click repetition amount to 100000 from 1000
 - Increased the corner and edge stop zones maximum value to 10000 from 999
 ## Fix
 - Fixed Sequence clicking not working as intended.

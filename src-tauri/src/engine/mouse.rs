@@ -100,8 +100,8 @@ pub fn current_monitor_rects() -> Option<Vec<VirtualScreenRect>> {
     use windows_sys::Win32::Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, MONITORINFO};
 
     unsafe extern "system" fn enum_monitor_proc(
-        monitor: isize,
-        _hdc: isize,
+        monitor: *mut std::ffi::c_void,
+        _hdc: *mut std::ffi::c_void,
         _clip_rect: *mut RECT,
         user_data: isize,
     ) -> i32 {
@@ -126,7 +126,7 @@ pub fn current_monitor_rects() -> Option<Vec<VirtualScreenRect>> {
     let mut monitors = Vec::new();
     let ok = unsafe {
         EnumDisplayMonitors(
-            0,
+            std::ptr::null_mut(),
             ptr::null(),
             Some(enum_monitor_proc),
             &mut monitors as *mut Vec<VirtualScreenRect> as isize,
