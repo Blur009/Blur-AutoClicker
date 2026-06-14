@@ -106,12 +106,14 @@ export function NumInput({
   min,
   max,
   style,
+  hoverWheel = true,
 }: {
   value: number;
   onChange: (v: number) => void;
   min?: number;
   max?: number;
   style?: CSSProperties;
+  hoverWheel?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const clampValue = (next: number) => {
@@ -141,6 +143,7 @@ export function NumInput({
   };
 
   const handleWheel = (e: WheelEvent<HTMLInputElement>) => {
+    if (!hoverWheel && e.target !== document.activeElement) return;
     e.preventDefault();
     e.stopPropagation();
     const direction = e.deltaY < 0 ? 1 : -1;

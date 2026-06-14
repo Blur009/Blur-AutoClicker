@@ -3,6 +3,7 @@
 - Added ```Check for update``` button in the settings.
 - Added changelog in the App settings page.
 ## Fixed
+- Added Scrolling block for Sequence clicking items closing [#220](https://github.com/Blur009/Blur-AutoClicker/issues/220)
 - Removed text weight difference for light mode fixing issue [#139](https://github.com/Blur009/Blur-AutoClicker/issues/139)
 - Added font setting to the overlay to close issue [#138](https://github.com/Blur009/Blur-AutoClicker/issues/138)
 - Fixed hotkey self-triggering during auto-clicks by flagging synthetic input and filtering it out in hotkey detection.
