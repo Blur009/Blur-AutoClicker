@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem in Blur Auto Clicker
+description: Report a problem in Blur Auto Clicker
 title: "[Bug]: "
 labels:
   - bug
@@ -7,129 +7,61 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a bug.
-        Please fill out the form as clearly as possible so the problem can be reproduced.
+        Thanks for reporting. Fill in what you can — rough info is better than nothing. Screenshots are very welcome.
 
   - type: checkboxes
     id: checks
     attributes:
-      label: Checks
+      label: Checked
       options:
-        - label: I searched the existing issues and pull requests for the same problem.
-          required: true
-        - label: I reproduced this on the latest release or latest local source build, if applicable.
+        - label: I searched existing issues and didn't find this one.
           required: true
 
   - type: input
     id: version
     attributes:
       label: Blur Auto Clicker version
-      description: "Example: 3.5.0"
-      placeholder: 3.5.0
+      placeholder: "Example: 3.5.0"
     validations:
       required: true
-
-  - type: input
-    id: windows_version
-    attributes:
-      label: Windows version
-      description: "Example: Windows 11 25H2"
-      placeholder: Windows 11 25H2
-    validations:
-      required: true
-
-  - type: dropdown
-    id: install_type
-    attributes:
-      label: Installation type
-      options:
-        - Installed release build
-        - Built from source
-        - Other
-    validations:
-      required: true
-
-  - type: dropdown
-    id: mode
-    attributes:
-      label: Affected mode
-      options:
-        - Simple
-        - Advanced
-        - Settings / General
-        - Not sure
-    validations:
-      required: true
-
-  - type: dropdown
-    id: button
-    attributes:
-      label: Button
-      options:
-        - Mouse
-        - Keyboard
-    validations:
-      required: true
-
-  - type: dropdown
-    id: activation_mode
-    attributes:
-      label: Activation mode
-      options:
-        - Hold
-        - Toggle
-        - Not sure / N/A
-    validations:
-      required: true
-
-  - type: input
-    id: click_rate
-    attributes:
-      label: Click speed / rate
-      description: Include unit if relevant, for example 50 CPS or 120 clicks per minute
-      placeholder: 50 CPS
 
   - type: textarea
-    id: affected_settings
+    id: settings
     attributes:
-      label: Relevant settings
-      description: List any settings that seem relevant, such as duty cycle, speed variation, double click, edge stop, corner stop, position clicking, strict hotkey modifiers, or update settings.
+      label: What mode and settings were you using?
       placeholder: |
-        Duty cycle enabled
-        Speed variation 40-60 CPS
-        Edge stop enabled
+        Simple mode, left mouse, toggle, 50 CPS
+    validations:
+      required: false
 
   - type: textarea
     id: steps
     attributes:
       label: Steps to reproduce
-      description: Write clear steps so the bug can be reproduced reliably
       placeholder: |
         1. Open the app
         2. Switch to Advanced mode
-        3. Set the click speed to ...
-        4. Start the clicker
+        3. Set speed to 100 CPS
+        4. Start clicking
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior
-      placeholder: The clicker should ...
+      label: What did you expect to happen?
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: Actual behavior
-      placeholder: What happened instead?
+      label: What actually happened?
     validations:
       required: true
 
   - type: textarea
     id: additional_context
     attributes:
-      label: Additional context
-      description: Add anything else that may help, such as screenshots, recordings, logs, or unusual system behavior
+      label: Anything else?
+      description: Screenshots, logs, Windows version, recordings — anything helps.

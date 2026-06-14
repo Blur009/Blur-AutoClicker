@@ -1,126 +1,95 @@
-[![Downloads](https://img.shields.io/github/downloads/Blur009/Blur-AutoClicker/total?style=for-the-badge&label=downloads)](https://github.com/Blur009/Blur-AutoClicker/releases)
-
-# Blur Auto Clicker
-
 <div align="center">
-    <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/public/V3.0.0_UI.png" width="600"/>
+  <p align="center">
+    <a href="https://github.com/Blur009/Blur-AutoClicker/releases"><img src="https://img.shields.io/github/downloads/Blur009/Blur-AutoClicker/total?style=for-the-badge&label=downloads" alt="Downloads"></a>
+    <img src="https://img.shields.io/github/package-json/v/Blur009/Blur-AutoClicker?style=for-the-badge&label=version" alt="Version">
+    <img src="https://img.shields.io/github/license/Blur009/Blur-AutoClicker?style=for-the-badge" alt="License">
+    <img src="https://img.shields.io/github/stars/Blur009/Blur-AutoClicker?style=for-the-badge" alt="Stars">
+    <a href="https://discord.gg/jhWEW747x5"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
+  </p>
+
+  
+
+  # Blur Auto Clicker
+
+
+  <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/public/V3.0.0_UI.png" width="600"/>
+
+  <p align="center"><em>An auto clicker that actually clicks at the speed you set.</em></p>
+  
+  <a href="https://ko-fi.com/blur009">
+    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Donate on Ko-fi" width="350">
+  </a>
+
+  ---
+
+  <a href="#features">Features</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#faq">FAQ</a> ·
+  <a href="#license">License</a>
+  
+  
+
 </div>
-<p align="center"><em>An accuracy and performance focused auto clicker</em></p>
 
-
-## Why I made it:
-
-A lot of the most popular auto clickers, like OP Auto Clicker and Speed Auto Clicker, are pretty inaccurate at higher speeds. Setting CPS to 50 might give you 40... or 60. Technically this is not an issue since they are still clicking _fast_, but I am a perfectionist and I wanted something that could actually click at the CPS I set it to, even at higher speeds. So I made this.
-
-Additionally, many auto clickers have 1 good feature but are missing the other features I want. My auto clicker combines all the features I have seen in other auto clickers, and even adds some of my own ideas.
-
-Performance is also a heavy focus of this. While version 3 and onwards run on a web-based UI, The total RAM usage is around 50mb and I intend for it to never go above 100mb.
+---
+Most auto clickers aren't accurate at high speeds. Set it to 50 CPS and you might get 40. Or 60. This one actually hits the speed you set. It also bundles the useful features from other auto clickers into one place, and adds a few extras. RAM is around 100mb and stays under 200mb (yes its a lot but sadly it cant be reduced due to Webview2).
 
 ---
 
 ## Features
 
-<div align="center">
-    <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/public/30s_500cps_Speed_Test.png" width="600"/>
-</div>
-<p align="center"><em>Blur Auto Clicker reaching 500 CPS steadily (windows limit¹)</em></p>
+**Simple Mode:**
+- On/off indicator (logo turns green when running)
+- Left, right, or middle mouse button
+- Keyboard key pressing with case control
+- Hold or toggle activation
+- Customizable hotkeys
 
-Simple Mode:
-- On / Off Indicator (blur logo turns green when active)
-- Individual mouse button settings (left, right, middle)
-- Keyboard key pressing with lower/uppercase letter control
-- Hold / Toggle activation modes
-- customizable hotkeys
-
-Advanced Mode (includes all simple mode features plus):
-- adjustable click timing (duty cycle)
-- Speed Range Mode (randomizes CPS within a range)
-- Corner and edge stopping (turns off when mouse is in corners or near edges of the screen)
-- Click and Time limits (stop after certain amount of clicks or time)
+**Advanced Mode** (everything in Simple, plus):
+- Adjustable click timing (duty cycle)
+- Random CPS within a range
+- Corner and edge stopping (auto-off near screen edges)
+- Click and time limits
 - Double clicks
-- Position Clicking (you can pick a position where the mouse will move to and click.)
-- Clicks can be adjusted to per Second, Minute, Hour, or even Day
-  
-Other Features:
-- click stats (total clicks, clicks per second, etc)
+- Position clicking (pick a spot, mouse moves and clicks there)
+- Per second, minute, hour, or day
 
-### Mouse and keyboard targets
 
-Use the Mouse/Key target selector to choose what Blur Auto Clicker sends each cycle. In Mouse mode, pick left, middle, or right click. In Key mode, click the key field and press the key you want auto-pressed.
+## Quick Start
 
-For letter keys, use the small arrow control next to the key field to switch whether the key is sent as lowercase or uppercase. A large up arrow means uppercase, and a small down arrow means lowercase. Non-letter keys ignore this case control. Right-click the key field to clear the selected key before choosing a new one.
-  
----
+<a href="https://github.com/Blur009/Blur-AutoClicker/releases/latest">
+  <img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Download from GitHub" height="50">
+</a>
 
-## Installation
+Installed to `%localappdata%/BlurAutoClicker/BlurAutoClicker.exe`.  
+Config and stats are saved in `%appdata%/BlurAutoClicker`.
 
- <tr>
-    <td align="center" colspan="2">
-      <a href="https://github.com/Blur009/Blur-AutoClicker/releases/latest">
-        <img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Download from GitHub" height="75">
-      </a>
-    </td>
-  </tr>
-
-By default, the program is stored in `%localappdata%/BlurAutoClicker/BlurAutoClicker.exe`. 
-
-Config and stats are stored in `%appdata%/BlurAutoClicker`.
-
-*Info: If you are on version 2.1.2 or below, delete the old executable (the installer will not delete it for you).
-The old Config and Stats files will unfortunately not be compatible with the new versions (3.0.0 and above), so they will be deleted upon launching the application.*
-
-### Windows trust / signing
-
-Unsigned GitHub-downloaded Windows installers can still show a SmartScreen warning. Tauri updater signing is separate from Windows Authenticode signing. See [docs/windows-release-trust.md](docs/windows-release-trust.md) for build commands, signature checks, and the release-trust checklist.
+> On version 2.1.2 or below? Delete the old executable first — the installer won't do it. Old configs won't work with v3+, they'll be deleted on first launch.
 
 ---
 
-## Building From Source
+## FAQ
 
-This project is currently Windows-first. The maintained desktop build path is the Rust `x86_64-pc-windows-msvc` toolchain plus Node.js.
+<details>
+<summary><b>Why is CPS capped at 500?</b></summary>
 
-Requirements:
-- Node.js 20 or newer
-- Rust via `rustup`
-- Microsoft C++ Build Tools / Visual Studio Build Tools
+Windows has a limit of around 500 CPS for mouse events. The timer resolution bottoms out at about 1ms (1000 CPS), but Windows also needs to do other things, so the practical limit is around 800 CPS. Since I can't guarantee that on every machine, it's set to 500. (A 1000 cps setting is available but not recommended.)
+</details>
 
-Setup:
-```powershell
-git clone https://github.com/Blur009/Blur-AutoClicker.git
-cd Blur-AutoClicker
-npm install
-rustup default stable-x86_64-pc-windows-msvc
-```
+<details>
+<summary><b>Windows SmartScreen warning?</b></summary>
 
-Run the app in development:
-```powershell
-npm run dev
-```
+The installer isn't signed, so Windows may show a SmartScreen warning. Tauri updater signing is separate from Windows Authenticode signing. See <a href="docs/windows-release-trust.md">docs/windows-release-trust.md</a> for details.
+</details>
 
-Build a release bundle:
-```powershell
-npm run build
-```
+<details>
+<summary><b>Can I build from source?</b></summary>
 
-Useful validation commands:
-```powershell
-npm run lint
-npm run frontend:build
-cargo test --manifest-path src-tauri/Cargo.toml
-```
-
-The built Windows installer is written to `src-tauri/target/release/bundle/nsis/`.
+Yes — see <a href="BUILDING.md">BUILDING.md</a> for setup, build, and validation commands. For contributing guidelines, see <a href="CONTRIBUTING.md">CONTRIBUTING.md</a>.
+</details>
 
 ---
-
-## Support the project!
-[![ko-fi](https://www.ko-fi.com/img/donate_sm.png)](https://ko-fi.com/blur009)
-
-You can also support the project by starring the repository and sharing it with your friends :). Thank you for your support!
 
 ## License
 
-This project is licensed under the [GNU General Public](LICENSE.md).
-
-## Other Info
-1. Windows has a limit of around 500 CPS for mouse events. This is because Windows timer resolution is limited to about 1ms at minimum (1000cps) but windows also needs to do other things, so the practical limit is around 800cps, but since I can not guarantee that performance on every computer, I set the limit to 500cps.
+Licensed under the [GNU General Public License](LICENSE).

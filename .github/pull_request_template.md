@@ -14,6 +14,8 @@ Link the related issue here, or write `N/A`.
 - [ ] Refactor
 - [ ] Other
 
+## Screenshots (if applicable)
+
 ## Validation
 
 List the exact commands you ran and the result for each one.
