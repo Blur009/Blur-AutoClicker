@@ -33,6 +33,8 @@
     "sectionAboutDescription": "الإصدار وروابط المشروع.",
     "supportMe": "ادعمني",
     "version": "الإصدار",
+    "showChanges": "Show changes",
+    "hideChanges": "Hide changes",
     "sectionUsage": "الاستخدام",
     "sectionUsageDescription": "إجماليات التشغيل المحلية وضوابط السجل.",
     "usageData": "بيانات الاستخدام الخاصة بك",
@@ -103,7 +105,12 @@
     "resetDialogConfirm": "إعادة تعيين",
     "clearStatsDialogTitle": "مسح بيانات الاستخدام؟",
     "clearStatsDialogMessage": "سيتم محو إجمالي النقرات وعدد الجلسات والوقت المستغرق في النقر ومتوسطات المعالج نهائياً.",
-    "clearStatsDialogConfirm": "مسح"
+    "clearStatsDialogConfirm": "مسح",
+    "checkForUpdate": "التحقق من التحديث",
+    "checkingForUpdate": "جارٍ التحقق...",
+    "updateAvailable": "تحديث متاح!",
+    "noUpdateAvailable": "لا يوجد تحديث",
+    "updateCheckFailed": "فشل التحقق"
   },
   "simple": {
     "changeClickInterval": "تغيير فترة النقر",

@@ -59,6 +59,12 @@
   min-width: 0;
 }
 
+.settings-label-group--inline {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
 .settings-sublabel {
   font-family: var(--font-family-base);
   font-size: 0.75rem;
@@ -114,6 +120,32 @@
 
 .settings-card .settings-row:last-child {
   padding-bottom: 0;
+}
+
+.settings-row-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.check-update-btn {
+  min-width: 9rem;
+  text-align: center;
+}
+
+.changelog-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.changelog-arrow {
+  transition: transform 0.15s ease;
+}
+
+.changelog-arrow.open {
+  transform: rotate(90deg);
 }
 
 .settings-seg-group {

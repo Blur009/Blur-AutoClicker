@@ -54,7 +54,10 @@ function handleWheelStep(
   event.stopPropagation();
   event.currentTarget.blur();
   const delta = event.deltaY < 0 ? 1 : -1;
-  apply(clamp(current + delta, min, max));
+  let step = 1;
+  if (event.shiftKey && event.ctrlKey) step = 10;
+  else if (event.shiftKey) step = 5;
+  apply(clamp(current + delta * step, min, max));
 }
 
 function handleNumberChange(

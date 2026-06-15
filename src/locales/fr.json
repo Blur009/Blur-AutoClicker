@@ -33,6 +33,8 @@
     "sectionAboutDescription": "Version et liens du projet.",
     "supportMe": "Me soutenir",
     "version": "Version",
+    "showChanges": "Show changes",
+    "hideChanges": "Hide changes",
     "sectionUsage": "Utilisation",
     "sectionUsageDescription": "Totaux locaux des sessions et contrôles de l'historique.",
     "usageData": "Vos données d'utilisation",
@@ -103,7 +105,12 @@
     "resetDialogConfirm": "Réinitialiser",
     "clearStatsDialogTitle": "Effacer les données d'utilisation ?",
     "clearStatsDialogMessage": "Vos clics totaux, sessions, temps de clic et moyennes CPU seront définitivement effacés.",
-    "clearStatsDialogConfirm": "Effacer"
+    "clearStatsDialogConfirm": "Effacer",
+    "checkForUpdate": "Vérifier les mises à jour",
+    "checkingForUpdate": "Vérification...",
+    "updateAvailable": "Mise à jour disponible !",
+    "noUpdateAvailable": "Aucune mise à jour",
+    "updateCheckFailed": "Échec de la vérification"
   },
   "simple": {
     "changeClickInterval": "Changer l'intervalle de clic",

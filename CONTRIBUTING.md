@@ -65,6 +65,10 @@ Include the exact commands you ran in the pull request description.
 - Link the related issue when there is one, or write `N/A`.
 - Use the issue forms before opening a new issue.
 
+## Questions
+
+If you have questions or get stuck, join the [Discord server](https://discord.gg/jhWEW747x5).
+
 ## Generated files
 
 - Some files are generated, including schema output under `src-tauri/gen/`.

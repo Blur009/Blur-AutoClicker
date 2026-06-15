@@ -143,6 +143,11 @@
   font-weight: 600;
   width: 7.5rem;
   min-width: 0;
+  height: 1.5rem;
+  line-height: 1.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: pointer;
 }
 

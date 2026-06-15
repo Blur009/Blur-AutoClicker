@@ -106,14 +106,17 @@ export function NumInput({
   min,
   max,
   style,
+  hoverWheel = true,
 }: {
   value: number;
   onChange: (v: number) => void;
   min?: number;
   max?: number;
   style?: CSSProperties;
+  hoverWheel?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const wheelRef = useRef(false);
   const clampValue = (next: number) => {
     let clamped = next;
     if (min !== undefined && clamped < min) clamped = min;
@@ -122,6 +125,10 @@ export function NumInput({
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (wheelRef.current) {
+      if (ref.current) ref.current.value = String(value);
+      return;
+    }
     const raw = normalizeIntegerRaw(e.target.value);
     if (raw !== e.target.value) {
       e.target.value = raw;
@@ -141,11 +148,16 @@ export function NumInput({
   };
 
   const handleWheel = (e: WheelEvent<HTMLInputElement>) => {
+    if (!hoverWheel && e.target !== document.activeElement) return;
     e.preventDefault();
-    e.stopPropagation();
     const direction = e.deltaY < 0 ? 1 : -1;
     const current = Number.isFinite(value) ? value : (min ?? 0);
-    onChange(clampValue(current + direction));
+    let step = 1;
+    if (e.shiftKey && e.ctrlKey) step = 10;
+    else if (e.shiftKey) step = 5;
+    wheelRef.current = true;
+    onChange(clampValue(current + direction * step));
+    setTimeout(() => { wheelRef.current = false; }, 0);
   };
 
   return (
@@ -158,7 +170,6 @@ export function NumInput({
       max={max}
       onChange={handleChange}
       onBlur={handleBlur}
-      onWheelCapture={handleWheel}
       onWheel={handleWheel}
       style={{
         background: "transparent",
@@ -416,10 +427,22 @@ export function AdvDropdown({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  const handleWheel = (e: WheelEvent) => {
+    if (open) return;
+    e.preventDefault();
+    const currentIndex = options.findIndex((o) => o.value === value);
+    if (currentIndex === -1) return;
+    const direction = e.deltaY < 0 ? -1 : 1;
+    const nextIndex = Math.max(0, Math.min(options.length - 1, currentIndex + direction));
+    if (nextIndex !== currentIndex) {
+      onChange(options[nextIndex].value);
+    }
+  };
+
   const activeLabel = options.find((o) => o.value === value)?.label ?? value;
 
   return (
-    <div className="adv-dropdown" ref={ref}>
+    <div className="adv-dropdown" ref={ref} onWheel={handleWheel}>
       <button type="button" className="adv-dropdown-trigger" onClick={toggle}>
         <span>{activeLabel}</span>
         <svg

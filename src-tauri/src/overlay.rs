@@ -347,11 +347,11 @@ fn hide_overlay_window(window: &tauri::WebviewWindow) {
 }
 
 #[cfg(target_os = "windows")]
-fn get_hwnd(window: &tauri::WebviewWindow) -> Result<isize, String> {
+fn get_hwnd(window: &tauri::WebviewWindow) -> Result<*mut std::ffi::c_void, String> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     let handle = window.window_handle().map_err(|e| e.to_string())?;
     match handle.as_raw() {
-        RawWindowHandle::Win32(w) => Ok(w.hwnd.get()),
+        RawWindowHandle::Win32(w) => Ok(w.hwnd.get() as *mut std::ffi::c_void),
         _ => Err("Not a Win32 window".to_string()),
     }
 }
@@ -379,7 +379,7 @@ fn apply_win32_styles(window: &tauri::WebviewWindow) -> Result<(), String> {
 
         SetWindowPos(
             hwnd,
-            0,
+            std::ptr::null_mut(),
             0,
             0,
             0,
@@ -401,7 +401,7 @@ fn sync_overlay_bounds(window: &tauri::WebviewWindow) -> Result<VirtualScreenRec
     unsafe {
         SetWindowPos(
             hwnd,
-            0,
+            std::ptr::null_mut(),
             bounds.left,
             bounds.top,
             bounds.width,
@@ -420,7 +420,7 @@ fn show_overlay_window(window: &tauri::WebviewWindow) -> Result<(), String> {
     unsafe {
         SetWindowPos(
             hwnd,
-            0,
+            std::ptr::null_mut(),
             0,
             0,
             0,

@@ -16,6 +16,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import ConfirmDialog from "../ConfirmDialog";
 import { AdvDropdown } from "./advanced/shared";
+import { changelogEntries } from "../../changelog";
+import ChangelogContent from "../ChangelogContent";
 import {
   DEFAULT_MAX_CLICK_SPEED,
   DEFAULT_ACCENT_COLOR,
@@ -54,6 +56,8 @@ interface Props {
   onDeletePreset: (presetId: PresetId) => boolean;
   onToggleAlwaysOnTop: () => Promise<void>;
   onReset: () => Promise<void>;
+  updateCheckStatus: "idle" | "checking" | "available" | "unavailable" | "error";
+  onCheckForUpdate: () => void;
 }
 
 function formatTime(totalSeconds: number, language: Language): string {
@@ -276,6 +280,8 @@ export default function SettingsPanel({
   onDeletePreset,
   onToggleAlwaysOnTop,
   onReset,
+  updateCheckStatus,
+  onCheckForUpdate,
 }: Props) {
   const [resetting, setResetting] = useState(false);
   const [resettingStats, setResettingStats] = useState(false);
@@ -292,6 +298,7 @@ export default function SettingsPanel({
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<PresetId | null>(
     null,
   );
+  const [showChangelog, setShowChangelog] = useState(false);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const presetsListRef = useRef<HTMLDivElement>(null);
@@ -455,6 +462,14 @@ export default function SettingsPanel({
     handlePresetsScroll();
   }, [settings.presets.length]);
 
+  const updateButtonLabel = {
+    idle: t("settings.checkForUpdate"),
+    checking: t("settings.checkingForUpdate"),
+    available: t("settings.updateAvailable"),
+    unavailable: t("settings.noUpdateAvailable"),
+    error: t("settings.updateCheckFailed"),
+  }[updateCheckStatus];
+
   return (
     <div className="settings-wrapper">
       <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
@@ -540,9 +555,42 @@ export default function SettingsPanel({
           </div>
 
           <div className="settings-row">
-            <span className="settings-label">{t("settings.version")}</span>
-            <span className="settings-value">v{appInfo.version}</span>
+            <div className="settings-label-group settings-label-group--inline">
+              <span className="settings-label">{t("settings.version")}</span>
+              <span className="settings-value">v{appInfo.version}</span>
+            </div>
+            <div className="settings-row-actions">
+              <button
+                className="settings-btn-secondary changelog-toggle-btn"
+                onClick={() => setShowChangelog((v) => !v)}
+              >
+                <svg
+                  className={`changelog-arrow${showChangelog ? ' open' : ''}`}
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                >
+                  <path
+                    d="M3 1L7 5L3 9"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {showChangelog ? t("settings.hideChanges") : t("settings.showChanges")}
+              </button>
+              <button
+                className="settings-btn-secondary check-update-btn"
+                onClick={onCheckForUpdate}
+                disabled={updateCheckStatus !== "idle"}
+              >
+                {updateButtonLabel}
+              </button>
+            </div>
           </div>
+          {showChangelog && <ChangelogContent entries={changelogEntries} />}
         </SettingsCard>
 
         <SettingsCard

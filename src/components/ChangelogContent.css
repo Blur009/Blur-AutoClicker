@@ -1,0 +1,135 @@
+.changelog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.5rem 0 0.75rem;
+  user-select: text;
+}
+
+.changelog-content code {
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.65rem;
+  padding: 0.0625rem 0.25rem;
+  background: var(--bg-elevated);
+  border-radius: 0.25rem;
+  color: var(--text-primary);
+}
+
+.changelog-content a {
+  color: var(--accent-green-strong);
+  text-decoration: none;
+}
+
+.changelog-content a:hover {
+  text-decoration: underline;
+}
+
+.changelog-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.changelog-entry + .changelog-entry {
+  padding-top: 2rem;
+}
+
+.changelog-entry-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.changelog-version {
+  font-family: var(--font-family-base);
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-md);
+  color: var(--text-primary);
+}
+
+.changelog-date {
+  font-family: var(--font-family-base);
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+}
+
+.changelog-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.changelog-section-heading {
+  font-family: var(--font-family-base);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-hv);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.changelog-items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+}
+
+.changelog-item {
+  font-family: var(--font-family-base);
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+  padding-left: 0.75rem;
+  position: relative;
+}
+
+.changelog-item::before {
+  content: '\2013';
+  position: absolute;
+  left: 0;
+  color: var(--text-dim);
+}
+
+.changelog-collapsed {
+  position: relative;
+  max-height: 18rem;
+  overflow: hidden;
+}
+
+.changelog-collapsed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 5rem;
+  background: linear-gradient(transparent, var(--bg-surface));
+  pointer-events: none;
+}
+
+.changelog-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-family-base);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-md);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.changelog-expand-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+  color: var(--text-primary);
+}

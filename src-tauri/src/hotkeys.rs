@@ -2,12 +2,25 @@ use crate::engine::worker::now_epoch_ms;
 use crate::engine::worker::start_clicker_inner;
 use crate::engine::worker::stop_clicker_inner;
 use crate::engine::worker::toggle_clicker_inner;
+use crate::engine::AUTOCLICKER_EXTRA_INFO;
 use crate::AppHandle;
 use crate::ClickerState;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 use std::time::Duration;
+use std::time::Instant;
 use tauri::Manager;
+use windows_sys::Win32::Foundation::LRESULT;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    CallNextHookEx, PeekMessageW, SetWindowsHookExW, UnhookWindowsHookEx, KBDLLHOOKSTRUCT, MSG,
+    MSLLHOOKSTRUCT, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP,
+    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
+    WM_XBUTTONDOWN, WM_XBUTTONUP,
+};
+
+const PM_REMOVE: u32 = 0x0001;
+const POLL_INTERVAL: Duration = Duration::from_millis(12);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HotkeyBinding {
@@ -148,81 +161,191 @@ pub fn format_hotkey_binding(binding: &HotkeyBinding) -> String {
     parts.join("+")
 }
 
+static PHYSICAL_KEY_STATE: OnceLock<&'static [AtomicBool; 256]> = OnceLock::new();
+static HOOKS_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+fn physical_key_state() -> &'static [AtomicBool; 256] {
+    PHYSICAL_KEY_STATE
+        .get_or_init(|| Box::leak(Box::new(std::array::from_fn(|_| AtomicBool::new(false)))))
+}
+
+fn is_physical_vk_down(vk: i32) -> bool {
+    if !(0..256).contains(&vk) {
+        return false;
+    }
+    physical_key_state()[vk as usize].load(Ordering::Relaxed)
+}
+
+unsafe extern "system" fn mouse_ll_proc(n_code: i32, w_param: usize, l_param: isize) -> LRESULT {
+    if n_code >= 0 {
+        let mhs = &*(l_param as *const MSLLHOOKSTRUCT);
+        if (mhs.dwExtraInfo) != AUTOCLICKER_EXTRA_INFO {
+            let (vk, down) = match w_param as u32 {
+                WM_LBUTTONDOWN => (VK_LBUTTON as i32, true),
+                WM_LBUTTONUP => (VK_LBUTTON as i32, false),
+                WM_RBUTTONDOWN => (VK_RBUTTON as i32, true),
+                WM_RBUTTONUP => (VK_RBUTTON as i32, false),
+                WM_MBUTTONDOWN => (VK_MBUTTON as i32, true),
+                WM_MBUTTONUP => (VK_MBUTTON as i32, false),
+                WM_XBUTTONDOWN => {
+                    let x = if ((mhs.mouseData >> 16) & 0xFFFF) == 1 {
+                        VK_XBUTTON1 as i32
+                    } else {
+                        VK_XBUTTON2 as i32
+                    };
+                    (x, true)
+                }
+                WM_XBUTTONUP => {
+                    let x = if ((mhs.mouseData >> 16) & 0xFFFF) == 1 {
+                        VK_XBUTTON1 as i32
+                    } else {
+                        VK_XBUTTON2 as i32
+                    };
+                    (x, false)
+                }
+                _ => (-1, false),
+            };
+            if vk >= 0 && (vk as usize) < 256 {
+                physical_key_state()[vk as usize].store(down, Ordering::Relaxed);
+            }
+        }
+    }
+    CallNextHookEx(std::ptr::null_mut(), n_code, w_param, l_param)
+}
+
+unsafe extern "system" fn keyboard_ll_proc(n_code: i32, w_param: usize, l_param: isize) -> LRESULT {
+    if n_code >= 0 {
+        let khs = &*(l_param as *const KBDLLHOOKSTRUCT);
+        if (khs.dwExtraInfo) != AUTOCLICKER_EXTRA_INFO {
+            let vk = khs.vkCode as i32;
+            if !(0..256).contains(&vk) {
+                let down = matches!(w_param as u32, WM_KEYDOWN | WM_SYSKEYDOWN);
+                physical_key_state()[vk as usize].store(down, Ordering::Relaxed);
+            }
+        }
+    }
+    CallNextHookEx(std::ptr::null_mut(), n_code, w_param, l_param)
+}
+
 pub fn start_hotkey_listener(app: AppHandle) {
-    std::thread::spawn(move || {
+    std::thread::spawn(move || unsafe {
+        let mouse_hook =
+            SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_ll_proc), std::ptr::null_mut(), 0);
+        let kb_hook = SetWindowsHookExW(
+            WH_KEYBOARD_LL,
+            Some(keyboard_ll_proc),
+            std::ptr::null_mut(),
+            0,
+        );
+
+        if !mouse_hook.is_null() && !kb_hook.is_null() {
+            HOOKS_ACTIVE.store(true, Ordering::SeqCst);
+        }
+
         let mut was_pressed = false;
+        let mut last_check = Instant::now();
+        let mut msg: MSG = std::mem::zeroed();
 
         loop {
-            let (binding, strict) = {
-                let state = app.state::<ClickerState>();
-                let binding = state.registered_hotkey.lock().unwrap().clone();
-                let strict = state.settings.lock().unwrap().strict_hotkey_modifiers;
-                (binding, strict)
-            };
-
-            let currently_pressed = binding
-                .as_ref()
-                .map(|binding| is_hotkey_binding_pressed(binding, strict))
-                .unwrap_or(false);
-
-            let suppress_until = app
-                .state::<ClickerState>()
-                .suppress_hotkey_until_ms
-                .load(Ordering::SeqCst);
-            let suppress_until_release = app
-                .state::<ClickerState>()
-                .suppress_hotkey_until_release
-                .load(Ordering::SeqCst);
-            let hotkey_capture_active = app
-                .state::<ClickerState>()
-                .hotkey_capture_active
-                .load(Ordering::SeqCst);
-            let sequence_pick_active = app
-                .state::<ClickerState>()
-                .sequence_pick_active
-                .load(Ordering::SeqCst);
-            let custom_stop_zone_pick_active = app
-                .state::<ClickerState>()
-                .custom_stop_zone_pick_active
-                .load(Ordering::SeqCst);
-
-            if hotkey_capture_active || sequence_pick_active || custom_stop_zone_pick_active {
-                was_pressed = currently_pressed;
-                std::thread::sleep(Duration::from_millis(12));
-                continue;
+            while PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) != 0 {
+                if msg.message == WM_QUIT {
+                    if !mouse_hook.is_null() {
+                        UnhookWindowsHookEx(mouse_hook);
+                    }
+                    if !kb_hook.is_null() {
+                        UnhookWindowsHookEx(kb_hook);
+                    }
+                    return;
+                }
             }
 
-            if suppress_until_release {
-                if currently_pressed {
-                    was_pressed = true;
-                    std::thread::sleep(Duration::from_millis(12));
+            if last_check.elapsed() >= POLL_INTERVAL {
+                last_check = Instant::now();
+
+                let (binding, strict) = {
+                    let state = app.state::<ClickerState>();
+                    let binding = state.registered_hotkey.lock().unwrap().clone();
+                    let strict = state.settings.lock().unwrap().strict_hotkey_modifiers;
+                    (binding, strict)
+                };
+
+                let currently_pressed = binding
+                    .as_ref()
+                    .map(|b| {
+                        if HOOKS_ACTIVE.load(Ordering::Relaxed) {
+                            is_hotkey_binding_pressed_physical(b, strict)
+                        } else {
+                            is_hotkey_binding_pressed(b, strict)
+                        }
+                    })
+                    .unwrap_or(false);
+
+                let suppress_until = app
+                    .state::<ClickerState>()
+                    .suppress_hotkey_until_ms
+                    .load(Ordering::SeqCst);
+                let suppress_until_release = app
+                    .state::<ClickerState>()
+                    .suppress_hotkey_until_release
+                    .load(Ordering::SeqCst);
+                let hotkey_capture_active = app
+                    .state::<ClickerState>()
+                    .hotkey_capture_active
+                    .load(Ordering::SeqCst);
+                let sequence_pick_active = app
+                    .state::<ClickerState>()
+                    .sequence_pick_active
+                    .load(Ordering::SeqCst);
+                let custom_stop_zone_pick_active = app
+                    .state::<ClickerState>()
+                    .custom_stop_zone_pick_active
+                    .load(Ordering::SeqCst);
+
+                if hotkey_capture_active || sequence_pick_active || custom_stop_zone_pick_active {
+                    was_pressed = currently_pressed;
                     continue;
                 }
 
-                app.state::<ClickerState>()
-                    .suppress_hotkey_until_release
-                    .store(false, Ordering::SeqCst);
-                was_pressed = false;
-                std::thread::sleep(Duration::from_millis(12));
-                continue;
-            }
+                if suppress_until_release {
+                    if currently_pressed {
+                        was_pressed = true;
+                        continue;
+                    }
+                    app.state::<ClickerState>()
+                        .suppress_hotkey_until_release
+                        .store(false, Ordering::SeqCst);
+                    was_pressed = false;
+                    continue;
+                }
 
-            if now_epoch_ms() < suppress_until {
+                if now_epoch_ms() < suppress_until {
+                    was_pressed = currently_pressed;
+                    continue;
+                }
+
+                if currently_pressed && !was_pressed {
+                    handle_hotkey_pressed(&app);
+                } else if !currently_pressed && was_pressed {
+                    handle_hotkey_released(&app);
+                }
+
                 was_pressed = currently_pressed;
-                std::thread::sleep(Duration::from_millis(12));
-                continue;
+            } else {
+                std::thread::sleep(Duration::from_millis(1));
             }
-
-            if currently_pressed && !was_pressed {
-                handle_hotkey_pressed(&app);
-            } else if !currently_pressed && was_pressed {
-                handle_hotkey_released(&app);
-            }
-
-            was_pressed = currently_pressed;
-            std::thread::sleep(Duration::from_millis(12));
         }
     });
+}
+
+fn is_hotkey_binding_pressed_physical(binding: &HotkeyBinding, strict: bool) -> bool {
+    let ctrl_down = is_physical_vk_down(VK_CONTROL as i32);
+    let alt_down = is_physical_vk_down(VK_MENU as i32);
+    let shift_down = is_physical_vk_down(VK_SHIFT as i32);
+    let super_down = is_physical_vk_down(VK_LWIN as i32) || is_physical_vk_down(VK_RWIN as i32);
+    if !modifiers_match(binding, ctrl_down, alt_down, shift_down, super_down, strict) {
+        return false;
+    }
+    is_physical_vk_down(binding.main_vk)
 }
 
 pub fn handle_hotkey_pressed(app: &AppHandle) {

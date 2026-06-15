@@ -131,6 +131,21 @@ function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+type UpdateCheckResult = {
+  updateAvailable: boolean;
+  currentVersion: string;
+  latestVersion: string;
+};
+
+async function checkForUpdates(): Promise<UpdateCheckResult | null> {
+  try {
+    return await invoke<UpdateCheckResult>("check_for_updates");
+  } catch (err) {
+    console.error("Update check failed:", err);
+    return null;
+  }
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("simple");
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -141,6 +156,9 @@ export default function App() {
     currentVersion: string;
     latestVersion: string;
   } | null>(null);
+  const [updateCheckStatus, setUpdateCheckStatus] = useState<
+    "idle" | "checking" | "available" | "unavailable" | "error"
+  >("idle");
   const [dropdownOverflowBottom, setDropdownOverflowBottom] = useState(0);
 
   const hotkeyTimer = useRef<number | null>(null);
@@ -151,6 +169,7 @@ export default function App() {
   const launchWindowPlacementDone = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resizeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setUiSettings = (nextSettings: Settings) => {
     uiSettingsRef.current = nextSettings;
@@ -671,26 +690,54 @@ export default function App() {
   }, [settings, settingsLoaded, tab, updateInfo, dropdownOverflowBottom]);
 
   useEffect(() => {
-    const checkForUpdates = () => {
-      invoke<{
-        currentVersion: string;
-        latestVersion: string;
-        updateAvailable: boolean;
-      }>("check_for_updates")
-        .then((result) => {
-          if (result?.updateAvailable) {
-            setUpdateInfo({
-              currentVersion: result.currentVersion,
-              latestVersion: result.latestVersion,
-            });
-          }
-        })
-        .catch((err) => console.error("Update check failed:", err));
+    const check = async () => {
+      const result = await checkForUpdates();
+      if (result?.updateAvailable) {
+        setUpdateInfo({
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion,
+        });
+        setUpdateCheckStatus("available");
+      }
     };
 
-    checkForUpdates();
-    const interval = setInterval(checkForUpdates, 60 * 60 * 1000);
+    check();
+    const interval = setInterval(check, 60 * 60 * 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  const handleCheckForUpdate = async () => {
+    setUpdateCheckStatus("checking");
+    const result = await checkForUpdates();
+    if (result) {
+      if (result.updateAvailable) {
+        setUpdateCheckStatus("available");
+        setUpdateInfo({
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion,
+        });
+      } else {
+        setUpdateCheckStatus("unavailable");
+        setUpdateInfo(null);
+      }
+    } else {
+      setUpdateCheckStatus("error");
+      setUpdateInfo(null);
+    }
+    if (cooldownTimerRef.current) {
+      clearTimeout(cooldownTimerRef.current);
+    }
+    cooldownTimerRef.current = setTimeout(() => {
+      setUpdateCheckStatus((prev) => (prev === "available" ? prev : "idle"));
+    }, 60000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -727,7 +774,7 @@ export default function App() {
 
       await invoke("reset_settings");
       await clearSavedSettings();
-      await invoke("set_autostart_enabled", { enabled: false }).catch(() => {});
+      await invoke("set_autostart_enabled", { enabled: false }).catch(() => { });
       await getCurrentWindow().setAlwaysOnTop(DEFAULT_SETTINGS.alwaysOnTop);
 
       lastValidHotkeyRef.current = DEFAULT_SETTINGS.hotkey;
@@ -742,6 +789,17 @@ export default function App() {
     }
   };
 
+  const [stopKey, setStopKey] = useState(0);
+  const prevStopReasonRef = useRef(status.stopReason);
+
+  useEffect(() => {
+    if (status.stopReason && status.stopReason !== prevStopReasonRef.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStopKey((k) => k + 1);
+    }
+    prevStopReasonRef.current = status.stopReason;
+  }, [status.stopReason]);
+
   return (
     <I18nProvider language={settings.language}>
       <div className="app-root" data-tab={tab}>
@@ -754,6 +812,7 @@ export default function App() {
               ? status.stopReason
               : null
           }
+          stopKey={stopKey}
           isAlwaysOnTop={settings.alwaysOnTop}
           onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
           onRequestClose={handleWindowClose}
@@ -799,6 +858,8 @@ export default function App() {
               onDeletePreset={handleDeletePreset}
               onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
               onReset={handleResetSettings}
+              updateCheckStatus={updateCheckStatus}
+              onCheckForUpdate={handleCheckForUpdate}
             />
           )}
         </main>

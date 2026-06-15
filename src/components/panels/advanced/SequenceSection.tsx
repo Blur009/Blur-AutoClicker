@@ -375,9 +375,10 @@ export default function SequenceSection({
       if (!target) {
         return;
       }
-      // Keep wheel changes on number inputs local to the field and prevent
-      // the parent list viewport from scrolling.
-      if (target.closest("input.adv-number-sm")) {
+      // Keep wheel changes on focused number inputs local to the field and
+      // prevent the parent list viewport from scrolling.
+      // Unfocused inputs let the event through so the list scrolls instead.
+      if (target.closest("input.adv-number-sm") && target === document.activeElement) {
         event.preventDefault();
       }
     };
@@ -593,6 +594,7 @@ export default function SequenceSection({
                               X
                             </span>
                             <NumInput
+                              hoverWheel={false}
                               value={point.x}
                               onChange={(value) =>
                                 updateSequencePoint(index, { x: value })
@@ -618,6 +620,7 @@ export default function SequenceSection({
                               Y
                             </span>
                             <NumInput
+                              hoverWheel={false}
                               value={point.y}
                               onChange={(value) =>
                                 updateSequencePoint(index, { y: value })
@@ -640,6 +643,7 @@ export default function SequenceSection({
                               {t("advanced.clicksUnit")}
                             </span>
                             <NumInput
+                              hoverWheel={false}
                               value={point.clicks}
                               min={1}
                               max={100000}

@@ -6,6 +6,7 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
 };
 
 use super::worker::{sleep_interruptible, RunControl};
+use super::AUTOCLICKER_EXTRA_INFO;
 
 #[inline]
 fn vk_to_scan(vk: u16) -> (u16, bool) {
@@ -30,7 +31,7 @@ pub fn make_keyboard_input(vk: u16, flags: u32) -> INPUT {
                 wScan: scan,
                 dwFlags: flags | KEYEVENTF_SCANCODE | ext_flag,
                 time: 0,
-                dwExtraInfo: 0,
+                dwExtraInfo: AUTOCLICKER_EXTRA_INFO,
             },
         },
     }

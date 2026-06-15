@@ -49,6 +49,9 @@ struct PickerRuntime {
     last_preview_emit: Option<Instant>,
 }
 
+unsafe impl Send for PickerRuntime {}
+unsafe impl Sync for PickerRuntime {}
+
 static PICKER: OnceLock<Mutex<PickerRuntime>> = OnceLock::new();
 
 fn picker() -> &'static Mutex<PickerRuntime> {
@@ -115,14 +118,20 @@ pub fn start_custom_stop_zone_pick_inner(app: AppHandle) -> Result<(), String> {
     let (ready_tx, ready_rx) = mpsc::channel();
     std::thread::spawn(move || unsafe {
         let thread_id = GetCurrentThreadId();
-        let mouse_hook = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), 0, 0);
-        if mouse_hook == 0 {
+        let mouse_hook =
+            SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), std::ptr::null_mut(), 0);
+        if mouse_hook.is_null() {
             let _ = ready_tx.send(Err(String::from("Failed to install mouse hook")));
             return;
         }
 
-        let keyboard_hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_hook_proc), 0, 0);
-        if keyboard_hook == 0 {
+        let keyboard_hook = SetWindowsHookExW(
+            WH_KEYBOARD_LL,
+            Some(keyboard_hook_proc),
+            std::ptr::null_mut(),
+            0,
+        );
+        if keyboard_hook.is_null() {
             UnhookWindowsHookEx(mouse_hook);
             let _ = ready_tx.send(Err(String::from("Failed to install keyboard hook")));
             return;
@@ -137,18 +146,18 @@ pub fn start_custom_stop_zone_pick_inner(app: AppHandle) -> Result<(), String> {
         let _ = ready_tx.send(Ok(()));
 
         let mut msg = std::mem::zeroed::<MSG>();
-        while GetMessageW(&mut msg, 0, 0, 0) > 0 {}
+        while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {}
 
         UnhookWindowsHookEx(mouse_hook);
         UnhookWindowsHookEx(keyboard_hook);
         let mut runtime = picker().lock().unwrap();
         if runtime.mouse_hook == mouse_hook {
-            runtime.mouse_hook = 0;
+            runtime.mouse_hook = std::ptr::null_mut();
         }
         if runtime.keyboard_hook == keyboard_hook {
-            runtime.keyboard_hook = 0;
+            runtime.keyboard_hook = std::ptr::null_mut();
         }
-        if runtime.mouse_hook == 0 && runtime.keyboard_hook == 0 {
+        if runtime.mouse_hook.is_null() && runtime.keyboard_hook.is_null() {
             runtime.thread_id = 0;
         }
     });
@@ -222,7 +231,7 @@ fn stop_custom_stop_zone_pick(
 
 unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code < 0 {
-        return CallNextHookEx(0, code, wparam, lparam);
+        return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
     }
 
     let message = wparam as u32;
@@ -238,11 +247,11 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
         } else {
             emit_cursor_position(mouse.pt.x, mouse.pt.y);
         }
-        return CallNextHookEx(0, code, wparam, lparam);
+        return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
     }
 
     match classify_mouse_message(message, drawing) {
-        MouseHookDecision::Pass => CallNextHookEx(0, code, wparam, lparam),
+        MouseHookDecision::Pass => CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam),
         MouseHookDecision::StartDrawing => {
             {
                 let mut runtime = picker().lock().unwrap();
@@ -264,14 +273,14 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
 
 unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code < 0 {
-        return CallNextHookEx(0, code, wparam, lparam);
+        return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
     }
 
     let message = wparam as u32;
     let keyboard = &*(lparam as *const KBDLLHOOKSTRUCT);
 
     match classify_keyboard_message(message, keyboard.vkCode) {
-        KeyboardHookDecision::Pass => CallNextHookEx(0, code, wparam, lparam),
+        KeyboardHookDecision::Pass => CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam),
         KeyboardHookDecision::Cancel => {
             cancel_custom_stop_zone_pick_from_hook();
             1

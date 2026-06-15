@@ -7,7 +7,7 @@ pub mod stats;
 pub mod worker;
 use std::sync::atomic::AtomicI64;
 pub use worker::start_clicker;
-
+pub const AUTOCLICKER_EXTRA_INFO: usize = 0x800D_A5A5; //Just a random Identifier
 use self::mouse::VirtualScreenRect;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
