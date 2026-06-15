@@ -48,7 +48,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workdir: src-tauri
+          workspaces: './src-tauri -> target'
 
       - name: Format
         working-directory: src-tauri

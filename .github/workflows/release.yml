@@ -28,22 +28,41 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workdir: src-tauri
+          workspaces: './src-tauri -> target'
 
       - name: Install dependencies
         run: npm install
+
+      - name: Extract changelog
+        shell: pwsh
+        run: |
+          $version = [regex]::Escape(("${{ github.ref_name }}".TrimStart('v')))
+          $content = Get-Content CHANGELOG.md -Raw
+          $pattern = "(?ms)# v$version .*?(?=\n# v|\z)"
+          $match = [regex]::Match($content, $pattern)
+          if ($match.Success) {
+            Set-Content -Path release_body.md -Value $match.Value.Trim()
+          }
 
       - name: Build
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: BlurAutoClicker ${{ github.ref_name }}
-          releaseBody: See CHANGELOG for details.
+          releaseBody: See CHANGELOG.md for details.
           releaseDraft: true
+
+      - name: Update release body from changelog
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if (Test-Path release_body.md) {
+            gh release edit "${{ github.ref_name }}" --notes-file release_body.md
+          }
 
       - name: Create portable zip
         shell: pwsh
@@ -53,7 +72,7 @@ jobs:
           $tag = "${{ github.ref_name }}"
           $zipName = "BlurAutoClicker-${tag}-portable.zip"
           Compress-Archive -Path $exe.FullName -DestinationPath $zipName
-          echo "ZIP_PATH=$zipName" >> $env:GITHUB_ENV
+          Add-Content -Path $env:GITHUB_ENV -Value "ZIP_PATH=$zipName"
 
       - name: Upload portable zip to release
         shell: pwsh
