@@ -338,6 +338,25 @@ const SETTINGS_ONLY_FIELDS = {
     default: DEFAULT_ACCENT_COLOR,
     ui: { section: "appearance", control: "color" },
   },
+  backgroundImage: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacity: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacity: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlur: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
   presets: {
     default: [] as PresetDefinition[],
     ui: { section: "presets", control: "custom" },

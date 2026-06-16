@@ -9,27 +9,27 @@
   --font-family-base: 'DMSans', sans-serif;
 
   --bg-base:       rgb(12, 12, 14);
-  --bg-surface:    hsl(0, 0%, 10%);
-  --bg-elevated:   hsl(0, 0%, 15%);
-  --bg-input:      hsl(0, 0%, 23%);
-  --bg-input-off:  hsl(0, 0%, 20%);
+  --bg-surface:    rgb(26, 26, 26);
+  --bg-elevated:   rgb(38, 38, 38);
+  --bg-input:      rgb(59, 59, 59);
+  --bg-input-off:  rgb(51, 51, 51);
 
-  --border:        hsla(180, 67%, 99%, 0.2);
-  --border-focus:  hsla(180, 67%, 99%, 0.3);
-  --border-subtle: hsla(180, 67%, 99%, 0.1);
+  --border:        rgba(251, 254, 254, 0.2);
+  --border-focus:  rgba(251, 254, 254, 0.3);
+  --border-subtle: rgba(251, 254, 254, 0.1);
 
-  --text-primary:  hsla(180, 67%, 99%, 0.9);
-  --text-muted:    hsla(180, 67%, 99%, 0.75);
-  --text-dim:      hsla(180, 67%, 99%, 0.5);
+  --text-primary:  rgba(251, 254, 254, 0.9);
+  --text-muted:    rgba(251, 254, 254, 0.75);
+  --text-dim:      rgba(251, 254, 254, 0.5);
 
-  --accent-green:  hsla(129, 77%, 43%, 0.75);
-  --accent-green-strong: hsla(129, 77%, 43%, 0.92);
-  --accent-green-soft: hsla(129, 77%, 43%, 0.15);
-  --accent-green-ring: hsla(129, 77%, 43%, 0.35);
-  --accent-green-glow-1: hsla(129, 77%, 43%, 0.2);
-  --accent-green-glow-2: hsla(129, 77%, 43%, 0.12);
-  --accent-yellow: hsla(41, 99%, 59%, 0.75);
-  --accent-red:    hsla(4, 100%, 71%, 0.75);
+  --accent-green:  rgba(25, 194, 51, 0.75);
+  --accent-green-strong: rgba(25, 194, 51, 0.92);
+  --accent-green-soft: rgba(25, 194, 51, 0.15);
+  --accent-green-ring: rgba(25, 194, 51, 0.35);
+  --accent-green-glow-1: rgba(25, 194, 51, 0.2);
+  --accent-green-glow-2: rgba(25, 194, 51, 0.12);
+  --accent-yellow: rgba(254, 188, 47, 0.75);
+  --accent-red:    rgba(255, 117, 107, 0.75);
 
   --radius-sm:     0.375rem;
   --radius-md:     0.625rem;
@@ -43,46 +43,46 @@
 
   --divider-color: rgba(255, 255, 255, 0.25);
 
-  --update-banner-bg: hsl(42, 50%, 23%);
-  --update-banner-text-fg: hsl(0, 0%, 100%);
-  --update-banner-text-bg: hsl(0, 0%, 80%);
-  --status-success: hsl(129, 77%, 60%);
-  --status-error: hsl(4, 100%, 71%);
+  --update-banner-bg: rgb(88, 70, 29);
+  --update-banner-text-fg: rgb(255, 255, 255);
+  --update-banner-text-bg: rgb(204, 204, 204);
+  --status-success: rgb(74, 232, 98);
+  --status-error: rgb(255, 117, 107);
 }
 
 [data-theme="light"] {
   --bg-base:       rgb(229, 223, 231);
-  --bg-surface:    hsl(0, 0%, 100%);
-  --bg-elevated:   hsl(0, 0%, 95%);
-  --bg-input:      hsl(0, 0%, 85%);
-  --bg-input-off:  hsl(0, 0%, 85%);
+  --bg-surface:    rgb(255, 255, 255);
+  --bg-elevated:   rgb(242, 242, 242);
+  --bg-input:      rgb(217, 217, 217);
+  --bg-input-off:  rgb(217, 217, 217);
 
-  --border:        hsl(0, 0%, 40%);
-  --border-focus:  hsl(0, 0%, 35%);
-  --border-subtle: hsl(0, 0%, 65%);
+  --border:        rgb(102, 102, 102);
+  --border-focus:  rgb(89, 89, 89);
+  --border-subtle: rgb(166, 166, 166);
 
-  --text-primary:  hsla(0, 0%, 0%, 1);
-  --text-muted:    hsla(0, 0%, 0%, 0.85);
-  --text-dim:      hsla(0, 0%, 0%, 0.65);
+  --text-primary:  rgba(0, 0, 0, 1);
+  --text-muted:    rgba(0, 0, 0, 0.85);
+  --text-dim:      rgba(0, 0, 0, 0.65);
 
-  --accent-green:  hsla(129, 77%, 30%, 0.9);
-  --accent-green-strong: hsla(129, 77%, 30%, 1);
-  --accent-green-soft: hsla(129, 77%, 30%, 0.2);
-  --accent-green-ring: hsla(129, 77%, 30%, 0.4);
-  --accent-green-glow-1: hsla(129, 77%, 30%, 0.16);
-  --accent-green-glow-2: hsla(129, 77%, 30%, 0.08);
-  --accent-yellow: hsla(41, 99%, 35%, 0.9);
-  --accent-red:    hsla(4, 100%, 45%, 0.9);
+  --accent-green:  rgba(18, 135, 35, 0.9);
+  --accent-green-strong: rgba(18, 135, 35, 1);
+  --accent-green-soft: rgba(18, 135, 35, 0.2);
+  --accent-green-ring: rgba(18, 135, 35, 0.4);
+  --accent-green-glow-1: rgba(18, 135, 35, 0.16);
+  --accent-green-glow-2: rgba(18, 135, 35, 0.08);
+  --accent-yellow: rgba(178, 122, 1, 0.9);
+  --accent-red:    rgba(230, 15, 0, 0.9);
 
   --container-shadow: none;
 
   --divider-color: rgba(0, 0, 0, 0.18);
 
   --update-banner-bg: rgba(254, 188, 46, 0.747);
-  --update-banner-text-fg: hsl(0, 0%, 0%);
-  --update-banner-text-bg: hsl(0, 0%, 15%);
-  --status-success: hsl(129, 77%, 24%);
-  --status-error: hsl(4, 100%, 36%);
+  --update-banner-text-fg: rgb(0, 0, 0);
+  --update-banner-text-bg: rgb(38, 38, 38);
+  --status-success: rgb(14, 108, 28);
+  --status-error: rgb(184, 12, 0);
 }
 
 * {
@@ -115,6 +115,26 @@ body {
   min-height: 0;
 }
 
+.app-root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--bg-image, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: calc(var(--bg-opacity, 100) / 100);
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  transition: opacity 0.2s ease;
+}
+
+.app-root > * {
+  position: relative;
+  z-index: 1;
+}
+
 .panel-area {
   flex: 1;
   padding: 1.25rem 1.25rem 0.75rem 1.25rem;
@@ -123,4 +143,9 @@ body {
   overflow: auto;
   min-height: 0;
   min-width: 0;
+  backdrop-filter: blur(var(--bg-panel-blur, 0px));
+}
+
+.settings-card {
+  backdrop-filter: blur(var(--bg-panel-blur, 0px));
 }

@@ -12,6 +12,7 @@ import {
   type Language,
 } from "../../i18n";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import ConfirmDialog from "../ConfirmDialog";
@@ -31,6 +32,13 @@ type PendingAction =
   | "clear-stats"
   | "extended-click-speed-limit"
   | null;
+
+const IMAGE_FILTERS = [
+  {
+    name: "Images",
+    extensions: ["png", "jpg", "jpeg", "gif", "bmp", "webp"],
+  },
+];
 
 const LANGUAGE_DROPDOWN_OPTIONS = LANGUAGE_OPTIONS.map((option) => ({
   value: option.code,
@@ -307,7 +315,7 @@ export default function SettingsPanel({
   useEffect(() => {
     invoke<CumulativeStats>("get_stats")
       .then(setStats)
-      .catch(() => {});
+      .catch(() => { });
     invoke<boolean>("get_autostart_enabled")
       .then(setAutostartEnabled)
       .catch(() => setAutostartEnabled(false));
@@ -391,6 +399,20 @@ export default function SettingsPanel({
     }
   };
 
+  const handleBrowseBackgroundImage = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: IMAGE_FILTERS,
+      });
+      if (selected) {
+        update({ backgroundImage: selected });
+      }
+    } catch (err) {
+      console.error("Failed to pick image:", err);
+    }
+  };
+
   const handleAlwaysOnTopChange = (nextValue: boolean) => {
     if (settings.alwaysOnTop === nextValue) {
       return;
@@ -404,8 +426,8 @@ export default function SettingsPanel({
   const activeEditingPresetId = running ? null : editingPresetId;
   const activeConfirmingDeleteId = running ? null : confirmingDeleteId;
   const onOffOptions = [
-    { value: true, label: t("common.on") },
     { value: false, label: t("common.off") },
+    { value: true, label: t("common.on") },
   ];
   const advancedLayoutOptions = [
     { value: "wide" as const, label: t("settings.advancedLayoutWide") },
@@ -1066,6 +1088,128 @@ export default function SettingsPanel({
               >
                 {t("common.reset")}
               </button>
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.backgroundImage")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.backgroundImageDescription")}
+              </span>
+            </div>
+            <div className="settings-bg-image-row">
+              <input
+                className="settings-bg-input"
+                type="text"
+                value={settings.backgroundImage}
+                onChange={(event) =>
+                  update({ backgroundImage: event.target.value })
+                }
+                placeholder={t("settings.backgroundImagePlaceholder")}
+              />
+              <div className="settings-bg-buttons">
+                <button
+                  className="settings-btn-secondary"
+                  onClick={handleBrowseBackgroundImage}
+                >
+                  {t("settings.browseImage")}
+                </button>
+                <button
+                  className="settings-btn-danger settings-btn-danger--compact"
+                  onClick={() => update({ backgroundImage: "" })}
+                  disabled={!settings.backgroundImage}
+                >
+                  {t("settings.removeImage")}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.backgroundOpacity")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.backgroundOpacityDescription")}
+              </span>
+            </div>
+            <div className="settings-opacity-controls">
+              <input
+                type="range"
+                className="settings-opacity-slider"
+                min="0"
+                max="100"
+                value={settings.backgroundOpacity}
+                disabled={!settings.backgroundImage}
+                onChange={(event) =>
+                  update({
+                    backgroundOpacity: Number(event.target.value),
+                  })
+                }
+              />
+              <span className="settings-slider-value">
+                {settings.backgroundOpacity}%
+              </span>
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.panelOpacity")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.panelOpacityDescription")}
+              </span>
+            </div>
+            <div className="settings-opacity-controls">
+              <input
+                type="range"
+                className="settings-opacity-slider"
+                min="0"
+                max="100"
+                value={settings.panelOpacity}
+                onChange={(event) =>
+                  update({
+                    panelOpacity: Number(event.target.value),
+                  })
+                }
+              />
+              <span className="settings-slider-value">
+                {settings.panelOpacity}%
+              </span>
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">
+                {t("settings.panelBlur")}
+              </span>
+              <span className="settings-sublabel">
+                {t("settings.panelBlurDescription")}
+              </span>
+            </div>
+            <div className="settings-opacity-controls">
+              <input
+                type="range"
+                className="settings-opacity-slider"
+                min="0"
+                max="20"
+                value={settings.panelBlur}
+                onChange={(event) =>
+                  update({
+                    panelBlur: Number(event.target.value),
+                  })
+                }
+              />
+              <span className="settings-slider-value">
+                {settings.panelBlur}px
+              </span>
             </div>
           </div>
         </SettingsCard>

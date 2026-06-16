@@ -11,6 +11,7 @@
   position: relative;
   z-index: 10;
   flex-shrink: 0;
+  backdrop-filter: blur(var(--bg-panel-blur, 0px));
 }
 
 .title-wrapper {

@@ -225,3 +225,5 @@ pub fn quit_app(app: AppHandle) {
 pub fn list_processes() -> Result<Vec<crate::engine::process::ProcessInfo>, String> {
     Ok(crate::engine::process::list_running_processes())
 }
+
+

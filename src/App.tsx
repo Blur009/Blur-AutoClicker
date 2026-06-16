@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
   currentMonitor,
@@ -754,6 +754,52 @@ export default function App() {
       ? "rtl"
       : "ltr";
   }, [settings.language]);
+
+  useEffect(() => {
+    const root = document.querySelector(".app-root") as HTMLElement | null;
+    if (!root) return;
+
+    const panelOpacity = settings.panelOpacity / 100;
+    const colors = settings.theme === "light"
+      ? { surface: "255, 255, 255", elevated: "242, 242, 242", input: "217, 217, 217", inputOff: "217, 217, 217" }
+      : { surface: "26, 26, 26",    elevated: "38, 38, 38",    input: "59, 59, 59",    inputOff: "51, 51, 51" };
+
+    root.style.setProperty("--bg-surface", `rgba(${colors.surface}, ${panelOpacity})`);
+    root.style.setProperty("--bg-elevated", `rgba(${colors.elevated}, ${panelOpacity})`);
+    root.style.setProperty("--bg-input", `rgba(${colors.input}, ${panelOpacity})`);
+    root.style.setProperty("--bg-input-off", `rgba(${colors.inputOff}, ${panelOpacity})`);
+    root.style.setProperty("--bg-panel-blur", `${settings.panelBlur}px`);
+
+    return () => {
+      root.style.removeProperty("--bg-surface");
+      root.style.removeProperty("--bg-elevated");
+      root.style.removeProperty("--bg-input");
+      root.style.removeProperty("--bg-input-off");
+      root.style.removeProperty("--bg-panel-blur");
+    };
+  }, [settings.panelOpacity, settings.panelBlur, settings.theme]);
+
+  useEffect(() => {
+    const root = document.querySelector(".app-root") as HTMLElement | null;
+    if (!root) return;
+
+    const img = settings.backgroundImage;
+    const escape = (s: string) => s.replace(/"/g, '\\"');
+
+    if (!img) {
+      root.style.setProperty("--bg-image", "none");
+    } else if (img.startsWith("http://") || img.startsWith("https://") || img.startsWith("data:")) {
+      root.style.setProperty("--bg-image", `url("${escape(img)}")`);
+    } else {
+      root.style.setProperty("--bg-image", `url("${escape(convertFileSrc(img))}")`);
+    }
+  }, [settings.backgroundImage]);
+
+  useEffect(() => {
+    const root = document.querySelector(".app-root") as HTMLElement | null;
+    if (!root) return;
+    root.style.setProperty("--bg-opacity", String(settings.backgroundOpacity));
+  }, [settings.backgroundOpacity]);
 
   const handleTabChange = (nextTab: Tab) => {
     setTab(nextTab);

@@ -30,6 +30,9 @@
     "updater:default",
 
     "global-shortcut:allow-register",
-    "global-shortcut:allow-is-registered"
+    "global-shortcut:allow-is-registered",
+
+    "dialog:default",
+    "dialog:allow-open"
   ]
 }
