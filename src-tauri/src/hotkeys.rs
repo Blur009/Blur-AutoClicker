@@ -13,9 +13,9 @@ use tauri::Manager;
 use windows_sys::Win32::Foundation::LRESULT;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, MsgWaitForMultipleObjects, PeekMessageW, SetWindowsHookExW, UnhookWindowsHookEx,
-    KBDLLHOOKSTRUCT, MSG, MSLLHOOKSTRUCT, QUEUE_STATUS_FLAGS, WH_KEYBOARD_LL, WH_MOUSE_LL,
-    WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_QUIT,
+    CallNextHookEx, MsgWaitForMultipleObjects, PeekMessageW, SetWindowsHookExW,
+    UnhookWindowsHookEx, KBDLLHOOKSTRUCT, MSG, MSLLHOOKSTRUCT, QUEUE_STATUS_FLAGS, WH_KEYBOARD_LL,
+    WH_MOUSE_LL, WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_QUIT,
     WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN, WM_XBUTTONDOWN, WM_XBUTTONUP,
 };
 
@@ -332,13 +332,7 @@ pub fn start_hotkey_listener(app: AppHandle) {
                     .as_millis()
                     .min(u32::MAX as u128) as u32;
                 if remaining > 0 {
-                    MsgWaitForMultipleObjects(
-                        0,
-                        std::ptr::null(),
-                        0,
-                        remaining,
-                        QS_ALLINPUT,
-                    );
+                    MsgWaitForMultipleObjects(0, std::ptr::null(), 0, remaining, QS_ALLINPUT);
                 }
             }
         }
