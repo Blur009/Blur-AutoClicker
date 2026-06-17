@@ -5,7 +5,7 @@ import {
   getCurrentWindow,
   LogicalSize,
 } from "@tauri-apps/api/window";
-import { lazy, useEffect, useRef, useState } from "react";
+import { lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { applyAccentTheme } from "./accentTheme";
 import UpdateBanner from "./components/Updatebanner";
 import { canonicalizeHotkeyForBackend } from "./hotkeys";
@@ -171,6 +171,7 @@ export default function App() {
   const launchWindowPlacementDone = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resizeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toggleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setUiSettings = (nextSettings: Settings) => {
@@ -260,7 +261,17 @@ export default function App() {
     }, 250);
   };
 
-  const updateSettings = (
+  const persistCommittedSettingsRef = useRef(persistCommittedSettings);
+  const setUiSettingsRef = useRef(setUiSettings);
+  const queueHotkeyRegistrationRef = useRef(queueHotkeyRegistration);
+
+  useLayoutEffect(() => {
+    persistCommittedSettingsRef.current = persistCommittedSettings;
+    setUiSettingsRef.current = setUiSettings;
+    queueHotkeyRegistrationRef.current = queueHotkeyRegistration;
+  });
+
+  const updateSettings = useCallback((
     patch: Partial<Settings>,
     options: UpdateSettingsOptions = {},
   ) => {
@@ -288,17 +299,24 @@ export default function App() {
         { ...committedSettingsRef.current, ...restPatch },
         APP_VERSION,
       );
-      persistCommittedSettings(nextCommittedSettings, nextUiSettings);
+
+      if (toggleTimerRef.current) {
+        clearTimeout(toggleTimerRef.current);
+      }
+      toggleTimerRef.current = setTimeout(() => {
+        toggleTimerRef.current = null;
+        persistCommittedSettingsRef.current(nextCommittedSettings, nextUiSettings);
+      }, 50);
     }
 
     if (hotkey !== undefined) {
-      setUiSettings({
+      setUiSettingsRef.current({
         ...uiSettingsRef.current,
         hotkey,
       });
-      queueHotkeyRegistration(hotkey);
+      queueHotkeyRegistrationRef.current(hotkey);
     }
-  };
+  }, []);
 
   const applyStartupWindowPlacement = async () => {
     await getCurrentWindow().center();
@@ -569,6 +587,9 @@ export default function App() {
       if (resizeTimeout.current) {
         clearTimeout(resizeTimeout.current);
       }
+      if (toggleTimerRef.current) {
+        clearTimeout(toggleTimerRef.current);
+      }
     };
   }, []);
 
@@ -633,7 +654,7 @@ export default function App() {
         const preferredSize = getPanelSize(
           tab,
           !!updateInfo,
-          settings.advancedSequenceLayout,
+          uiSettingsRef.current.advancedSequenceLayout,
         );
         const { width, height } = await getClampedPanelSize(
           preferredSize,
@@ -689,7 +710,7 @@ export default function App() {
         console.error("Failed to size window:", err);
       }
     })();
-  }, [settings, settingsLoaded, tab, updateInfo, dropdownOverflowBottom]);
+  }, [tab, updateInfo, dropdownOverflowBottom]);
 
   useEffect(() => {
     const check = async () => {

@@ -1,4 +1,5 @@
 import {
+  memo,
   type CSSProperties,
   type ChangeEvent,
   type FocusEvent,
@@ -17,7 +18,7 @@ import UnavailableReason from "../../UnavailableReason";
 
 // ToggleBtn ← These are here just for some visual space
 
-export function ToggleBtn({
+const ToggleBtn = memo(function ToggleBtn({
   value,
   onChange,
   disabled = false,
@@ -58,7 +59,9 @@ export function ToggleBtn({
   ) : (
     group
   );
-}
+}, (prev, next) => prev.value === next.value && prev.disabled === next.disabled);
+
+export { ToggleBtn };
 
 // Disableable
 

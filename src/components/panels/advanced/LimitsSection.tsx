@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Settings, TimeLimitUnit } from "../../../store";
 
 import {
@@ -27,19 +27,24 @@ export default function LimitsSection({ settings, update, showInfo }: Props) {
         ? "clicks"
         : mode;
 
+  const updateRef = useRef(update);
+
+  useLayoutEffect(() => {
+    updateRef.current = update;
+  });
+
   useEffect(() => {
     if (settings.clickLimitEnabled && settings.timeLimitEnabled) {
       if (selectedMode === "clicks") {
-        update({ timeLimitEnabled: false });
+        updateRef.current({ timeLimitEnabled: false });
       } else {
-        update({ clickLimitEnabled: false });
+        updateRef.current({ clickLimitEnabled: false });
       }
     }
   }, [
     settings.clickLimitEnabled,
     settings.timeLimitEnabled,
     selectedMode,
-    update,
   ]);
 
   const isClicksMode = selectedMode === "clicks";

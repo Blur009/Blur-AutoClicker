@@ -17,6 +17,7 @@
 - Click speed not being reached at high CPS (this time for real)
 - Position picking overlay appearing under main autoclicker window.
 - UI elements turning white when shift is pressed.
+- Fixed rare Flashing of toggles when setting is changed.
 
 # v3.7.2 - 15.06.2026 (d.m.y)
 ## Fixed

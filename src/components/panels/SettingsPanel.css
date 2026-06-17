@@ -167,7 +167,7 @@
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color 50ms ease, background 50ms ease;
   white-space: nowrap;
 }
 
