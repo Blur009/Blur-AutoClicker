@@ -22,7 +22,9 @@ pub async fn check_for_updates(app: AppHandle) -> Result<Option<CheckUpdateResul
         .header(USER_AGENT, "BlurAutoClicker")
         .send()
         .await
-        .map_err(|e| format!("Network error: {}", e))?;
+        .map_err(|e| format!("Network error: {}", e))?
+        .error_for_status()
+        .map_err(|e| format!("HTTP error: {}", e))?;
 
     if response.status().is_success() {
         let release: GithubRelease = response

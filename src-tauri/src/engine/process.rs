@@ -198,45 +198,6 @@ fn wide_array_to_string(wide: &[u16]) -> String {
     String::from_utf16_lossy(&wide[..len])
 }
 
-struct FindWindowForPid {
-    target_pid: u32,
-    title: String,
-}
-
-unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> i32 {
-    let state = &mut *(lparam as *mut FindWindowForPid);
-    let mut pid: u32 = 0;
-    GetWindowThreadProcessId(hwnd, &mut pid);
-    if pid == state.target_pid {
-        let mut buffer = [0u16; 512];
-        let len = GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32);
-        if len > 0 {
-            let title = String::from_utf16_lossy(&buffer[..len as usize]);
-            let trimmed = title.trim().to_string();
-            if !trimmed.is_empty() {
-                state.title = trimmed;
-                return 0;
-            }
-        }
-    }
-    1
-}
-
-fn get_window_title_for_pid(target_pid: u32) -> Option<String> {
-    let mut state = FindWindowForPid {
-        target_pid,
-        title: String::new(),
-    };
-    unsafe {
-        EnumWindows(Some(enum_proc), &mut state as *mut _ as isize);
-    }
-    if state.title.is_empty() {
-        None
-    } else {
-        Some(state.title)
-    }
-}
-
 fn get_process_name_from_pid(target_pid: u32) -> Option<String> {
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
     if snapshot == INVALID_HANDLE_VALUE {
@@ -258,6 +219,42 @@ fn get_process_name_from_pid(target_pid: u32) -> Option<String> {
     }
     unsafe { CloseHandle(snapshot) };
     result
+}
+
+struct BuildWindowMap {
+    map: HashMap<u32, String>,
+}
+
+unsafe extern "system" fn enum_window_title_proc(hwnd: HWND, lparam: LPARAM) -> i32 {
+    let state = &mut *(lparam as *mut BuildWindowMap);
+    let mut pid: u32 = 0;
+    GetWindowThreadProcessId(hwnd, &mut pid);
+    if pid == 0 {
+        return 1;
+    }
+    if state.map.contains_key(&pid) {
+        return 1;
+    }
+    let mut buffer = [0u16; 512];
+    let len = GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32);
+    if len > 0 {
+        let title = String::from_utf16_lossy(&buffer[..len as usize]);
+        let trimmed = title.trim().to_string();
+        if !trimmed.is_empty() {
+            state.map.insert(pid, trimmed);
+        }
+    }
+    1
+}
+
+fn build_pid_title_map() -> HashMap<u32, String> {
+    let mut state = BuildWindowMap {
+        map: HashMap::new(),
+    };
+    unsafe {
+        EnumWindows(Some(enum_window_title_proc), &mut state as *mut _ as isize);
+    }
+    state.map
 }
 
 pub fn get_foreground_process_name() -> Option<String> {
@@ -296,14 +293,16 @@ pub fn list_running_processes() -> Vec<ProcessInfo> {
         }
     }
     unsafe { CloseHandle(snapshot) };
+    let pid_title_map = build_pid_title_map();
+
     let mut result: Vec<ProcessInfo> = unique_processes
         .into_iter()
         .filter_map(|(name, pid)| {
-            let window_title = get_window_title_for_pid(pid)?;
+            let window_title = pid_title_map.get(&pid)?;
             let display_name = if window_title.len() > 45 {
                 window_title[..45].to_string()
             } else {
-                window_title
+                window_title.clone()
             };
             let icon_base64 = get_icon_for_process(&name, pid);
             Some(ProcessInfo {

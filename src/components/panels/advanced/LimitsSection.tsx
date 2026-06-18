@@ -15,17 +15,14 @@ interface Props {
 
 export default function LimitsSection({ settings, update, showInfo }: Props) {
   const [mode, setMode] = useState<"clicks" | "time">(() =>
-    settings.timeLimitEnabled && !settings.clickLimitEnabled
-      ? "time"
-      : "clicks",
+    settings.timeLimitEnabled ? "time" : "clicks",
   );
 
-  const selectedMode =
-    settings.timeLimitEnabled && !settings.clickLimitEnabled
-      ? "time"
-      : settings.clickLimitEnabled && !settings.timeLimitEnabled
-        ? "clicks"
-        : mode;
+  useEffect(() => {
+    if (settings.timeLimitEnabled !== settings.clickLimitEnabled) {
+      setMode(settings.timeLimitEnabled ? "time" : "clicks");
+    }
+  }, [settings.timeLimitEnabled, settings.clickLimitEnabled]);
 
   const updateRef = useRef(update);
 
@@ -35,19 +32,15 @@ export default function LimitsSection({ settings, update, showInfo }: Props) {
 
   useEffect(() => {
     if (settings.clickLimitEnabled && settings.timeLimitEnabled) {
-      if (selectedMode === "clicks") {
+      if (mode === "clicks") {
         updateRef.current({ timeLimitEnabled: false });
       } else {
         updateRef.current({ clickLimitEnabled: false });
       }
     }
-  }, [
-    settings.clickLimitEnabled,
-    settings.timeLimitEnabled,
-    selectedMode,
-  ]);
+  }, [settings.clickLimitEnabled, settings.timeLimitEnabled, mode]);
 
-  const isClicksMode = selectedMode === "clicks";
+  const isClicksMode = mode === "clicks";
   const activeEnabled = isClicksMode
     ? settings.clickLimitEnabled
     : settings.timeLimitEnabled;
