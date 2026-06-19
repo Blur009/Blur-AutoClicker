@@ -303,9 +303,16 @@ pub fn start_hotkey_listener(app: AppHandle) {
                 if hotkey_capture_active || sequence_pick_active || custom_stop_zone_pick_active {
                     if currently_pressed && !was_pressed && hotkey_capture_active {
                         let state = app.state::<ClickerState>();
-                        let mut warning = state.warning.lock().unwrap();
-                        if warning.is_none() {
-                            *warning = Some(String::from("Finish setting hotkey first"));
+                        let needs_emit = {
+                            let mut warning = state.warning.lock().unwrap();
+                            if warning.is_none() {
+                                *warning = Some(String::from("Finish setting hotkey first"));
+                                true
+                            } else {
+                                false
+                            }
+                        };
+                        if needs_emit {
                             emit_status(&app);
                         }
                     }

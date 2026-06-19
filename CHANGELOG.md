@@ -3,8 +3,6 @@
 - SUPPORT FOR CUSTOM BACKGROUND IMAGES! (Settings → Appearance → Background Image).
 - Process whitelist/blacklist with per-application Stop/Pause behavior in the Zones panel.
 - Automatic stopping on Alt+Tab / Win+Tab (On/Off toggle in Settings → Behavior).
-- Search bar for filtering applications in the process list.
-- Empty whitelist warning shown in the UI and title bar when clicker starts.
 - Autoclicker automatically stops when clicking into the hotkey field.
 ## Changed
 - Stop reason now visible in simple mode (not just advanced/zones).
@@ -12,14 +10,13 @@
 - Failsafe (corner + edge) and custom stop zone sections have moved slightly.
 - Zero-click runs are no longer recorded to stats or printed to console in dev mode.
 - Flipped around On/Off toggle to Off/On in the settings.
-- Slightly reduced ram usage.
+- Slightly reduced ram usage (-20ish% when no settings have been changed for a few minutes).
 - Removed Translations due to the complexity of maintaining them (~80% user vote on removing them).
 ## Fixed
 - Click speed not being reached at high CPS (this time for real)
 - Position picking overlay appearing under main autoclicker window.
 - UI elements turning white when shift is pressed.
 - Fixed rare Flashing of toggles when setting is changed.
-- Fixed clicker not activating when main window is focused & improved responsiveness of hotkey detection in general.
 
 # v3.7.2 - 15.06.2026 (d.m.y)
 ## Fixed
