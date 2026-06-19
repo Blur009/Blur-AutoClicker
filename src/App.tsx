@@ -635,22 +635,21 @@ export default function App() {
       resizeTimeout.current = null;
     }
 
+    if (!settingsLoaded) return;
+
+    let cancelled = false;
     const root = document.querySelector(".app-root") as HTMLElement;
+    let transitionHandler: ((e: TransitionEvent) => void) | null = null;
 
     void (async () => {
       try {
         const textScale = await invoke<number>("get_text_scale_factor");
         document.documentElement.style.fontSize = `${16 * textScale}px`;
-        console.log("Windows Text Scale:", textScale);
-        console.log(
-          "Actual Root Font Size:",
-          getComputedStyle(document.documentElement).fontSize,
-        );
 
         const preferredSize = getPanelSize(
           tab,
           !!updateInfo,
-          uiSettingsRef.current.advancedSequenceLayout,
+          settings.advancedSequenceLayout,
         );
         const { width, height } = await getClampedPanelSize(
           preferredSize,
@@ -661,12 +660,15 @@ export default function App() {
         const appWindow = getCurrentWindow();
 
         if (!launchWindowPlacementDone.current) {
+          if (cancelled) return;
           await appWindow.setSize(new LogicalSize(width, windowHeight));
 
+          if (cancelled) return;
           root.style.width = `${width}px`;
           root.style.height = `${height}px`;
 
           await wait(30);
+          if (cancelled) return;
           await applyStartupWindowPlacement();
           launchWindowPlacementDone.current = true;
           return;
@@ -682,18 +684,54 @@ export default function App() {
           const snapH = windowHeight >= currentH ? windowHeight : currentH;
 
           if (snapW !== currentW || snapH !== currentH) {
+            if (cancelled) return;
             await appWindow.setSize(new LogicalSize(snapW, snapH));
           }
 
+          if (cancelled) return;
           root.style.width = `${width}px`;
           root.style.height = `${height}px`;
 
-          resizeTimeout.current = setTimeout(async () => {
-            await appWindow.setSize(new LogicalSize(width, windowHeight));
+          const changedProps: string[] = [];
+          if (width !== currentW) changedProps.push("width");
+          if (windowHeight !== currentH) changedProps.push("height");
+
+          const completed = new Set<string>();
+          transitionHandler = (e: TransitionEvent) => {
+            if (e.target !== root) return;
+            if (!changedProps.includes(e.propertyName)) return;
+            completed.add(e.propertyName);
+            if (completed.size >= changedProps.length) {
+              root.removeEventListener("transitionend", transitionHandler!);
+              if (resizeTimeout.current) {
+                clearTimeout(resizeTimeout.current);
+                resizeTimeout.current = null;
+              }
+              if (!cancelled) {
+                appWindow.setSize(new LogicalSize(width, windowHeight)).catch((err) => {
+                  console.error("Failed to finalize window resize:", err);
+                });
+              }
+            }
+          };
+
+          root.addEventListener("transitionend", transitionHandler);
+
+          resizeTimeout.current = setTimeout(() => {
+            if (transitionHandler) {
+              root.removeEventListener("transitionend", transitionHandler);
+            }
+            if (!cancelled) {
+              appWindow.setSize(new LogicalSize(width, windowHeight)).catch((err) => {
+                console.error("Failed to finalize window resize:", err);
+              });
+            }
             resizeTimeout.current = null;
-          }, 320);
+          }, 350);
         } else {
+          if (cancelled) return;
           await appWindow.setSize(new LogicalSize(width, windowHeight));
+          if (cancelled) return;
           root.style.width = `${currentW}px`;
           root.style.height = `${currentH}px`;
 
@@ -703,10 +741,23 @@ export default function App() {
           root.style.height = `${height}px`;
         }
       } catch (err) {
-        console.error("Failed to size window:", err);
+        if (!cancelled) {
+          console.error("Failed to size window:", err);
+        }
       }
     })();
-  }, [tab, updateInfo, dropdownOverflowBottom]);
+
+    return () => {
+      cancelled = true;
+      if (transitionHandler) {
+        root.removeEventListener("transitionend", transitionHandler);
+      }
+      if (resizeTimeout.current) {
+        clearTimeout(resizeTimeout.current);
+        resizeTimeout.current = null;
+      }
+    };
+  }, [tab, updateInfo, dropdownOverflowBottom, settingsLoaded, settings.advancedSequenceLayout]);
 
   useEffect(() => {
     const check = async () => {
