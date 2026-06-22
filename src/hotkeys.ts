@@ -34,6 +34,19 @@ const MODIFIER_CODES = new Set([
   "OSRight",
 ]);
 
+const MODIFIER_CODE_MAIN_KEY_MAP: Record<string, string> = {
+  ControlLeft: "leftctrl",
+  ControlRight: "rightctrl",
+  ShiftLeft: "leftshift",
+  ShiftRight: "rightshift",
+  AltLeft: "leftalt",
+  AltRight: "rightalt",
+  MetaLeft: "leftsuper",
+  MetaRight: "rightsuper",
+  OSLeft: "leftsuper",
+  OSRight: "rightsuper",
+};
+
 const SHIFTED_SYMBOL_BASE_MAP: Record<string, string> = {
   "?": "/",
   ":": ";",
@@ -166,6 +179,14 @@ export const defaultHotkeyLabels: HotkeyDisplayLabels = {
     printscreen: "Print Screen",
     pause: "Pause",
     menu: "Menu",
+    leftctrl: "Left Ctrl",
+    rightctrl: "Right Ctrl",
+    leftshift: "Left Shift",
+    rightshift: "Right Shift",
+    leftalt: "Left Alt",
+    rightalt: "Right Alt",
+    leftsuper: "Left Super",
+    rightsuper: "Right Super",
     mouseleft: "Mouse Left",
     mouseright: "Mouse Right",
     mousemiddle: "Scroll Button",
@@ -299,6 +320,35 @@ function normalizeNamedKey(key: string): string | null {
     menu: "menu",
     escape: "escape",
     esc: "escape",
+    leftctrl: "leftctrl",
+    ctrlleft: "leftctrl",
+    lctrl: "leftctrl",
+    rightctrl: "rightctrl",
+    ctrlright: "rightctrl",
+    rctrl: "rightctrl",
+    leftshift: "leftshift",
+    shiftleft: "leftshift",
+    lshift: "leftshift",
+    rightshift: "rightshift",
+    shiftright: "rightshift",
+    rshift: "rightshift",
+    leftalt: "leftalt",
+    altleft: "leftalt",
+    lalt: "leftalt",
+    rightalt: "rightalt",
+    altright: "rightalt",
+    ralt: "rightalt",
+    altgr: "rightalt",
+    leftsuper: "leftsuper",
+    superleft: "leftsuper",
+    leftwin: "leftsuper",
+    winleft: "leftsuper",
+    lwin: "leftsuper",
+    rightsuper: "rightsuper",
+    superright: "rightsuper",
+    rightwin: "rightsuper",
+    winright: "rightsuper",
+    rwin: "rightsuper",
   };
 
   if (/^f\d{1,2}$/i.test(key)) {
@@ -422,6 +472,14 @@ function displayTokenFromStoredValue(
     printscreen: "Print Screen",
     pause: "Pause",
     menu: "Menu",
+    leftctrl: "Left Ctrl",
+    rightctrl: "Right Ctrl",
+    leftshift: "Left Shift",
+    rightshift: "Right Shift",
+    leftalt: "Left Alt",
+    rightalt: "Right Alt",
+    leftsuper: "Left Super",
+    rightsuper: "Right Super",
     numpadadd: "Num +",
     numpadsubtract: "Num -",
     numpadmultiply: "Num *",
@@ -499,6 +557,24 @@ export async function getKeyboardLayoutMap(): Promise<LayoutMapLike | null> {
 export async function canonicalizeHotkeyForBackend(value: string): Promise<string> {
   const layoutMap = await getKeyboardLayoutMap();
   return canonicalizeHotkeyString(value, layoutMap);
+}
+
+export function captureModifierHotkey(event: KeyboardCaptureEvent): string | null {
+  if (event.code) {
+    const codeMapped = MODIFIER_CODE_MAIN_KEY_MAP[event.code];
+    if (codeMapped) return codeMapped;
+  }
+
+  const lowerKey = event.key.toLowerCase();
+  if (!MODIFIER_KEYS.has(lowerKey)) return null;
+
+  const side = event.location === 2 ? "right" : "left";
+  if (lowerKey === "control" || lowerKey === "ctrl") return `${side}ctrl`;
+  if (lowerKey === "shift") return `${side}shift`;
+  if (lowerKey === "alt" || lowerKey === "altgraph") return `${side}alt`;
+  if (lowerKey === "meta" || lowerKey === "os") return `${side}super`;
+
+  return null;
 }
 
 export function captureHotkey(event: KeyboardCaptureEvent): string | null {

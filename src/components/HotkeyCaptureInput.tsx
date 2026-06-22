@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   captureHotkey,
+  captureModifierHotkey,
   captureMouseHotkey,
   defaultHotkeyLabels,
   formatHotkeyForDisplay,
@@ -101,6 +102,8 @@ export default function HotkeyCaptureInput({
       inputRef.current?.blur();
     };
 
+    let pendingModifierHotkey: string | null = null;
+
     const handleKeyDown = (event: KeyboardEvent) => {
       event.preventDefault();
       event.stopPropagation();
@@ -121,10 +124,29 @@ export default function HotkeyCaptureInput({
         return;
       }
 
+      const modifierHotkey = captureModifierHotkey(event);
+      if (modifierHotkey) {
+        pendingModifierHotkey = modifierHotkey;
+        return;
+      }
+
+      pendingModifierHotkey = null;
+
       const nextHotkey = captureHotkey(event);
       if (!nextHotkey) return;
 
       finishCapture(nextHotkey);
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const modifierHotkey = captureModifierHotkey(event);
+      if (!modifierHotkey || modifierHotkey !== pendingModifierHotkey) return;
+
+      pendingModifierHotkey = null;
+      finishCapture(modifierHotkey);
     };
 
     const handleMouseDown = (event: MouseEvent) => {
@@ -168,11 +190,13 @@ export default function HotkeyCaptureInput({
     };
 
     window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
     window.addEventListener("mousedown", handleMouseDown, true);
     window.addEventListener("contextmenu", handleContextMenu, true);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
       window.removeEventListener("mousedown", handleMouseDown, true);
       window.removeEventListener("contextmenu", handleContextMenu, true);
     };
