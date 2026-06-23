@@ -108,25 +108,27 @@ export default function HotkeyCaptureInput({
       event.preventDefault();
       event.stopPropagation();
 
-      if (event.key === "Escape") {
-        finishCapture();
-        return;
-      }
-
-      if (
-        (event.key === "Backspace" || event.key === "Delete") &&
-        !event.ctrlKey &&
-        !event.altKey &&
-        !event.shiftKey &&
-        !event.metaKey
-      ) {
-        finishCapture("");
-        return;
-      }
-
       const modifierHotkey = captureModifierHotkey(event);
       if (modifierHotkey) {
         pendingModifierHotkey = modifierHotkey;
+        return;
+      }
+
+      if (event.key === "Escape" || event.code === "Escape") {
+        pendingModifierHotkey = null;
+        finishCapture("escape");
+        return;
+      }
+
+      if (event.key === "Backspace") {
+        pendingModifierHotkey = null;
+        finishCapture("backspace");
+        return;
+      }
+
+      if (event.key === "Delete") {
+        pendingModifierHotkey = null;
+        finishCapture("delete");
         return;
       }
 

@@ -186,9 +186,8 @@ fn is_physical_vk_down(vk: i32) -> bool {
 }
 
 fn normalize_low_level_keyboard_vk(khs: &KBDLLHOOKSTRUCT) -> i32 {
-    let vk = khs.vkCode as u16;
-    match vk {
-        v if v == VK_SHIFT => {
+    match khs.vkCode as u16 {
+        VK_SHIFT => {
             let mapped = unsafe { MapVirtualKeyW(khs.scanCode, MAPVK_VSC_TO_VK_EX) };
             if mapped == 0 {
                 VK_SHIFT as i32
@@ -196,21 +195,21 @@ fn normalize_low_level_keyboard_vk(khs: &KBDLLHOOKSTRUCT) -> i32 {
                 mapped as i32
             }
         }
-        v if v == VK_CONTROL => {
+        VK_CONTROL => {
             if (khs.flags & LLKHF_EXTENDED) != 0 {
                 VK_RCONTROL as i32
             } else {
                 VK_LCONTROL as i32
             }
         }
-        v if v == VK_MENU => {
+        VK_MENU => {
             if (khs.flags & LLKHF_EXTENDED) != 0 {
                 VK_RMENU as i32
             } else {
                 VK_LMENU as i32
             }
         }
-        _ => vk as i32,
+        _ => khs.vkCode as i32,
     }
 }
 
@@ -454,18 +453,16 @@ enum ModifierGroup {
 }
 
 fn modifier_group_for_vk(vk: i32) -> Option<ModifierGroup> {
-    match vk {
-        v if v == VK_CONTROL as i32 || v == VK_LCONTROL as i32 || v == VK_RCONTROL as i32 => {
-            Some(ModifierGroup::Ctrl)
-        }
-        v if v == VK_MENU as i32 || v == VK_LMENU as i32 || v == VK_RMENU as i32 => {
-            Some(ModifierGroup::Alt)
-        }
-        v if v == VK_SHIFT as i32 || v == VK_LSHIFT as i32 || v == VK_RSHIFT as i32 => {
-            Some(ModifierGroup::Shift)
-        }
-        v if v == VK_LWIN as i32 || v == VK_RWIN as i32 => Some(ModifierGroup::Super),
-        _ => None,
+    if [VK_CONTROL as i32, VK_LCONTROL as i32, VK_RCONTROL as i32].contains(&vk) {
+        Some(ModifierGroup::Ctrl)
+    } else if [VK_MENU as i32, VK_LMENU as i32, VK_RMENU as i32].contains(&vk) {
+        Some(ModifierGroup::Alt)
+    } else if [VK_SHIFT as i32, VK_LSHIFT as i32, VK_RSHIFT as i32].contains(&vk) {
+        Some(ModifierGroup::Shift)
+    } else if [VK_LWIN as i32, VK_RWIN as i32].contains(&vk) {
+        Some(ModifierGroup::Super)
+    } else {
+        None
     }
 }
 
