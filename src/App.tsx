@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 import { applyAccentTheme } from "./accentTheme";
+import TimerWidget from "./components/TimerWidget";
 import UpdateBanner from "./components/Updatebanner";
 import { canonicalizeHotkeyForBackend } from "./hotkeys";
 
@@ -35,6 +36,7 @@ import {
   loadSettings,
   saveSettings,
 } from "./store";
+import { timeLimitDurationMs, timeLimitStopReason } from "./timerUtils";
 
 const SimplePanel = lazy(() => import("./components/panels/SimplePanel"));
 const AdvancedPanel = lazy(
@@ -60,17 +62,19 @@ function getPanelSize(
   tab: Tab,
   hasUpdate: boolean,
   advancedSequenceLayout: Settings["advancedSequenceLayout"],
+  showTimerWidget: boolean,
 ) {
   const extra = hasUpdate ? 30 : 0;
+  const timerExtra = tab !== "settings" && showTimerWidget ? 74 : 0;
   if (tab === "simple") {
-    return { width: 650, height: 175 + extra };
+    return { width: 650, height: 175 + extra + timerExtra };
   }
   if (tab === "settings") return { width: 560, height: 720 + extra };
-  if (tab === "zones") return { width: 750, height: 720 + extra };
+  if (tab === "zones") return { width: 750, height: 720 + extra + timerExtra };
   if (advancedSequenceLayout === "tall") {
-    return { width: 560, height: 720 + extra };
+    return { width: 560, height: 720 + extra + timerExtra };
   }
-  return { width: 912, height: 527 + extra };
+  return { width: 912, height: 527 + extra + timerExtra };
 }
 
 const textScale = await invoke<number>("get_text_scale_factor");
@@ -110,6 +114,8 @@ const DEFAULT_STATUS: ClickerStatus = {
   warning: null,
   activeSequenceIndex: null,
   activeSequenceTick: 0,
+  sessionStartedAtMs: null,
+  lastSessionDurationMs: 0,
 };
 
 const DEFAULT_APP_INFO: AppInfo = {
@@ -120,6 +126,18 @@ const DEFAULT_APP_INFO: AppInfo = {
 
 type UpdateSettingsOptions = {
   preserveActivePreset?: boolean;
+};
+
+type StopwatchState = {
+  elapsedMs: number;
+  startedAtMs: number | null;
+  running: boolean;
+};
+
+const DEFAULT_STOPWATCH_STATE: StopwatchState = {
+  elapsedMs: 0,
+  startedAtMs: null,
+  running: false,
 };
 
 async function syncSettingsToBackend(settings: Settings) {
@@ -160,6 +178,10 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [status, setStatus] = useState<ClickerStatus>(DEFAULT_STATUS);
+  const [stopwatch, setStopwatch] = useState<StopwatchState>(
+    DEFAULT_STOPWATCH_STATE,
+  );
+  const [clockNowMs, setClockNowMs] = useState(() => Date.now());
   const [appInfo, setAppInfo] = useState<AppInfo>(DEFAULT_APP_INFO);
   const [updateInfo, setUpdateInfo] = useState<{
     currentVersion: string;
@@ -180,6 +202,9 @@ export default function App() {
   const resizeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toggleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionStartedAtRef = useRef<number | null>(null);
+  const previousRunningRef = useRef(false);
+  const pendingLastSessionDurationRef = useRef<number | null>(null);
 
   const setUiSettings = (nextSettings: Settings) => {
     uiSettingsRef.current = nextSettings;
@@ -326,6 +351,34 @@ export default function App() {
     },
     [],
   );
+
+  const handleStopwatchToggle = useCallback(() => {
+    const now = Date.now();
+    setClockNowMs(now);
+    setStopwatch((current) => {
+      if (current.running) {
+        const elapsedFromRun = current.startedAtMs
+          ? now - current.startedAtMs
+          : 0;
+        return {
+          elapsedMs: current.elapsedMs + elapsedFromRun,
+          startedAtMs: null,
+          running: false,
+        };
+      }
+
+      return {
+        ...current,
+        startedAtMs: now,
+        running: true,
+      };
+    });
+  }, []);
+
+  const handleStopwatchReset = useCallback(() => {
+    setClockNowMs(Date.now());
+    setStopwatch(DEFAULT_STOPWATCH_STATE);
+  }, []);
 
   const applyStartupWindowPlacement = async () => {
     await getCurrentWindow().center();
@@ -623,6 +676,104 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!status.running && !stopwatch.running) {
+      return;
+    }
+
+    const refreshClock = () => setClockNowMs(Date.now());
+    refreshClock();
+    const interval = window.setInterval(refreshClock, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [status.running, stopwatch.running]);
+
+  useEffect(() => {
+    const saveLastSessionDuration = (durationMs: number) => {
+      if (
+        durationMs > 0 &&
+        committedSettingsRef.current.lastSessionDurationMs !== durationMs
+      ) {
+        updateSettings(
+          { lastSessionDurationMs: durationMs },
+          { preserveActivePreset: true },
+        );
+      }
+    };
+
+    if (status.running && status.sessionStartedAtMs) {
+      sessionStartedAtRef.current = status.sessionStartedAtMs;
+    }
+
+    if (previousRunningRef.current && !status.running) {
+      const fallbackDurationMs = sessionStartedAtRef.current
+        ? Date.now() - sessionStartedAtRef.current
+        : 0;
+      const durationMs = Math.max(
+        0,
+        Math.round(status.lastSessionDurationMs || fallbackDurationMs),
+      );
+
+      if (settingsLoaded) {
+        saveLastSessionDuration(durationMs);
+      } else {
+        pendingLastSessionDurationRef.current = durationMs;
+      }
+
+      sessionStartedAtRef.current = null;
+    }
+
+    if (
+      settingsLoaded &&
+      !status.running &&
+      pendingLastSessionDurationRef.current !== null
+    ) {
+      saveLastSessionDuration(pendingLastSessionDurationRef.current);
+      pendingLastSessionDurationRef.current = null;
+    }
+
+    previousRunningRef.current = status.running;
+  }, [settingsLoaded, status, updateSettings]);
+
+  useEffect(() => {
+    if (
+      !settings.timeLimitEnabled ||
+      !status.running ||
+      !status.sessionStartedAtMs
+    ) {
+      return;
+    }
+
+    const durationMs = timeLimitDurationMs(settings);
+    if (durationMs <= 0) {
+      return;
+    }
+
+    const stopAtMs = status.sessionStartedAtMs + durationMs;
+    const stop = () => {
+      invoke<ClickerStatus>("stop_clicker_with_reason", {
+        reason: timeLimitStopReason(durationMs),
+      })
+        .then(setStatus)
+        .catch((err) => {
+          console.error("Failed to stop clicker after countdown:", err);
+        });
+    };
+
+    const remainingMs = stopAtMs - Date.now();
+    if (remainingMs <= 0) {
+      stop();
+      return;
+    }
+
+    const timeout = window.setTimeout(
+      stop,
+      Math.min(remainingMs, 2_147_483_647),
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [settings, status.running, status.sessionStartedAtMs]);
+
+  useEffect(() => {
     const handleDropdownOverflow = (event: Event) => {
       const { active, bottom = 0 } = (
         event as CustomEvent<DropdownOverflowDetail>
@@ -665,6 +816,7 @@ export default function App() {
           tab,
           !!updateInfo,
           settings.advancedSequenceLayout,
+          settings.showStopwatchOnMainWindow,
         );
         const { width, height } = await getClampedPanelSize(
           preferredSize,
@@ -782,6 +934,7 @@ export default function App() {
     dropdownOverflowBottom,
     settingsLoaded,
     settings.advancedSequenceLayout,
+    settings.showStopwatchOnMainWindow,
   ]);
 
   useEffect(() => {
@@ -965,6 +1118,22 @@ export default function App() {
     setStopKey((k) => k + 1);
   }
 
+  const sessionElapsedMs =
+    status.running && status.sessionStartedAtMs
+      ? Math.max(0, clockNowMs - status.sessionStartedAtMs)
+      : 0;
+  const stopwatchElapsedMs =
+    stopwatch.elapsedMs +
+    (stopwatch.running && stopwatch.startedAtMs
+      ? Math.max(0, clockNowMs - stopwatch.startedAtMs)
+      : 0);
+  const lastSessionDurationMs =
+    !status.running && status.lastSessionDurationMs > 0
+      ? status.lastSessionDurationMs
+      : settings.lastSessionDurationMs;
+  const showTimerWidget =
+    settings.showStopwatchOnMainWindow && tab !== "settings";
+
   return (
     <div className="app-root" data-tab={tab}>
       <TitleBar
@@ -992,6 +1161,20 @@ export default function App() {
         />
       )}
       <main className="panel-area">
+        {showTimerWidget && (
+          <TimerWidget
+            settings={settings}
+            update={updateSettings}
+            running={status.running}
+            paused={status.paused}
+            sessionElapsedMs={sessionElapsedMs}
+            lastSessionDurationMs={lastSessionDurationMs}
+            stopwatchElapsedMs={stopwatchElapsedMs}
+            stopwatchRunning={stopwatch.running}
+            onStopwatchToggle={handleStopwatchToggle}
+            onStopwatchReset={handleStopwatchReset}
+          />
+        )}
         {tab === "simple" && (
           <SimplePanel settings={settings} update={updateSettings} />
         )}

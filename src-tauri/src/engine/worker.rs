@@ -169,6 +169,9 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
         state.active_sequence_tick.store(0, Ordering::SeqCst);
     }
     let expected_generation = state.run_generation.fetch_add(1, Ordering::SeqCst) + 1;
+    state
+        .session_started_at_ms
+        .store(now_epoch_ms(), Ordering::SeqCst);
     state.running.store(true, Ordering::SeqCst);
     let control = RunControl::new(app.clone(), expected_generation);
     let app_handle = app.clone();
@@ -189,6 +192,11 @@ pub fn start_clicker_inner(app: &AppHandle) -> Result<ClickerStatusPayload, Stri
         state.running.store(false, Ordering::SeqCst);
         state.active_sequence_index.store(-1, Ordering::SeqCst);
         state.active_sequence_tick.store(0, Ordering::SeqCst);
+        state.session_started_at_ms.store(0, Ordering::SeqCst);
+        state.last_session_duration_ms.store(
+            (outcome.elapsed_secs.max(0.0) * 1000.0).round() as u64,
+            Ordering::SeqCst,
+        );
 
         *state.stop_reason.lock().unwrap() = Some(outcome.stop_reason.clone());
         *state.last_error.lock().unwrap() = None;
@@ -207,6 +215,13 @@ pub fn stop_clicker_inner(
     state.running.store(false, Ordering::SeqCst);
     state.active_sequence_index.store(-1, Ordering::SeqCst);
     state.active_sequence_tick.store(0, Ordering::SeqCst);
+    let started_at_ms = state.session_started_at_ms.swap(0, Ordering::SeqCst);
+    if started_at_ms > 0 {
+        state.last_session_duration_ms.store(
+            now_epoch_ms().saturating_sub(started_at_ms),
+            Ordering::SeqCst,
+        );
+    }
     state.run_generation.fetch_add(1, Ordering::SeqCst);
     if let Some(reason) = stop_reason {
         *state.stop_reason.lock().unwrap() = Some(reason);
@@ -372,6 +387,7 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
     let warning = state.warning.lock().unwrap().clone();
     let active_sequence_index = state.active_sequence_index.load(Ordering::SeqCst);
     let active_sequence_tick = state.active_sequence_tick.load(Ordering::SeqCst);
+    let session_started_at_ms = state.session_started_at_ms.load(Ordering::SeqCst);
 
     ClickerStatusPayload {
         running: state.running.load(Ordering::SeqCst),
@@ -386,6 +402,12 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
             None
         },
         active_sequence_tick,
+        session_started_at_ms: if session_started_at_ms > 0 {
+            Some(session_started_at_ms)
+        } else {
+            None
+        },
+        last_session_duration_ms: state.last_session_duration_ms.load(Ordering::SeqCst),
     }
 }
 

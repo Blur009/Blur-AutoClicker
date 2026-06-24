@@ -21,6 +21,8 @@ pub struct ClickerState {
     pub settings_initialized: AtomicBool,
     pub paused: Arc<AtomicBool>,
     pub warning: Mutex<Option<String>>,
+    pub session_started_at_ms: AtomicU64,
+    pub last_session_duration_ms: AtomicU64,
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -34,6 +36,8 @@ pub struct ClickerStatusPayload {
     pub warning: Option<String>,
     pub active_sequence_index: Option<usize>,
     pub active_sequence_tick: u64,
+    pub session_started_at_ms: Option<u64>,
+    pub last_session_duration_ms: u64,
 }
 
 #[derive(Clone, serde::Serialize)]

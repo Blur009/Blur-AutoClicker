@@ -107,7 +107,7 @@ pub struct ClickerSettings {
 
 // Frontend-only settings intentionally omitted from Rust:
 // language, minimizeToTray, theme, advancedSequenceLayout, alwaysOnTop,
-// accentColor, presets, activePresetId.
+// accentColor, presets, activePresetId, timer/stopwatch UI preferences.
 
 impl Default for ClickerSettings {
     fn default() -> Self {

@@ -37,6 +37,8 @@ export interface ClickerStatus {
   warning: string | null;
   activeSequenceIndex: number | null;
   activeSequenceTick: number;
+  sessionStartedAtMs: number | null;
+  lastSessionDurationMs: number;
 }
 
 export interface AppInfo {

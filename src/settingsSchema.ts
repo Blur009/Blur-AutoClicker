@@ -300,6 +300,14 @@ const SETTINGS_ONLY_FIELDS = {
     default: true,
     ui: { section: "behavior", control: "toggle" },
   },
+  showStopwatchOnMainWindow: {
+    default: true,
+    ui: { section: "behavior", control: "toggle" },
+  },
+  lastSessionDurationMs: {
+    default: 0,
+    limit: { min: 0 },
+  },
   strictHotkeyModifiers: {
     default: false,
     ui: { section: "behavior", control: "toggle" },
@@ -444,6 +452,7 @@ export const SETTINGS_UI_SCHEMA = [
       "alwaysOnTop",
       "showStopOverlay",
       "showStopReason",
+      "showStopwatchOnMainWindow",
       "strictHotkeyModifiers",
       "taskSwitcherStopEnabled",
       "extendedClickSpeedLimit",

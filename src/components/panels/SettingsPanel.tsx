@@ -410,6 +410,7 @@ export default function SettingsPanel({
   };
 
   const hasStats = stats !== null && stats.totalSessions > 0;
+  const hasLastSession = settings.lastSessionDurationMs > 0;
   const presetLimitReached = settings.presets.length >= MAX_PRESETS;
   const activeEditingPresetId = running ? null : editingPresetId;
   const activeConfirmingDeleteId = running ? null : confirmingDeleteId;
@@ -438,6 +439,7 @@ export default function SettingsPanel({
     try {
       const next = await invoke<CumulativeStats>("reset_stats");
       setStats(next);
+      update({ lastSessionDurationMs: 0 });
     } catch {
       // swallow ? failure leaves stats unchanged
     } finally {
@@ -611,37 +613,49 @@ export default function SettingsPanel({
               </span>
             </div>
           </div>
-          {hasStats ? (
+          {hasStats || hasLastSession ? (
             <div className="stats-grid">
-              <div className="stats-cell">
-                <span className="stats-cell-label">Total Clicks</span>
-                <span className="stats-cell-value">
-                  {formatNumber(stats.totalClicks, language)}
-                </span>
-              </div>
-              <div className="stats-cell">
-                <span className="stats-cell-label">Total Time Clicking</span>
-                <span className="stats-cell-value">
-                  {formatTime(stats.totalTimeSecs, language)}
-                </span>
-              </div>
-              <div className="stats-cell">
-                <span className="stats-cell-label">Average CPU</span>
-                <span className="stats-cell-value">
-                  {formatCpu(stats.avgCpu, language, "N/A")}
-                </span>
-              </div>
-              <div className="stats-cell">
-                <span className="stats-cell-label">Sessions</span>
-                <span className="stats-cell-value">
-                  {formatNumber(stats.totalSessions, language)}
-                </span>
-              </div>
+              {hasLastSession && (
+                <div className="stats-cell">
+                  <span className="stats-cell-label">Last Session</span>
+                  <span className="stats-cell-value">
+                    {formatTime(settings.lastSessionDurationMs / 1000, language)}
+                  </span>
+                </div>
+              )}
+              {hasStats && (
+                <>
+                  <div className="stats-cell">
+                    <span className="stats-cell-label">Total Clicks</span>
+                    <span className="stats-cell-value">
+                      {formatNumber(stats.totalClicks, language)}
+                    </span>
+                  </div>
+                  <div className="stats-cell">
+                    <span className="stats-cell-label">Total Time Clicking</span>
+                    <span className="stats-cell-value">
+                      {formatTime(stats.totalTimeSecs, language)}
+                    </span>
+                  </div>
+                  <div className="stats-cell">
+                    <span className="stats-cell-label">Average CPU</span>
+                    <span className="stats-cell-value">
+                      {formatCpu(stats.avgCpu, language, "N/A")}
+                    </span>
+                  </div>
+                  <div className="stats-cell">
+                    <span className="stats-cell-label">Sessions</span>
+                    <span className="stats-cell-value">
+                      {formatNumber(stats.totalSessions, language)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="stats-empty">No session data yet.</div>
           )}
-          {hasStats && (
+          {(hasStats || hasLastSession) && (
             <div className="settings-row">
               <div className="settings-label-group">
                 <span className="settings-label">Clear Stats</span>
@@ -816,6 +830,28 @@ export default function SettingsPanel({
                   key={String(option.value)}
                   className={`settings-seg-btn ${settings.showStopReason === option.value ? "active" : ""}`}
                   onClick={() => update({ showStopReason: option.value })}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">Main Window Timers</span>
+              <span className="settings-sublabel">
+                Keep the session timer and stopwatch visible while using the app.
+              </span>
+            </div>
+            <div className="settings-seg-group">
+              {onOffOptions.map((option) => (
+                <button
+                  key={String(option.value)}
+                  className={`settings-seg-btn ${settings.showStopwatchOnMainWindow === option.value ? "active" : ""}`}
+                  onClick={() =>
+                    update({ showStopwatchOnMainWindow: option.value })
+                  }
                 >
                   {option.label}
                 </button>

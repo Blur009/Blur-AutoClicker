@@ -51,6 +51,8 @@ pub fn run() {
             settings_initialized: AtomicBool::new(false),
             paused: Arc::new(AtomicBool::new(false)),
             warning: Mutex::new(None),
+            session_started_at_ms: AtomicU64::new(0),
+            last_session_duration_ms: AtomicU64::new(0),
         })
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -160,6 +162,7 @@ pub fn run() {
             ui_commands::get_text_scale_factor,
             ui_commands::start_clicker,
             ui_commands::stop_clicker,
+            ui_commands::stop_clicker_with_reason,
             ui_commands::toggle_clicker,
             ui_commands::update_settings,
             ui_commands::get_settings,
