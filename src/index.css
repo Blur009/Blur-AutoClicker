@@ -147,6 +147,7 @@ body {
   overflow: auto;
   min-height: 0;
   min-width: 0;
+  contain: layout style paint;
   backdrop-filter: blur(var(--bg-panel-blur, 0px));
 }
 

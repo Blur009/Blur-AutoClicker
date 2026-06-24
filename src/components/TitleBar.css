@@ -11,7 +11,6 @@
   position: relative;
   z-index: 10;
   flex-shrink: 0;
-  backdrop-filter: blur(var(--bg-panel-blur, 0px));
 }
 
 .title-wrapper {
@@ -93,6 +92,7 @@
   color: var(--text-dim);
   line-height: 0;
   cursor: pointer;
+  contain: layout style paint;
   transition:
     color 0.2s ease,
     background 0.2s ease,
@@ -106,14 +106,13 @@
 }
 
 .tab-icon-btn.active {
-  background: color-mix(in oklab, var(--active-color) 14%, transparent);
+  background: var(--active-bg);
   color: var(--active-color);
-  /* box-shadow: 0 0 0 1px color-mix(in oklab, var(--active-color) 55%, transparent); */
 }
 
 .tab-icon-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--active-color) 35%, transparent);
+  box-shadow: 0 0 0 2px var(--active-focus-ring);
 }
 
 .tab-icon-btn svg {

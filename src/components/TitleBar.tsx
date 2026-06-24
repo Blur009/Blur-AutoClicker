@@ -1,5 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  memo,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -40,6 +42,8 @@ type TabItem = {
   value: NavTab;
   label: string;
   color: string;
+  activeBg: string;
+  activeFocusRing: string;
   icon: (props: TabIconProps) => ReactNode;
 };
 
@@ -91,73 +95,91 @@ function translateStopReason(stopReason: string | null | undefined): string {
   return stopReason;
 }
 
+const SimpleIcon = memo(function SimpleIcon({ active }: TabIconProps) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? "2.2" : "2"}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="7" y="3" width="10" height="18" rx="5" />
+      <path d="M12 7v4" />
+    </svg>
+  );
+});
+
+const AdvancedIcon = memo(function AdvancedIcon({ active }: TabIconProps) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? "2.2" : "2"}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3z" />
+      <path d="m3 12.5 9 4.5 9-4.5" />
+      <path d="m3 17.5 9 4.5 9-4.5" />
+    </svg>
+  );
+});
+
+const ZonesIcon = memo(function ZonesIcon({ active }: TabIconProps) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? "2.2" : "2"}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="8" />
+    </svg>
+  );
+});
+
 const TAB_ITEMS: readonly TabItem[] = [
   {
     value: "simple",
     label: "Simple",
     color: "var(--accent-green)",
-    icon: ({ active }) => (
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={active ? "2.2" : "2"}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <rect x="7" y="3" width="10" height="18" rx="5" />
-        <path d="M12 7v4" />
-      </svg>
-    ),
+    activeBg: "rgba(25, 194, 51, 0.1)",
+    activeFocusRing: "rgba(25, 194, 51, 0.25)",
+    icon: ({ active }) => <SimpleIcon active={active} />,
   },
   {
     value: "advanced",
     label: "Advanced",
     color: "var(--accent-yellow)",
-    icon: ({ active }) => (
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={active ? "2.2" : "2"}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3z" />
-        <path d="m3 12.5 9 4.5 9-4.5" />
-        <path d="m3 17.5 9 4.5 9-4.5" />
-      </svg>
-    ),
+    activeBg: "rgba(254, 188, 47, 0.1)",
+    activeFocusRing: "rgba(254, 188, 47, 0.25)",
+    icon: ({ active }) => <AdvancedIcon active={active} />,
   },
   {
     value: "zones",
     label: "Zones",
     color: "hsl(208 85% 58%)",
-    icon: ({ active }) => (
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={active ? "2.2" : "2"}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="12" r="8" />
-      </svg>
-    ),
+    activeBg: "hsla(208, 85%, 58%, 0.14)",
+    activeFocusRing: "hsla(208, 85%, 58%, 0.35)",
+    icon: ({ active }) => <ZonesIcon active={active} />,
   },
 ] as const;
 
-export default function TitleBar({
+const TitleBar = memo(function TitleBar({
   tab,
   setTab,
   running,
@@ -169,6 +191,17 @@ export default function TitleBar({
   onRequestClose,
   warning,
 }: Props) {
+  const setTabRef = useRef(setTab);
+  setTabRef.current = setTab;
+
+  const handleTabClick = useCallback((value: NavTab) => {
+    setTabRef.current(value);
+  }, []);
+
+  const handleSettingsClick = useCallback(() => {
+    setTabRef.current("settings");
+  }, []);
+
   return (
     <div
       className="window-title-background"
@@ -185,7 +218,7 @@ export default function TitleBar({
         <button
           className="settings-button"
           data-active={tab === "settings"}
-          onClick={() => setTab("settings")}
+          onClick={handleSettingsClick}
           title="Settings"
           aria-label="Settings"
           style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
@@ -213,8 +246,11 @@ export default function TitleBar({
                 key={item.value}
                 label={item.label}
                 active={isActive}
-                onClick={() => setTab(item.value)}
+                onClick={handleTabClick}
+                value={item.value}
                 color={item.color}
+                activeBg={item.activeBg}
+                activeFocusRing={item.activeFocusRing}
                 icon={item.icon({ active: isActive })}
               />
             );
@@ -297,7 +333,7 @@ export default function TitleBar({
       </div>
     </div>
   );
-}
+});
 
 function AnimatedTitle({
   running,
@@ -410,29 +446,37 @@ function AnimatedTitle({
   );
 }
 
-function TabIconButton({
+const TabIconButton = memo(function TabIconButton({
   icon,
   label,
   active,
   onClick,
+  value,
   color,
+  activeBg,
+  activeFocusRing,
 }: {
   icon: ReactNode;
   label: string;
   active: boolean;
-  onClick: () => void;
+  onClick: (value: NavTab) => void;
+  value: NavTab;
   color: string;
+  activeBg: string;
+  activeFocusRing: string;
 }) {
   return (
     <button
       onMouseDown={(e) => e.stopPropagation()}
-      onClick={onClick}
+      onClick={() => onClick(value)}
       className={`tab-icon-btn ${active ? "active" : ""}`}
       aria-label={label}
       title={label}
       style={
         {
           "--active-color": color,
+          "--active-bg": activeBg,
+          "--active-focus-ring": activeFocusRing,
           WebkitAppRegion: "no-drag",
         } as CSSProperties
       }
@@ -440,7 +484,9 @@ function TabIconButton({
       {icon}
     </button>
   );
-}
+});
+
+export default TitleBar;
 
 function WindowBtn({
   onClick,
