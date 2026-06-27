@@ -1,6 +1,10 @@
 import type { Settings } from "../../../store";
 
-import { SETTINGS_LIMITS } from "../../../settingsSchema";
+import {
+  hasKeyOnlySequenceActions,
+  SETTINGS_LIMITS,
+} from "../../../settingsSchema";
+import UnavailableReason from "../../UnavailableReason";
 import { InfoIcon, NumInput } from "./shared";
 
 interface Props {
@@ -14,6 +18,10 @@ export default function DutyCycleSection({
   update,
   showInfo,
 }: Props) {
+  const clickDurationDisabled = hasKeyOnlySequenceActions(settings);
+  const disabledReason =
+    "Key sequence actions use each row's hold ms value instead of Click Duration.";
+
   return (
     <div className="adv-sectioncontainer adv-basic-card">
       <div className="adv-card-header">
@@ -30,17 +38,26 @@ export default function DutyCycleSection({
           <span className="adv-card-title">Click Duration</span>
         </div>
         <div className="adv-row" style={{ gap: 6 }}>
-          <div className="adv-minmax">
-            <div className="adv-numbox-sm">
-              <NumInput
-                value={settings.dutyCycle}
-                onChange={(v) => update({ dutyCycle: v })}
-                min={SETTINGS_LIMITS.dutyCycle.min}
-                max={SETTINGS_LIMITS.dutyCycle.max}
-              />
-              <span className="adv-unit">%</span>
+          <UnavailableReason
+            reason={clickDurationDisabled ? disabledReason : undefined}
+          >
+            <div
+              className={`adv-minmax ${
+                clickDurationDisabled ? "adv-control-disabled" : ""
+              }`}
+            >
+              <div className="adv-numbox-sm">
+                <NumInput
+                  value={settings.dutyCycle}
+                  onChange={(v) => update({ dutyCycle: v })}
+                  min={SETTINGS_LIMITS.dutyCycle.min}
+                  max={SETTINGS_LIMITS.dutyCycle.max}
+                  disabled={clickDurationDisabled}
+                />
+                <span className="adv-unit">%</span>
+              </div>
             </div>
-          </div>
+          </UnavailableReason>
         </div>
       </div>
     </div>

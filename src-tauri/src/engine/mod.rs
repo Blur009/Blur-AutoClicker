@@ -34,10 +34,60 @@ pub struct ProcessListEntry {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SequenceTargetKind {
+    Mouse {
+        x: i32,
+        y: i32,
+    },
+    Key {
+        key_code: u16,
+        keyboard_uppercase: bool,
+        hold_ms: u32,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SequenceTarget {
-    pub x: i32,
-    pub y: i32,
+    pub kind: SequenceTargetKind,
     pub clicks: usize,
+}
+
+impl SequenceTarget {
+    pub fn mouse(x: i32, y: i32, clicks: usize) -> Self {
+        Self {
+            kind: SequenceTargetKind::Mouse { x, y },
+            clicks,
+        }
+    }
+
+    pub fn key(key_code: u16, keyboard_uppercase: bool, hold_ms: u32, clicks: usize) -> Self {
+        Self {
+            kind: SequenceTargetKind::Key {
+                key_code,
+                keyboard_uppercase,
+                hold_ms,
+            },
+            clicks,
+        }
+    }
+
+    pub fn mouse_position(self) -> Option<(i32, i32)> {
+        match self.kind {
+            SequenceTargetKind::Mouse { x, y } => Some((x, y)),
+            SequenceTargetKind::Key { .. } => None,
+        }
+    }
+
+    pub fn key_press(self) -> Option<(u16, bool, u32)> {
+        match self.kind {
+            SequenceTargetKind::Key {
+                key_code,
+                keyboard_uppercase,
+                hold_ms,
+            } => Some((key_code, keyboard_uppercase, hold_ms)),
+            SequenceTargetKind::Mouse { .. } => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

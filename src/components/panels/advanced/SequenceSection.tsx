@@ -7,7 +7,14 @@ import {
 } from "react";
 import { error } from "@tauri-apps/plugin-log";
 import { getEffectiveIntervalMs } from "../../../cadence";
+import { conflictsWithAutoPressKey } from "../../../hotkeys";
+import { isAlphabeticKeyboardKey } from "../../../keyboardKeyCase";
+import {
+  DEFAULT_SEQUENCE_KEY_HOLD_MS,
+  SETTINGS_LIMITS,
+} from "../../../settingsSchema";
 import type { SequencePoint, Settings } from "../../../store";
+import KeyCaptureInput from "../../KeyCaptureInput";
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -53,6 +60,21 @@ function createSequencePointId(): string {
     globalThis.crypto?.randomUUID?.() ??
     `seq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   );
+}
+
+function isMouseSequencePoint(point: SequencePoint) {
+  return point.action !== "key";
+}
+
+function createKeySequencePoint(settings: Settings): SequencePoint {
+  return {
+    id: createSequencePointId(),
+    action: "key",
+    key: settings.keyboardKey,
+    keyCase: settings.keyboardKeyCase,
+    holdMs: DEFAULT_SEQUENCE_KEY_HOLD_MS,
+    clicks: 1,
+  };
 }
 
 function reorderSequencePoints(
@@ -116,15 +138,14 @@ export default function SequenceSection({
     void listen<SequencePointPickedPayload>(
       "sequence-point-picked",
       (event) => {
-        const nextPoints = [
-          ...latestPointsRef.current,
-          {
-            id: createSequencePointId(),
-            x: event.payload.x,
-            y: event.payload.y,
-            clicks: 1,
-          },
-        ];
+        const nextPoint: SequencePoint = {
+          id: createSequencePointId(),
+          action: "mouse",
+          x: event.payload.x,
+          y: event.payload.y,
+          clicks: 1,
+        };
+        const nextPoints = [...latestPointsRef.current, nextPoint];
         latestPointsRef.current = nextPoints;
         updateRef.current({
           sequenceEnabled: true,
@@ -151,6 +172,14 @@ export default function SequenceSection({
         let nearestDistanceSquared = Number.POSITIVE_INFINITY;
 
         latestPointsRef.current.forEach((point, index) => {
+          if (
+            !isMouseSequencePoint(point) ||
+            typeof point.x !== "number" ||
+            typeof point.y !== "number"
+          ) {
+            return;
+          }
+
           const dx = point.x - event.payload.x;
           const dy = point.y - event.payload.y;
           const distanceSquared = dx * dx + dy * dy;
@@ -265,6 +294,16 @@ export default function SequenceSection({
       (_: SequencePoint, pointIndex: number) => pointIndex !== index,
     );
     update({ sequencePoints: nextPoints });
+  };
+
+  const addSequenceKey = () => {
+    update({
+      sequenceEnabled: true,
+      sequencePoints: [
+        ...settings.sequencePoints,
+        createKeySequencePoint(settings),
+      ],
+    });
   };
 
   const updateBottomFade = useCallback(() => {
@@ -475,9 +514,9 @@ export default function SequenceSection({
           }}
         >
           {showInfo ? (
-            <InfoIcon text="Cycles through saved cursor positions in round-robin order, applying the current global timing and click settings at each point." />
+            <InfoIcon text="Cycles through saved mouse and key steps in round-robin order, applying the current global timing settings to each step." />
           ) : null}
-          <span className="adv-card-title">Sequence Clicking</span>
+          <span className="adv-card-title">Sequence Actions</span>
         </div>
         <ToggleBtn
           value={settings.sequenceEnabled}
@@ -495,22 +534,31 @@ export default function SequenceSection({
       <Disableable enabled={settings.sequenceEnabled}>
         <div className="adv-sequence-body">
           <div className="adv-sequence-controls">
-            <button
-              type="button"
-              className="adv-secondary-btn"
-              onClick={() => {
-                void (pickingSequence
-                  ? cancelSequencePointPick()
-                  : startSequencePointPick());
-              }}
-            >
-              {pickingSequence ? "Cancel Picking" : "Start Picking"}
-            </button>
+            <div className="adv-sequence-toolbar">
+              <button
+                type="button"
+                className="adv-secondary-btn"
+                onClick={() => {
+                  void (pickingSequence
+                    ? cancelSequencePointPick()
+                    : startSequencePointPick());
+                }}
+              >
+                {pickingSequence ? "Cancel Picking" : "Pick Mouse"}
+              </button>
+              <button
+                type="button"
+                className="adv-secondary-btn"
+                onClick={addSequenceKey}
+              >
+                Add Key
+              </button>
+            </div>
             <div className="adv-sequence-list-shell">
               <div ref={listViewportRef} className="adv-sequence-list">
                 {settings.sequencePoints.length === 0 ? (
                   <div className="adv-sequence-empty">
-                    No sequence points saved yet.
+                    No sequence steps saved yet.
                   </div>
                 ) : (
                   settings.sequencePoints.map(
@@ -520,6 +568,21 @@ export default function SequenceSection({
                         1,
                         point.clicks * getEffectiveIntervalMs(settings),
                       );
+                      const isKeyStep = point.action === "key";
+                      const keyCase = point.keyCase ?? "lower";
+                      const keyCaseIsUpper = keyCase === "upper";
+                      const holdMs =
+                        point.holdMs ?? DEFAULT_SEQUENCE_KEY_HOLD_MS;
+                      const canToggleKeyCase = isAlphabeticKeyboardKey(
+                        point.key ?? "",
+                      );
+                      const keyConflicts =
+                        isKeyStep &&
+                        conflictsWithAutoPressKey(
+                          settings.hotkey,
+                          point.key ?? "",
+                          keyCaseIsUpper,
+                        );
 
                       return (
                         <div
@@ -535,7 +598,9 @@ export default function SequenceSection({
                             draggingId === point.id
                               ? "adv-sequence-item--dragging"
                               : ""
-                          } ${isActive ? "adv-sequence-item--active" : ""}`}
+                          } ${isActive ? "adv-sequence-item--active" : ""} ${
+                            isKeyStep ? "adv-sequence-item--key" : ""
+                          }`}
                           style={
                             isActive
                               ? ({
@@ -589,83 +654,215 @@ export default function SequenceSection({
                               </svg>
                             </button>
                           </div>
-                          <label
-                            className="adv-numbox-sm adv-sequence-coord adv-sequence-position"
-                            style={{ gap: "6px" }}
-                          >
-                            <span
-                              className="adv-unit"
-                              style={{
-                                minWidth: "0.125rem",
-                                textAlign: "center",
-                              }}
-                            >
-                              X
-                            </span>
-                            <NumInput
-                              hoverWheel={false}
-                              value={point.x}
-                              onChange={(value) =>
-                                updateSequencePoint(index, { x: value })
-                              }
-                              style={{
-                                flex: 1,
-                                width: "100%",
-                                textAlign: "right",
-                              }}
-                            />
-                          </label>
-                          <label
-                            className="adv-numbox-sm adv-sequence-coord adv-sequence-position"
-                            style={{ gap: "6px" }}
-                          >
-                            <span
-                              className="adv-unit"
-                              style={{
-                                minWidth: "0.125rem",
-                                textAlign: "left",
-                              }}
-                            >
-                              Y
-                            </span>
-                            <NumInput
-                              hoverWheel={false}
-                              value={point.y}
-                              onChange={(value) =>
-                                updateSequencePoint(index, { y: value })
-                              }
-                              style={{
-                                flex: 1,
-                                width: "100%",
-                                textAlign: "right",
-                              }}
-                            />
-                          </label>
-                          <label
-                            className="adv-numbox-sm adv-sequence-coord adv-sequence-clicks"
-                            style={{ gap: "6px" }}
-                          >
-                            <span
-                              className="adv-unit"
-                              style={{ minWidth: "0.75rem", textAlign: "left" }}
-                            >
-                              clicks
-                            </span>
-                            <NumInput
-                              hoverWheel={false}
-                              value={point.clicks}
-                              min={1}
-                              max={100000}
-                              onChange={(value) =>
-                                updateSequencePoint(index, { clicks: value })
-                              }
-                              style={{
-                                flex: 1,
-                                width: "100%",
-                                textAlign: "right",
-                              }}
-                            />
-                          </label>
+                          {isKeyStep ? (
+                            <>
+                              <div className="adv-textbox adv-sequence-key-target">
+                                <KeyCaptureInput
+                                  className="adv-textbox-text adv-key-input"
+                                  value={point.key ?? ""}
+                                  onChange={(key) =>
+                                    updateSequencePoint(index, {
+                                      action: "key",
+                                      key,
+                                    })
+                                  }
+                                  keyboardKeyCase={keyCase}
+                                  style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    outline: "none",
+                                  }}
+                                  conflicts={keyConflicts ? ["Hotkey"] : []}
+                                />
+                                <button
+                                  type="button"
+                                  className={`adv-key-case-toggle ${
+                                    keyCaseIsUpper
+                                      ? "adv-key-case-toggle--upper"
+                                      : "adv-key-case-toggle--lower"
+                                  }`}
+                                  aria-label={
+                                    keyCaseIsUpper
+                                      ? "Send letters as uppercase"
+                                      : "Send letters as lowercase"
+                                  }
+                                  aria-pressed={keyCaseIsUpper}
+                                  title="Toggle keyboard key case"
+                                  disabled={!canToggleKeyCase}
+                                  onClick={() =>
+                                    updateSequencePoint(index, {
+                                      keyCase: keyCaseIsUpper
+                                        ? "lower"
+                                        : "upper",
+                                    })
+                                  }
+                                >
+                                  {keyCaseIsUpper ? "A" : "a"}
+                                </button>
+                              </div>
+                              <label
+                                className="adv-numbox-sm adv-sequence-coord adv-sequence-hold"
+                                style={{ gap: "6px" }}
+                              >
+                                <span
+                                  className="adv-unit"
+                                  style={{
+                                    minWidth: "0.75rem",
+                                    textAlign: "left",
+                                  }}
+                                >
+                                  hold
+                                </span>
+                                <NumInput
+                                  hoverWheel={false}
+                                  value={holdMs}
+                                  min={SETTINGS_LIMITS.sequenceKeyHoldMs.min}
+                                  max={SETTINGS_LIMITS.sequenceKeyHoldMs.max}
+                                  onChange={(value) =>
+                                    updateSequencePoint(index, {
+                                      holdMs: value,
+                                    })
+                                  }
+                                  style={{
+                                    flex: 1,
+                                    width: "100%",
+                                    textAlign: "right",
+                                  }}
+                                />
+                                <span
+                                  className="adv-unit"
+                                  style={{
+                                    marginLeft: 0,
+                                    minWidth: "1rem",
+                                    textAlign: "left",
+                                  }}
+                                >
+                                  ms
+                                </span>
+                              </label>
+                              <label
+                                className="adv-numbox-sm adv-sequence-coord adv-sequence-clicks"
+                                style={{ gap: "6px" }}
+                              >
+                                <span
+                                  className="adv-unit"
+                                  style={{
+                                    minWidth: "0.75rem",
+                                    textAlign: "left",
+                                  }}
+                                >
+                                  presses
+                                </span>
+                                <NumInput
+                                  hoverWheel={false}
+                                  value={point.clicks}
+                                  min={1}
+                                  max={100000}
+                                  onChange={(value) =>
+                                    updateSequencePoint(index, {
+                                      clicks: value,
+                                    })
+                                  }
+                                  style={{
+                                    flex: 1,
+                                    width: "100%",
+                                    textAlign: "right",
+                                  }}
+                                />
+                              </label>
+                            </>
+                          ) : (
+                            <>
+                              <label
+                                className="adv-numbox-sm adv-sequence-coord adv-sequence-position"
+                                style={{ gap: "6px" }}
+                              >
+                                <span
+                                  className="adv-unit"
+                                  style={{
+                                    minWidth: "0.125rem",
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  X
+                                </span>
+                                <NumInput
+                                  hoverWheel={false}
+                                  value={point.x ?? 0}
+                                  onChange={(value) =>
+                                    updateSequencePoint(index, {
+                                      action: "mouse",
+                                      x: value,
+                                    })
+                                  }
+                                  style={{
+                                    flex: 1,
+                                    width: "100%",
+                                    textAlign: "right",
+                                  }}
+                                />
+                              </label>
+                              <label
+                                className="adv-numbox-sm adv-sequence-coord adv-sequence-position"
+                                style={{ gap: "6px" }}
+                              >
+                                <span
+                                  className="adv-unit"
+                                  style={{
+                                    minWidth: "0.125rem",
+                                    textAlign: "left",
+                                  }}
+                                >
+                                  Y
+                                </span>
+                                <NumInput
+                                  hoverWheel={false}
+                                  value={point.y ?? 0}
+                                  onChange={(value) =>
+                                    updateSequencePoint(index, {
+                                      action: "mouse",
+                                      y: value,
+                                    })
+                                  }
+                                  style={{
+                                    flex: 1,
+                                    width: "100%",
+                                    textAlign: "right",
+                                  }}
+                                />
+                              </label>
+                              <label
+                                className="adv-numbox-sm adv-sequence-coord adv-sequence-clicks"
+                                style={{ gap: "6px" }}
+                              >
+                                <span
+                                  className="adv-unit"
+                                  style={{
+                                    minWidth: "0.75rem",
+                                    textAlign: "left",
+                                  }}
+                                >
+                                  clicks
+                                </span>
+                                <NumInput
+                                  hoverWheel={false}
+                                  value={point.clicks}
+                                  min={1}
+                                  max={100000}
+                                  onChange={(value) =>
+                                    updateSequencePoint(index, {
+                                      clicks: value,
+                                    })
+                                  }
+                                  style={{
+                                    flex: 1,
+                                    width: "100%",
+                                    textAlign: "right",
+                                  }}
+                                />
+                              </label>
+                            </>
+                          )}
                           <div className="adv-sequence-actions">
                             <button
                               type="button"

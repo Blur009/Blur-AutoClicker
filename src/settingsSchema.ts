@@ -17,15 +17,21 @@ export interface ProcessListEntry {
   enabled: boolean;
 }
 export type AdvancedSequenceLayout = "wide" | "tall";
+export type SequenceActionType = "mouse" | "key";
 
 export interface SequencePoint {
   id: string;
-  x: number;
-  y: number;
+  action: SequenceActionType;
+  x?: number;
+  y?: number;
+  key?: string;
+  keyCase?: KeyboardKeyCase;
+  holdMs?: number;
   clicks: number;
 }
 
 export const DEFAULT_ACCENT_COLOR = "#22c55e";
+export const DEFAULT_SEQUENCE_KEY_HOLD_MS = 30;
 export const MAX_PRESETS = 20;
 export const PRESET_NAME_MAX_LENGTH = 40;
 export const DEFAULT_MAX_CLICK_SPEED = 500;
@@ -434,6 +440,16 @@ export type Settings = PresetFieldValues &
     version: string;
   };
 
+export function hasKeyOnlySequenceActions(
+  settings: Pick<Settings, "sequenceEnabled" | "sequencePoints">,
+): boolean {
+  return (
+    settings.sequenceEnabled &&
+    settings.sequencePoints.length > 0 &&
+    settings.sequencePoints.every((point) => point.action === "key")
+  );
+}
+
 export const PRESET_SNAPSHOT_KEYS = Object.keys(PRESET_FIELDS) as ReadonlyArray<
   keyof PresetSnapshot
 >;
@@ -449,6 +465,7 @@ export const SETTINGS_LIMITS = {
   position: SETTINGS_ONLY_FIELDS.customStopZoneX.limit,
   stopZoneDimension: SETTINGS_ONLY_FIELDS.customStopZoneWidth.limit,
   sequencePointClicks: { min: 1, max: 100000 },
+  sequenceKeyHoldMs: { min: 1, max: 5000 },
 };
 
 export const SETTINGS_UI_SCHEMA = [
@@ -619,13 +636,56 @@ function sanitizeSequencePoints(value: unknown): SequencePoint[] {
   if (!Array.isArray(value)) return [];
 
   return value
-    .map((point) => {
+    .map((point): SequencePoint | null => {
       if (!point || typeof point !== "object") return null;
       const candidate = point as Partial<SequencePoint>;
       const id =
         typeof candidate.id === "string" && candidate.id.trim()
           ? candidate.id.trim()
           : createSequencePointId();
+      const action: SequenceActionType =
+        candidate.action === "key" ? "key" : "mouse";
+      const clicks =
+        typeof candidate.clicks === "number" &&
+        Number.isFinite(candidate.clicks)
+          ? Math.trunc(candidate.clicks)
+          : 1;
+      const safeClicks = clampNumber(
+        clicks,
+        1,
+        SETTINGS_LIMITS.sequencePointClicks.min,
+        SETTINGS_LIMITS.sequencePointClicks.max,
+      );
+
+      if (action === "key") {
+        const key =
+          typeof candidate.key === "string" ? candidate.key.trim() : "";
+        const keyCase = sanitizeEnum(
+          candidate.keyCase,
+          "lower" as KeyboardKeyCase,
+          ["lower", "upper"],
+        );
+        const holdMs =
+          typeof candidate.holdMs === "number" &&
+          Number.isFinite(candidate.holdMs)
+            ? Math.trunc(candidate.holdMs)
+            : DEFAULT_SEQUENCE_KEY_HOLD_MS;
+
+        return {
+          id,
+          action,
+          key,
+          keyCase,
+          holdMs: clampNumber(
+            holdMs,
+            DEFAULT_SEQUENCE_KEY_HOLD_MS,
+            SETTINGS_LIMITS.sequenceKeyHoldMs.min,
+            SETTINGS_LIMITS.sequenceKeyHoldMs.max,
+          ),
+          clicks: safeClicks,
+        };
+      }
+
       const x =
         typeof candidate.x === "number" && Number.isFinite(candidate.x)
           ? Math.trunc(candidate.x)
@@ -634,24 +694,15 @@ function sanitizeSequencePoints(value: unknown): SequencePoint[] {
         typeof candidate.y === "number" && Number.isFinite(candidate.y)
           ? Math.trunc(candidate.y)
           : null;
-      const clicks =
-        typeof candidate.clicks === "number" &&
-        Number.isFinite(candidate.clicks)
-          ? Math.trunc(candidate.clicks)
-          : 1;
 
       if (x === null || y === null) return null;
 
       return {
         id,
+        action,
         x,
         y,
-        clicks: clampNumber(
-          clicks,
-          1,
-          SETTINGS_LIMITS.sequencePointClicks.min,
-          SETTINGS_LIMITS.sequencePointClicks.max,
-        ),
+        clicks: safeClicks,
       };
     })
     .filter((point): point is SequencePoint => point !== null);

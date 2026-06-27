@@ -55,6 +55,10 @@
   max-width: 100%;
 }
 
+.simple-control-disabled {
+  opacity: 0.45;
+}
+
 .simple-control-label {
   color: color-mix(in srgb, var(--text-primary) 82%, var(--text-muted));
   font-size: 0.875rem;
@@ -123,6 +127,10 @@
   padding: 0;
   margin: 0;
   text-align: right;
+}
+
+.simple-inline-input:disabled {
+  cursor: not-allowed;
 }
 
 .simple-number-input {

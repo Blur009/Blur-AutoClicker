@@ -112,6 +112,7 @@ export function NumInput({
   max,
   style,
   hoverWheel = true,
+  disabled = false,
 }: {
   value: number;
   onChange: (v: number) => void;
@@ -119,6 +120,7 @@ export function NumInput({
   max?: number;
   style?: CSSProperties;
   hoverWheel?: boolean;
+  disabled?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const wheelRef = useRef(false);
@@ -130,6 +132,9 @@ export function NumInput({
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (disabled) {
+      return;
+    }
     if (wheelRef.current) {
       if (ref.current) ref.current.value = String(value);
       return;
@@ -143,6 +148,9 @@ export function NumInput({
   };
 
   const handleBlur = (e: FocusEvent<HTMLInputElement>) => {
+    if (disabled) {
+      return;
+    }
     const raw = normalizeIntegerRaw(e.target.value);
     if (raw !== e.target.value) {
       e.target.value = raw;
@@ -153,6 +161,9 @@ export function NumInput({
   };
 
   const handleWheel = (e: WheelEvent<HTMLInputElement>) => {
+    if (disabled) {
+      return;
+    }
     if (!hoverWheel && e.target !== document.activeElement) return;
     e.preventDefault();
     const direction = e.deltaY < 0 ? 1 : -1;
@@ -175,6 +186,7 @@ export function NumInput({
       value={value}
       min={min}
       max={max}
+      disabled={disabled}
       onChange={handleChange}
       onBlur={handleBlur}
       onWheel={handleWheel}

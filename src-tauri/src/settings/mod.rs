@@ -2,19 +2,41 @@
 // When adding or changing a backend-facing setting, keep the section and
 // default in sync with the TypeScript field definitions.
 
+#[derive(Clone, Copy, serde::Deserialize, serde::Serialize, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SequencePointAction {
+    #[default]
+    Mouse,
+    Key,
+}
+
 #[derive(Clone, serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SequencePoint {
     #[serde(default)]
     pub id: String,
+    #[serde(default)]
+    pub action: SequencePointAction,
+    #[serde(default)]
     pub x: i32,
+    #[serde(default)]
     pub y: i32,
+    #[serde(default)]
+    pub key: String,
+    #[serde(default = "default_keyboard_key_case")]
+    pub key_case: String,
+    #[serde(default = "default_sequence_key_hold_ms")]
+    pub hold_ms: u32,
     #[serde(default = "default_sequence_point_clicks")]
     pub clicks: u32,
 }
 
 fn default_sequence_point_clicks() -> u32 {
     1
+}
+
+fn default_sequence_key_hold_ms() -> u32 {
+    30
 }
 
 fn default_keyboard_key_case() -> String {

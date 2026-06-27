@@ -51,7 +51,7 @@ Most auto clickers aren't accurate at high speeds. Set it to 50 CPS and you migh
 - Corner and edge stopping (auto-off near screen edges)
 - Click and time limits
 - Double clicks
-- Position clicking (pick a spot, mouse moves and clicks there)
+- Sequence Actions for round-robin mouse clicks and keyboard presses
 - Per second, minute, hour, or day
 
 

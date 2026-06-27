@@ -447,6 +447,14 @@ input[type="number"]::-webkit-outer-spin-button {
   flex-wrap: wrap;
 }
 
+.adv-control-disabled {
+  opacity: 0.45;
+}
+
+.adv-number-sm:disabled {
+  cursor: not-allowed;
+}
+
 /* ON/OFF toggle */
 .adv-toggle-group {
   display: flex;
@@ -717,6 +725,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .adv-sequence-toolbar {
   display: flex;
+  gap: 8px;
   justify-content: flex-end;
   width: 100%;
   flex-shrink: 0;
@@ -969,6 +978,38 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .adv-sequence-clicks {
   min-width: 0;
+}
+
+.adv-sequence-item--key {
+  grid-template-columns:
+    28px minmax(5.5rem, 1fr) minmax(5.5rem, auto) minmax(5.75rem, auto)
+    auto;
+}
+
+.adv-sequence-item--key .adv-sequence-clicks {
+  min-width: 5.75rem;
+}
+
+.adv-sequence-hold {
+  min-width: 5.5rem;
+}
+
+.adv-sequence-key-target {
+  width: auto;
+  min-width: 0;
+  height: 28px;
+  overflow: hidden;
+}
+
+.adv-sequence-key-target .adv-key-input {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+  font-size: 0.75rem;
+}
+
+.adv-sequence-key-target .hk-button {
+  max-width: 100%;
 }
 
 .adv-sequence-actions,

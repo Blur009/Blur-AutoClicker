@@ -22,6 +22,7 @@ export type {
   PresetSnapshot,
   RateInputMode,
   SavedPanel,
+  SequenceActionType,
   SequencePoint,
   Settings,
   Theme,

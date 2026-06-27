@@ -9,6 +9,7 @@ use crate::engine::stats::{print_run_stats, record_run};
 use crate::error::poisoned_inner;
 use crate::error::AppError;
 use crate::error::AppResult;
+use crate::settings::SequencePointAction;
 use crate::ClickerSettings;
 use crate::ClickerState;
 use crate::ClickerStatusPayload;
@@ -53,6 +54,23 @@ impl ClickerConfig {
     pub fn use_sequence(&self) -> bool {
         self.sequence_enabled && !self.sequence_points.is_empty()
     }
+}
+
+fn auto_key_conflicts_with_hotkey(
+    binding: &crate::hotkeys::HotkeyBinding,
+    key_code: u16,
+    keyboard_uppercase: bool,
+) -> bool {
+    if binding.main_vk != key_code as i32 {
+        return false;
+    }
+
+    let conflicts_with_plain_key =
+        !binding.ctrl && !binding.alt && !binding.shift && !binding.super_key;
+    let conflicts_with_uppercase_key =
+        keyboard_uppercase && binding.shift && !binding.ctrl && !binding.alt && !binding.super_key;
+
+    conflicts_with_plain_key || conflicts_with_uppercase_key
 }
 
 fn calibrate_cycle_freq() -> f64 {
@@ -137,29 +155,29 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
     let settings = state.settings.lock().unwrap_or_else(poisoned_inner).clone();
     let config = build_config(&settings)?;
 
-    // Prevent feedback loop: keyboard key must not match a modifier-free hotkey
-    if config.input_type == 1 && config.key_code > 0 {
-        let hotkey_binding = state
-            .registered_hotkey
-            .lock()
-            .unwrap_or_else(poisoned_inner)
-            .clone();
-        if let Some(binding) = hotkey_binding {
-            if binding.main_vk == config.key_code as i32 {
-                let conflicts_with_plain_key =
-                    !binding.ctrl && !binding.alt && !binding.shift && !binding.super_key;
-                let conflicts_with_uppercase_key = config.keyboard_uppercase
-                    && binding.shift
-                    && !binding.ctrl
-                    && !binding.alt
-                    && !binding.super_key;
+    // Prevent feedback loop: auto-press keys must not match modifier-free hotkeys.
+    let hotkey_binding = state
+        .registered_hotkey
+        .lock()
+        .unwrap_or_else(poisoned_inner)
+        .clone();
+    if let Some(binding) = hotkey_binding {
+        let global_key_conflicts = config.input_type == 1
+            && config.key_code > 0
+            && auto_key_conflicts_with_hotkey(&binding, config.key_code, config.keyboard_uppercase);
+        let sequence_key_conflicts = config.sequence_points.iter().any(|target| {
+            target
+                .key_press()
+                .map(|(key_code, keyboard_uppercase, _hold_ms)| {
+                    auto_key_conflicts_with_hotkey(&binding, key_code, keyboard_uppercase)
+                })
+                .unwrap_or(false)
+        });
 
-                if conflicts_with_plain_key || conflicts_with_uppercase_key {
-                    return Err(AppError::HotkeyConflict(String::from(
-                        "The auto-press key conflicts with your hotkey. Use a modifier on the hotkey (e.g. Ctrl+key) or pick a different key.",
-                    )));
-                }
-            }
+        if global_key_conflicts || sequence_key_conflicts {
+            return Err(AppError::HotkeyConflict(String::from(
+                "An auto-press key conflicts with your hotkey. Use a modifier on the hotkey (e.g. Ctrl+key) or pick a different key.",
+            )));
         }
     }
 
@@ -277,7 +295,7 @@ fn current_cycle_target(config: &ClickerConfig, sequence_index: usize) -> Sequen
         config.sequence_points[safe_index]
     } else {
         let (x, y) = get_cursor_pos();
-        SequenceTarget { x, y, clicks: 1 }
+        SequenceTarget::mouse(x, y, 1)
     }
 }
 
@@ -301,11 +319,43 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
         0u16
     };
 
-    if is_keyboard && key_code == 0 {
+    let sequence_mode_requested = settings.sequence_enabled && !settings.sequence_points.is_empty();
+
+    if is_keyboard && key_code == 0 && !sequence_mode_requested {
         return Err(AppError::NoKeySelected);
     }
     let keyboard_uppercase =
         is_keyboard && settings.keyboard_key_case == "upper" && is_alphabetic_vk(key_code);
+
+    let mut sequence_points = Vec::with_capacity(settings.sequence_points.len());
+    if settings.sequence_enabled {
+        for point in &settings.sequence_points {
+            let clicks = point.clicks.clamp(1, 100000) as usize;
+            match point.action {
+                SequencePointAction::Mouse => {
+                    sequence_points.push(SequenceTarget::mouse(point.x, point.y, clicks));
+                }
+                SequencePointAction::Key => {
+                    if point.key.trim().is_empty() {
+                        return Err(AppError::NoKeySelected);
+                    }
+                    let key_code =
+                        match crate::hotkeys::parse_hotkey_main_key(&point.key, &point.key) {
+                            Ok((vk, _)) => vk as u16,
+                            Err(_) => return Err(AppError::UnknownKey(point.key.clone())),
+                        };
+                    let keyboard_uppercase =
+                        point.key_case == "upper" && is_alphabetic_vk(key_code);
+                    sequence_points.push(SequenceTarget::key(
+                        key_code,
+                        keyboard_uppercase,
+                        point.hold_ms.clamp(1, 5000),
+                        clicks,
+                    ));
+                }
+            }
+        }
+    }
 
     let time_limit_secs = if settings.time_limit_enabled {
         Some(match settings.time_limit_unit.as_str() {
@@ -339,15 +389,7 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
         double_click_enabled: settings.double_click_enabled,
         double_click_gap_ms: system_double_click_gap_ms(),
         sequence_enabled: settings.sequence_enabled,
-        sequence_points: settings
-            .sequence_points
-            .iter()
-            .map(|point| SequenceTarget {
-                x: point.x,
-                y: point.y,
-                clicks: point.clicks.clamp(1, 100000) as usize,
-            })
-            .collect(),
+        sequence_points,
         offset: 2.0,
         offset_chance: 21.6,
         smoothing: 1,
@@ -484,7 +526,6 @@ struct ClickerContext {
     down_flag: u32,
     up_flag: u32,
     batch_size: usize,
-    has_position: bool,
     use_smoothing: bool,
     single_plan: ClickCyclePlan,
     double_plan: ClickCyclePlan,
@@ -493,10 +534,15 @@ struct ClickerContext {
 impl ClickerContext {
     fn new(config: &ClickerConfig) -> Self {
         let is_keyboard = config.input_type == 1 && config.key_code > 0;
-        let (down_flag, up_flag) = if is_keyboard {
-            (0, 0)
-        } else {
+        let sequence_has_mouse_target = config
+            .sequence_points
+            .iter()
+            .any(|target| target.mouse_position().is_some());
+        let needs_mouse_flags = !is_keyboard || sequence_has_mouse_target;
+        let (down_flag, up_flag) = if needs_mouse_flags {
             get_button_flags(config.button)
+        } else {
+            (0, 0)
         };
         let cps = if config.interval_secs > 0.0 {
             1.0 / config.interval_secs
@@ -530,7 +576,6 @@ impl ClickerContext {
             down_flag,
             up_flag,
             batch_size,
-            has_position: config.use_sequence(),
             use_smoothing: config.smoothing == 1 && cps < 50.0,
             single_plan: ClickCyclePlan::single(hold_ms),
             double_plan: ClickCyclePlan::double(hold_ms, cycle_ms, config.double_click_gap_ms),
@@ -552,11 +597,7 @@ struct LoopState {
 impl LoopState {
     fn new(config: &ClickerConfig) -> Self {
         let target = current_cycle_target(config, 0);
-        let (target_x, target_y) = if config.use_sequence() {
-            (target.x, target.y)
-        } else {
-            get_cursor_pos()
-        };
+        let (target_x, target_y) = target.mouse_position().unwrap_or_else(get_cursor_pos);
         Self {
             click_count: 0,
             stop_reason: String::from("Stopped"),
@@ -624,18 +665,21 @@ fn update_target(
     rng: &mut SmallRng,
     st: &mut LoopState,
 ) {
-    if !ctx.has_position {
+    if !config.use_sequence() {
         return;
     }
     let target = current_cycle_target(config, st.sequence_index);
+    let Some((target_x, target_y)) = target.mouse_position() else {
+        return;
+    };
     if config.offset_chance > 0.0 && rng.next_f64() * 100.0 <= config.offset_chance {
         let angle = rng.next_f64() * 2.0 * PI;
         let radius = rng.next_f64().sqrt() * config.offset;
-        st.target_x = (target.x as f64 + radius * angle.cos()) as i32;
-        st.target_y = (target.y as f64 + radius * angle.sin()) as i32;
+        st.target_x = (target_x as f64 + radius * angle.cos()) as i32;
+        st.target_y = (target_y as f64 + radius * angle.sin()) as i32;
     } else {
-        st.target_x = target.x;
-        st.target_y = target.y;
+        st.target_x = target_x;
+        st.target_y = target_y;
     }
     let should_move = st.moved_sequence_index != Some(st.sequence_index) || config.offset > 0.0;
     if !should_move {
@@ -679,7 +723,25 @@ fn run_batch(
     } else {
         usize::MAX
     };
-    let batch = plan_cycle_batch(requested, remaining, config.double_click_enabled);
+    let sequence_target = if config.use_sequence() {
+        Some(current_cycle_target(config, st.sequence_index))
+    } else {
+        None
+    };
+    let sequence_key_press = sequence_target.and_then(SequenceTarget::key_press);
+    let key_press = sequence_key_press
+        .map(|(key_code, keyboard_uppercase, hold_ms)| {
+            (key_code, keyboard_uppercase, Some(hold_ms))
+        })
+        .or_else(|| {
+            (!config.use_sequence() && ctx.is_keyboard).then_some((
+                config.key_code,
+                config.keyboard_uppercase,
+                None,
+            ))
+        });
+    let double_click_enabled = config.double_click_enabled && sequence_key_press.is_none();
+    let batch = plan_cycle_batch(requested, remaining, double_click_enabled);
     if batch.cycles == 0 {
         return false;
     }
@@ -692,12 +754,15 @@ fn run_batch(
     };
     st.next_batch_time += Duration::from_secs_f64(batch_dur.max(0.001));
 
-    if ctx.is_keyboard {
+    if let Some((key_code, keyboard_uppercase, hold_ms)) = key_press {
+        let single_plan = hold_ms
+            .map(ClickCyclePlan::single)
+            .unwrap_or(ctx.single_plan);
         if batch.double_cycles > 0 {
             send_key_presses(
-                config.key_code,
+                key_code,
                 batch.double_cycles,
-                config.keyboard_uppercase,
+                keyboard_uppercase,
                 ctx.double_plan,
                 control,
                 should_abort,
@@ -705,10 +770,10 @@ fn run_batch(
         }
         if batch.single_cycles > 0 {
             send_key_presses(
-                config.key_code,
+                key_code,
                 batch.single_cycles,
-                config.keyboard_uppercase,
-                ctx.single_plan,
+                keyboard_uppercase,
+                single_plan,
                 control,
                 should_abort,
             );
@@ -791,9 +856,11 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     let ctx = ClickerContext::new(&config);
     let mut st = LoopState::new(&config);
 
-    if ctx.has_position {
-        move_mouse(st.target_x, st.target_y);
-        st.moved_sequence_index = Some(0);
+    if config.use_sequence() {
+        if let Some((target_x, target_y)) = current_cycle_target(&config, 0).mouse_position() {
+            move_mouse(target_x, target_y);
+            st.moved_sequence_index = Some(0);
+        }
     }
     if config.use_sequence() {
         let state = control.app.state::<ClickerState>();
@@ -957,42 +1024,78 @@ mod tests {
         let mut config = sample_config();
         config.sequence_enabled = true;
         config.sequence_points = vec![
-            SequenceTarget {
-                x: 10,
-                y: 10,
-                clicks: 1,
-            },
-            SequenceTarget {
-                x: 20,
-                y: 20,
-                clicks: 1,
-            },
+            SequenceTarget::mouse(10, 10, 1),
+            SequenceTarget::mouse(20, 20, 1),
         ];
 
         assert_eq!(
             current_cycle_target(&config, 0),
-            SequenceTarget {
-                x: 10,
-                y: 10,
-                clicks: 1
-            }
+            SequenceTarget::mouse(10, 10, 1)
         );
         assert_eq!(
             current_cycle_target(&config, 1),
-            SequenceTarget {
-                x: 20,
-                y: 20,
-                clicks: 1
-            }
+            SequenceTarget::mouse(20, 20, 1)
         );
         assert_eq!(
             current_cycle_target(&config, 2),
-            SequenceTarget {
-                x: 10,
-                y: 10,
-                clicks: 1
-            }
+            SequenceTarget::mouse(10, 10, 1)
         );
+    }
+
+    #[test]
+    fn build_config_maps_key_sequence_points_to_keyboard_targets() {
+        let mut settings = sample_settings();
+        settings.sequence_enabled = true;
+        settings.sequence_points = vec![
+            crate::settings::SequencePoint {
+                id: "mouse-1".to_string(),
+                action: SequencePointAction::Mouse,
+                x: 10,
+                y: 20,
+                key: String::new(),
+                key_case: "lower".to_string(),
+                hold_ms: 30,
+                clicks: 2,
+            },
+            crate::settings::SequencePoint {
+                id: "key-1".to_string(),
+                action: SequencePointAction::Key,
+                x: 0,
+                y: 0,
+                key: "w".to_string(),
+                key_case: "upper".to_string(),
+                hold_ms: 35,
+                clicks: 1,
+            },
+        ];
+
+        let config = build_config(&settings).expect("mixed sequence should parse");
+
+        assert_eq!(
+            config.sequence_points,
+            vec![
+                SequenceTarget::mouse(10, 20, 2),
+                SequenceTarget::key(b'W' as u16, true, 35, 1),
+            ]
+        );
+    }
+
+    #[test]
+    fn keyboard_mode_mixed_sequence_keeps_mouse_flags_available() {
+        let mut config = sample_config();
+        config.input_type = 1;
+        config.key_code = b'W' as u16;
+        config.sequence_enabled = true;
+        config.sequence_points = vec![
+            SequenceTarget::key(b'W' as u16, false, 30, 1),
+            SequenceTarget::mouse(10, 20, 1),
+        ];
+
+        let ctx = ClickerContext::new(&config);
+        let (expected_down_flag, expected_up_flag) = get_button_flags(config.button);
+
+        assert_eq!(ctx.down_flag, expected_down_flag);
+        assert_eq!(ctx.up_flag, expected_up_flag);
     }
 
     #[test]

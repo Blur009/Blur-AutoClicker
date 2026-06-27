@@ -5,6 +5,7 @@ use crate::engine::mouse::{
 use crate::error::poisoned_inner;
 use crate::error::AppError;
 use crate::error::AppResult;
+use crate::settings::SequencePointAction;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -144,13 +145,20 @@ pub fn show_sequence_points_overlay(app: &AppHandle) -> AppResult<()> {
     #[cfg(target_os = "windows")]
     {
         sync_overlay_bounds(&window)?;
-        if !points.is_empty() {
+        if points
+            .iter()
+            .any(|point| point.action == SequencePointAction::Mouse)
+        {
             show_overlay_window(&window)?;
         }
     }
 
     emit_sequence_points(&window, bounds, &points, false);
-    if points.is_empty() && !SEQUENCE_PICK_OVERLAY_ACTIVE.load(Ordering::SeqCst) {
+    if !points
+        .iter()
+        .any(|point| point.action == SequencePointAction::Mouse)
+        && !SEQUENCE_PICK_OVERLAY_ACTIVE.load(Ordering::SeqCst)
+    {
         *LAST_ZONE_SHOW.lock().unwrap_or_else(poisoned_inner) = None;
         hide_overlay_window(&window);
     } else {
@@ -275,6 +283,7 @@ fn emit_sequence_points(
 ) {
     let points_payload: Vec<_> = points
         .iter()
+        .filter(|point| point.action == SequencePointAction::Mouse)
         .map(|point| {
             let offset = VirtualScreenRect::new(point.x, point.y, 1, 1).offset_from(bounds);
             serde_json::json!({

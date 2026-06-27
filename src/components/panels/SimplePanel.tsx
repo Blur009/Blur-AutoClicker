@@ -9,6 +9,7 @@ import type { MouseButton, Settings } from "../../store";
 import CadenceInput from "../CadenceInput";
 import HotkeyCaptureInput from "../HotkeyCaptureInput";
 import {
+  hasKeyOnlySequenceActions,
   MODE_OPTIONS,
   MOUSE_BUTTON_OPTIONS,
   SETTINGS_LIMITS,
@@ -16,6 +17,7 @@ import {
 import { isAlphabeticKeyboardKey } from "../../keyboardKeyCase";
 import { conflictsWithAutoPressKey } from "../../hotkeys";
 import KeyCaptureInput from "../KeyCaptureInput";
+import UnavailableReason from "../UnavailableReason";
 import { AdvDropdown } from "./advanced/shared";
 import "./SimplePanel.css";
 
@@ -84,6 +86,7 @@ function NumberField({
   max,
   onChange,
   width,
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -91,6 +94,7 @@ function NumberField({
   max: number;
   onChange: (next: number) => void;
   width: string;
+  disabled?: boolean;
 }) {
   return (
     <>
@@ -108,7 +112,9 @@ function NumberField({
         value={value}
         min={min}
         max={max}
+        disabled={disabled}
         onChange={(event: ChangeEvent<HTMLInputElement>) => {
+          if (disabled) return;
           const normalized = normalizeRaw(event.target.value);
           if (normalized !== event.target.value) {
             event.target.value = normalized;
@@ -116,6 +122,7 @@ function NumberField({
           onChange(parseRawNumber(normalized));
         }}
         onBlur={(event) => {
+          if (disabled) return;
           const normalized = normalizeRaw(event.target.value);
           if (normalized !== event.target.value) {
             event.target.value = normalized;
@@ -123,6 +130,7 @@ function NumberField({
           onChange(clamp(parseRawNumber(normalized), min, max));
         }}
         onWheel={(event) =>
+          !disabled &&
           handleWheelStep(event, value, min, max, (next) => onChange(next))
         }
       />
@@ -167,6 +175,9 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
     );
   const hotkeyConflicts = hasConflict ? ["Auto-press key"] : [];
   const autoPressKeyConflicts = hasConflict ? ["Hotkey"] : [];
+  const clickDurationDisabled = hasKeyOnlySequenceActions(settings);
+  const clickDurationDisabledReason =
+    "Key sequence actions use each row's hold ms value instead of Click Duration.";
 
   return (
     <div className="vcontainer simple-panel">
@@ -272,16 +283,27 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
           )}
         </ControlBox>
 
-        <ControlBox className="simple-row-item">
-          <NumberField
-            label="Click Duration"
-            value={settings.dutyCycle}
-            min={SETTINGS_LIMITS.dutyCycle.min!}
-            max={SETTINGS_LIMITS.dutyCycle.max!}
-            onChange={(next) => update({ dutyCycle: next })}
-            width={dynamicChWidth(settings.dutyCycle)}
-          />
-        </ControlBox>
+        <UnavailableReason
+          reason={
+            clickDurationDisabled ? clickDurationDisabledReason : undefined
+          }
+        >
+          <ControlBox
+            className={`simple-row-item ${
+              clickDurationDisabled ? "simple-control-disabled" : ""
+            }`}
+          >
+            <NumberField
+              label="Click Duration"
+              value={settings.dutyCycle}
+              min={SETTINGS_LIMITS.dutyCycle.min!}
+              max={SETTINGS_LIMITS.dutyCycle.max!}
+              onChange={(next) => update({ dutyCycle: next })}
+              width={dynamicChWidth(settings.dutyCycle)}
+              disabled={clickDurationDisabled}
+            />
+          </ControlBox>
+        </UnavailableReason>
 
         <ControlBox className="simple-row-item">
           <NumberField
