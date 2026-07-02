@@ -24,9 +24,7 @@ use crate::hotkeys::start_hotkey_listener;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64};
 use std::sync::{Arc, Mutex};
 use tauri::menu::{Menu, MenuItem};
-use tauri::tray::{
-    MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent, TrayIconId,
-};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent, TrayIconId};
 use tauri::{AppHandle, Listener, Manager};
 
 const STATUS_EVENT: &str = "clicker-status";
