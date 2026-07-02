@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Settings } from "../../../store";
+import type { Settings } from "../../../../store";
 import { error } from "@tauri-apps/plugin-log";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -9,7 +9,7 @@ import {
   ToggleBtn,
   CardDivider,
   InfoIcon,
-} from "../advanced/sections/shared";
+} from "../../advanced/sections/shared";
 
 interface Props {
   settings: Settings;

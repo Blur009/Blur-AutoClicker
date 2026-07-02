@@ -1,13 +1,13 @@
-import type { Settings } from "../../../store";
+import type { Settings } from "../../../../store";
 
-import { SETTINGS_LIMITS } from "../../../settingsSchema";
+import { SETTINGS_LIMITS } from "../../../../settingsSchema";
 import {
   Disableable,
   NumInput,
   ToggleBtn,
   CardDivider,
   InfoIcon,
-} from "../advanced/sections/shared";
+} from "../../advanced/sections/shared";
 
 interface Props {
   settings: Settings;

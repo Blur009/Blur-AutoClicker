@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { Settings } from "../../../store";
+import type { Settings } from "../../../../store";
 import type {
   ProcessListBehavior,
   ProcessListEntry,
-} from "../../../settingsSchema";
+} from "../../../../settingsSchema";
 
 import {
   Disableable,
   ToggleBtn,
   CardDivider,
   InfoIcon,
-} from "../advanced/sections/shared";
+} from "../../advanced/sections/shared";
 
 interface ProcessInfo {
   name: string;
