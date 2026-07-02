@@ -4,9 +4,19 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release 标签，例如 v3.8.4（会以此名创建/更新 Release 及对应 tag）"
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+env:
+  # 手动触发用输入的版本号；tag 触发回退到推送的 tag 名
+  RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
 
 jobs:
   release:
@@ -36,7 +46,7 @@ jobs:
       - name: Extract changelog
         shell: pwsh
         run: |
-          $version = [regex]::Escape(("${{ github.ref_name }}".TrimStart('v')))
+          $version = [regex]::Escape(("${{ env.RELEASE_TAG }}".TrimStart('v')))
           $content = Get-Content CHANGELOG.md -Raw
           $pattern = "(?ms)# v$version .*?(?=\n# v|\z)"
           $match = [regex]::Match($content, $pattern)
@@ -50,8 +60,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: BlurAutoClicker ${{ github.ref_name }}
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: BlurAutoClicker ${{ env.RELEASE_TAG }}
           releaseBody: See CHANGELOG.md for details.
           releaseDraft: true
 
@@ -61,7 +71,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if (Test-Path release_body.md) {
-            gh release edit "${{ github.ref_name }}" --notes-file release_body.md
+            gh release edit "${{ env.RELEASE_TAG }}" --notes-file release_body.md
           }
 
       - name: Create portable zip
@@ -69,7 +79,7 @@ jobs:
         run: |
           $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "BlurAutoClicker.exe" | Select-Object -First 1
           if (-not $exe) { Write-Error "BlurAutoClicker.exe not found"; exit 1 }
-          $tag = "${{ github.ref_name }}"
+          $tag = "${{ env.RELEASE_TAG }}"
           $zipName = "BlurAutoClicker-${tag}-portable.zip"
           Compress-Archive -Path $exe.FullName -DestinationPath $zipName
           Add-Content -Path $env:GITHUB_ENV -Value "ZIP_PATH=$zipName"
@@ -79,4 +89,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.ref_name }}" "$env:ZIP_PATH" --clobber
+          gh release upload "${{ env.RELEASE_TAG }}" "$env:ZIP_PATH" --clobber
