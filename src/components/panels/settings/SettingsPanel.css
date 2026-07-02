@@ -42,6 +42,28 @@
   }
 }
 
+.sidebar-kofi {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  text-decoration: none;
+  opacity: 0.6;
+  transition: opacity 0.15s ease, transform 0.2s ease;
+}
+
+.sidebar-kofi:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.sidebar-kofi img {
+  height: 4rem;
+  border: 0;
+}
+
 .sidebar-tab {
   all: unset;
   cursor: pointer;

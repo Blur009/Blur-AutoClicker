@@ -1,5 +1,6 @@
 import "./SettingsPanel.css";
 import { useEffect, useRef, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppInfo, PresetId, Settings } from "../../../store";
 
 import GeneralSection from "./sections/GeneralSection";
@@ -110,6 +111,20 @@ export default function SettingsPanel({
         >
           Maintenance
         </button>
+        <a
+          className="sidebar-kofi"
+          href="#"
+          title="Support me on Ko-fi"
+          onClick={(e) => {
+            e.preventDefault();
+            void openUrl("https://ko-fi.com/Z8Z71T8QD4");
+          }}
+        >
+          <img
+            src="https://storage.ko-fi.com/cdn/brandasset/v2/support_me_on_kofi_badge_blue.png"
+            alt="Buy Me a Coffee at ko-fi.com"
+          />
+        </a>
       </nav>
       <div className="settings-corner" />
       <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
