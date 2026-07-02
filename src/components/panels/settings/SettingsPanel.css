@@ -399,7 +399,7 @@
 .settings-fade {
   position: absolute;
   bottom: 0;
-  left: 0;
+  left: 10rem;
   right: 0;
   height: 6rem;
   background: linear-gradient(to bottom, transparent, var(--bg-base));

@@ -217,10 +217,10 @@ export default function SettingsPanel({
         {activeTab === "maintenance" && (
           <MaintenanceSection onReset={onReset} />
         )}
-        <div
-          className={`settings-fade ${atBottom ? "settings-fade--hidden" : ""}`}
-        ></div>
       </div>
+      <div
+        className={`settings-fade ${atBottom ? "settings-fade--hidden" : ""}`}
+      ></div>
     </div>
   );
 }
