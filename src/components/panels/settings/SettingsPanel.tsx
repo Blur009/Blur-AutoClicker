@@ -111,6 +111,7 @@ export default function SettingsPanel({
           Maintenance
         </button>
       </nav>
+      <div className="settings-corner" />
       <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
         {activeTab === "general" && (
           <GeneralSection
