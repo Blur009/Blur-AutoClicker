@@ -215,6 +215,7 @@ const TitleBar = memo(function TitleBar({
       }
       data-tauri-drag-region
       data-running={running}
+      data-tab={tab}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
         <button

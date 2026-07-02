@@ -1,0 +1,190 @@
+import { useState } from "react";
+import { DEFAULT_MAX_CLICK_SPEED } from "../../../../settingsSchema";
+import type { Settings } from "../../../../store";
+import ConfirmDialog from "../../../ConfirmDialog";
+import { SettingsCard } from "./shared";
+
+const onOffOptions = [
+  { value: false, label: "Off" },
+  { value: true, label: "On" },
+];
+
+interface Props {
+  settings: Settings;
+  update: (patch: Partial<Settings>) => void;
+  onToggleAlwaysOnTop: () => Promise<void>;
+}
+
+export default function BehaviorSection({
+  settings,
+  update,
+  onToggleAlwaysOnTop,
+}: Props) {
+  const [pendingAction, setPendingAction] = useState<
+    "extended-click-speed-limit" | null
+  >(null);
+
+  const handleAlwaysOnTopChange = (nextValue: boolean) => {
+    if (settings.alwaysOnTop === nextValue) return;
+    void onToggleAlwaysOnTop();
+  };
+
+  const handleExtendedClickSpeedLimitChange = (nextValue: boolean) => {
+    if (settings.extendedClickSpeedLimit === nextValue) return;
+    if (nextValue) {
+      setPendingAction("extended-click-speed-limit");
+      return;
+    }
+    update({
+      extendedClickSpeedLimit: false,
+      clickSpeed: Math.min(settings.clickSpeed, DEFAULT_MAX_CLICK_SPEED),
+    });
+  };
+
+  const handleConfirmExtendedClickSpeedLimit = () => {
+    update({ extendedClickSpeedLimit: true });
+    setPendingAction(null);
+  };
+
+  return (
+    <>
+      <SettingsCard
+        title="Behavior"
+        description="Change how the auto clicker runs."
+      >
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Always on Top</span>
+            <span className="settings-sublabel">
+              Keep the window above others.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {onOffOptions.map((option) => (
+              <button
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.alwaysOnTop === option.value ? "active" : ""}`}
+                onClick={() => handleAlwaysOnTopChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Stop Hitbox Overlay</span>
+            <span className="settings-sublabel">
+              Show the stop zone boundaries.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {onOffOptions.map((option) => (
+              <button
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.showStopOverlay === option.value ? "active" : ""}`}
+                onClick={() => update({ showStopOverlay: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Stop Reason Alert</span>
+            <span className="settings-sublabel">
+              Show a notification when the auto clicker stops.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {onOffOptions.map((option) => (
+              <button
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.showStopReason === option.value ? "active" : ""}`}
+                onClick={() => update({ showStopReason: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Strict Hotkey Modifiers</span>
+            <span className="settings-sublabel">
+              Require exact modifier keys for hotkeys.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {onOffOptions.map((option) => (
+              <button
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.strictHotkeyModifiers === option.value ? "active" : ""}`}
+                onClick={() => update({ strictHotkeyModifiers: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Stop on Alt+Tab</span>
+            <span className="settings-sublabel">
+              Stop clicking when switching to another window.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {onOffOptions.map((option) => (
+              <button
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.taskSwitcherStopEnabled === option.value ? "active" : ""}`}
+                onClick={() =>
+                  update({ taskSwitcherStopEnabled: option.value })
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Extended Click Speed Limit</span>
+            <span className="settings-sublabel">
+              Allow click speeds up to 1000 CPS (may affect performance).
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {onOffOptions.map((option) => (
+              <button
+                key={String(option.value)}
+                className={`settings-seg-btn ${settings.extendedClickSpeedLimit === option.value ? "active" : ""}`}
+                onClick={() =>
+                  handleExtendedClickSpeedLimitChange(option.value)
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </SettingsCard>
+
+      <ConfirmDialog
+        open={pendingAction === "extended-click-speed-limit"}
+        title="Enable extended click speed limit?"
+        message="This will allow click speeds beyond the default limit. This may affect performance."
+        confirmLabel="Enable"
+        onConfirm={handleConfirmExtendedClickSpeedLimit}
+        onCancel={() => setPendingAction(null)}
+      />
+    </>
+  );
+}

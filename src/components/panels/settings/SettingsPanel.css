@@ -1,25 +1,81 @@
-.settings-panel {
+.settings-wrapper {
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  margin: -1.25rem -1.25rem -0.75rem -1.25rem;
+}
+
+.settings-sidebar {
+  width: 10rem;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.25rem 0.75rem 1rem;
-  height: 100%;
+  gap: 0.125rem;
+  padding: 0.5rem 0;
+  background: var(--bg-surface);
+  backdrop-filter: blur(var(--bg-panel-blur, 0px));
   overflow-y: auto;
 }
 
-.settings-panel::-webkit-scrollbar {
-  width: 0.375rem;
+.sidebar-tab {
+  all: unset;
+  cursor: pointer;
+  font-family: var(--font-family-base);
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-md);
+  color: var(--text-muted);
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid transparent;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+  text-align: left;
+}
+
+.sidebar-tab:hover {
+  color: var(--text-primary);
   background: var(--bg-elevated);
-  border-radius: 0.5rem;
 }
 
-.settings-panel::-webkit-scrollbar-thumb {
-  background: var(--text-dim);
-  border-radius: 0.25rem;
+.sidebar-tab.active {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border-left-color: var(--accent-green-strong);
 }
 
-.settings-panel::-webkit-scrollbar-thumb:hover {
-  background: #777;
+.settings-panel {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem 1rem;
+  border-top: 2px solid rgb(49, 49, 49);
+  border-left: 2px solid rgb(49, 49, 49);
+  border-top-left-radius: var(--radius-lg);
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.settings-panel::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: var(--radius-lg);
+  height: var(--radius-lg);
+  background: var(--bg-surface);
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(circle at var(--radius-lg) var(--radius-lg), transparent var(--radius-lg), black var(--radius-lg));
+  mask-image: radial-gradient(circle at var(--radius-lg) var(--radius-lg), transparent var(--radius-lg), black var(--radius-lg));
+}
+
+[data-theme="light"] .settings-panel {
+  border-top-color: rgb(166, 166, 166);
+  border-left-color: rgb(166, 166, 166);
 }
 
 .settings-section-heading {
@@ -54,7 +110,7 @@
 .settings-label-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.125rem;
   flex: 1;
   min-width: 0;
 }
@@ -245,7 +301,7 @@
 }
 
 .settings-btn-danger--compact {
-  padding-inline: 10px;
+  padding-inline: 0.625rem;
 }
 
 .settings-btn-primary:disabled,
@@ -256,18 +312,12 @@
   cursor: not-allowed;
 }
 
-.settings-wrapper {
-  position: relative;
-  flex: 1;
-  overflow: hidden;
-}
-
 .settings-fade {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 10vb;
+  height: 6rem;
   background: linear-gradient(to bottom, transparent, var(--bg-base));
   pointer-events: none;
   transition: opacity 0.3s ease;
@@ -278,21 +328,21 @@
 }
 
 .settings-note {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-dim);
 }
 
 .settings-color-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
   flex-wrap: wrap;
 }
 
 .settings-color-picker {
-  width: 40px;
-  height: 40px;
-  padding: 4px;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.25rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   background: var(--bg-elevated);
@@ -310,7 +360,7 @@
 
 .preset-compose {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
@@ -318,7 +368,7 @@
 .preset-rename-input {
   min-width: 0;
   flex: 1;
-  padding: 9px 12px;
+  padding: 0.5625rem 0.75rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   background: var(--bg-elevated);
@@ -339,7 +389,7 @@
 .preset-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.625rem;
   max-height: clamp(20rem, 42vh, 26rem);
   overflow-y: auto;
   padding-right: 0.25rem;
@@ -385,7 +435,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
-  padding: 12px;
+  padding: 0.75rem;
 }
 
 .preset-card--active {
@@ -396,36 +446,36 @@
 .preset-card-head {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
 .preset-card-meta {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.5rem;
   min-width: 0;
   flex: 1;
 }
 
 .preset-name {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: var(--font-weight-md);
   color: var(--text-primary);
 }
 
 .preset-badges {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .preset-badge {
-  padding: 3px 8px;
-  border-radius: 999px;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 9999px;
   background: var(--bg-input);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: var(--font-weight-md);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -439,7 +489,7 @@
 
 .preset-actions {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   flex-wrap: wrap;
   align-items: flex-start;
 }
@@ -501,9 +551,9 @@
 }
 
 .social-icon--kofi {
-  width: 114px;
-  height: 30px;
-  border-radius: 10px;
+  width: 7.125rem;
+  height: 1.875rem;
+  border-radius: 0.625rem;
   border: 1px solid var(--border-subtle);
 }
 
@@ -536,7 +586,7 @@
 .stats-cell {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.125rem;
 }
 
 .stats-cell-label {
@@ -573,7 +623,7 @@
 
 .settings-row .adv-dropdown-trigger {
   box-sizing: border-box;
-  height: 30px;
+  height: 1.875rem;
   padding: 0 0.5rem 0 0.5rem;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);

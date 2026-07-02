@@ -14,6 +14,11 @@
   backdrop-filter: blur(var(--bg-panel-blur, 0px));
 }
 
+.window-title-background[data-tab="settings"] {
+  border-bottom: none;
+  height: calc(2.5rem - 2px);
+}
+
 .title-wrapper {
   position: absolute;
   left: 50%;

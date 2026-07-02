@@ -42,7 +42,9 @@ const AdvancedPanel = lazy(
   () => import("./components/panels/advanced/AdvancedPanel"),
 );
 const ZonesPanel = lazy(() => import("./components/panels/zones/ZonesPanel"));
-const SettingsPanel = lazy(() => import("./components/panels/SettingsPanel"));
+const SettingsPanel = lazy(
+  () => import("./components/panels/settings/SettingsPanel"),
+);
 const TitleBar = lazy(() => import("./components/TitleBar"));
 export type Tab = "simple" | "advanced" | "zones" | "settings";
 
@@ -66,7 +68,7 @@ function getPanelSize(
   if (tab === "simple") {
     return { width: 650, height: 175 + extra };
   }
-  if (tab === "settings") return { width: 560, height: 720 + extra };
+  if (tab === "settings") return { width: 700, height: 720 + extra };
   if (tab === "zones") return { width: 750, height: 720 + extra };
   if (advancedSequenceLayout === "tall") {
     return { width: 560, height: 720 + extra };

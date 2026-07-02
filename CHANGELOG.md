@@ -1,3 +1,7 @@
+# v3.9.0 - 02.07.2026 (d.m.y)
+## Changed
+- Settings panel now has a side menu for easier navigation and organization of settings.
+
 # v3.8.3 - 28.06.2026 (d.m.y)
 ## Changed
 - Changed max Process list title length to 35 characters to hopefully prevent ui clipping.
