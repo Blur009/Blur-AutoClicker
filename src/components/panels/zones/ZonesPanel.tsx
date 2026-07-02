@@ -1,4 +1,3 @@
-import "../advanced/AdvancedPanel.css";
 import "./ZonesPanel.css";
 import type { Settings } from "../../../store";
 import FailsafeSection from "./sections/FailsafeSection";

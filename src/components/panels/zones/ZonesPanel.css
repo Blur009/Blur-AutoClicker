@@ -424,3 +424,449 @@
 .adv-proc-search:focus {
   border-color: var(--accent);
 }
+
+/* ============================= */
+/* Shared panel structure        */
+/* ============================= */
+
+.adv-panel {
+  --adv-control-height: 32px;
+}
+
+.adv-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.adv-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.adv-row--grow {
+  flex: 1;
+  overflow: hidden;
+  align-items: stretch;
+}
+
+/* ============================= */
+/* Card / section container      */
+/* ============================= */
+
+.adv-sectioncontainer {
+  background: var(--bg-surface);
+  border: 0px solid var(--border);
+  border-radius: 0.4375rem;
+  padding: 0.625rem 0.75rem;
+  margin-bottom: 0.625rem;
+  flex: 1;
+  box-shadow: var(--container-shadow);
+}
+
+.adv-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.adv-card-title {
+  font-family: "DMSans", sans-serif;
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-hv);
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adv-card-divider {
+  width: 100%;
+  border-radius: 1px;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 0.5rem 0;
+}
+
+/* ============================= */
+/* Input controls                */
+/* ============================= */
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.adv-numbox-sm {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  min-height: var(--adv-control-height);
+  padding: 0 0.5rem;
+}
+
+.adv-number-sm {
+  font-family: "DMSans", sans-serif;
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-hv);
+  color: var(--text-primary);
+}
+
+.adv-unit {
+  font-family: "DMSans", sans-serif;
+  font-size: 0.625rem;
+  font-weight: var(--font-weight-hv);
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-left: 3px;
+}
+
+.adv-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  box-sizing: border-box;
+  font-family: "DMSans", sans-serif;
+  font-size: 12px;
+  font-weight: var(--font-weight-hv);
+  padding: 0 8px;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.adv-secondary-btn:hover {
+  border-color: var(--text-dim);
+  color: var(--text-primary);
+}
+
+.adv-secondary-btn:disabled,
+.adv-pick-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* ============================= */
+/* Segmented button group        */
+/* ============================= */
+
+.adv-seg-group {
+  display: flex;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  min-height: var(--adv-control-height);
+  overflow: hidden;
+  transition-duration: 0.2s;
+  flex-shrink: 0;
+}
+
+.adv-seg-group:hover {
+  border-color: var(--border-focus);
+}
+
+.adv-seg-btn {
+  flex: 1;
+  min-width: 4.5rem;
+  height: calc(var(--adv-control-height) - 2px);
+  font-family: "DMSans", sans-serif;
+  font-size: 1rem;
+  font-weight: var(--font-weight-md);
+  line-height: 1.125rem;
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
+}
+
+.adv-seg-btn:hover {
+  color: var(--text-muted);
+}
+
+.adv-seg-btn.active {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.adv-seg-btn:focus,
+.adv-seg-btn:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ============================= */
+/* Toggle buttons (On/Off)       */
+/* ============================= */
+
+.adv-toggle-group {
+  display: flex;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  min-height: var(--adv-control-height);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.adv-toggle-group:hover {
+  border-color: var(--);
+}
+
+.adv-toggle-btn {
+  font-family: "DMSans", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 4%;
+  text-transform: uppercase;
+  height: calc(var(--adv-control-height) - 2px);
+  padding: 0 0.5rem;
+  min-width: 2.1875rem;
+  text-align: center;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    color 50ms ease,
+    background 50ms ease;
+}
+
+.adv-toggle-btn:hover {
+  color: var(--text-muted);
+}
+
+.adv-toggle-on.active {
+  background: #3a8a5c;
+  color: var(--text-primary);
+}
+
+.adv-toggle-off.active {
+  background: var(--bg-input);
+  color: #a33c3c;
+}
+
+.adv-toggle-btn.adv-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ============================= */
+/* Sequence item (used by proc   */
+/* list)                         */
+/* ============================= */
+
+.adv-sequence-item {
+  display: grid;
+  grid-template-columns:
+    28px minmax(0, auto) minmax(0, auto) minmax(0, auto)
+    auto;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  background: var(--bg-elevated);
+  width: 100%;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  min-height: fit-content;
+  position: relative;
+  overflow: hidden;
+  --sequence-step-duration: 1ms;
+  --sequence-step-clicks: 1;
+  transition:
+    border-color 220ms ease,
+    box-shadow 280ms ease,
+    background-color 220ms ease;
+}
+
+.adv-sequence-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  pointer-events: none;
+}
+
+.adv-sequence-empty {
+  font-family: "DMSans", sans-serif;
+  font-size: 12px;
+  color: var(--text-dim);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.adv-sequence-coord {
+  min-width: 0;
+  min-height: 26px;
+  padding: 0 0.35rem;
+}
+
+.adv-sequence-coord .adv-number-sm {
+  height: 26px;
+  line-height: 26px;
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.adv-sequence-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+/* ============================= */
+/* Disabled overlay              */
+/* ============================= */
+
+.adv-disabled-container {
+  position: relative;
+  transition: opacity 0.3s ease;
+}
+
+.adv-disabled-content {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.adv-disabled-overlay {
+  position: absolute;
+  inset: -0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.01);
+  backdrop-filter: blur(0px);
+  border-radius: var(--radius-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.adv-disabled-container:hover .adv-disabled-overlay {
+  opacity: 1;
+  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+}
+
+.adv-disabled-label {
+  font-family: "DMSans", sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 0.25rem 0.625rem;
+  border-radius: 1.25rem;
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.2);
+}
+
+/* ============================= */
+/* Number input (NumInput)       */
+/* ============================= */
+
+.adv-number-sm {
+  font-family: "DMSans", sans-serif;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-hv);
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+/* ============================= */
+/* Info icon / tooltip           */
+/* ============================= */
+
+.adv-info-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: help;
+  color: var(--text-dim);
+  transition: color 0.15s ease;
+  user-select: none;
+  z-index: 2000;
+  isolation: isolate;
+}
+
+.adv-info-icon:hover {
+  color: var(--text-muted);
+}
+
+.adv-info-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  transform: none;
+  width: 220px;
+  padding: 6px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-family: "DMSans", sans-serif;
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-li);
+  color: var(--text-muted);
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  text-align: left;
+  z-index: 3000;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  box-shadow: var(--container-shadow);
+}
+
+.adv-info-icon:hover .adv-info-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+.adv-info-tooltip--portal {
+  position: fixed;
+  visibility: visible;
+  opacity: 1;
+  bottom: auto;
+  z-index: 9999;
+}
