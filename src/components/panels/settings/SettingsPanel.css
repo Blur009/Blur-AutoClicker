@@ -69,8 +69,16 @@
   height: var(--radius-lg);
   background: var(--bg-surface);
   pointer-events: none;
-  -webkit-mask-image: radial-gradient(circle at var(--radius-lg) var(--radius-lg), transparent var(--radius-lg), black var(--radius-lg));
-  mask-image: radial-gradient(circle at var(--radius-lg) var(--radius-lg), transparent var(--radius-lg), black var(--radius-lg));
+  -webkit-mask-image: radial-gradient(
+    circle at var(--radius-lg) var(--radius-lg),
+    transparent var(--radius-lg),
+    black var(--radius-lg)
+  );
+  mask-image: radial-gradient(
+    circle at var(--radius-lg) var(--radius-lg),
+    transparent var(--radius-lg),
+    black var(--radius-lg)
+  );
 }
 
 [data-theme="light"] .settings-panel {
