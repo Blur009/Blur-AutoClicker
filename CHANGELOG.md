@@ -1,6 +1,8 @@
 # v3.9.0 - 02.07.2026 (d.m.y)
 ## Changed
 - Settings panel now has a side menu for easier navigation and organization of settings.
+# Fixed
+- Fixed simple tab button in the title bar showing the wrong background color when a custom accent color is selected.
 
 # v3.8.3 - 28.06.2026 (d.m.y)
 ## Changed

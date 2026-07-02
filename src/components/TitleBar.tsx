@@ -157,8 +157,8 @@ const TAB_ITEMS: readonly TabItem[] = [
     value: "simple",
     label: "Simple",
     color: "var(--accent-green)",
-    activeBg: "rgba(25, 194, 51, 0.1)",
-    activeFocusRing: "rgba(25, 194, 51, 0.25)",
+    activeBg: "var(--accent-green-soft)",
+    activeFocusRing: "var(--accent-green-ring)",
     icon: ({ active }) => <SimpleIcon active={active} />,
   },
   {
