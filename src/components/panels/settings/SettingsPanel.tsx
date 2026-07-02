@@ -78,7 +78,8 @@ export default function SettingsPanel({
         <button
           className={`sidebar-tab ${activeTab === "general" ? "active" : ""}`}
           onClick={() => setActiveTab("general")}
-        > {/* TODO: replace all settings page icons with better icons that fit the theme more. current icons are temporary stand-ins. */}
+        >
+          {/* TODO: replace all settings page icons with better icons that fit the theme more. current icons are temporary stand-ins. */}
           <svg
             width="16"
             height="16"
