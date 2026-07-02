@@ -226,7 +226,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.75rem;
   color: var(--text-warning, #b8860b);
   background: color-mix(in srgb, var(--text-warning, #b8860b) 10%, transparent);
@@ -336,14 +336,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.8125rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .adv-proc-exe {
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.6875rem;
   color: var(--text-dim);
   flex-shrink: 0;
@@ -403,7 +403,7 @@
 }
 
 .adv-proc-search {
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.75rem;
   height: var(--adv-control-height);
   padding: 0 1.5rem 0 0.5rem;

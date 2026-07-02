@@ -1,12 +1,12 @@
 @font-face {
-  font-family: "DMSans";
-  src: url("/fonts/DMSans.ttf") format("truetype");
-  font-weight: 100 900;
+  font-family: "RobotoFlex";
+  src: url("/fonts/RobotoFlex.ttf") format("truetype");
+  font-weight: 100 1000;
   font-style: normal;
 }
 
 :root {
-  --font-family-base: "DMSans", sans-serif;
+  --font-family-base: "RobotoFlex", sans-serif;
 
   --bg-base: rgb(12, 12, 14);
   --bg-surface: rgb(26, 26, 26);
@@ -102,6 +102,7 @@ body {
   font-size: 1rem;
   overflow: hidden;
   user-select: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .app-root {

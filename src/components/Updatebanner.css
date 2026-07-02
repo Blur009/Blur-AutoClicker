@@ -11,26 +11,26 @@
 }
 
 .update-banner-text {
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--update-banner-text-bg);
 }
 .update-banner-text-new-version {
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--update-banner-text-fg);
 }
 .update-banner-text-old-version {
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--update-banner-text-fg);
 }
 
 .update-banner-btn {
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--update-banner-text-bg);
@@ -55,7 +55,7 @@
 }
 
 .update-banner-status {
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.6875rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.82);

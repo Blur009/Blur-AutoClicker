@@ -692,7 +692,6 @@
   font-size: 1rem;
   font-weight: var(--font-weight-md);
   color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
 }
 
 .stats-section-label {
@@ -816,5 +815,4 @@
   color: var(--text-primary);
   min-width: 3rem;
   text-align: right;
-  font-variant-numeric: tabular-nums;
 }

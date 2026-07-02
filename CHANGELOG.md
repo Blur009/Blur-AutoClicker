@@ -1,6 +1,7 @@
 # v3.9.0 - 02.07.2026 (d.m.y)
 ## Changed
 - Settings panel now has a side menu for easier navigation and organization of settings.
+- Font switch from DM Sans to RobotoFlex to support tabular enums (e.g. numbers that don't shift when changing values).
 # Fixed
 - Fixed simple tab button in the title bar showing the wrong background color when a custom accent color is selected.
 
