@@ -4,7 +4,6 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppInfo } from "../../../../store";
 import { changelogEntries } from "../../../../changelog";
 import ChangelogContent from "../../../ChangelogContent";
-import ConfirmDialog from "../../../ConfirmDialog";
 import { SettingsCard } from "./shared";
 
 interface CumulativeStats {
@@ -67,10 +66,6 @@ export default function GeneralSection({
 }: Props) {
   const [stats, setStats] = useState<CumulativeStats | null>(null);
   const [showChangelog, setShowChangelog] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"clear-stats" | null>(
-    null,
-  );
-  const [resettingStats, setResettingStats] = useState(false);
   const language = "en";
 
   useEffect(() => {
@@ -80,19 +75,6 @@ export default function GeneralSection({
   }, []);
 
   const hasStats = stats !== null && stats.totalSessions > 0;
-
-  const handleConfirmClearStats = async () => {
-    setResettingStats(true);
-    try {
-      const next = await invoke<CumulativeStats>("reset_stats");
-      setStats(next);
-    } catch {
-      // stats unchanged on failure
-    } finally {
-      setResettingStats(false);
-      setPendingAction(null);
-    }
-  };
 
   const updateButtonLabel = {
     idle: "Check for Update",
@@ -221,16 +203,8 @@ export default function GeneralSection({
 
       <SettingsCard
         title="Usage"
-        description="Clicking statistics for all sessions."
+        description="Clicking statistics for all sessions (only stored locally)."
       >
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">Usage Data</span>
-            <span className="settings-sublabel">
-              Statistics are stored locally and never sent anywhere.
-            </span>
-          </div>
-        </div>
         {hasStats ? (
           <div className="stats-grid">
             <div className="stats-cell">
@@ -240,19 +214,19 @@ export default function GeneralSection({
               </span>
             </div>
             <div className="stats-cell">
-              <span className="stats-cell-label">Total Time Clicking</span>
+              <span className="stats-cell-label">Total Clicking Time</span>
               <span className="stats-cell-value">
                 {formatTime(stats.totalTimeSecs, language)}
               </span>
             </div>
             <div className="stats-cell">
-              <span className="stats-cell-label">Average CPU</span>
+              <span className="stats-cell-label">Average CPU Usage</span>
               <span className="stats-cell-value">
                 {formatCpu(stats.avgCpu, language, "N/A")}
               </span>
             </div>
             <div className="stats-cell">
-              <span className="stats-cell-label">Sessions</span>
+              <span className="stats-cell-label">Clicking Sessions</span>
               <span className="stats-cell-value">
                 {formatNumber(stats.totalSessions, language)}
               </span>
@@ -261,32 +235,7 @@ export default function GeneralSection({
         ) : (
           <div className="stats-empty">No session data yet.</div>
         )}
-        {hasStats && (
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <span className="settings-label">Clear Stats</span>
-              <span className="settings-sublabel">Clear all usage data.</span>
-            </div>
-            <button
-              type="button"
-              className="settings-btn-danger settings-btn-danger--compact"
-              onClick={() => setPendingAction("clear-stats")}
-            >
-              Clear
-            </button>
-          </div>
-        )}
       </SettingsCard>
-
-      <ConfirmDialog
-        open={pendingAction === "clear-stats"}
-        title="Clear usage data"
-        message="This will clear all usage data. This action cannot be undone."
-        confirmLabel="Clear"
-        busy={resettingStats}
-        onConfirm={handleConfirmClearStats}
-        onCancel={() => setPendingAction(null)}
-      />
     </>
   );
 }

@@ -4,26 +4,45 @@ import { error } from "@tauri-apps/plugin-log";
 import ConfirmDialog from "../../../ConfirmDialog";
 import { SettingsCard } from "./shared";
 
+interface CumulativeStats {
+  totalClicks: number;
+  totalTimeSecs: number;
+  totalSessions: number;
+  avgCpu: number;
+}
+
 interface Props {
   onReset: () => Promise<void>;
 }
 
 export default function MaintenanceSection({ onReset }: Props) {
-  const [pendingAction, setPendingAction] = useState<"reset-settings" | null>(
-    null,
-  );
-  const [resetting, setResetting] = useState(false);
+  const [pendingAction, setPendingAction] = useState<
+    "reset-settings" | "reset-usage" | null
+  >(null);
+  const [busy, setBusy] = useState(false);
   const [diagnosticsStatus, setDiagnosticsStatus] = useState<string | null>(
     null,
   );
   const [exporting, setExporting] = useState(false);
 
   const handleConfirmResetSettings = async () => {
-    setResetting(true);
+    setBusy(true);
     try {
       await onReset();
     } finally {
-      setResetting(false);
+      setBusy(false);
+      setPendingAction(null);
+    }
+  };
+
+  const handleConfirmResetUsage = async () => {
+    setBusy(true);
+    try {
+      await invoke<CumulativeStats>("reset_stats");
+    } catch {
+      // ignore
+    } finally {
+      setBusy(false);
       setPendingAction(null);
     }
   };
@@ -36,7 +55,7 @@ export default function MaintenanceSection({ onReset }: Props) {
       >
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Reset All</span>
+            <span className="settings-label">Reset All Settings</span>
             <span className="settings-sublabel">
               Reset all settings to their defaults.
             </span>
@@ -44,6 +63,20 @@ export default function MaintenanceSection({ onReset }: Props) {
           <button
             className="settings-btn-danger"
             onClick={() => setPendingAction("reset-settings")}
+          >
+            Reset
+          </button>
+        </div>
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Reset Usage Data</span>
+            <span className="settings-sublabel">
+              Clear all session statistics and usage history.
+            </span>
+          </div>
+          <button
+            className="settings-btn-danger"
+            onClick={() => setPendingAction("reset-usage")}
           >
             Reset
           </button>
@@ -114,8 +147,17 @@ export default function MaintenanceSection({ onReset }: Props) {
         title="Reset all settings"
         message="This will reset all settings to their default values. This action cannot be undone."
         confirmLabel="Reset"
-        busy={resetting}
+        busy={busy}
         onConfirm={handleConfirmResetSettings}
+        onCancel={() => setPendingAction(null)}
+      />
+      <ConfirmDialog
+        open={pendingAction === "reset-usage"}
+        title="Reset usage data"
+        message="This will clear all session statistics and usage history. This action cannot be undone."
+        confirmLabel="Reset"
+        busy={busy}
+        onConfirm={handleConfirmResetUsage}
         onCancel={() => setPendingAction(null)}
       />
     </>
