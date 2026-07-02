@@ -146,11 +146,51 @@ body {
   padding: 1.25rem 1.25rem 0.75rem 1.25rem;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  overflow: hidden;
   min-height: 0;
   min-width: 0;
   contain: layout style paint;
   backdrop-filter: blur(var(--bg-panel-blur, 0px));
+}
+
+.app-root[data-tab="simple"] .panel-area {
+  animation: panel-enable-scroll-simple 0.01s 350ms forwards;
+}
+
+.app-root[data-tab="advanced"] .panel-area {
+  animation: panel-enable-scroll-advanced 0.01s 350ms forwards;
+}
+
+.app-root[data-tab="zones"] .panel-area {
+  animation: panel-enable-scroll-zones 0.01s 350ms forwards;
+}
+
+.app-root[data-tab="settings"] .panel-area {
+  animation: panel-enable-scroll-settings 0.01s 350ms forwards;
+}
+
+@keyframes panel-enable-scroll-simple {
+  to {
+    overflow: auto;
+  }
+}
+
+@keyframes panel-enable-scroll-advanced {
+  to {
+    overflow: auto;
+  }
+}
+
+@keyframes panel-enable-scroll-zones {
+  to {
+    overflow: auto;
+  }
+}
+
+@keyframes panel-enable-scroll-settings {
+  to {
+    overflow: auto;
+  }
 }
 
 .settings-card {

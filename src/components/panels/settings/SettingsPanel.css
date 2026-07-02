@@ -16,7 +16,30 @@
   padding: 0.5rem 0;
   background: var(--bg-surface);
   backdrop-filter: blur(var(--bg-panel-blur, 0px));
-  overflow-y: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+  animation: settings-sidebar-enable 0.01s 350ms forwards;
+}
+
+.settings-sidebar::-webkit-scrollbar {
+  width: 0.375rem;
+  background: var(--bg-elevated);
+  border-radius: 0.5rem;
+}
+
+.settings-sidebar::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border-radius: 0.25rem;
+}
+
+.settings-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
+@keyframes settings-sidebar-enable {
+  to {
+    overflow-y: auto;
+  }
 }
 
 .sidebar-tab {
@@ -56,8 +79,31 @@
   border-top: 2px solid rgb(49, 49, 49);
   border-left: 2px solid rgb(49, 49, 49);
   border-top-left-radius: var(--radius-lg);
-  overflow-y: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
   min-width: 0;
+  animation: settings-panel-enable 0.01s 350ms forwards;
+}
+
+.settings-panel::-webkit-scrollbar {
+  width: 0.375rem;
+  background: var(--bg-elevated);
+  border-radius: 0.5rem;
+}
+
+.settings-panel::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border-radius: 0.25rem;
+}
+
+.settings-panel::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
+@keyframes settings-panel-enable {
+  to {
+    overflow-y: auto;
+  }
 }
 
 .settings-panel::before {
@@ -399,10 +445,11 @@
   flex-direction: column;
   gap: 0.625rem;
   max-height: clamp(20rem, 42vh, 26rem);
-  overflow-y: auto;
+  overflow-y: hidden;
   padding-right: 0.25rem;
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
+  animation: preset-list-enable 0.01s 350ms forwards;
 }
 
 .preset-list::-webkit-scrollbar {
@@ -418,6 +465,12 @@
 
 .preset-list::-webkit-scrollbar-thumb:hover {
   background: #777;
+}
+
+@keyframes preset-list-enable {
+  to {
+    overflow-y: auto;
+  }
 }
 
 .preset-list-shell {

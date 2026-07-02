@@ -90,9 +90,10 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .adv-columns--tall {
   display: block;
-  overflow-y: auto;
+  overflow-y: hidden;
   padding-right: 0.25rem;
   scrollbar-gutter: stable;
+  animation: adv-columns-enable 0.01s 350ms forwards;
 }
 
 .adv-columns--tall::-webkit-scrollbar {
@@ -108,6 +109,12 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .adv-columns--tall::-webkit-scrollbar-thumb:hover {
   background: #777;
+}
+
+@keyframes adv-columns-enable {
+  to {
+    overflow-y: auto;
+  }
 }
 
 .adv-col {
@@ -589,12 +596,13 @@ input[type="number"]::-webkit-outer-spin-button {
   position: relative;
   z-index: 0;
   width: 100%;
-  overflow-y: auto;
+  overflow-y: hidden;
   min-height: 0;
   height: 100%;
   padding: 0 2px 0 0;
   box-sizing: border-box;
   scrollbar-gutter: stable;
+  animation: adv-seqlist-enable 0.01s 350ms forwards;
 }
 
 .adv-sequence-list::-webkit-scrollbar {
@@ -610,6 +618,12 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .adv-sequence-list::-webkit-scrollbar-thumb:hover {
   background: #777;
+}
+
+@keyframes adv-seqlist-enable {
+  to {
+    overflow-y: auto;
+  }
 }
 
 .adv-sequence-list > * + * {

@@ -236,9 +236,10 @@
 .adv-process-list {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: hidden;
   scrollbar-gutter: stable;
   padding-right: 4px;
+  animation: adv-proc-enable 0.01s 350ms forwards;
 }
 
 .adv-process-list::-webkit-scrollbar {
@@ -254,6 +255,12 @@
 
 .adv-process-list::-webkit-scrollbar-thumb:hover {
   background: #777;
+}
+
+@keyframes adv-proc-enable {
+  to {
+    overflow-y: auto;
+  }
 }
 
 .adv-process-list .adv-sequence-item {
