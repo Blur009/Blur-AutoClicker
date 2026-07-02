@@ -1,9 +1,9 @@
-import type { Settings } from "../../../store";
+import type { Settings } from "../../../../store";
 
 import {
   getEffectiveClicksPerSecond,
   isDoubleClickSupported,
-} from "../../../cadence";
+} from "../../../../cadence";
 import { InfoIcon, ToggleBtn } from "./shared";
 
 interface Props {

@@ -11,7 +11,7 @@ import {
   ToggleBtn,
   CardDivider,
   InfoIcon,
-} from "../advanced/shared";
+} from "../advanced/sections/shared";
 
 interface ProcessInfo {
   name: string;

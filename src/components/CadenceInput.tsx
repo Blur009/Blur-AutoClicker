@@ -6,7 +6,7 @@ import { convertDurationToRate, convertRateToDuration } from "../cadence";
 import { normalizeIntegerRaw } from "../numberInput";
 import type { RateInputMode, Settings } from "../store";
 
-import { AdvDropdown } from "./panels/advanced/shared";
+import { AdvDropdown } from "./panels/advanced/sections/shared";
 import { getMaxClickSpeed, type ClickInterval } from "../settingsSchema";
 
 // TODO: This should really be split up into what is in the advanced panel and what is in the simple panel. Having both in one feels kinda off i feel like.

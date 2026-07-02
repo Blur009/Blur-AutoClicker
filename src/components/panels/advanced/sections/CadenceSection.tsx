@@ -1,11 +1,11 @@
-import type { MouseButton, Settings } from "../../../store";
+import type { MouseButton, Settings } from "../../../../store";
 
-import { MOUSE_BUTTON_OPTIONS } from "../../../settingsSchema";
-import { isAlphabeticKeyboardKey } from "../../../keyboardKeyCase";
-import { conflictsWithAutoPressKey } from "../../../hotkeys";
-import CadenceInput from "../../CadenceInput";
-import HotkeyCaptureInput from "../../HotkeyCaptureInput";
-import KeyCaptureInput from "../../KeyCaptureInput";
+import { MOUSE_BUTTON_OPTIONS } from "../../../../settingsSchema";
+import { isAlphabeticKeyboardKey } from "../../../../keyboardKeyCase";
+import { conflictsWithAutoPressKey } from "../../../../hotkeys";
+import CadenceInput from "../../../CadenceInput";
+import HotkeyCaptureInput from "../../../HotkeyCaptureInput";
+import KeyCaptureInput from "../../../KeyCaptureInput";
 import { CardDivider, InfoIcon } from "./shared";
 
 function MouseTargetIcon() {

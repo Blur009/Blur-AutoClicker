@@ -16,7 +16,7 @@ import {
 import { isAlphabeticKeyboardKey } from "../../keyboardKeyCase";
 import { conflictsWithAutoPressKey } from "../../hotkeys";
 import KeyCaptureInput from "../KeyCaptureInput";
-import { AdvDropdown } from "./advanced/shared";
+import { AdvDropdown } from "./advanced/sections/shared";
 import "./SimplePanel.css";
 
 interface SimplePanelProps {

@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Settings, TimeLimitUnit } from "../../../store";
+import type { Settings, TimeLimitUnit } from "../../../../store";
 
 import {
   SETTINGS_LIMITS,
   TIME_LIMIT_UNIT_OPTIONS,
-} from "../../../settingsSchema";
+} from "../../../../settingsSchema";
 import { Disableable, NumInput, ToggleBtn, InfoIcon } from "./shared";
 
 interface Props {

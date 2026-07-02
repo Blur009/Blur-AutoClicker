@@ -7,7 +7,7 @@ import {
   ToggleBtn,
   CardDivider,
   InfoIcon,
-} from "../advanced/shared";
+} from "../advanced/sections/shared";
 
 interface Props {
   settings: Settings;

@@ -1,6 +1,6 @@
-import type { Settings } from "../../../store";
+import type { Settings } from "../../../../store";
 
-import { SETTINGS_LIMITS } from "../../../settingsSchema";
+import { SETTINGS_LIMITS } from "../../../../settingsSchema";
 import { Disableable, InfoIcon, NumInput, ToggleBtn } from "./shared";
 
 interface Props {

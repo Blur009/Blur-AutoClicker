@@ -1,11 +1,11 @@
 import "./AdvancedPanel.css";
 import type { Settings } from "../../../store";
-import CadenceSection from "./CadenceSection";
-import DutyCycleSection from "./DutyCycleSection";
-import SpeedVariationSection from "./SpeedVariationSection";
-import DoubleClickSection from "./DoubleClickSection";
-import SequenceSection from "./SequenceSection";
-import LimitsSection from "./LimitsSection";
+import CadenceSection from "./sections/CadenceSection";
+import DutyCycleSection from "./sections/DutyCycleSection";
+import SpeedVariationSection from "./sections/SpeedVariationSection";
+import DoubleClickSection from "./sections/DoubleClickSection";
+import SequenceSection from "./sections/SequenceSection";
+import LimitsSection from "./sections/LimitsSection";
 
 interface Props {
   settings: Settings;

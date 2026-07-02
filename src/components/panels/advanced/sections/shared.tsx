@@ -13,8 +13,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { normalizeIntegerRaw } from "../../../numberInput";
-import UnavailableReason from "../../UnavailableReason";
+import { normalizeIntegerRaw } from "../../../../numberInput";
+import UnavailableReason from "../../../UnavailableReason";
 
 // ToggleBtn ← These are here just for some visual space
 

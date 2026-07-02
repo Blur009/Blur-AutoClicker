@@ -6,8 +6,8 @@ import {
   useState,
 } from "react";
 import { error } from "@tauri-apps/plugin-log";
-import { getEffectiveIntervalMs } from "../../../cadence";
-import type { SequencePoint, Settings } from "../../../store";
+import { getEffectiveIntervalMs } from "../../../../cadence";
+import type { SequencePoint, Settings } from "../../../../store";
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
