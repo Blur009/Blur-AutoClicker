@@ -125,12 +125,7 @@ export default function CadenceSection({ settings, update, showInfo }: Props) {
         </div>
       </div>
       <CardDivider />
-      <CadenceInput
-        settings={settings}
-        update={update}
-        variant="advanced"
-        showInfo={showInfo}
-      />
+      <CadenceInput settings={settings} update={update} variant="advanced" />
       <div className="adv-row" style={{ marginTop: rowSpacing }}>
         <div
           style={{
