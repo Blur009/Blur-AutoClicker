@@ -1,3 +1,4 @@
+import "./sections/shared.css";
 import "./AdvancedPanel.css";
 import type { Settings } from "../../../store";
 import CadenceSection from "./sections/CadenceSection";

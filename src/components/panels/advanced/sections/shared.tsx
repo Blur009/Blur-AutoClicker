@@ -16,6 +16,8 @@ import { createPortal } from "react-dom";
 import { normalizeIntegerRaw } from "../../../../numberInput";
 import UnavailableReason from "../../../UnavailableReason";
 
+import "./shared.css";
+
 // ToggleBtn ← These are here just for some visual space
 
 const ToggleBtn = memo(
