@@ -51,7 +51,9 @@
   cursor: pointer;
   text-decoration: none;
   opacity: 0.6;
-  transition: opacity 0.15s ease, transform 0.2s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.2s ease;
 }
 
 .sidebar-kofi:hover {
@@ -66,6 +68,9 @@
 
 .sidebar-tab {
   all: unset;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   cursor: pointer;
   font-family: var(--font-family-base);
   font-size: 0.8125rem;
@@ -78,6 +83,10 @@
     background 0.15s ease,
     border-color 0.15s ease;
   text-align: left;
+}
+
+.sidebar-tab svg {
+  flex-shrink: 0;
 }
 
 .sidebar-tab:hover {
