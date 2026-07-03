@@ -12,8 +12,8 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
-  padding: 0.5rem 0;
+  gap: 0.25rem;
+  padding: 1.5rem 0.5rem;
   background: var(--bg-surface);
   backdrop-filter: blur(var(--bg-panel-blur, 0px));
   overflow-y: hidden;
@@ -73,9 +73,9 @@
   gap: 0.5rem;
   cursor: pointer;
   font-family: var(--font-family-base);
-  font-size: 0.8125rem;
+  font-size: 0.85rem;
   font-weight: var(--font-weight-md);
-  color: var(--text-muted);
+  color: var(--text-dim);
   padding: 0.5rem 0.75rem;
   border-left: 3px solid transparent;
   transition:
@@ -90,14 +90,15 @@
 }
 
 .sidebar-tab:hover {
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
   background: var(--bg-elevated);
 }
 
 .sidebar-tab.active {
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
   background: var(--bg-elevated);
-  border-left-color: var(--accent-green-strong);
 }
 
 .settings-panel {
