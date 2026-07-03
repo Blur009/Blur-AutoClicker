@@ -152,6 +152,28 @@ const ZonesIcon = memo(function ZonesIcon({ active }: TabIconProps) {
   );
 });
 
+const SequenceIcon = memo(function SequenceIcon({ active }: TabIconProps) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? "2.2" : "2"}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 6h16" />
+      <path d="M4 12h12" />
+      <path d="M4 18h8" />
+      <circle cx="20" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="18" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+});
+
 const TAB_ITEMS: readonly TabItem[] = [
   {
     value: "simple",
@@ -176,6 +198,14 @@ const TAB_ITEMS: readonly TabItem[] = [
     activeBg: "hsla(208, 85%, 58%, 0.14)",
     activeFocusRing: "hsla(208, 85%, 58%, 0.35)",
     icon: ({ active }) => <ZonesIcon active={active} />,
+  },
+  {
+    value: "sequence",
+    label: "Sequence",
+    color: "hsl(180 75% 40%)",
+    activeBg: "hsla(180, 75%, 40%, 0.14)",
+    activeFocusRing: "hsla(180, 75%, 40%, 0.35)",
+    icon: ({ active }) => <SequenceIcon active={active} />,
   },
 ] as const;
 

@@ -45,8 +45,11 @@ const ZonesPanel = lazy(() => import("./components/panels/zones/ZonesPanel"));
 const SettingsPanel = lazy(
   () => import("./components/panels/settings/SettingsPanel"),
 );
+const SequencePanel = lazy(
+  () => import("./components/panels/sequence/SequencePanel"),
+);
 const TitleBar = lazy(() => import("./components/TitleBar"));
-export type Tab = "simple" | "advanced" | "zones" | "settings";
+export type Tab = "simple" | "advanced" | "zones" | "settings" | "sequence";
 
 const BACKEND_SETTINGS_SCHEMA_VERSION = 10;
 const MAX_DROPDOWN_OVERFLOW_BOTTOM = 220;
@@ -59,21 +62,15 @@ type DropdownOverflowDetail = {
   bottom?: number;
 };
 
-function getPanelSize(
-  tab: Tab,
-  hasUpdate: boolean,
-  advancedSequenceLayout: Settings["advancedSequenceLayout"],
-) {
+function getPanelSize(tab: Tab, hasUpdate: boolean) {
   const extra = hasUpdate ? 30 : 0;
   if (tab === "simple") {
     return { width: 650, height: 175 + extra };
   }
   if (tab === "settings") return { width: 700, height: 720 + extra };
   if (tab === "zones") return { width: 750, height: 720 + extra };
-  if (advancedSequenceLayout === "tall") {
-    return { width: 560, height: 720 + extra };
-  }
-  return { width: 912, height: 527 + extra };
+  if (tab === "sequence") return { width: 550, height: 600 + extra };
+  return { width: 900, height: 600 + extra };
 }
 
 async function getClampedPanelSize(
@@ -724,11 +721,7 @@ export default function App() {
         const textScale = await invoke<number>("get_text_scale_factor");
         document.documentElement.style.fontSize = `${16 * textScale}px`;
 
-        const preferredSize = getPanelSize(
-          tab,
-          !!updateInfo,
-          settings.advancedSequenceLayout,
-        );
+        const preferredSize = getPanelSize(tab, !!updateInfo);
         const { width, height } = await getClampedPanelSize(
           preferredSize,
           textScale,
@@ -851,13 +844,7 @@ export default function App() {
         resizeTimeout.current = null;
       }
     };
-  }, [
-    tab,
-    updateInfo,
-    dropdownOverflowBottom,
-    settingsLoaded,
-    settings.advancedSequenceLayout,
-  ]);
+  }, [tab, updateInfo, dropdownOverflowBottom, settingsLoaded]);
 
   useEffect(() => {
     const check = async () => {
@@ -1048,7 +1035,10 @@ export default function App() {
         paused={status.paused}
         stopReason={
           settings.showStopReason &&
-          (tab === "simple" || tab === "advanced" || tab === "zones")
+          (tab === "simple" ||
+            tab === "advanced" ||
+            tab === "zones" ||
+            tab === "sequence")
             ? status.stopReason
             : null
         }
@@ -1071,6 +1061,13 @@ export default function App() {
         )}
         {tab === "advanced" && (
           <AdvancedPanel
+            settings={settings}
+            update={updateSettings}
+            showInfo={true}
+          />
+        )}
+        {tab === "sequence" && (
+          <SequencePanel
             settings={settings}
             update={updateSettings}
             showInfo={true}

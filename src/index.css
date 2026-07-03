@@ -170,6 +170,10 @@ body {
   animation: panel-enable-scroll-settings 0.01s 350ms forwards;
 }
 
+.app-root[data-tab="sequence"] .panel-area {
+  animation: panel-enable-scroll-sequence 0.01s 350ms forwards;
+}
+
 @keyframes panel-enable-scroll-simple {
   to {
     overflow: auto;
@@ -189,6 +193,12 @@ body {
 }
 
 @keyframes panel-enable-scroll-settings {
+  to {
+    overflow: auto;
+  }
+}
+
+@keyframes panel-enable-scroll-sequence {
   to {
     overflow: auto;
   }

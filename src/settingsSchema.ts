@@ -4,7 +4,7 @@ export type InputType = "mouse" | "keyboard";
 export type KeyboardKeyCase = "lower" | "upper";
 export type ClickMode = "Toggle" | "Hold";
 export type TimeLimitUnit = "s" | "m" | "h";
-export type SavedPanel = "simple" | "advanced" | "zones";
+export type SavedPanel = "simple" | "advanced" | "zones" | "sequence";
 export type Theme = "dark" | "light";
 export type PresetId = string;
 export type RateInputMode = "rate" | "duration";
@@ -576,7 +576,7 @@ function sanitizeRateInputMode(value: unknown, fallback: RateInputMode) {
 }
 
 function sanitizeSavedPanel(value: unknown, fallback: SavedPanel) {
-  return sanitizeEnum(value, fallback, ["simple", "advanced", "zones"]);
+  return sanitizeEnum(value, fallback, ["simple", "advanced", "zones", "sequence"]);
 }
 
 function sanitizeTheme(value: unknown, fallback: Theme) {
