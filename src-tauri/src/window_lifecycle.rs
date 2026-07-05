@@ -2,7 +2,7 @@ use tauri::AppHandle;
 
 #[cfg(target_os = "windows")]
 fn trim_webview_processes() {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Diagnostics::ToolHelp::*;
@@ -51,12 +51,15 @@ fn trim_webview_processes() {
         CloseHandle(snapshot);
 
         let mut descendant_pids: Vec<u32> = Vec::new();
+        let mut visited: HashSet<u32> = HashSet::from([our_pid]);
         let mut queue: Vec<u32> = vec![our_pid];
         while let Some(pid) = queue.pop() {
             if let Some(children) = children_of.get(&pid) {
                 for &child in children {
-                    descendant_pids.push(child);
-                    queue.push(child);
+                    if visited.insert(child) {
+                        descendant_pids.push(child);
+                        queue.push(child);
+                    }
                 }
             }
         }
