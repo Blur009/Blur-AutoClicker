@@ -4,6 +4,8 @@ export function normalizeIntegerRaw(raw: string) {
   }
 
   const negative = raw.startsWith("-");
-  const digits = (negative ? raw.slice(1) : raw).replace(/^0+(?=\d)/, "");
+  const digits = (negative ? raw.slice(1) : raw)
+    .replace(/\D.*$/s, "")
+    .replace(/^0+(?=\d)/, "");
   return `${negative ? "-" : ""}${digits}`;
 }

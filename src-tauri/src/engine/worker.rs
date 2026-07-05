@@ -227,6 +227,7 @@ pub fn stop_clicker_inner(
 ) -> AppResult<ClickerStatusPayload> {
     let state = app.state::<ClickerState>();
     let was_running = state.running.swap(false, Ordering::SeqCst);
+    state.paused.store(false, Ordering::SeqCst);
     state.active_sequence_index.store(-1, Ordering::SeqCst);
     state.active_sequence_tick.store(0, Ordering::SeqCst);
     if was_running {
