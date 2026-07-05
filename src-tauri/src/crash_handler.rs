@@ -12,8 +12,8 @@ pub fn initialize_crashpad() -> Result<(), Box<dyn std::error::Error>> {
     let handler_path = resolve_handler_path()?;
 
     let config = crashpad_rs::CrashpadConfig::builder()
-        .handler_path(handler_path.to_str().unwrap())
-        .database_path(crash_database.to_str().unwrap())
+        .handler_path(&handler_path)
+        .database_path(&crash_database)
         .build();
 
     client.start_with_config(&config, &std::collections::HashMap::new())?;
