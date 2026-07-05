@@ -146,22 +146,3 @@ export function getEffectiveClicksPerSecond(settings: CadenceSettings): number {
 export function isDoubleClickSupported(settings: CadenceSettings): boolean {
   return getEffectiveClicksPerSecond(settings) < 50;
 }
-
-export function formatDurationSummary(settings: CadenceSettings): string {
-  const parts: string[] = [];
-
-  if (settings.durationHours > 0) {
-    parts.push(`${settings.durationHours}h`);
-  }
-  if (settings.durationMinutes > 0) {
-    parts.push(`${settings.durationMinutes}m`);
-  }
-  if (settings.durationSeconds > 0) {
-    parts.push(`${settings.durationSeconds}s`);
-  }
-  if (settings.durationMilliseconds > 0 || parts.length === 0) {
-    parts.push(`${settings.durationMilliseconds}ms`);
-  }
-
-  return parts.join(" ");
-}
