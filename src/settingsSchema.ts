@@ -735,6 +735,11 @@ function sanitizePresetSnapshot(
     defaults.timeLimitUnit,
     TIME_LIMIT_UNIT_OPTIONS,
   );
+  snapshot.processListMode = sanitizeEnum(
+    saved.processListMode,
+    defaults.processListMode,
+    ["whitelist", "blacklist"],
+  );
   snapshot.sequencePoints = sanitizeSequencePoints(saved.sequencePoints);
   snapshot.processListEntries = sanitizeProcessListEntries(
     saved.processListEntries,
@@ -833,6 +838,11 @@ export function sanitizeSettings(
     saved.timeLimitUnit,
     defaults.timeLimitUnit,
     TIME_LIMIT_UNIT_OPTIONS,
+  );
+  presetSettings.processListMode = sanitizeEnum(
+    saved.processListMode,
+    defaults.processListMode,
+    ["whitelist", "blacklist"],
   );
   presetSettings.sequencePoints = sanitizeSequencePoints(saved.sequencePoints);
   presetSettings.processListEntries = sanitizeProcessListEntries(

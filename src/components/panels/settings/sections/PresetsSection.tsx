@@ -282,7 +282,9 @@ export default function PresetsSection({
           </button>
         </div>
         {presetLimitReached && (
-          <span className="settings-note">Max 6 presets allowed</span>
+          <span className="settings-note">
+            Max {MAX_PRESETS} presets allowed
+          </span>
         )}
         {running && (
           <span className="settings-note">Disabled while clicking</span>
