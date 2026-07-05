@@ -41,7 +41,7 @@ function formatCpu(
   language: string,
   notAvailable: string,
 ): string {
-  if (cpu < 0) return notAvailable;
+  if (!Number.isFinite(cpu) || cpu < 0) return notAvailable;
   return `${cpu.toLocaleString(language, {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
