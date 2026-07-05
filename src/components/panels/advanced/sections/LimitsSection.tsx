@@ -23,9 +23,11 @@ export default function LimitsSection({ settings, update, showInfo }: Props) {
       : mode;
 
   const updateRef = useRef(update);
+  const isClicksModeRef = useRef(effectiveMode === "clicks");
 
   useLayoutEffect(() => {
     updateRef.current = update;
+    isClicksModeRef.current = effectiveMode === "clicks";
   });
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export default function LimitsSection({ settings, update, showInfo }: Props) {
   };
 
   const handleToggleChange = (nextValue: boolean) => {
-    if (isClicksMode) {
+    if (isClicksModeRef.current) {
       update({
         clickLimitEnabled: nextValue,
         timeLimitEnabled: false,
