@@ -386,8 +386,12 @@ pub fn start_hotkey_listener(app: AppHandle) {
                 }
 
                 was_pressed = currently_pressed;
-            } else if PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_NOREMOVE) == 0 {
-                WaitMessage();
+            } else if HOOKS_ACTIVE.load(Ordering::Relaxed) {
+                if PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_NOREMOVE) == 0 {
+                    WaitMessage();
+                }
+            } else {
+                std::thread::sleep(POLL_INTERVAL);
             }
         }
 
