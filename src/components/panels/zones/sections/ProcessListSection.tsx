@@ -66,16 +66,19 @@ export default function ProcessListSection({
   }, [silentRefresh]);
 
   const toggleEntry = (name: string, checked: boolean) => {
+    const withoutName = settings.processListEntries.filter(
+      (e) => e.name !== name,
+    );
     const next = checked
       ? [
-          ...settings.processListEntries,
+          ...withoutName,
           {
             name,
             behavior: "stop" as ProcessListBehavior,
             enabled: true,
           } as ProcessListEntry,
         ]
-      : settings.processListEntries.filter((e) => e.name !== name);
+      : withoutName;
     update({ processListEntries: next });
   };
 
@@ -96,7 +99,7 @@ export default function ProcessListSection({
     (p) => entryMap.get(p.name)?.enabled && matchesSearch(p),
   );
   const uncheckedProcesses = processes.filter(
-    (p) => !entryMap.has(p.name) && matchesSearch(p),
+    (p) => !entryMap.get(p.name)?.enabled && matchesSearch(p),
   );
 
   return (
