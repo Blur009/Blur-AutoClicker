@@ -375,11 +375,6 @@ const SETTINGS_ONLY_FIELDS = {
   },
 } satisfies Record<string, FieldDef<unknown>>;
 
-export const SETTINGS_FIELD_DEFS = {
-  ...PRESET_FIELDS,
-  ...SETTINGS_ONLY_FIELDS,
-};
-
 type DefaultValues<F extends Record<string, FieldDef<unknown>>> = {
   [K in keyof F]: F[K]["default"];
 };
@@ -450,35 +445,6 @@ export const SETTINGS_LIMITS = {
   stopZoneDimension: SETTINGS_ONLY_FIELDS.customStopZoneWidth.limit,
   sequencePointClicks: { min: 1, max: 100000 },
 };
-
-export const SETTINGS_UI_SCHEMA = [
-  {
-    id: "behavior",
-    fields: [
-      "alwaysOnTop",
-      "showStopOverlay",
-      "showStopReason",
-      "strictHotkeyModifiers",
-      "taskSwitcherStopEnabled",
-      "extendedClickSpeedLimit",
-    ],
-  },
-  {
-    id: "startup",
-    fields: ["minimizeToTray"],
-  },
-  {
-    id: "appearance",
-    fields: ["theme", "advancedSequenceLayout", "accentColor"],
-  },
-  {
-    id: "presets",
-    fields: ["presets", "activePresetId"],
-  },
-] as const satisfies ReadonlyArray<{
-  id: string;
-  fields: ReadonlyArray<keyof Settings>;
-}>;
 
 export function clampNumber(
   value: unknown,
@@ -673,16 +639,6 @@ export function buildPresetSnapshot(settings: Settings): PresetSnapshot {
   }
 
   return snapshot as PresetSnapshot;
-}
-
-export function applyPresetSnapshot(
-  base: Settings,
-  snapshot: PresetSnapshot,
-): Settings {
-  return {
-    ...base,
-    ...snapshot,
-  };
 }
 
 export function createPresetDefinition(
