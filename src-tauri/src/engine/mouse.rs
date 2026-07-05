@@ -240,8 +240,8 @@ pub fn send_clicks(
         return;
     }
 
-    let is_active = || control.is_active();
-    let mut sleep_for = |duration| sleep_interruptible(duration, control);
+    let is_active = || control.is_active() && !should_abort();
+    let mut sleep_for = |duration| sleep_interruptible(duration, control, should_abort);
 
     for _ in 0..count {
         if should_abort() {
