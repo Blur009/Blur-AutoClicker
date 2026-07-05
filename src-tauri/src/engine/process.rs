@@ -280,11 +280,20 @@ pub fn get_foreground_process_name() -> Option<String> {
     get_process_name_from_pid(pid)
 }
 
+fn prefer_titled_pid(existing: u32, candidate: u32, has_title: impl Fn(u32) -> bool) -> u32 {
+    if !has_title(existing) && has_title(candidate) {
+        candidate
+    } else {
+        existing
+    }
+}
+
 pub fn list_running_processes() -> Vec<ProcessInfo> {
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
     if snapshot == INVALID_HANDLE_VALUE {
         return vec![];
     }
+    let pid_title_map = build_pid_title_map();
     let mut unique_processes: HashMap<String, u32> = HashMap::new();
     let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
     entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
@@ -293,9 +302,14 @@ pub fn list_running_processes() -> Vec<ProcessInfo> {
             let exe_name = wide_array_to_string(&entry.szExeFile);
             if !exe_name.is_empty() && exe_name.ends_with(".exe") {
                 let lower_name = exe_name.to_lowercase();
+                let pid = entry.th32ProcessID;
                 unique_processes
                     .entry(lower_name)
-                    .or_insert(entry.th32ProcessID);
+                    .and_modify(|existing| {
+                        *existing =
+                            prefer_titled_pid(*existing, pid, |p| pid_title_map.contains_key(&p));
+                    })
+                    .or_insert(pid);
             }
             if unsafe { Process32NextW(snapshot, &mut entry) } == 0 {
                 break;
@@ -303,7 +317,6 @@ pub fn list_running_processes() -> Vec<ProcessInfo> {
         }
     }
     unsafe { CloseHandle(snapshot) };
-    let pid_title_map = build_pid_title_map();
 
     let mut result: Vec<ProcessInfo> = unique_processes
         .into_iter()
@@ -429,5 +442,14 @@ mod tests {
             format!("{}Т", "a".repeat(PROCESS_DISPLAY_TITLE_MAX_CHARS - 1))
         );
         assert!(truncated.is_char_boundary(truncated.len()));
+    }
+
+    #[test]
+    fn prefer_titled_pid_upgrades_from_windowless_to_titled_instance() {
+        let has_title = |pid: u32| pid == 2000;
+        assert_eq!(prefer_titled_pid(1000, 2000, has_title), 2000);
+        assert_eq!(prefer_titled_pid(2000, 3000, has_title), 2000);
+        let none = |_pid: u32| false;
+        assert_eq!(prefer_titled_pid(1000, 2000, none), 1000);
     }
 }
