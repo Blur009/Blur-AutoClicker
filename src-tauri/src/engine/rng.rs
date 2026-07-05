@@ -10,7 +10,7 @@ impl SmallRng {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.subsec_nanos() as u64 ^ d.as_secs())
             .unwrap_or(12345);
-        let seed = t ^ (std::process::id() as u64).wrapping_mul(0x9e3779b97f4a7c15);
+        let seed = (t ^ (std::process::id() as u64).wrapping_mul(0x9e3779b97f4a7c15)) | 1;
         Self {
             state: seed,
             cached_gaussian: None,
