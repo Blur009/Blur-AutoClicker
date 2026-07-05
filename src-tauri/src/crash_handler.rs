@@ -59,7 +59,7 @@ mod tests {
     #[test]
     #[cfg(not(feature = "crashpad"))]
     fn crashpad_stub_returns_ok() {
-        let result = initialize_crashpad();
+        let result = super::initialize_crashpad();
         assert!(result.is_ok());
     }
 }
