@@ -31,6 +31,9 @@ export const PRESET_NAME_MAX_LENGTH = 40;
 export const DEFAULT_MAX_CLICK_SPEED = 500;
 export const EXTENDED_MAX_CLICK_SPEED = 1000;
 
+const INT32_MIN = -2147483648;
+const INT32_MAX = 2147483647;
+
 export const CLICK_INTERVAL_OPTIONS = [
   { value: "s", label: "Second" },
   { value: "m", label: "Minute" },
@@ -628,11 +631,11 @@ function sanitizeSequencePoints(value: unknown): SequencePoint[] {
           : createSequencePointId();
       const x =
         typeof candidate.x === "number" && Number.isFinite(candidate.x)
-          ? Math.trunc(candidate.x)
+          ? clampNumber(Math.trunc(candidate.x), 0, INT32_MIN, INT32_MAX)
           : null;
       const y =
         typeof candidate.y === "number" && Number.isFinite(candidate.y)
-          ? Math.trunc(candidate.y)
+          ? clampNumber(Math.trunc(candidate.y), 0, INT32_MIN, INT32_MAX)
           : null;
       const clicks =
         typeof candidate.clicks === "number" &&
