@@ -1,6 +1,7 @@
 # v3.9.0 - 02.07.2026 (d.m.y)
 ## New
 - Added Hold mode in duty cycle since people couldn't figure out that 100% is the same as Holding down the mouse continuously.
+- Added slider for window opacity in the appearance settings.
 ## Changed
 - Overhauled Advanced panel.
 - Settings panel now has a side menu for easier navigation and organization of settings.

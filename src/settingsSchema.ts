@@ -373,6 +373,11 @@ const SETTINGS_ONLY_FIELDS = {
     limit: { min: 0, max: 100 },
     ui: { section: "appearance", control: "number" },
   },
+  windowOpacity: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
   panelOpacity: {
     default: 100,
     limit: { min: 0, max: 100 },

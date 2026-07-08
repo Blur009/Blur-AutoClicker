@@ -920,21 +920,28 @@ export default function App() {
     if (!root) return;
 
     const panelOpacity = settings.panelOpacity / 100;
+    const windowOpacity = settings.windowOpacity / 100;
     const colors =
       settings.theme === "light"
         ? {
+            base: "229, 223, 231",
             surface: "255, 255, 255",
             elevated: "242, 242, 242",
             input: "217, 217, 217",
             inputOff: "217, 217, 217",
           }
         : {
+            base: "12, 12, 14",
             surface: "26, 26, 26",
             elevated: "38, 38, 38",
             input: "59, 59, 59",
             inputOff: "51, 51, 51",
           };
 
+    root.style.setProperty(
+      "--bg-base",
+      `rgba(${colors.base}, ${windowOpacity})`,
+    );
     root.style.setProperty(
       "--bg-surface",
       `rgba(${colors.surface}, ${panelOpacity})`,
@@ -954,13 +961,14 @@ export default function App() {
     root.style.setProperty("--bg-panel-blur", `${settings.panelBlur}px`);
 
     return () => {
+      root.style.removeProperty("--bg-base");
       root.style.removeProperty("--bg-surface");
       root.style.removeProperty("--bg-elevated");
       root.style.removeProperty("--bg-input");
       root.style.removeProperty("--bg-input-off");
       root.style.removeProperty("--bg-panel-blur");
     };
-  }, [settings.panelOpacity, settings.panelBlur, settings.theme]);
+  }, [settings.windowOpacity, settings.panelOpacity, settings.panelBlur, settings.theme]);
 
   useEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;

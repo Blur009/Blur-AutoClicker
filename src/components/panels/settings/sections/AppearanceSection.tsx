@@ -86,6 +86,30 @@ export default function AppearanceSection({ settings, update }: Props) {
 
       <div className="settings-row">
         <div className="settings-label-group">
+          <span className="settings-label">Background Opacity</span>
+          <span className="settings-sublabel">
+            Transparency of the app window background.
+          </span>
+        </div>
+        <div className="settings-opacity-controls">
+          <input
+            type="range"
+            className="settings-opacity-slider"
+            min="0"
+            max="100"
+            value={settings.windowOpacity}
+            onChange={(event) =>
+              update({ windowOpacity: Number(event.target.value) })
+            }
+          />
+          <span className="settings-slider-value">
+            {settings.windowOpacity}%
+          </span>
+        </div>
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-label-group">
           <span className="settings-label">Background Image</span>
           <span className="settings-sublabel">
             Path or URL to a background image.
@@ -121,7 +145,7 @@ export default function AppearanceSection({ settings, update }: Props) {
 
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Background Opacity</span>
+          <span className="settings-label">Background Image Opacity</span>
           <span className="settings-sublabel">
             Transparency of the background image.
           </span>
