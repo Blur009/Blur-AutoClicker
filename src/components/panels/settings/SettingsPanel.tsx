@@ -5,7 +5,6 @@ import type { AppInfo, PresetId, Settings } from "../../../store";
 
 import GeneralSection from "./sections/GeneralSection";
 import BehaviorSection from "./sections/BehaviorSection";
-import StartupSection from "./sections/StartupSection";
 import AppearanceSection from "./sections/AppearanceSection";
 import PresetsSection from "./sections/PresetsSection";
 import MaintenanceSection from "./sections/MaintenanceSection";
@@ -13,7 +12,6 @@ import MaintenanceSection from "./sections/MaintenanceSection";
 type SettingsTab =
   | "general"
   | "behavior"
-  | "startup"
   | "appearance"
   | "presets"
   | "maintenance";
@@ -122,22 +120,6 @@ export default function SettingsPanel({
           Appearance
         </button>
         <button
-          className={`sidebar-tab ${activeTab === "startup" ? "active" : ""}`}
-          onClick={() => setActiveTab("startup")}
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path d="M8 5v14l11-7z" />
-          </svg>
-          Startup
-        </button>
-
-        <button
           className={`sidebar-tab ${activeTab === "presets" ? "active" : ""}`}
           onClick={() => setActiveTab("presets")}
         >
@@ -197,9 +179,6 @@ export default function SettingsPanel({
             update={update}
             onToggleAlwaysOnTop={onToggleAlwaysOnTop}
           />
-        )}
-        {activeTab === "startup" && (
-          <StartupSection settings={settings} update={update} />
         )}
         {activeTab === "appearance" && (
           <AppearanceSection settings={settings} update={update} />
