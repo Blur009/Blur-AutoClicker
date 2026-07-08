@@ -152,7 +152,9 @@ const ZonesIcon = memo(function ZonesIcon({ active }: TabIconProps) {
   );
 });
 
-const SequenceIcon = memo(function SequenceIcon({ active }: TabIconProps) {
+const ClickPointsIcon = memo(function ClickPointsIcon({
+  active,
+}: TabIconProps) {
   return (
     <svg
       width="18"
@@ -178,9 +180,9 @@ const TAB_ITEMS: readonly TabItem[] = [
   {
     value: "simple",
     label: "Simple",
-    color: "var(--accent-green)",
-    activeBg: "var(--accent-green-soft)",
-    activeFocusRing: "var(--accent-green-ring)",
+    color: "var(--accent)",
+    activeBg: "var(--accent-soft)",
+    activeFocusRing: "var(--accent-ring)",
     icon: ({ active }) => <SimpleIcon active={active} />,
   },
   {
@@ -200,12 +202,12 @@ const TAB_ITEMS: readonly TabItem[] = [
     icon: ({ active }) => <ZonesIcon active={active} />,
   },
   {
-    value: "sequence",
-    label: "Sequence",
+    value: "click-points",
+    label: "Click Points",
     color: "hsl(180 75% 40%)",
     activeBg: "hsla(180, 75%, 40%, 0.14)",
     activeFocusRing: "hsla(180, 75%, 40%, 0.35)",
-    icon: ({ active }) => <SequenceIcon active={active} />,
+    icon: ({ active }) => <ClickPointsIcon active={active} />,
   },
 ] as const;
 
@@ -258,8 +260,8 @@ const TitleBar = memo(function TitleBar({
         >
           <svg
             className="settings-svg"
-            width="15"
-            height="15"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"

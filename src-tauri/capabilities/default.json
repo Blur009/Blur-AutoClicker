@@ -33,6 +33,8 @@
     "global-shortcut:allow-is-registered",
 
     "dialog:default",
-    "dialog:allow-open"
+    "dialog:allow-open",
+
+    "log:default"
   ]
 }

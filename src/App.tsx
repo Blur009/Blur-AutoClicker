@@ -45,11 +45,11 @@ const ZonesPanel = lazy(() => import("./components/panels/zones/ZonesPanel"));
 const SettingsPanel = lazy(
   () => import("./components/panels/settings/SettingsPanel"),
 );
-const SequencePanel = lazy(
-  () => import("./components/panels/sequence/SequencePanel"),
+const ClickPointsPanel = lazy(
+  () => import("./components/panels/click-points/ClickPointsPanel"),
 );
 const TitleBar = lazy(() => import("./components/TitleBar"));
-export type Tab = "simple" | "advanced" | "zones" | "settings" | "sequence";
+export type Tab = "simple" | "advanced" | "zones" | "settings" | "click-points";
 
 const BACKEND_SETTINGS_SCHEMA_VERSION = 10;
 const MAX_DROPDOWN_OVERFLOW_BOTTOM = 220;
@@ -65,12 +65,12 @@ type DropdownOverflowDetail = {
 function getPanelSize(tab: Tab, hasUpdate: boolean) {
   const extra = hasUpdate ? 30 : 0;
   if (tab === "simple") {
-    return { width: 650, height: 175 + extra };
+    return { width: 716, height: 175 + extra };
   }
   if (tab === "settings") return { width: 700, height: 720 + extra };
   if (tab === "zones") return { width: 750, height: 720 + extra };
-  if (tab === "sequence") return { width: 550, height: 600 + extra };
-  return { width: 900, height: 600 + extra };
+  if (tab === "click-points") return { width: 550, height: 600 + extra };
+  return { width: 900, height: 469 + extra };
 }
 
 async function getClampedPanelSize(
@@ -105,8 +105,8 @@ const DEFAULT_STATUS: ClickerStatus = {
   lastError: null,
   stopReason: null,
   warning: null,
-  activeSequenceIndex: null,
-  activeSequenceTick: 0,
+  activeClickPointIndex: null,
+  activeClickPointTick: 0,
 };
 
 const DEFAULT_APP_INFO: AppInfo = {
@@ -147,7 +147,12 @@ async function checkForUpdates(): Promise<UpdateCheckResult | null> {
   try {
     return await invoke<UpdateCheckResult>("check_for_updates");
   } catch (err) {
-    error(JSON.stringify({ source: "App.updateCheck", error: String(err) }));
+    error(
+      JSON.stringify({
+        source: "App.updateCheck",
+        error: JSON.stringify(err),
+      }),
+    );
     return null;
   }
 }
@@ -847,6 +852,8 @@ export default function App() {
   }, [tab, updateInfo, dropdownOverflowBottom, settingsLoaded]);
 
   useEffect(() => {
+    if (import.meta.env.DEV) return;
+
     const check = async () => {
       const result = await checkForUpdates();
       if (result?.updateAvailable) {
@@ -1038,7 +1045,7 @@ export default function App() {
           (tab === "simple" ||
             tab === "advanced" ||
             tab === "zones" ||
-            tab === "sequence")
+            tab === "click-points")
             ? status.stopReason
             : null
         }
@@ -1060,20 +1067,16 @@ export default function App() {
           <SimplePanel settings={settings} update={updateSettings} />
         )}
         {tab === "advanced" && (
-          <AdvancedPanel
-            settings={settings}
-            update={updateSettings}
-            showInfo={true}
-          />
+          <AdvancedPanel settings={settings} update={updateSettings} />
         )}
-        {tab === "sequence" && (
-          <SequencePanel
+        {tab === "click-points" && (
+          <ClickPointsPanel
             settings={settings}
             update={updateSettings}
             showInfo={true}
             running={status.running}
-            activeSequenceIndex={status.activeSequenceIndex}
-            activeSequenceTick={status.activeSequenceTick}
+            activeClickPointIndex={status.activeClickPointIndex}
+            activeClickPointTick={status.activeClickPointTick}
           />
         )}
         {tab === "zones" && (

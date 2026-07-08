@@ -3,11 +3,11 @@
   align-items: center;
   justify-content: space-between;
   height: 2.5rem;
-  padding-inline: 0.75rem;
+  padding-inline: 1rem;
   width: 100%;
   box-sizing: border-box;
   background: var(--bg-surface);
-  border-bottom: 2px solid var(--border-subtle);
+  border-bottom: 2px solid var(--accent);
   position: relative;
   z-index: 10;
   flex-shrink: 0;
@@ -32,17 +32,17 @@
   font-weight: var(--font-weight-hv);
   font-size: 1rem;
   color: var(--text-muted);
-  letter-spacing: -0.04em;
+  letter-spacing: 0.01em;
   transition:
     color 0.2s ease,
     text-shadow 0.2s ease;
 }
 
 .window-title-background[data-running="true"] .window-title {
-  color: var(--accent-green-strong);
+  color: var(--accent-strong);
   text-shadow:
-    0 0 10px var(--accent-green-glow-1),
-    0 0 18px var(--accent-green-glow-2);
+    0 0 10px var(--accent-glow-1),
+    0 0 18px var(--accent-glow-2);
 }
 
 .settings-button {
@@ -55,7 +55,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   color: var(--text-dim);
   line-height: 0;
   transition: all 0.5s ease;
@@ -136,7 +136,7 @@
   /* Reset */
   background: transparent;
   border: none;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 
   /* Visuals */
@@ -156,12 +156,12 @@
 }
 
 .window-btn.active {
-  color: var(--accent-green-strong);
+  color: var(--accent-strong);
   /* background: rgba(255, 255, 255, 0.08); */
 }
 
 .window-btn.active:hover {
-  background: var(--accent-green-soft);
+  background: var(--accent-soft);
 }
 
 /* -- Title Horizontal Reveal -- */

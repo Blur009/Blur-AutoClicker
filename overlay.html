@@ -58,7 +58,7 @@
             height: 100%;
             position: relative;
         }
-        .sequence-dot {
+        .click-points-dot {
             position: absolute;
             width: 10px;
             height: 10px;
@@ -109,7 +109,7 @@
 <body>
     <div id="overlay-container">
         <div id="zone-layer" class="overlay-layer"></div>
-        <div id="sequence-layer" class="overlay-layer"></div>
+        <div id="click-points-layer" class="overlay-layer"></div>
         <div id="pick-prompt" class="overlay-prompt">
             Right click to add point.
             <span>Shift + right click to add multiple.</span>
@@ -125,7 +125,7 @@
 
     <script>
         const zoneLayer = document.getElementById('zone-layer');
-        const sequenceLayer = document.getElementById('sequence-layer');
+        const clickPointsLayer = document.getElementById('click-points-layer');
         const pickPrompt = document.getElementById('pick-prompt');
         const stopZonePrompt = document.getElementById('stop-zone-prompt');
         let pickModeActive = false;
@@ -147,15 +147,15 @@
                 zoneLayer.classList.remove('fade-out');
             });
 
-            window.__TAURI__.event.listen('sequence-points-data', (event) => {
-                renderSequencePoints(event.payload);
+            window.__TAURI__.event.listen('click-points-data', (event) => {
+                renderClickPoints(event.payload);
             });
 
-            window.__TAURI__.event.listen('sequence-pick-mode', (event) => {
+            window.__TAURI__.event.listen('click-pick-mode', (event) => {
                 setPickMode(Boolean(event.payload && event.payload.active));
             });
 
-            window.__TAURI__.event.listen('sequence-pick-cursor', (event) => {
+            window.__TAURI__.event.listen('click-pick-cursor', (event) => {
                 updatePickPrompt(event.payload);
             });
 
@@ -316,31 +316,31 @@
             stopZonePrompt.classList.remove('active');
         }
 
-        function renderSequencePoints(data) {
-            sequenceLayer.innerHTML = '';
-            sequenceLayer.classList.remove('fade-out');
+        function renderClickPoints(data) {
+            clickPointsLayer.innerHTML = '';
+            clickPointsLayer.classList.remove('fade-out');
 
             if (!data || !Array.isArray(data.points)) return;
 
             for (let index = 0; index < data.points.length; index += 1) {
                 const point = data.points[index];
-                addSequenceDot(point, index);
+                addClickPointDot(point, index);
             }
 
             if (!data.persistent && !pickModeActive) {
-                void sequenceLayer.offsetWidth;
-                sequenceLayer.classList.add('fade-out');
+                void clickPointsLayer.offsetWidth;
+                clickPointsLayer.classList.add('fade-out');
             }
         }
 
-        function addSequenceDot(point, index) {
+        function addClickPointDot(point, index) {
             const scale = window.devicePixelRatio || 1;
             const dot = document.createElement('div');
-            dot.className = 'sequence-dot';
+            dot.className = 'click-points-dot';
             dot.style.left = (point.x / scale - 5) + 'px';
             dot.style.top = (point.y / scale - 5) + 'px';
             dot.style.background = stableDotColor(point, index);
-            sequenceLayer.appendChild(dot);
+            clickPointsLayer.appendChild(dot);
         }
 
         function stableDotColor(point, index) {
@@ -359,7 +359,7 @@
             pickModeActive = active;
             pickPrompt.classList.toggle('active', active);
             if (active) {
-                sequenceLayer.classList.remove('fade-out');
+                clickPointsLayer.classList.remove('fade-out');
             }
         }
 

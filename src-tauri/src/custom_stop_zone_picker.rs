@@ -97,7 +97,7 @@ fn normalize_rect(start: (i32, i32), end: (i32, i32)) -> StopZoneRect {
 }
 
 pub fn start_custom_stop_zone_pick_inner(app: AppHandle) -> AppResult<()> {
-    crate::sequence_picker::cancel_sequence_point_pick_inner(&app);
+    crate::click_point_picker::cancel_click_point_pick_inner(&app);
 
     {
         let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);

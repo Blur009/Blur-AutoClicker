@@ -11,11 +11,6 @@ const IMAGE_FILTERS = [
   },
 ];
 
-const advancedLayoutOptions = [
-  { value: "wide" as const, label: "Wide" },
-  { value: "tall" as const, label: "Tall" },
-];
-
 interface Props {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
@@ -58,26 +53,6 @@ export default function AppearanceSection({ settings, update }: Props) {
               onClick={() => update({ theme })}
             >
               {theme === "dark" ? "Dark" : "Light"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="settings-row">
-        <div className="settings-label-group">
-          <span className="settings-label">Advanced Layout</span>
-          <span className="settings-sublabel">
-            Panel layout for sequence zones.
-          </span>
-        </div>
-        <div className="settings-seg-group">
-          {advancedLayoutOptions.map((option) => (
-            <button
-              key={option.value}
-              className={`settings-seg-btn ${settings.advancedSequenceLayout === option.value ? "active" : ""}`}
-              onClick={() => update({ advancedSequenceLayout: option.value })}
-            >
-              {option.label}
             </button>
           ))}
         </div>

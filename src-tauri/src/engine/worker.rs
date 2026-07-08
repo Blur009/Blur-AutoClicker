@@ -23,10 +23,10 @@ use super::mouse::{
 };
 use super::process;
 use super::rng::SmallRng;
+use super::ClickPointTarget;
 use super::ClickerConfig;
 use super::NtSetTimerResolution;
 use super::RunOutcome;
-use super::SequenceTarget;
 use super::CLICK_COUNT;
 
 // -- CPU measurement --
@@ -50,8 +50,8 @@ fn thread_cycles() -> u64 {
 }
 
 impl ClickerConfig {
-    pub fn use_sequence(&self) -> bool {
-        self.sequence_enabled && !self.sequence_points.is_empty()
+    pub fn use_click_points(&self) -> bool {
+        self.click_points_enabled && !self.click_points.is_empty()
     }
 }
 
@@ -186,9 +186,9 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
         *state.warning.lock().unwrap_or_else(poisoned_inner) = None;
     }
 
-    if config.use_sequence() {
-        state.active_sequence_index.store(0, Ordering::SeqCst);
-        state.active_sequence_tick.store(0, Ordering::SeqCst);
+    if config.use_click_points() {
+        state.active_click_point_index.store(0, Ordering::SeqCst);
+        state.active_click_point_tick.store(0, Ordering::SeqCst);
     }
     let expected_generation = state.run_generation.fetch_add(1, Ordering::SeqCst) + 1;
     let control = RunControl::new(app.clone(), expected_generation);
@@ -208,8 +208,8 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
 
         let state = app_handle.state::<ClickerState>();
         state.running.store(false, Ordering::SeqCst);
-        state.active_sequence_index.store(-1, Ordering::SeqCst);
-        state.active_sequence_tick.store(0, Ordering::SeqCst);
+        state.active_click_point_index.store(-1, Ordering::SeqCst);
+        state.active_click_point_tick.store(0, Ordering::SeqCst);
 
         *state.stop_reason.lock().unwrap_or_else(poisoned_inner) =
             Some(outcome.stop_reason.clone());
@@ -227,8 +227,8 @@ pub fn stop_clicker_inner(
 ) -> AppResult<ClickerStatusPayload> {
     let state = app.state::<ClickerState>();
     let was_running = state.running.swap(false, Ordering::SeqCst);
-    state.active_sequence_index.store(-1, Ordering::SeqCst);
-    state.active_sequence_tick.store(0, Ordering::SeqCst);
+    state.active_click_point_index.store(-1, Ordering::SeqCst);
+    state.active_click_point_tick.store(0, Ordering::SeqCst);
     if was_running {
         state.run_generation.fetch_add(1, Ordering::SeqCst);
     }
@@ -273,13 +273,13 @@ fn system_double_click_gap_ms() -> u32 {
     ((system_timeout_ms as f64) * 0.9).floor() as u32
 }
 
-fn current_cycle_target(config: &ClickerConfig, sequence_index: usize) -> SequenceTarget {
-    if config.use_sequence() {
-        let safe_index = sequence_index % config.sequence_points.len();
-        config.sequence_points[safe_index]
+fn current_cycle_target(config: &ClickerConfig, click_point_index: usize) -> ClickPointTarget {
+    if config.use_click_points() {
+        let safe_index = click_point_index % config.click_points.len();
+        config.click_points[safe_index]
     } else {
         let (x, y) = get_cursor_pos();
-        SequenceTarget { x, y, clicks: 1 }
+        ClickPointTarget { x, y, clicks: 1 }
     }
 }
 
@@ -321,8 +321,8 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
 
     Ok(ClickerConfig {
         interval_secs: base_interval_secs,
-        variation: if settings.speed_variation_enabled {
-            settings.speed_variation
+        variation: if settings.speed_randomization_enabled {
+            settings.speed_randomization
         } else {
             0.0
         },
@@ -340,11 +340,11 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
         button,
         double_click_enabled: settings.double_click_enabled,
         double_click_gap_ms: system_double_click_gap_ms(),
-        sequence_enabled: settings.sequence_enabled,
-        sequence_points: settings
-            .sequence_points
+        click_points_enabled: settings.click_points_enabled,
+        click_points: settings
+            .click_points
             .iter()
-            .map(|point| SequenceTarget {
+            .map(|point| ClickPointTarget {
                 x: point.x,
                 y: point.y,
                 clicks: point.clicks.clamp(1, 100000) as usize,
@@ -404,8 +404,8 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
         .unwrap_or_else(poisoned_inner)
         .clone();
     let warning = state.warning.lock().unwrap_or_else(poisoned_inner).clone();
-    let active_sequence_index = state.active_sequence_index.load(Ordering::SeqCst);
-    let active_sequence_tick = state.active_sequence_tick.load(Ordering::SeqCst);
+    let active_click_point_index = state.active_click_point_index.load(Ordering::SeqCst);
+    let active_click_point_tick = state.active_click_point_tick.load(Ordering::SeqCst);
 
     ClickerStatusPayload {
         running: state.running.load(Ordering::SeqCst),
@@ -414,12 +414,12 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
         last_error,
         stop_reason,
         warning,
-        active_sequence_index: if active_sequence_index >= 0 {
-            Some(active_sequence_index as usize)
+        active_click_point_index: if active_click_point_index >= 0 {
+            Some(active_click_point_index as usize)
         } else {
             None
         },
-        active_sequence_tick,
+        active_click_point_tick,
     }
 }
 
@@ -532,7 +532,7 @@ impl ClickerContext {
             down_flag,
             up_flag,
             batch_size,
-            has_position: config.use_sequence(),
+            has_position: config.use_click_points(),
             use_smoothing: config.smoothing == 1 && cps < 50.0,
             single_plan: ClickCyclePlan::single(hold_ms),
             double_plan: ClickCyclePlan::double(hold_ms, cycle_ms, config.double_click_gap_ms),
@@ -543,18 +543,18 @@ impl ClickerContext {
 struct LoopState {
     click_count: i64,
     stop_reason: String,
-    sequence_index: usize,
-    sequence_clicks_remaining: usize,
+    click_point_index: usize,
+    click_point_clicks_remaining: usize,
     target_x: i32,
     target_y: i32,
     next_batch_time: Instant,
-    moved_sequence_index: Option<usize>,
+    moved_click_point_index: Option<usize>,
 }
 
 impl LoopState {
     fn new(config: &ClickerConfig) -> Self {
         let target = current_cycle_target(config, 0);
-        let (target_x, target_y) = if config.use_sequence() {
+        let (target_x, target_y) = if config.use_click_points() {
             (target.x, target.y)
         } else {
             get_cursor_pos()
@@ -562,12 +562,12 @@ impl LoopState {
         Self {
             click_count: 0,
             stop_reason: String::from("Stopped"),
-            sequence_index: 0,
-            sequence_clicks_remaining: target.clicks.max(1),
+            click_point_index: 0,
+            click_point_clicks_remaining: target.clicks.max(1),
             target_x,
             target_y,
             next_batch_time: Instant::now(),
-            moved_sequence_index: None,
+            moved_click_point_index: None,
         }
     }
 }
@@ -629,7 +629,7 @@ fn update_target(
     if !ctx.has_position {
         return;
     }
-    let target = current_cycle_target(config, st.sequence_index);
+    let target = current_cycle_target(config, st.click_point_index);
     if config.offset_chance > 0.0 && rng.next_f64() * 100.0 <= config.offset_chance {
         let angle = rng.next_f64() * 2.0 * PI;
         let radius = rng.next_f64().sqrt() * config.offset;
@@ -639,7 +639,8 @@ fn update_target(
         st.target_x = target.x;
         st.target_y = target.y;
     }
-    let should_move = st.moved_sequence_index != Some(st.sequence_index) || config.offset > 0.0;
+    let should_move =
+        st.moved_click_point_index != Some(st.click_point_index) || config.offset > 0.0;
     if !should_move {
         return;
     }
@@ -660,7 +661,7 @@ fn update_target(
     } else {
         move_mouse(st.target_x, st.target_y);
     }
-    st.moved_sequence_index = Some(st.sequence_index);
+    st.moved_click_point_index = Some(st.click_point_index);
 }
 
 fn run_batch(
@@ -671,8 +672,8 @@ fn run_batch(
     control: &RunControl,
     should_abort: &dyn Fn() -> bool,
 ) -> bool {
-    let requested = if config.use_sequence() {
-        st.sequence_clicks_remaining.min(ctx.batch_size)
+    let requested = if config.use_click_points() {
+        st.click_point_clicks_remaining.min(ctx.batch_size)
     } else {
         ctx.batch_size
     };
@@ -750,16 +751,18 @@ fn run_batch(
         sleep_interruptible(sleep_dur, control);
     }
 
-    if config.use_sequence() {
-        st.sequence_clicks_remaining = st.sequence_clicks_remaining.saturating_sub(batch.cycles);
-        if st.sequence_clicks_remaining == 0 {
-            st.sequence_index = (st.sequence_index + 1) % config.sequence_points.len();
-            st.sequence_clicks_remaining = config.sequence_points[st.sequence_index].clicks.max(1);
+    if config.use_click_points() {
+        st.click_point_clicks_remaining =
+            st.click_point_clicks_remaining.saturating_sub(batch.cycles);
+        if st.click_point_clicks_remaining == 0 {
+            st.click_point_index = (st.click_point_index + 1) % config.click_points.len();
+            st.click_point_clicks_remaining =
+                config.click_points[st.click_point_index].clicks.max(1);
             let state = control.app.state::<ClickerState>();
             state
-                .active_sequence_index
-                .store(st.sequence_index as i64, Ordering::SeqCst);
-            state.active_sequence_tick.fetch_add(1, Ordering::SeqCst);
+                .active_click_point_index
+                .store(st.click_point_index as i64, Ordering::SeqCst);
+            state.active_click_point_tick.fetch_add(1, Ordering::SeqCst);
             emit_status(&control.app);
         }
     }
@@ -795,12 +798,12 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
 
     if ctx.has_position {
         move_mouse(st.target_x, st.target_y);
-        st.moved_sequence_index = Some(0);
+        st.moved_click_point_index = Some(0);
     }
-    if config.use_sequence() {
+    if config.use_click_points() {
         let state = control.app.state::<ClickerState>();
-        state.active_sequence_index.store(0, Ordering::SeqCst);
-        state.active_sequence_tick.fetch_add(1, Ordering::SeqCst);
+        state.active_click_point_index.store(0, Ordering::SeqCst);
+        state.active_click_point_tick.fetch_add(1, Ordering::SeqCst);
         emit_status(&control.app);
     }
 
@@ -872,8 +875,8 @@ mod tests {
             button: 1,
             double_click_enabled: false,
             double_click_gap_ms: 450,
-            sequence_enabled: false,
-            sequence_points: Vec::new(),
+            click_points_enabled: false,
+            click_points: Vec::new(),
             offset: 0.0,
             offset_chance: 0.0,
             smoothing: 0,
@@ -955,16 +958,16 @@ mod tests {
     }
 
     #[test]
-    fn sequence_point_rotation_is_round_robin() {
+    fn click_point_rotation_is_round_robin() {
         let mut config = sample_config();
-        config.sequence_enabled = true;
-        config.sequence_points = vec![
-            SequenceTarget {
+        config.click_points_enabled = true;
+        config.click_points = vec![
+            ClickPointTarget {
                 x: 10,
                 y: 10,
                 clicks: 1,
             },
-            SequenceTarget {
+            ClickPointTarget {
                 x: 20,
                 y: 20,
                 clicks: 1,
@@ -973,7 +976,7 @@ mod tests {
 
         assert_eq!(
             current_cycle_target(&config, 0),
-            SequenceTarget {
+            ClickPointTarget {
                 x: 10,
                 y: 10,
                 clicks: 1
@@ -981,7 +984,7 @@ mod tests {
         );
         assert_eq!(
             current_cycle_target(&config, 1),
-            SequenceTarget {
+            ClickPointTarget {
                 x: 20,
                 y: 20,
                 clicks: 1
@@ -989,7 +992,7 @@ mod tests {
         );
         assert_eq!(
             current_cycle_target(&config, 2),
-            SequenceTarget {
+            ClickPointTarget {
                 x: 10,
                 y: 10,
                 clicks: 1

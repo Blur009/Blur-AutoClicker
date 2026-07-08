@@ -34,7 +34,7 @@ pub struct ProcessListEntry {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SequenceTarget {
+pub struct ClickPointTarget {
     pub x: i32,
     pub y: i32,
     pub clicks: usize,
@@ -50,8 +50,8 @@ pub struct ClickerConfig {
     pub button: i32,
     pub double_click_enabled: bool,
     pub double_click_gap_ms: u32,
-    pub sequence_enabled: bool,
-    pub sequence_points: Vec<SequenceTarget>,
+    pub click_points_enabled: bool,
+    pub click_points: Vec<ClickPointTarget>,
     pub offset: f64,
     pub offset_chance: f64,
     pub smoothing: i32,

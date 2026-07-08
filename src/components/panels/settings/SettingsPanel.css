@@ -4,7 +4,7 @@
   position: relative;
   flex: 1;
   overflow: hidden;
-  margin: -1.25rem -1.25rem -0.75rem -1.25rem;
+  margin: -1rem;
 }
 
 .settings-sidebar {
@@ -24,12 +24,12 @@
 .settings-sidebar::-webkit-scrollbar {
   width: 0.375rem;
   background: var(--bg-elevated);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
 }
 
 .settings-sidebar::-webkit-scrollbar-thumb {
   background: var(--text-dim);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
 }
 
 .settings-sidebar::-webkit-scrollbar-thumb:hover {
@@ -108,8 +108,8 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.75rem 0.75rem 1rem;
-  border-top: 2px solid rgb(49, 49, 49);
-  border-left: 2px solid rgb(49, 49, 49);
+  border-top: 2px solid var(--accent);
+  border-left: 2px solid var(--accent);
   border-top-left-radius: var(--radius-lg);
   overflow-y: hidden;
   scrollbar-gutter: stable;
@@ -141,12 +141,12 @@
 .settings-panel::-webkit-scrollbar {
   width: 0.375rem;
   background: var(--bg-elevated);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
 }
 
 .settings-panel::-webkit-scrollbar-thumb {
   background: var(--text-dim);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
 }
 
 .settings-panel::-webkit-scrollbar-thumb:hover {
@@ -347,12 +347,12 @@
 .settings-btn-primary {
   background: transparent;
   border: 1px solid var(--border-subtle);
-  color: var(--accent-green-strong);
+  color: var(--accent-strong);
 }
 
 .settings-btn-primary:hover {
-  background: var(--accent-green-soft);
-  border-color: var(--accent-green);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .settings-btn-secondary,
@@ -468,7 +468,7 @@
 
 .preset-name-input:focus,
 .preset-rename-input:focus {
-  border-color: var(--accent-green-ring);
+  border-color: var(--accent-ring);
 }
 
 .preset-list {
@@ -486,12 +486,12 @@
 .preset-list::-webkit-scrollbar {
   width: 0.375rem;
   background: var(--bg-elevated);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
 }
 
 .preset-list::-webkit-scrollbar-thumb {
   background: var(--text-dim);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
 }
 
 .preset-list::-webkit-scrollbar-thumb:hover {
@@ -531,8 +531,8 @@
 }
 
 .preset-card--active {
-  border-color: var(--accent-green-ring);
-  box-shadow: inset 0 0 0 1px var(--accent-green-soft);
+  border-color: var(--accent-ring);
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
 }
 
 .preset-card-head {
@@ -564,7 +564,7 @@
 
 .preset-badge {
   padding: 0.1875rem 0.5rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-md);
   background: var(--bg-input);
   color: var(--text-muted);
   font-size: 0.6875rem;
@@ -575,8 +575,8 @@
 
 .preset-badge--active {
   background: transparent;
-  border: 1px solid var(--accent-green-ring);
-  color: var(--accent-green-strong);
+  border: 1px solid var(--accent-ring);
+  color: var(--accent-strong);
 }
 
 .preset-actions {
@@ -645,7 +645,7 @@
 .social-icon--kofi {
   width: 7.125rem;
   height: 1.875rem;
-  border-radius: 0.625rem;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
 }
 
@@ -761,7 +761,7 @@
 }
 
 .settings-bg-input:focus {
-  border-color: var(--accent-green-ring);
+  border-color: var(--accent-ring);
 }
 
 .settings-bg-buttons {
@@ -782,7 +782,7 @@
   appearance: none;
   width: 8rem;
   height: 0.375rem;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
   background: var(--bg-input);
   outline: none;
   cursor: pointer;
@@ -794,14 +794,14 @@
   width: 1rem;
   height: 1rem;
   border-radius: 50%;
-  background: var(--accent-green-strong);
+  background: var(--accent-strong);
   border: 2px solid var(--bg-elevated);
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
 .settings-opacity-slider::-webkit-slider-thumb:hover {
-  background: var(--accent-green);
+  background: var(--accent);
 }
 
 .settings-opacity-slider:disabled {

@@ -52,7 +52,7 @@
   gap: 2px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   padding: 0.25rem 0.5rem;
   position: relative;
   overflow: hidden;
@@ -75,7 +75,7 @@
   position: absolute;
   width: 0.625rem;
   height: 0.625rem;
-  border: 2px solid var(--accent-green);
+  border: 2px solid var(--accent);
   pointer-events: none;
 }
 
@@ -113,8 +113,8 @@
 
 .adv-edge-bar {
   position: absolute;
-  background: var(--accent-green);
-  border-radius: 2px;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
   pointer-events: none;
 }
 
@@ -249,12 +249,12 @@
 .adv-process-list::-webkit-scrollbar {
   width: 0.375rem;
   background: var(--bg-elevated);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
 }
 
 .adv-process-list::-webkit-scrollbar-thumb {
   background: var(--text-dim);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
 }
 
 .adv-process-list::-webkit-scrollbar-thumb:hover {
@@ -267,7 +267,7 @@
   }
 }
 
-.adv-process-list .adv-sequence-item {
+.adv-process-list .adv-click-points-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -279,16 +279,16 @@
     background 0.15s ease;
 }
 
-.adv-process-list .adv-sequence-item:hover {
+.adv-process-list .adv-click-points-item:hover {
   border-color: var(--text-dim);
   background: var(--bg-input);
 }
 
-.adv-process-list .adv-sequence-item + .adv-sequence-item {
+.adv-process-list .adv-click-points-item + .adv-click-points-item {
   margin-top: 6px;
 }
 
-.adv-process-list .adv-sequence-item::before {
+.adv-process-list .adv-click-points-item::before {
   display: none;
 }
 
@@ -298,7 +298,7 @@
   width: 16px;
   height: 16px;
   border: 1px solid var(--border-subtle);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--bg-elevated);
   cursor: pointer;
   flex-shrink: 0;

@@ -1,7 +1,14 @@
 # v3.9.0 - 02.07.2026 (d.m.y)
+## New
+- Added Hold mode in duty cycle since people couldn't figure out that 100% is the same as Holding down the mouse continuously.
 ## Changed
+- Overhauled Advanced panel.
 - Settings panel now has a side menu for easier navigation and organization of settings.
 - Font switch from DM Sans to RobotoFlex to support tabular enums (e.g. numbers that don't shift when changing values).
+- Lowered maximum double click CPS from 50 to 10.
+- Click limit maximum increased from 10mil to 100mil.
+- Changed scroll behaviour for number inputs to be: shift = 5, ctrl = 25, shift + ctrl = 100.
+- Made settings icon 1px bigger :). 
 # Fixed
 - Fixed simple tab button in the title bar showing the wrong background color when a custom accent color is selected.
 

@@ -158,7 +158,7 @@ export default function CustomStopZoneSection({
           <div className="adv-stop-zone-controls">
             <div className="adv-stop-zone-grid">
               <label
-                className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input"
+                className="adv-numbox-sm adv-click-points-coord adv-stop-zone-input"
                 style={{ gap: "6px" }}
               >
                 <span
@@ -174,7 +174,7 @@ export default function CustomStopZoneSection({
                 />
               </label>
               <label
-                className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input"
+                className="adv-numbox-sm adv-click-points-coord adv-stop-zone-input"
                 style={{ gap: "6px" }}
               >
                 <span
@@ -190,7 +190,7 @@ export default function CustomStopZoneSection({
                 />
               </label>
               <label
-                className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input"
+                className="adv-numbox-sm adv-click-points-coord adv-stop-zone-input"
                 style={{ gap: "6px" }}
               >
                 <span
@@ -207,7 +207,7 @@ export default function CustomStopZoneSection({
                 />
               </label>
               <label
-                className="adv-numbox-sm adv-sequence-coord adv-stop-zone-input"
+                className="adv-numbox-sm adv-click-points-coord adv-stop-zone-input"
                 style={{ gap: "6px" }}
               >
                 <span
@@ -224,7 +224,7 @@ export default function CustomStopZoneSection({
                 />
               </label>
             </div>
-            <div className="adv-sequence-actions adv-stop-zone-actions">
+            <div className="adv-click-points-actions adv-stop-zone-actions">
               <button
                 type="button"
                 className="adv-secondary-btn"

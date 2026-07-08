@@ -71,7 +71,7 @@ pub fn update_settings(app: AppHandle, settings: ClickerSettings) -> AppResult<C
     let state = app.state::<ClickerState>();
     let was_initialized = state.settings_initialized.load(Ordering::SeqCst);
     let zone_changed: bool;
-    let sequence_changed: bool;
+    let click_points_changed: bool;
     {
         let mut old = state.settings.lock().unwrap_or_else(poisoned_inner);
         zone_changed = old.edge_stop_enabled != settings.edge_stop_enabled
@@ -89,8 +89,8 @@ pub fn update_settings(app: AppHandle, settings: ClickerSettings) -> AppResult<C
             || old.custom_stop_zone_y != settings.custom_stop_zone_y
             || old.custom_stop_zone_width != settings.custom_stop_zone_width
             || old.custom_stop_zone_height != settings.custom_stop_zone_height;
-        sequence_changed = old.sequence_enabled != settings.sequence_enabled
-            || old.sequence_points != settings.sequence_points;
+        click_points_changed = old.click_points_enabled != settings.click_points_enabled
+            || old.click_points != settings.click_points;
         *old = settings.clone();
     }
     *state.warning.lock().unwrap_or_else(poisoned_inner) = None;
@@ -104,8 +104,8 @@ pub fn update_settings(app: AppHandle, settings: ClickerSettings) -> AppResult<C
     if zone_changed {
         let _ = crate::overlay::show_overlay(&app);
     }
-    if sequence_changed && settings.sequence_enabled {
-        let _ = crate::overlay::show_sequence_points_overlay(&app);
+    if click_points_changed && settings.click_points_enabled {
+        let _ = crate::overlay::show_click_points_overlay(&app);
     }
 
     Ok(settings)
@@ -168,13 +168,13 @@ pub fn pick_position() -> AppResult<PositionPayload> {
 }
 
 #[tauri::command]
-pub fn start_sequence_point_pick(app: AppHandle) -> AppResult<()> {
-    crate::sequence_picker::start_sequence_point_pick_inner(app)
+pub fn start_click_point_pick(app: AppHandle) -> AppResult<()> {
+    crate::click_point_picker::start_click_point_pick_inner(app)
 }
 
 #[tauri::command]
-pub fn cancel_sequence_point_pick(app: AppHandle) -> AppResult<()> {
-    crate::sequence_picker::cancel_sequence_point_pick_inner(&app);
+pub fn cancel_click_point_pick(app: AppHandle) -> AppResult<()> {
+    crate::click_point_picker::cancel_click_point_pick_inner(&app);
     Ok(())
 }
 

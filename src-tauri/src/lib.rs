@@ -6,11 +6,11 @@ pub use settings::ClickerSettings;
 mod app_events;
 mod app_state;
 mod autostart;
+mod click_point_picker;
 mod custom_stop_zone_picker;
 mod engine;
 mod hotkeys;
 mod overlay;
-mod sequence_picker;
 mod ui_commands;
 mod updates;
 mod window_lifecycle;
@@ -124,7 +124,7 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
                     .store(true, std::sync::atomic::Ordering::SeqCst);
                 crate::overlay::OVERLAY_THREAD_RUNNING
                     .store(false, std::sync::atomic::Ordering::SeqCst);
-                crate::sequence_picker::cancel_sequence_point_pick_inner(app);
+                crate::click_point_picker::cancel_click_point_pick_inner(app);
                 crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(app);
                 app.exit(0);
             }
@@ -203,13 +203,13 @@ fn create_clicker_state() -> ClickerState {
         settings: Mutex::new(ClickerSettings::default()),
         last_error: Mutex::new(None),
         stop_reason: Mutex::new(None),
-        active_sequence_index: AtomicI64::new(-1),
-        active_sequence_tick: AtomicU64::new(0),
+        active_click_point_index: AtomicI64::new(-1),
+        active_click_point_tick: AtomicU64::new(0),
         registered_hotkey: Mutex::new(None),
         suppress_hotkey_until_ms: AtomicU64::new(0),
         suppress_hotkey_until_release: AtomicBool::new(false),
         hotkey_capture_active: AtomicBool::new(false),
-        sequence_pick_active: AtomicBool::new(false),
+        click_point_pick_active: AtomicBool::new(false),
         custom_stop_zone_pick_active: AtomicBool::new(false),
         settings_initialized: AtomicBool::new(false),
         paused: Arc::new(AtomicBool::new(false)),
@@ -269,8 +269,8 @@ pub fn run() {
             ui_commands::register_hotkey,
             ui_commands::set_hotkey_capture_active,
             ui_commands::pick_position,
-            ui_commands::start_sequence_point_pick,
-            ui_commands::cancel_sequence_point_pick,
+            ui_commands::start_click_point_pick,
+            ui_commands::cancel_click_point_pick,
             ui_commands::start_custom_stop_zone_pick,
             ui_commands::cancel_custom_stop_zone_pick,
             ui_commands::get_app_info,
@@ -305,7 +305,7 @@ pub fn run() {
                         .store(true, std::sync::atomic::Ordering::SeqCst);
                     crate::overlay::OVERLAY_THREAD_RUNNING
                         .store(false, std::sync::atomic::Ordering::SeqCst);
-                    crate::sequence_picker::cancel_sequence_point_pick_inner(app_handle);
+                    crate::click_point_picker::cancel_click_point_pick_inner(app_handle);
                     crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(app_handle);
                     app_handle.exit(0);
                 }

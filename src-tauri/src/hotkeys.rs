@@ -339,11 +339,12 @@ pub fn start_hotkey_listener(app: AppHandle) {
                 let suppress_until_release =
                     state.suppress_hotkey_until_release.load(Ordering::SeqCst);
                 let hotkey_capture_active = state.hotkey_capture_active.load(Ordering::SeqCst);
-                let sequence_pick_active = state.sequence_pick_active.load(Ordering::SeqCst);
+                let click_point_pick_active = state.click_point_pick_active.load(Ordering::SeqCst);
                 let custom_stop_zone_pick_active =
                     state.custom_stop_zone_pick_active.load(Ordering::SeqCst);
 
-                if hotkey_capture_active || sequence_pick_active || custom_stop_zone_pick_active {
+                if hotkey_capture_active || click_point_pick_active || custom_stop_zone_pick_active
+                {
                     if currently_pressed && !was_pressed && hotkey_capture_active {
                         let needs_emit = {
                             let mut warning = state.warning.lock().unwrap_or_else(poisoned_inner);

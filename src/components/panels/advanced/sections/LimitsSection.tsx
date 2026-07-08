@@ -5,15 +5,14 @@ import {
   SETTINGS_LIMITS,
   TIME_LIMIT_UNIT_OPTIONS,
 } from "../../../../settingsSchema";
-import { Disableable, NumInput, ToggleBtn, InfoIcon } from "./shared";
+import { CardDivider, Disableable, NumInput, ToggleBtn } from "./shared";
 
 interface Props {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
-  showInfo: boolean;
 }
 
-export default function LimitsSection({ settings, update, showInfo }: Props) {
+export default function LimitsSection({ settings, update }: Props) {
   const [mode, setMode] = useState<"clicks" | "time">("clicks");
   const effectiveMode: "clicks" | "time" =
     settings.timeLimitEnabled !== settings.clickLimitEnabled
@@ -86,31 +85,41 @@ export default function LimitsSection({ settings, update, showInfo }: Props) {
             gap: "0.5rem",
           }}
         >
-          {showInfo ? (
-            <InfoIcon
-              text={
-                isClicksMode
-                  ? "Stops automatically after the selected number of clicks."
-                  : "Stops automatically after the selected duration."
-              }
-            />
-          ) : null}
+          <span style={{ color: "var(--text-dim)" }}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+            </svg>
+          </span>
           <span className="adv-card-title">Limits</span>
         </div>
         <ToggleBtn value={activeEnabled} onChange={handleToggleChange} />
       </div>
-      <div
-        className="adv-row"
-        style={{
-          gap: 6,
-          marginTop: 6,
-          width: "100%",
-          justifyContent: "flex-end",
-        }}
+      <CardDivider />
+      <Disableable
+        enabled={activeEnabled}
+        disabledReason={activeUnavailableReason}
       >
-        <Disableable
-          enabled={activeEnabled}
-          disabledReason={activeUnavailableReason}
+        <div className="adv-card-desc">
+          Stop automatically after a set number of clicks or time.
+        </div>
+        <div
+          className="adv-row"
+          style={{
+            gap: 6,
+            marginTop: 6,
+            width: "100%",
+            justifyContent: "flex-end",
+          }}
         >
           <div className="adv-row" style={{ gap: 6, marginLeft: "auto" }}>
             {isClicksMode ? (
@@ -169,8 +178,8 @@ export default function LimitsSection({ settings, update, showInfo }: Props) {
               </button>
             </div>
           </div>
-        </Disableable>
-      </div>
+        </div>
+      </Disableable>
     </div>
   );
 }

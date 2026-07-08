@@ -158,16 +158,16 @@ export default function ProcessListSection({
         ) : null}
         <div className="adv-process-list">
           {loading ? (
-            <div className="adv-sequence-empty">Refreshing...</div>
+            <div className="adv-click-points-empty">Refreshing...</div>
           ) : processes.length === 0 ? (
-            <div className="adv-sequence-empty">
+            <div className="adv-click-points-empty">
               No processes found. Click Refresh.
             </div>
           ) : searchQuery.length >= 1 &&
             checkedProcesses.length === 0 &&
             uncheckedProcesses.length === 0 ? (
             <div
-              className="adv-sequence-empty"
+              className="adv-click-points-empty"
               style={{ textAlign: "center", padding: "1rem" }}
             >
               no process named "{searchQuery}"
@@ -222,7 +222,7 @@ function ProcessRow({
 }) {
   const isChecked = entry?.enabled ?? false;
   return (
-    <label className="adv-sequence-item">
+    <label className="adv-click-points-item">
       <input
         type="checkbox"
         className="adv-proc-checkbox"

@@ -160,7 +160,8 @@ export function NumInput({
     const direction = e.deltaY < 0 ? 1 : -1;
     const current = Number.isFinite(value) ? value : (min ?? 0);
     let step = 1;
-    if (e.shiftKey && e.ctrlKey) step = 10;
+    if (e.shiftKey && e.ctrlKey) step = 100;
+    else if (e.ctrlKey) step = 25;
     else if (e.shiftKey) step = 5;
     wheelRef.current = true;
     onChange(clampValue(current + direction * step));

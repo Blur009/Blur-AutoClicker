@@ -12,7 +12,7 @@ export const INTERVAL_OPTIONS = [
 
 export const SIMPLE_RATE_INPUT_MODE_OPTIONS = [
   { value: "rate", label: "Rate" },
-  { value: "duration", label: "Delay" },
+  { value: "duration", label: "Interval" },
 ] as const;
 
 export function parseIntegerRaw(raw: string) {
@@ -41,7 +41,8 @@ export function handleWheelStep(
   event.currentTarget.blur();
   const delta = event.deltaY < 0 ? 1 : -1;
   let step = 1;
-  if (event.shiftKey && event.ctrlKey) step = 10;
+  if (event.shiftKey && event.ctrlKey) step = 100;
+  else if (event.ctrlKey) step = 25;
   else if (event.shiftKey) step = 5;
   apply(clamp(current + delta * step, min, max));
 }

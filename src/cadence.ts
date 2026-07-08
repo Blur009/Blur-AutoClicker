@@ -143,8 +143,39 @@ export function getEffectiveClicksPerSecond(settings: CadenceSettings): number {
   return 1_000 / getEffectiveIntervalMs(settings);
 }
 
+export function formatIntervalMs(ms: number): string {
+  if (ms < 1_000) return `${Math.round(ms)}ms`;
+
+  const totalSec = ms / 1000;
+  const h = Math.floor(totalSec / 3600);
+
+  if (h >= 24) {
+    const d = Math.floor(h / 24);
+    const rh = h % 24;
+    if (rh > 0)
+      return `${d} day${d > 1 ? "s" : ""} ${rh} hr${rh > 1 ? "s" : ""}`;
+    return `${d} day${d > 1 ? "s" : ""}`;
+  }
+
+  const m = Math.floor((totalSec % 3600) / 60);
+
+  if (h > 0) {
+    if (m > 0) return `${h} hr${h > 1 ? "s" : ""} ${m} min${m > 1 ? "s" : ""}`;
+    return `${h} hr${h > 1 ? "s" : ""}`;
+  }
+
+  if (m > 0) {
+    const s = Math.round(totalSec % 60);
+    if (s > 0) return `${m} min${m > 1 ? "s" : ""} ${s} sec${s > 1 ? "s" : ""}`;
+    return `${m} min${m > 1 ? "s" : ""}`;
+  }
+
+  const s = +(totalSec % 60).toFixed(1);
+  return `${s} sec${s > 1 ? "s" : ""}`;
+}
+
 export function isDoubleClickSupported(settings: CadenceSettings): boolean {
-  return getEffectiveClicksPerSecond(settings) < 50;
+  return getEffectiveClicksPerSecond(settings) < 11;
 }
 
 export function formatDurationSummary(settings: CadenceSettings): string {

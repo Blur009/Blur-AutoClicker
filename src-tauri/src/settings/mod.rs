@@ -4,16 +4,16 @@
 
 #[derive(Clone, serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SequencePoint {
+pub struct ClickPoint {
     #[serde(default)]
     pub id: String,
     pub x: i32,
     pub y: i32,
-    #[serde(default = "default_sequence_point_clicks")]
+    #[serde(default = "default_click_point_clicks")]
     pub clicks: u32,
 }
 
-fn default_sequence_point_clicks() -> u32 {
+fn default_click_point_clicks() -> u32 {
     1
 }
 
@@ -43,11 +43,15 @@ pub struct ClickerSettings {
     pub mouse_button: String,
     pub mode: String,
 
+    pub duty_cycle_mode: String,
+    pub saved_click_speed: f64,
+    pub saved_click_interval: String,
+
     pub duty_cycle_enabled: bool,
     pub duty_cycle: f64,
 
-    pub speed_variation_enabled: bool,
-    pub speed_variation: f64,
+    pub speed_randomization_enabled: bool,
+    pub speed_randomization: f64,
 
     pub double_click_enabled: bool,
 
@@ -74,8 +78,8 @@ pub struct ClickerSettings {
     pub edge_stop_bottom: i32,
     pub edge_stop_left: i32,
 
-    pub sequence_enabled: bool,
-    pub sequence_points: Vec<SequencePoint>,
+    pub click_points_enabled: bool,
+    pub click_points: Vec<ClickPoint>,
 
     pub process_list_enabled: bool,
     pub process_list_mode: String,
@@ -106,8 +110,8 @@ pub struct ClickerSettings {
 }
 
 // Frontend-only settings intentionally omitted from Rust:
-// language, minimizeToTray, theme, advancedSequenceLayout, alwaysOnTop,
-// accentColor, presets, activePresetId.
+// language, minimizeToTray, theme, alwaysOnTop, accentColor, presets,
+// activePresetId.
 
 impl Default for ClickerSettings {
     fn default() -> Self {
@@ -124,11 +128,15 @@ impl Default for ClickerSettings {
             mouse_button: "Left".to_string(),
             mode: "Toggle".to_string(),
 
+            duty_cycle_mode: "Click".to_string(),
+            saved_click_speed: 25.0,
+            saved_click_interval: "s".to_string(),
+
             duty_cycle_enabled: true,
             duty_cycle: 45.0,
 
-            speed_variation_enabled: true,
-            speed_variation: 35.0,
+            speed_randomization_enabled: true,
+            speed_randomization: 35.0,
 
             double_click_enabled: false,
 
@@ -151,8 +159,8 @@ impl Default for ClickerSettings {
             edge_stop_bottom: 40,
             edge_stop_left: 40,
 
-            sequence_enabled: false,
-            sequence_points: Vec::new(),
+            click_points_enabled: false,
+            click_points: Vec::new(),
 
             process_list_enabled: false,
             process_list_mode: "whitelist".to_string(),

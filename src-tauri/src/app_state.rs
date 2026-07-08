@@ -10,12 +10,12 @@ pub struct ClickerState {
     pub settings: Mutex<ClickerSettings>,
     pub last_error: Mutex<Option<String>>,
     pub stop_reason: Mutex<Option<String>>,
-    pub active_sequence_index: AtomicI64,
-    pub active_sequence_tick: AtomicU64,
+    pub active_click_point_index: AtomicI64,
+    pub active_click_point_tick: AtomicU64,
     pub suppress_hotkey_until_ms: AtomicU64,
     pub suppress_hotkey_until_release: AtomicBool,
     pub hotkey_capture_active: AtomicBool,
-    pub sequence_pick_active: AtomicBool,
+    pub click_point_pick_active: AtomicBool,
     pub custom_stop_zone_pick_active: AtomicBool,
     pub registered_hotkey: Mutex<Option<HotkeyBinding>>,
     pub settings_initialized: AtomicBool,
@@ -32,8 +32,8 @@ pub struct ClickerStatusPayload {
     pub last_error: Option<String>,
     pub stop_reason: Option<String>,
     pub warning: Option<String>,
-    pub active_sequence_index: Option<usize>,
-    pub active_sequence_tick: u64,
+    pub active_click_point_index: Option<usize>,
+    pub active_click_point_tick: u64,
 }
 
 #[derive(Clone, serde::Serialize)]
