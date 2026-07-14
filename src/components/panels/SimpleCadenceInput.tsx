@@ -1,15 +1,25 @@
 import { useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, FocusEvent, WheelEvent } from "react";
 import type { RateInputMode, Settings } from "../../store";
-import { convertDurationToRate, convertRateToDuration } from "../../cadence";
+import {
+  convertDurationToRate,
+  convertRateToDuration,
+  type CadenceDurationFields,
+} from "../../cadence";
 import { normalizeIntegerRaw } from "../../numberInput";
-import { getMaxClickSpeed, type ClickInterval } from "../../settingsSchema";
+import {
+  getMaxClickSpeed,
+  getMinIntervalMs,
+  type ClickInterval,
+} from "../../settingsSchema";
 import { AdvDropdown } from "./advanced/sections/shared";
 import "./advanced/AdvancedPanel.css";
 import {
   INTERVAL_OPTIONS,
   SIMPLE_RATE_INPUT_MODE_OPTIONS,
   dynamicChWidth,
+  handleDurationBlur,
+  handleDurationWheelStep,
   handleNumberBlur,
   handleNumberChange,
   handleWheelStep,
@@ -21,6 +31,8 @@ function DurationField({
   min,
   max,
   onChange,
+  onBlur,
+  onWheel,
   style,
   unit,
   className,
@@ -29,6 +41,8 @@ function DurationField({
   min: number;
   max?: number;
   onChange: (next: number) => void;
+  onBlur?: (event: FocusEvent<HTMLInputElement>) => void;
+  onWheel?: (event: WheelEvent<HTMLInputElement>) => void;
   style?: CSSProperties;
   unit: string;
   className?: string;
@@ -42,8 +56,14 @@ function DurationField({
         min={min}
         max={max}
         onChange={(event) => handleNumberChange(event, onChange)}
-        onBlur={(event) => handleNumberBlur(event, min, max, onChange)}
-        onWheel={(event) => handleWheelStep(event, value, min, max, onChange)}
+        onBlur={(event) =>
+          onBlur ? onBlur(event) : handleNumberBlur(event, min, max, onChange)
+        }
+        onWheel={(event) =>
+          onWheel
+            ? onWheel(event)
+            : handleWheelStep(event, value, min, max, onChange)
+        }
         style={style}
       />
       <span className={className ? "postfix" : "adv-unit"}>{unit}</span>
@@ -151,6 +171,26 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
               min={0}
               max={999}
               onChange={(next) => updateSimpleCadence({ durationHours: next })}
+              onBlur={(event) =>
+                handleDurationBlur(
+                  event,
+                  "durationHours",
+                  0,
+                  999,
+                  settings as CadenceDurationFields,
+                  (patch) => updateSimpleCadence(patch),
+                )
+              }
+              onWheel={(event) =>
+                handleDurationWheelStep(
+                  event,
+                  "durationHours",
+                  settings as CadenceDurationFields,
+                  0,
+                  999,
+                  (patch) => updateSimpleCadence(patch),
+                )
+              }
               style={{
                 width: dynamicChWidth(settings.durationHours, 1, 3),
                 minWidth: "1ch",
@@ -164,6 +204,26 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
               max={59}
               onChange={(next) =>
                 updateSimpleCadence({ durationMinutes: next })
+              }
+              onBlur={(event) =>
+                handleDurationBlur(
+                  event,
+                  "durationMinutes",
+                  0,
+                  59,
+                  settings as CadenceDurationFields,
+                  (patch) => updateSimpleCadence(patch),
+                )
+              }
+              onWheel={(event) =>
+                handleDurationWheelStep(
+                  event,
+                  "durationMinutes",
+                  settings as CadenceDurationFields,
+                  0,
+                  59,
+                  (patch) => updateSimpleCadence(patch),
+                )
               }
               style={{
                 width: dynamicChWidth(settings.durationMinutes, 1, 2),
@@ -179,6 +239,26 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
               onChange={(next) =>
                 updateSimpleCadence({ durationSeconds: next })
               }
+              onBlur={(event) =>
+                handleDurationBlur(
+                  event,
+                  "durationSeconds",
+                  0,
+                  59,
+                  settings as CadenceDurationFields,
+                  (patch) => updateSimpleCadence(patch),
+                )
+              }
+              onWheel={(event) =>
+                handleDurationWheelStep(
+                  event,
+                  "durationSeconds",
+                  settings as CadenceDurationFields,
+                  0,
+                  59,
+                  (patch) => updateSimpleCadence(patch),
+                )
+              }
               style={{
                 width: dynamicChWidth(settings.durationSeconds, 1, 2),
                 minWidth: "1ch",
@@ -188,10 +268,30 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
             <DurationField
               className="simple-duration-chip"
               value={settings.durationMilliseconds}
-              min={0}
+              min={getMinIntervalMs(settings.extendedClickSpeedLimit)}
               max={999}
               onChange={(next) =>
                 updateSimpleCadence({ durationMilliseconds: next })
+              }
+              onBlur={(event) =>
+                handleDurationBlur(
+                  event,
+                  "durationMilliseconds",
+                  getMinIntervalMs(settings.extendedClickSpeedLimit),
+                  999,
+                  settings as CadenceDurationFields,
+                  (patch) => updateSimpleCadence(patch),
+                )
+              }
+              onWheel={(event) =>
+                handleDurationWheelStep(
+                  event,
+                  "durationMilliseconds",
+                  settings as CadenceDurationFields,
+                  getMinIntervalMs(settings.extendedClickSpeedLimit),
+                  999,
+                  (patch) => updateSimpleCadence(patch),
+                )
               }
               style={{
                 width: dynamicChWidth(settings.durationMilliseconds, 1, 3),

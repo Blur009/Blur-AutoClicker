@@ -34,7 +34,7 @@ const INTERVAL_MS: Record<ClickInterval, number> = {
   d: 86_400_000,
 };
 
-export function getDurationTotalMs(settings: CadenceSettings): number {
+export function getDurationTotalMs(settings: CadenceDurationFields): number {
   return (
     settings.durationHours * 3_600_000 +
     settings.durationMinutes * 60_000 +
@@ -45,6 +45,44 @@ export function getDurationTotalMs(settings: CadenceSettings): number {
 
 export function getIntervalMilliseconds(interval: ClickInterval): number {
   return INTERVAL_MS[interval] ?? 1_000;
+}
+
+export function decomposeMs(totalMs: number): CadenceDurationFields {
+  const totalRounded = Math.round(totalMs);
+  const hours = Math.floor(totalRounded / 3_600_000);
+  const remainderAfterHours = totalRounded % 3_600_000;
+  const minutes = Math.floor(remainderAfterHours / 60_000);
+  const remainderAfterMinutes = remainderAfterHours % 60_000;
+  const seconds = Math.floor(remainderAfterMinutes / 1_000);
+  const milliseconds = remainderAfterMinutes % 1_000;
+
+  return {
+    durationHours: hours,
+    durationMinutes: minutes,
+    durationSeconds: seconds,
+    durationMilliseconds: milliseconds,
+  };
+}
+
+const FIELD_TO_MS: Record<keyof CadenceDurationFields, number> = {
+  durationHours: 3_600_000,
+  durationMinutes: 60_000,
+  durationSeconds: 1_000,
+  durationMilliseconds: 1,
+};
+
+export function overflowDurationField(
+  field: keyof CadenceDurationFields,
+  rawValue: number,
+  current: CadenceDurationFields,
+): CadenceDurationFields | null {
+  const multiplier = FIELD_TO_MS[field];
+  const oldTotal = getDurationTotalMs(current);
+  const oldMs = current[field] * multiplier;
+  const newMs = rawValue * multiplier;
+  const newTotal = oldTotal - oldMs + newMs;
+  if (newTotal === oldTotal) return null;
+  return decomposeMs(Math.max(0, newTotal));
 }
 
 export function convertRateToDuration(
@@ -60,20 +98,7 @@ export function convertRateToDuration(
     return null;
   }
 
-  const totalRounded = Math.round(totalMs);
-  const hours = Math.floor(totalRounded / 3_600_000);
-  const remainderAfterHours = totalRounded % 3_600_000;
-  const minutes = Math.floor(remainderAfterHours / 60_000);
-  const remainderAfterMinutes = remainderAfterHours % 60_000;
-  const seconds = Math.floor(remainderAfterMinutes / 1_000);
-  const milliseconds = remainderAfterMinutes % 1_000;
-
-  return {
-    durationHours: hours,
-    durationMinutes: minutes,
-    durationSeconds: seconds,
-    durationMilliseconds: milliseconds,
-  };
+  return decomposeMs(totalMs);
 }
 
 export function convertDurationToRate(

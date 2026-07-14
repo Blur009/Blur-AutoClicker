@@ -968,7 +968,12 @@ export default function App() {
       root.style.removeProperty("--bg-input-off");
       root.style.removeProperty("--bg-panel-blur");
     };
-  }, [settings.windowOpacity, settings.panelOpacity, settings.panelBlur, settings.theme]);
+  }, [
+    settings.windowOpacity,
+    settings.panelOpacity,
+    settings.panelBlur,
+    settings.theme,
+  ]);
 
   useEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;

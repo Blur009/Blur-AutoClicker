@@ -265,7 +265,7 @@ const SETTINGS_ONLY_FIELDS = {
   },
   durationMinutes: {
     default: 0,
-    limit: { min: 0 },
+    limit: { min: 0, max: 59 },
     ui: { section: "limits", control: "number" },
   },
   durationSeconds: {
@@ -521,6 +521,12 @@ export function getMaxClickSpeed(
   return extendedClickSpeedLimit
     ? EXTENDED_MAX_CLICK_SPEED
     : DEFAULT_MAX_CLICK_SPEED;
+}
+
+export function getMinIntervalMs(
+  extendedClickSpeedLimit: boolean | null | undefined,
+) {
+  return Math.ceil(1000 / getMaxClickSpeed(extendedClickSpeedLimit));
 }
 
 export function sanitizeBoolean(value: unknown, fallback: boolean): boolean {

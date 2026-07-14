@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, type WheelEvent, type FocusEvent } from "react";
 import type { Settings } from "../../../../store";
 import { normalizeIntegerRaw } from "../../../../numberInput";
 import {
   convertDurationToRate,
   formatIntervalMs,
   getIntervalMilliseconds,
+  type CadenceDurationFields,
 } from "../../../../cadence";
 import {
   switchCadenceMode,
@@ -12,11 +13,14 @@ import {
 } from "../../../sharedCadence";
 import {
   getMaxClickSpeed,
+  getMinIntervalMs,
   type ClickInterval,
 } from "../../../../settingsSchema";
 import { AdvDropdown, CardDivider, Disableable } from "./shared";
 import {
   INTERVAL_OPTIONS,
+  handleDurationBlur,
+  handleDurationWheelStep,
   handleNumberBlur,
   handleNumberChange,
   handleWheelStep,
@@ -164,18 +168,24 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           update({ durationHours: next }),
                         )
                       }
-                      onBlur={(event) =>
-                        handleNumberBlur(event, 0, 999, (next) =>
-                          update({ durationHours: next }),
-                        )
-                      }
-                      onWheel={(event) =>
-                        handleWheelStep(
+                      onBlur={(event: FocusEvent<HTMLInputElement>) =>
+                        handleDurationBlur(
                           event,
-                          settings.durationHours,
+                          "durationHours",
                           0,
                           999,
-                          (next) => update({ durationHours: next }),
+                          settings as CadenceDurationFields,
+                          (patch) => update(patch),
+                        )
+                      }
+                      onWheel={(event: WheelEvent<HTMLInputElement>) =>
+                        handleDurationWheelStep(
+                          event,
+                          "durationHours",
+                          settings as CadenceDurationFields,
+                          0,
+                          999,
+                          (patch) => update(patch),
                         )
                       }
                     />
@@ -195,18 +205,24 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           update({ durationMinutes: next }),
                         )
                       }
-                      onBlur={(event) =>
-                        handleNumberBlur(event, 0, 59, (next) =>
-                          update({ durationMinutes: next }),
-                        )
-                      }
-                      onWheel={(event) =>
-                        handleWheelStep(
+                      onBlur={(event: FocusEvent<HTMLInputElement>) =>
+                        handleDurationBlur(
                           event,
-                          settings.durationMinutes,
+                          "durationMinutes",
                           0,
                           59,
-                          (next) => update({ durationMinutes: next }),
+                          settings as CadenceDurationFields,
+                          (patch) => update(patch),
+                        )
+                      }
+                      onWheel={(event: WheelEvent<HTMLInputElement>) =>
+                        handleDurationWheelStep(
+                          event,
+                          "durationMinutes",
+                          settings as CadenceDurationFields,
+                          0,
+                          59,
+                          (patch) => update(patch),
                         )
                       }
                     />
@@ -226,18 +242,24 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           update({ durationSeconds: next }),
                         )
                       }
-                      onBlur={(event) =>
-                        handleNumberBlur(event, 0, 59, (next) =>
-                          update({ durationSeconds: next }),
-                        )
-                      }
-                      onWheel={(event) =>
-                        handleWheelStep(
+                      onBlur={(event: FocusEvent<HTMLInputElement>) =>
+                        handleDurationBlur(
                           event,
-                          settings.durationSeconds,
+                          "durationSeconds",
                           0,
                           59,
-                          (next) => update({ durationSeconds: next }),
+                          settings as CadenceDurationFields,
+                          (patch) => update(patch),
+                        )
+                      }
+                      onWheel={(event: WheelEvent<HTMLInputElement>) =>
+                        handleDurationWheelStep(
+                          event,
+                          "durationSeconds",
+                          settings as CadenceDurationFields,
+                          0,
+                          59,
+                          (patch) => update(patch),
                         )
                       }
                     />
@@ -249,7 +271,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                       type="number"
                       className="adv-number-sm"
                       value={settings.durationMilliseconds}
-                      min={0}
+                      min={getMinIntervalMs(settings.extendedClickSpeedLimit)}
                       max={999}
                       style={{ width: "34px", textAlign: "right" }}
                       onChange={(event) =>
@@ -257,18 +279,24 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           update({ durationMilliseconds: next }),
                         )
                       }
-                      onBlur={(event) =>
-                        handleNumberBlur(event, 0, 999, (next) =>
-                          update({ durationMilliseconds: next }),
+                      onBlur={(event: FocusEvent<HTMLInputElement>) =>
+                        handleDurationBlur(
+                          event,
+                          "durationMilliseconds",
+                          getMinIntervalMs(settings.extendedClickSpeedLimit),
+                          999,
+                          settings as CadenceDurationFields,
+                          (patch) => update(patch),
                         )
                       }
-                      onWheel={(event) =>
-                        handleWheelStep(
+                      onWheel={(event: WheelEvent<HTMLInputElement>) =>
+                        handleDurationWheelStep(
                           event,
-                          settings.durationMilliseconds,
-                          0,
+                          "durationMilliseconds",
+                          settings as CadenceDurationFields,
+                          getMinIntervalMs(settings.extendedClickSpeedLimit),
                           999,
-                          (next) => update({ durationMilliseconds: next }),
+                          (patch) => update(patch),
                         )
                       }
                     />
