@@ -16,7 +16,11 @@ import {
 } from "react";
 import { applyAccentTheme } from "./accentTheme";
 import UpdateBanner from "./components/Updatebanner";
-import { canonicalizeHotkeyForBackend } from "./hotkeys";
+import {
+  canonicalizeHotkeyForBackend,
+  captureHotkey,
+  captureModifierHotkey,
+} from "./hotkeys";
 
 import {
   buildPresetSnapshot,
@@ -1045,6 +1049,64 @@ export default function App() {
     prevStopReasonRef.current = status.stopReason;
     setStopKey((k) => k + 1);
   }
+
+  const handleTabChangeRef = useRef(handleTabChange);
+  handleTabChangeRef.current = handleTabChange;
+
+  const keybindMapRef = useRef<Record<string, Tab>>({});
+
+  useEffect(() => {
+    const map: Record<string, Tab> = {};
+    const add = (stored: string, tab: Tab) => {
+      if (stored) map[stored] = tab;
+    };
+    add(settings.keybindSimple, "simple");
+    add(settings.keybindAdvanced, "advanced");
+    add(settings.keybindZones, "zones");
+    add(settings.keybindClickPoints, "click-points");
+    add(settings.keybindSettings, "settings");
+    keybindMapRef.current = map;
+  }, [
+    settings.keybindSimple,
+    settings.keybindAdvanced,
+    settings.keybindZones,
+    settings.keybindClickPoints,
+    settings.keybindSettings,
+  ]);
+
+  useEffect(() => {
+    const normalizeKey = (e: KeyboardEvent): string | null => {
+      const modifierHit = captureModifierHotkey(e);
+      if (modifierHit) return modifierHit;
+      if (e.key === "Escape" || e.code === "Escape") return "escape";
+      if (e.key === "Backspace") return "backspace";
+      if (e.key === "Delete") return "delete";
+      const captured = captureHotkey(e);
+      if (!captured) return null;
+      return captured.split("+").pop() ?? captured;
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLElement &&
+        (e.target.isContentEditable ||
+          e.target.tagName === "INPUT" ||
+          e.target.tagName === "TEXTAREA" ||
+          e.target.tagName === "SELECT")
+      ) {
+        return;
+      }
+      const normalized = normalizeKey(e);
+      if (!normalized) return;
+      const tab = keybindMapRef.current[normalized];
+      if (!tab) return;
+      e.preventDefault();
+      handleTabChangeRef.current(tab);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <div className="app-root" data-tab={tab}>

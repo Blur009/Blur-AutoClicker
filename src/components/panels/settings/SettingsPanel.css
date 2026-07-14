@@ -770,6 +770,20 @@
   gap: 0.5rem;
 }
 
+.settings-keybind-capture {
+  display: inline-flex;
+  align-items: center;
+  min-width: 6rem;
+  padding: 0.4375rem 0.625rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: var(--font-family-base);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
 /* Opacity controls */
 .settings-opacity-controls {
   display: flex;

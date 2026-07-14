@@ -87,6 +87,7 @@ type FieldDef<T> = {
       | "behavior"
       | "startup"
       | "appearance"
+      | "keybinds"
       | "presets";
     control: UiControl;
   };
@@ -395,6 +396,26 @@ const SETTINGS_ONLY_FIELDS = {
   activePresetId: {
     default: null as PresetId | null,
     ui: { section: "presets", control: "custom" },
+  },
+  keybindSimple: {
+    default: "Digit1",
+    ui: { section: "keybinds", control: "key" },
+  },
+  keybindAdvanced: {
+    default: "Digit2",
+    ui: { section: "keybinds", control: "key" },
+  },
+  keybindZones: {
+    default: "Digit3",
+    ui: { section: "keybinds", control: "key" },
+  },
+  keybindClickPoints: {
+    default: "Digit4",
+    ui: { section: "keybinds", control: "key" },
+  },
+  keybindSettings: {
+    default: "Digit5",
+    ui: { section: "keybinds", control: "key" },
   },
 } satisfies Record<string, FieldDef<unknown>>;
 
