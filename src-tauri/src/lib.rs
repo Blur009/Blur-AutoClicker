@@ -96,7 +96,7 @@ fn setup_logging(app: &AppHandle) {
             .level(log_level)
             .level_for("tao", log::LevelFilter::Warn)
             .max_file_size(2_500_000)
-            .rotation_strategy(RotationStrategy::KeepSome(0))
+            .rotation_strategy(RotationStrategy::KeepSome(1))
             .timezone_strategy(TimezoneStrategy::UseLocal)
             .build(),
     );

@@ -34,6 +34,18 @@ export function dynamicChWidth(value: number, min = 1, max = 3) {
   return `${clamp(String(Math.abs(value)).length, min, max)}ch`;
 }
 
+function wheelStepSize(event: WheelEvent<HTMLInputElement>): number {
+  let step = 1;
+  if (event.shiftKey && event.ctrlKey) step = 100;
+  else if (event.ctrlKey) step = 25;
+  else if (event.shiftKey) step = 5;
+  return step;
+}
+
+function wheelDelta(event: WheelEvent<HTMLInputElement>): number {
+  return event.deltaY < 0 ? 1 : -1;
+}
+
 export function handleWheelStep(
   event: WheelEvent<HTMLInputElement>,
   current: number,
@@ -44,12 +56,7 @@ export function handleWheelStep(
   event.preventDefault();
   event.stopPropagation();
   event.currentTarget.blur();
-  const delta = event.deltaY < 0 ? 1 : -1;
-  let step = 1;
-  if (event.shiftKey && event.ctrlKey) step = 100;
-  else if (event.ctrlKey) step = 25;
-  else if (event.shiftKey) step = 5;
-  apply(clamp(current + delta * step, min, max));
+  apply(clamp(current + wheelDelta(event) * wheelStepSize(event), min, max));
 }
 
 export function handleNumberChange(
@@ -132,16 +139,10 @@ export function handleDurationWheelStep(
   max: number | undefined,
   apply: (patch: Partial<CadenceDurationFields>) => void,
 ) {
-  event.currentTarget.blur();
   event.preventDefault();
   event.stopPropagation();
-  const delta = event.deltaY < 0 ? 1 : -1;
-  let step = 1;
-  if (event.shiftKey && event.ctrlKey) step = 100;
-  else if (event.ctrlKey) step = 25;
-  else if (event.shiftKey) step = 5;
-
-  const next = current[field] + delta * step;
+  event.currentTarget.blur();
+  const next = current[field] + wheelDelta(event) * wheelStepSize(event);
 
   if (max !== undefined && next > max && field !== "durationHours") {
     const overflowed = overflowDurationField(field, next, current);

@@ -15,8 +15,8 @@
     "preview": "vite preview",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "format:write": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "check:all": "cargo test --manifest-path src-tauri/Cargo.toml && npm test && npm run lint && npm run format:check && npm run frontend:build && cargo check --manifest-path src-tauri/Cargo.toml --locked && cargo clippy --manifest-path src-tauri/Cargo.toml && cargo fmt --manifest-path src-tauri/Cargo.toml --check && npm audit && node -e \"console.log('Tests ran:\\n- cargo test\\n- npm test\\n- eslint\\n- prettier\\n- frontend:build\\n- cargo check\\n- clippy\\n- fmt\\n- npm audit\\nAll passed!')\"",
-    "fix:all": "cargo fmt --manifest-path src-tauri/Cargo.toml && npm run format:write && eslint --fix . && npm audit fix && node -e \"console.log('Fixed:\\n- cargo fmt\\n- prettier\\n- eslint\\n- npm audit fix\\nAll fixes applied!')\""
+    "check": "cargo test --manifest-path src-tauri/Cargo.toml && npm test && npm run lint && npm run format:check && npm run frontend:build && cargo check --manifest-path src-tauri/Cargo.toml --locked && cargo clippy --manifest-path src-tauri/Cargo.toml && cargo fmt --manifest-path src-tauri/Cargo.toml --check && npm audit && node -e \"console.log('Tests ran:\\n- cargo test\\n- npm test\\n- eslint\\n- prettier\\n- frontend:build\\n- cargo check\\n- clippy\\n- fmt\\n- npm audit\\nAll passed!')\"",
+    "fix": "cargo fmt --manifest-path src-tauri/Cargo.toml && npm run format:write && eslint --fix . && npm audit fix && node -e \"console.log('Fixed:\\n- cargo fmt\\n- prettier\\n- eslint\\n- npm audit fix\\nAll fixes applied!')\""
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
