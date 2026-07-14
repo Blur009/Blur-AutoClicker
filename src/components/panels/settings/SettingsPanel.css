@@ -297,6 +297,7 @@
   overflow: hidden;
   flex-shrink: 0;
   max-width: 100%;
+  min-height: 32px;
 }
 
 .settings-seg-btn {
