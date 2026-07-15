@@ -231,6 +231,10 @@ const PRESET_FIELDS = {
     default: false,
     ui: { section: "core", control: "toggle" },
   },
+  stopWhenComplete: {
+    default: false,
+    ui: { section: "core", control: "toggle" },
+  },
   clickPoints: {
     default: [] as ClickPoint[],
     ui: { section: "core", control: "custom" },

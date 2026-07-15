@@ -79,6 +79,8 @@ pub struct ClickerSettings {
     pub edge_stop_left: i32,
 
     pub click_points_enabled: bool,
+    #[serde(default)]
+    pub stop_when_complete: bool,
     pub click_points: Vec<ClickPoint>,
 
     pub process_list_enabled: bool,
@@ -160,6 +162,7 @@ impl Default for ClickerSettings {
             edge_stop_left: 40,
 
             click_points_enabled: false,
+            stop_when_complete: false,
             click_points: Vec::new(),
 
             process_list_enabled: false,

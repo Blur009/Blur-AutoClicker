@@ -51,6 +51,7 @@ pub struct ClickerConfig {
     pub double_click_enabled: bool,
     pub double_click_gap_ms: u32,
     pub click_points_enabled: bool,
+    pub stop_when_complete: bool,
     pub click_points: Vec<ClickPointTarget>,
     pub offset: f64,
     pub offset_chance: f64,

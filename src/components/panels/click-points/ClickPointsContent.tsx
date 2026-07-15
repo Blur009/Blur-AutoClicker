@@ -557,6 +557,20 @@ export default function ClickPointsContent({
               ) : null}
             </div>
           </div>
+          <div className="adv-click-points-footer">
+            <div className="adv-click-points-option-row">
+              {showInfo ? (
+                <InfoIcon text="When enabled, the clicker stops after one full pass through all click points. When disabled, it loops through the list endlessly." />
+              ) : null}
+              <span className="adv-click-points-option-label">
+                Stop when complete
+              </span>
+              <ToggleBtn
+                value={settings.stopWhenComplete ?? false}
+                onChange={(v) => update({ stopWhenComplete: v })}
+              />
+            </div>
+          </div>
         </div>
       </Disableable>
     </div>

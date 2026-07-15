@@ -5,6 +5,7 @@
 - Added Keybind section in settings.
 - Added Keybinds for switching between all pages.(1 to 5 for simple, advanced, zones, click points, settings)
 - Added the ability to customize each page individually in the appearance settings.
+- Added 'Stop when Complete' toggle to Sequence clicking (which has been re-named to Click Points).
 ## Changed
 - Overhauled Advanced panel.
 - Settings panel now has a side menu for easier navigation and organization of settings.
@@ -14,6 +15,7 @@
 - Changed scroll behaviour for number inputs to be: shift = 5, ctrl = 25, shift + ctrl = 100.
 - Made settings icon 1px bigger :). 
 # Fixed
+- Fixed alt menu opening when the autoclicker is launched while tabbed into another app.
 - Fixed simple tab button in the title bar showing the wrong background color when a custom accent color is selected.
 
 # v3.8.3 - 28.06.2026 (d.m.y)

@@ -341,6 +341,7 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
         double_click_enabled: settings.double_click_enabled,
         double_click_gap_ms: system_double_click_gap_ms(),
         click_points_enabled: settings.click_points_enabled,
+        stop_when_complete: settings.stop_when_complete,
         click_points: settings
             .click_points
             .iter()
@@ -543,6 +544,7 @@ impl ClickerContext {
 struct LoopState {
     click_count: i64,
     stop_reason: String,
+    stop_reason_finalized: bool,
     click_point_index: usize,
     click_point_clicks_remaining: usize,
     target_x: i32,
@@ -562,6 +564,7 @@ impl LoopState {
         Self {
             click_count: 0,
             stop_reason: String::from("Stopped"),
+            stop_reason_finalized: false,
             click_point_index: 0,
             click_point_clicks_remaining: target.clicks.max(1),
             target_x,
@@ -755,7 +758,19 @@ fn run_batch(
         st.click_point_clicks_remaining =
             st.click_point_clicks_remaining.saturating_sub(batch.cycles);
         if st.click_point_clicks_remaining == 0 {
-            st.click_point_index = (st.click_point_index + 1) % config.click_points.len();
+            let next_index = (st.click_point_index + 1) % config.click_points.len();
+            if config.stop_when_complete && next_index == 0 {
+                st.stop_reason = String::from("All click points completed");
+                st.stop_reason_finalized = true;
+                let state = control.app.state::<ClickerState>();
+                state
+                    .active_click_point_index
+                    .store(st.click_point_index as i64, Ordering::SeqCst);
+                state.active_click_point_tick.fetch_add(1, Ordering::SeqCst);
+                emit_status(&control.app);
+                return false;
+            }
+            st.click_point_index = next_index;
             st.click_point_clicks_remaining =
                 config.click_points[st.click_point_index].clicks.max(1);
             let state = control.app.state::<ClickerState>();
@@ -826,7 +841,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
         update_target(&config, &ctx, &mut rng, &mut st);
 
         if !run_batch(&config, &ctx, &mut rng, &mut st, &control, &should_abort) {
-            if control.is_active() {
+            if control.is_active() && !st.stop_reason_finalized {
                 st.stop_reason = format!("Click limit reached ({})", config.limit);
             }
             break;
@@ -876,6 +891,7 @@ mod tests {
             double_click_enabled: false,
             double_click_gap_ms: 450,
             click_points_enabled: false,
+            stop_when_complete: false,
             click_points: Vec::new(),
             offset: 0.0,
             offset_chance: 0.0,

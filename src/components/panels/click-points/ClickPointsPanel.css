@@ -280,3 +280,27 @@
   pointer-events: none;
   background: linear-gradient(to bottom, transparent 0%, var(--bg-base) 100%);
 }
+
+.adv-click-points-footer {
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.adv-click-points-option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 28px;
+}
+
+.adv-click-points-option-row .adv-toggle-group {
+  margin-left: auto;
+}
+
+.adv-click-points-option-label {
+  font-family: "RobotoFlex", sans-serif;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-hv);
+  color: var(--text-primary);
+  white-space: nowrap;
+}

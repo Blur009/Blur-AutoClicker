@@ -118,6 +118,7 @@ mod tests {
             double_click_enabled: false,
             double_click_gap_ms: 450,
             click_points_enabled: false,
+            stop_when_complete: false,
             click_points: Vec::new(),
             offset: 0.0,
             offset_chance: 0.0,
