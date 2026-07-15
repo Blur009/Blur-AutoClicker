@@ -161,6 +161,18 @@ async function checkForUpdates(): Promise<UpdateCheckResult | null> {
   }
 }
 
+function tabSuffix(t: Tab): string {
+  if (t === "click-points") return "ClickPoints";
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function resolvePerPage<T>(settings: Settings, globalVal: T, field: string): T {
+  if (settings.perPageAppearance) {
+    return ((settings as Record<string, unknown>)[field] as T) ?? globalVal;
+  }
+  return globalVal;
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("simple");
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -919,12 +931,17 @@ export default function App() {
     document.documentElement.dir = "ltr";
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;
     if (!root) return;
 
-    const panelOpacity = settings.panelOpacity / 100;
-    const windowOpacity = settings.windowOpacity / 100;
+    const sfx = tabSuffix(tab);
+    const panelOpacity =
+      resolvePerPage(settings, settings.panelOpacity, `panelOpacity${sfx}`) /
+      100;
+    const windowOpacity =
+      resolvePerPage(settings, settings.windowOpacity, `windowOpacity${sfx}`) /
+      100;
     const colors =
       settings.theme === "light"
         ? {
@@ -962,7 +979,10 @@ export default function App() {
       "--bg-input-off",
       `rgba(${colors.inputOff}, ${panelOpacity})`,
     );
-    root.style.setProperty("--bg-panel-blur", `${settings.panelBlur}px`);
+    root.style.setProperty(
+      "--bg-panel-blur",
+      `${resolvePerPage(settings, settings.panelBlur, `panelBlur${sfx}`)}px`,
+    );
 
     return () => {
       root.style.removeProperty("--bg-base");
@@ -973,17 +993,40 @@ export default function App() {
       root.style.removeProperty("--bg-panel-blur");
     };
   }, [
+    settings,
     settings.windowOpacity,
     settings.panelOpacity,
     settings.panelBlur,
     settings.theme,
+    settings.perPageAppearance,
+    settings.panelOpacitySimple,
+    settings.panelOpacityAdvanced,
+    settings.panelOpacityZones,
+    settings.panelOpacityClickPoints,
+    settings.panelOpacitySettings,
+    settings.panelBlurSimple,
+    settings.panelBlurAdvanced,
+    settings.panelBlurZones,
+    settings.panelBlurClickPoints,
+    settings.panelBlurSettings,
+    settings.windowOpacitySimple,
+    settings.windowOpacityAdvanced,
+    settings.windowOpacityZones,
+    settings.windowOpacityClickPoints,
+    settings.windowOpacitySettings,
+    tab,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;
     if (!root) return;
 
-    const img = settings.backgroundImage;
+    const sfx = tabSuffix(tab);
+    const img = resolvePerPage(
+      settings,
+      settings.backgroundImage,
+      `backgroundImage${sfx}`,
+    );
     const escape = (s: string) => s.replace(/"/g, '\\"');
 
     if (!img) {
@@ -1000,13 +1043,40 @@ export default function App() {
         `url("${escape(convertFileSrc(img))}")`,
       );
     }
-  }, [settings.backgroundImage]);
+  }, [
+    settings,
+    settings.backgroundImage,
+    settings.perPageAppearance,
+    settings.backgroundImageSimple,
+    settings.backgroundImageAdvanced,
+    settings.backgroundImageZones,
+    settings.backgroundImageClickPoints,
+    settings.backgroundImageSettings,
+    tab,
+  ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;
     if (!root) return;
-    root.style.setProperty("--bg-opacity", String(settings.backgroundOpacity));
-  }, [settings.backgroundOpacity]);
+
+    const sfx = tabSuffix(tab);
+    const bgOp = resolvePerPage(
+      settings,
+      settings.backgroundOpacity,
+      `backgroundOpacity${sfx}`,
+    );
+    root.style.setProperty("--bg-opacity", String(bgOp));
+  }, [
+    settings,
+    settings.backgroundOpacity,
+    settings.perPageAppearance,
+    settings.backgroundOpacitySimple,
+    settings.backgroundOpacityAdvanced,
+    settings.backgroundOpacityZones,
+    settings.backgroundOpacityClickPoints,
+    settings.backgroundOpacitySettings,
+    tab,
+  ]);
 
   const handleTabChange = (nextTab: Tab) => {
     setTab(nextTab);

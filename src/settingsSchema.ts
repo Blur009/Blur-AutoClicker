@@ -417,6 +417,130 @@ const SETTINGS_ONLY_FIELDS = {
     default: "Digit5",
     ui: { section: "keybinds", control: "key" },
   },
+  perPageAppearance: {
+    default: false,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  backgroundImageSimple: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacitySimple: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacitySimple: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacitySimple: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlurSimple: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
+  backgroundImageAdvanced: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacityAdvanced: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacityAdvanced: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacityAdvanced: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlurAdvanced: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
+  backgroundImageZones: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacityZones: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacityZones: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacityZones: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlurZones: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
+  backgroundImageClickPoints: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacityClickPoints: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacityClickPoints: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacityClickPoints: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlurClickPoints: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
+  backgroundImageSettings: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacitySettings: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacitySettings: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacitySettings: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlurSettings: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
 } satisfies Record<string, FieldDef<unknown>>;
 
 export const SETTINGS_FIELD_DEFS = {

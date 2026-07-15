@@ -4,6 +4,7 @@
 - Added slider for window opacity in the appearance settings.
 - Added Keybind section in settings.
 - Added Keybinds for switching between all pages.(1 to 5 for simple, advanced, zones, click points, settings)
+- Added the ability to customize each page individually in the appearance settings.
 ## Changed
 - Overhauled Advanced panel.
 - Settings panel now has a side menu for easier navigation and organization of settings.

@@ -11,20 +11,45 @@ const IMAGE_FILTERS = [
   },
 ];
 
+const PAGES = [
+  { suffix: "Simple", label: "Simple Page" },
+  { suffix: "Advanced", label: "Advanced Page" },
+  { suffix: "Zones", label: "Zones Page" },
+  { suffix: "ClickPoints", label: "Click Points Page" },
+  { suffix: "Settings", label: "Settings Page" },
+] as const;
+
 interface Props {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
 }
 
-export default function AppearanceSection({ settings, update }: Props) {
-  const handleBrowseBackgroundImage = async () => {
+function PageAppearanceControls({
+  settings,
+  update,
+  suffix,
+}: {
+  settings: Settings;
+  update: (patch: Partial<Settings>) => void;
+  suffix: string;
+}) {
+  const bgImageKey = `backgroundImage${suffix}` as keyof Settings;
+  const bgOpacityKey = `backgroundOpacity${suffix}` as keyof Settings;
+  const winOpacityKey = `windowOpacity${suffix}` as keyof Settings;
+  const panelOpacityKey = `panelOpacity${suffix}` as keyof Settings;
+  const panelBlurKey = `panelBlur${suffix}` as keyof Settings;
+
+  const bgImage = settings[bgImageKey] as string;
+  const bgOpacity = settings[bgOpacityKey] as number;
+  const winOpacity = settings[winOpacityKey] as number;
+  const panelOpacity = settings[panelOpacityKey] as number;
+  const panelBlur = settings[panelBlurKey] as number;
+
+  const handleBrowse = async () => {
     try {
-      const selected = await open({
-        multiple: false,
-        filters: IMAGE_FILTERS,
-      });
+      const selected = await open({ multiple: false, filters: IMAGE_FILTERS });
       if (selected) {
-        update({ backgroundImage: selected });
+        update({ [bgImageKey]: selected });
       }
     } catch (err) {
       error(
@@ -37,7 +62,132 @@ export default function AppearanceSection({ settings, update }: Props) {
   };
 
   return (
-    <SettingsCard title="Appearance" description="Customize how the app looks.">
+    <>
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">Background Image</span>
+          <span className="settings-sublabel">
+            Path or URL to a background image.
+          </span>
+        </div>
+        <div className="settings-bg-image-row">
+          <input
+            className="settings-bg-input"
+            type="text"
+            value={bgImage}
+            onChange={(e) => update({ [bgImageKey]: e.target.value })}
+            placeholder="https://example.com/image.png"
+          />
+          <div className="settings-bg-buttons">
+            <button className="settings-btn-secondary" onClick={handleBrowse}>
+              Browse
+            </button>
+            <button
+              className="settings-btn-danger settings-btn-danger--compact"
+              onClick={() => update({ [bgImageKey]: "" })}
+              disabled={!bgImage}
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">Background Opacity</span>
+          <span className="settings-sublabel">
+            Transparency of the app window background.
+          </span>
+        </div>
+        <div className="settings-opacity-controls">
+          <input
+            type="range"
+            className="settings-opacity-slider"
+            min="0"
+            max="100"
+            value={winOpacity}
+            onChange={(e) =>
+              update({ [winOpacityKey]: Number(e.target.value) })
+            }
+          />
+          <span className="settings-slider-value">{winOpacity}%</span>
+        </div>
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">Background Image Opacity</span>
+          <span className="settings-sublabel">
+            Transparency of the background image.
+          </span>
+        </div>
+        <div className="settings-opacity-controls">
+          <input
+            type="range"
+            className="settings-opacity-slider"
+            min="0"
+            max="100"
+            value={bgOpacity}
+            disabled={!bgImage}
+            onChange={(e) => update({ [bgOpacityKey]: Number(e.target.value) })}
+          />
+          <span className="settings-slider-value">{bgOpacity}%</span>
+        </div>
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">Panel Opacity</span>
+          <span className="settings-sublabel">Transparency of the panel.</span>
+        </div>
+        <div className="settings-opacity-controls">
+          <input
+            type="range"
+            className="settings-opacity-slider"
+            min="0"
+            max="100"
+            value={panelOpacity}
+            onChange={(e) =>
+              update({ [panelOpacityKey]: Number(e.target.value) })
+            }
+          />
+          <span className="settings-slider-value">{panelOpacity}%</span>
+        </div>
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">Panel Blur</span>
+          <span className="settings-sublabel">
+            Blur effect behind the panel.
+          </span>
+        </div>
+        <div className="settings-opacity-controls">
+          <input
+            type="range"
+            className="settings-opacity-slider"
+            min="0"
+            max="20"
+            value={panelBlur}
+            onChange={(e) => update({ [panelBlurKey]: Number(e.target.value) })}
+          />
+          <span className="settings-slider-value">{panelBlur}px</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export default function AppearanceSection({ settings, update }: Props) {
+  const isPerPage = settings.perPageAppearance;
+
+  const handleModeChange = (individual: boolean) => {
+    update({ perPageAppearance: individual });
+  };
+
+  const themeAccent = (
+    <SettingsCard title="Theme & Accent" description="Applied to all pages.">
       <div className="settings-row">
         <div className="settings-label-group">
           <span className="settings-label">Theme</span>
@@ -57,7 +207,6 @@ export default function AppearanceSection({ settings, update }: Props) {
           ))}
         </div>
       </div>
-
       <div className="settings-row">
         <div className="settings-label-group">
           <span className="settings-label">Accent Color</span>
@@ -83,136 +232,60 @@ export default function AppearanceSection({ settings, update }: Props) {
           </button>
         </div>
       </div>
+    </SettingsCard>
+  );
 
-      <div className="settings-row">
-        <div className="settings-label-group">
-          <span className="settings-label">Background Opacity</span>
-          <span className="settings-sublabel">
-            Transparency of the app window background.
-          </span>
-        </div>
-        <div className="settings-opacity-controls">
-          <input
-            type="range"
-            className="settings-opacity-slider"
-            min="0"
-            max="100"
-            value={settings.windowOpacity}
-            onChange={(event) =>
-              update({ windowOpacity: Number(event.target.value) })
-            }
-          />
-          <span className="settings-slider-value">
-            {settings.windowOpacity}%
-          </span>
-        </div>
-      </div>
+  return (
+    <>
+      {themeAccent}
 
-      <div className="settings-row">
-        <div className="settings-label-group">
-          <span className="settings-label">Background Image</span>
-          <span className="settings-sublabel">
-            Path or URL to a background image.
-          </span>
-        </div>
-        <div className="settings-bg-image-row">
-          <input
-            className="settings-bg-input"
-            type="text"
-            value={settings.backgroundImage}
-            onChange={(event) =>
-              update({ backgroundImage: event.target.value })
-            }
-            placeholder="https://example.com/image.png"
-          />
-          <div className="settings-bg-buttons">
+      <SettingsCard
+        title="Appearance Mode"
+        description="Use one style for all pages, or customize each page individually."
+      >
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Mode</span>
+          </div>
+          <div className="settings-seg-group">
             <button
-              className="settings-btn-secondary"
-              onClick={handleBrowseBackgroundImage}
+              className={`settings-seg-btn ${!isPerPage ? "active" : ""}`}
+              onClick={() => handleModeChange(false)}
             >
-              Browse
+              Global
             </button>
             <button
-              className="settings-btn-danger settings-btn-danger--compact"
-              onClick={() => update({ backgroundImage: "" })}
-              disabled={!settings.backgroundImage}
+              className={`settings-seg-btn ${isPerPage ? "active" : ""}`}
+              onClick={() => handleModeChange(true)}
             >
-              Remove
+              Individual
             </button>
           </div>
         </div>
-      </div>
+      </SettingsCard>
 
-      <div className="settings-row">
-        <div className="settings-label-group">
-          <span className="settings-label">Background Image Opacity</span>
-          <span className="settings-sublabel">
-            Transparency of the background image.
-          </span>
-        </div>
-        <div className="settings-opacity-controls">
-          <input
-            type="range"
-            className="settings-opacity-slider"
-            min="0"
-            max="100"
-            value={settings.backgroundOpacity}
-            disabled={!settings.backgroundImage}
-            onChange={(event) =>
-              update({ backgroundOpacity: Number(event.target.value) })
-            }
+      {!isPerPage ? (
+        <SettingsCard title="Page Style">
+          <PageAppearanceControls
+            settings={settings}
+            update={update}
+            suffix=""
           />
-          <span className="settings-slider-value">
-            {settings.backgroundOpacity}%
-          </span>
-        </div>
-      </div>
-
-      <div className="settings-row">
-        <div className="settings-label-group">
-          <span className="settings-label">Panel Opacity</span>
-          <span className="settings-sublabel">
-            Transparency of the settings panel.
-          </span>
-        </div>
-        <div className="settings-opacity-controls">
-          <input
-            type="range"
-            className="settings-opacity-slider"
-            min="0"
-            max="100"
-            value={settings.panelOpacity}
-            onChange={(event) =>
-              update({ panelOpacity: Number(event.target.value) })
-            }
-          />
-          <span className="settings-slider-value">
-            {settings.panelOpacity}%
-          </span>
-        </div>
-      </div>
-
-      <div className="settings-row">
-        <div className="settings-label-group">
-          <span className="settings-label">Panel Blur</span>
-          <span className="settings-sublabel">
-            Blur effect behind the panel.
-          </span>
-        </div>
-        <div className="settings-opacity-controls">
-          <input
-            type="range"
-            className="settings-opacity-slider"
-            min="0"
-            max="20"
-            value={settings.panelBlur}
-            onChange={(event) =>
-              update({ panelBlur: Number(event.target.value) })
-            }
-          />
-          <span className="settings-slider-value">{settings.panelBlur}px</span>
-        </div>
-      </div>
-    </SettingsCard>
+        </SettingsCard>
+      ) : (
+        PAGES.map((page) => (
+          <section className="settings-card" key={page.suffix}>
+            <span className="settings-page-header">{page.label}</span>
+            <div className="settings-card-content">
+              <PageAppearanceControls
+                settings={settings}
+                update={update}
+                suffix={page.suffix}
+              />
+            </div>
+          </section>
+        ))
+      )}
+    </>
   );
 }

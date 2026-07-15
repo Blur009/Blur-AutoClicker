@@ -184,6 +184,15 @@
   color: var(--text-dim);
 }
 
+.settings-page-header {
+  font-family: var(--font-family-base);
+  font-size: 1.125rem;
+  font-weight: var(--font-weight-li);
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  padding: 0.25rem 0 0.5rem;
+}
+
 .settings-label {
   font-family: var(--font-family-base);
   font-size: 1rem;
