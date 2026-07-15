@@ -52,7 +52,8 @@
 }
 
 .adv-click-points-list {
-  display: block;
+  display: flex;
+  flex-direction: column;
   position: relative;
   z-index: 0;
   width: 100%;
@@ -283,14 +284,14 @@
 
 .adv-click-points-footer {
   flex-shrink: 0;
-  padding-top: 4px;
+  padding-top: 0.25rem;
 }
 
 .adv-click-points-option-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 28px;
+  min-height: 1.75rem;
 }
 
 .adv-click-points-option-row .adv-toggle-group {
@@ -303,4 +304,14 @@
   font-weight: var(--font-weight-hv);
   color: var(--text-primary);
   white-space: nowrap;
+}
+
+.adv-click-points-pick-btn.adv-secondary-btn {
+  background: var(--accent-soft);
+  border-color: var(--accent-ring);
+  color: var(--text-primary);
+}
+
+.adv-click-points-pick-btn.adv-secondary-btn:hover {
+  border-color: var(--accent-strong);
 }
