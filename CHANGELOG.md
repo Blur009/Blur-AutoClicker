@@ -15,7 +15,7 @@
 - Changed scroll behaviour for number inputs to be: shift = 5, ctrl = 25, shift + ctrl = 100.
 - Made settings icon 1px bigger :). 
 - Moved Process (white/black)list to the settings.
-# Fixed
+## Fixed
 - Fixed alt menu opening when the autoclicker is launched while tabbed into another app.
 - Fixed simple tab button in the title bar showing the wrong background color when a custom accent color is selected.
 
