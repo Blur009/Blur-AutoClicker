@@ -277,6 +277,13 @@ unsafe extern "system" fn keyboard_ll_proc(n_code: i32, w_param: usize, l_param:
 
 pub fn start_hotkey_listener(app: AppHandle) {
     std::thread::spawn(move || unsafe {
+        // Delay hook installation to let WebView2/windows fully initialise.
+        // Installing WH_KEYBOARD_LL too early can cause Windows to generate
+        // spurious Alt-menu events in other applications. Hotkey detection
+        // falls back to GetAsyncKeyState via the HOOKS_ACTIVE check below
+        // during this window.
+        std::thread::sleep(Duration::from_secs(2));
+
         let mouse_hook =
             SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_ll_proc), std::ptr::null_mut(), 0);
         let kb_hook = SetWindowsHookExW(

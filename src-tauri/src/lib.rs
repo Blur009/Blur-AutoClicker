@@ -29,6 +29,29 @@ use tauri::{AppHandle, Listener, Manager};
 
 const STATUS_EVENT: &str = "clicker-status";
 
+#[cfg(target_os = "windows")]
+fn apply_ws_ex_noactivate(window: &tauri::WebviewWindow, enable: bool) {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongW, SetWindowLongW, GWL_EXSTYLE,
+    };
+
+    if let Ok(handle) = window.window_handle() {
+        if let RawWindowHandle::Win32(w) = handle.as_raw() {
+            let hwnd = w.hwnd.get() as *mut std::ffi::c_void;
+            unsafe {
+                let ex = GetWindowLongW(hwnd, GWL_EXSTYLE);
+                let new_ex = if enable {
+                    (ex as u32 | 0x08000000) as i32
+                } else {
+                    (ex as u32 & !0x08000000) as i32
+                };
+                SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex);
+            }
+        }
+    }
+}
+
 fn is_rtss_running() -> bool {
     crate::engine::process::is_process_running("RTSS.exe")
 }
@@ -115,6 +138,8 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
             "show" => {
                 crate::window_lifecycle::on_show(app);
                 if let Some(window) = app.get_webview_window("main") {
+                    #[cfg(target_os = "windows")]
+                    apply_ws_ex_noactivate(&window, false);
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -140,6 +165,8 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
                 let app = tray.app_handle();
                 crate::window_lifecycle::on_show(app);
                 if let Some(window) = app.get_webview_window("main") {
+                    #[cfg(target_os = "windows")]
+                    apply_ws_ex_noactivate(&window, false);
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -184,6 +211,11 @@ fn setup_frontend_listener(app: &AppHandle) {
         log::info!("[Window] Frontend ready, initializing overlay...");
         if let Err(e) = overlay::init_overlay(&overlay_init_handle) {
             log::error!("[Window] Overlay init failed: {e}");
+        }
+        #[cfg(target_os = "windows")]
+        if let Some(window) = overlay_init_handle.get_webview_window("main") {
+            apply_ws_ex_noactivate(&window, false);
+            log::info!("[Window] Cleared WS_EX_NOACTIVATE on main window");
         }
     });
 }
@@ -238,6 +270,13 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
             setup_logging(&handle);
+
+            #[cfg(target_os = "windows")]
+            if let Some(window) = app.get_webview_window("main") {
+                apply_ws_ex_noactivate(&window, true);
+                log::info!("[Window] Applied WS_EX_NOACTIVATE to main window");
+            }
+
             if rtss_detected {
                 log::warn!(
                     "[RTSS] RivaTuner Statistics Server detected. \

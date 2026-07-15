@@ -27,7 +27,7 @@ pub fn make_keyboard_input(vk: u16, flags: u32) -> INPUT {
         r#type: INPUT_KEYBOARD,
         Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
             ki: KEYBDINPUT {
-                wVk: vk,
+                wVk: 0,
                 wScan: scan,
                 dwFlags: flags | KEYEVENTF_SCANCODE | ext_flag,
                 time: 0,
