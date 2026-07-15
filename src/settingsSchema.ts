@@ -10,11 +10,9 @@ export type Theme = "dark" | "light";
 export type PresetId = string;
 export type RateInputMode = "rate" | "duration";
 export type ProcessListMode = "whitelist" | "blacklist";
-export type ProcessListBehavior = "pause" | "stop";
 
 export interface ProcessListEntry {
   name: string;
-  behavior: ProcessListBehavior;
   enabled: boolean;
 }
 
@@ -776,7 +774,7 @@ function sanitizeProcessListEntries(value: unknown): ProcessListEntry[] {
       if (typeof item === "string") {
         const name = item.trim().toLowerCase();
         if (!name) return null;
-        return { name, behavior: "stop", enabled: true };
+        return { name, enabled: true };
       }
       if (!item || typeof item !== "object") return null;
       const candidate = item as Partial<ProcessListEntry>;
@@ -785,11 +783,9 @@ function sanitizeProcessListEntries(value: unknown): ProcessListEntry[] {
           ? candidate.name.trim().toLowerCase()
           : "";
       if (!name) return null;
-      const behavior: ProcessListBehavior =
-        candidate.behavior === "pause" ? "pause" : "stop";
       const enabled =
         typeof candidate.enabled === "boolean" ? candidate.enabled : true;
-      return { name, behavior, enabled };
+      return { name, enabled };
     })
     .filter((entry): entry is ProcessListEntry => entry !== null);
 }

@@ -135,7 +135,7 @@ mod tests {
             edge_stop_right: 40,
             edge_stop_bottom: 40,
             edge_stop_left: 40,
-            input_type: 0,
+            input_type: crate::engine::InputType::Mouse,
             key_code: 0,
             keyboard_uppercase: false,
             process_list_enabled: false,

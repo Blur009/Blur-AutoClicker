@@ -6,7 +6,6 @@ import {
   NumInput,
   ToggleBtn,
   CardDivider,
-  InfoIcon,
 } from "../../advanced/sections/shared";
 
 interface Props {
@@ -29,7 +28,7 @@ const EDGE_KEYS = {
   bottom: "edgeStopBottom",
 } as const;
 
-export default function FailsafeSection({ settings, update, showInfo }: Props) {
+export default function FailsafeSection({ settings, update }: Props) {
   return (
     <>
       <div className="adv-sectioncontainer">
@@ -42,9 +41,6 @@ export default function FailsafeSection({ settings, update, showInfo }: Props) {
               gap: "0.5rem",
             }}
           >
-            {showInfo ? (
-              <InfoIcon text="Stops the clicker when the cursor enters a screen corner. Keep it as a failsafe." />
-            ) : null}
             <span className="adv-card-title">Corner Stop</span>
           </div>
           <ToggleBtn
@@ -53,6 +49,10 @@ export default function FailsafeSection({ settings, update, showInfo }: Props) {
           />
         </div>
         <CardDivider />
+        <div className="adv-card-desc">
+          Stops the clicker when your cursor enters a screen corner. Keep this
+          enabled as a safety net.
+        </div>
         <Disableable
           enabled={settings.cornerStopEnabled}
           disabledReason="Enable Corner Stop to edit the corner failsafe hitboxes."
@@ -70,6 +70,7 @@ export default function FailsafeSection({ settings, update, showInfo }: Props) {
                     onChange={(v) => update({ [CORNER_KEYS[cornerKey]]: v })}
                     min={SETTINGS_LIMITS.stopBoundary.min}
                     max={SETTINGS_LIMITS.stopBoundary.max}
+                    hoverWheel={false}
                     style={{ width: "74px", textAlign: "right" }}
                   />
                   <span className="adv-unit">px</span>
@@ -90,9 +91,6 @@ export default function FailsafeSection({ settings, update, showInfo }: Props) {
               gap: "0.5rem",
             }}
           >
-            {showInfo ? (
-              <InfoIcon text="Stops the clicker when the cursor reaches a screen edge. Keep it as a failsafe." />
-            ) : null}
             <span className="adv-card-title">Edge Stop</span>
           </div>
           <ToggleBtn
@@ -101,6 +99,10 @@ export default function FailsafeSection({ settings, update, showInfo }: Props) {
           />
         </div>
         <CardDivider />
+        <div className="adv-card-desc">
+          Stops the clicker when your cursor reaches a screen edge. Keep this
+          enabled as a safety net.
+        </div>
         <Disableable
           enabled={settings.edgeStopEnabled}
           disabledReason="Enable Edge Stop to edit the edge failsafe hitboxes."
@@ -118,6 +120,7 @@ export default function FailsafeSection({ settings, update, showInfo }: Props) {
                     onChange={(v) => update({ [EDGE_KEYS[edgeSide]]: v })}
                     min={SETTINGS_LIMITS.stopBoundary.min}
                     max={SETTINGS_LIMITS.stopBoundary.max}
+                    hoverWheel={false}
                     style={{ width: "74px", textAlign: "right" }}
                   />
                   <span className="adv-unit">px</span>

@@ -138,7 +138,7 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
     let config = build_config(&settings)?;
 
     // Prevent feedback loop: keyboard key must not match a modifier-free hotkey
-    if config.input_type == 1 && config.key_code > 0 {
+    if config.input_type == crate::engine::InputType::Keyboard && config.key_code > 0 {
         let hotkey_binding = state
             .registered_hotkey
             .lock()
@@ -371,7 +371,11 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
         edge_stop_right: settings.edge_stop_right,
         edge_stop_bottom: settings.edge_stop_bottom,
         edge_stop_left: settings.edge_stop_left,
-        input_type: if is_keyboard { 1 } else { 0 },
+        input_type: if is_keyboard {
+            crate::engine::InputType::Keyboard
+        } else {
+            crate::engine::InputType::Mouse
+        },
         key_code,
         keyboard_uppercase,
         process_list_enabled: settings.process_list_enabled,
@@ -495,7 +499,7 @@ struct ClickerContext {
 
 impl ClickerContext {
     fn new(config: &ClickerConfig) -> Self {
-        let is_keyboard = config.input_type == 1 && config.key_code > 0;
+        let is_keyboard = config.input_type.is_keyboard() && config.key_code > 0;
         let (down_flag, up_flag) = if is_keyboard {
             (0, 0)
         } else {
@@ -582,45 +586,13 @@ fn check_abort(config: &ClickerConfig, start_time: Instant) -> Option<String> {
     if config.task_switcher_stop_enabled && process::is_task_switcher_active() {
         return Some(String::from("Blocked by Alt+Tab"));
     }
-    if config.process_list_enabled
-        && process::check_process_list(config) == Some(super::ProcessListBehavior::Stop)
-    {
+    if config.process_list_enabled && process::check_process_list(config).is_some() {
         return Some(String::from("Blocked by process list"));
     }
     if config.time_limit > 0.0 && start_time.elapsed().as_secs_f64() >= config.time_limit {
         return Some(format!("Time limit reached ({:.1}s)", config.time_limit));
     }
     None
-}
-
-fn handle_process_list_pause(config: &ClickerConfig, control: &RunControl) -> Option<String> {
-    if !config.process_list_enabled {
-        return None;
-    }
-    if process::check_process_list(config) != Some(super::ProcessListBehavior::Pause) {
-        return None;
-    }
-    let state = control.app.state::<ClickerState>();
-    state.paused.store(true, Ordering::SeqCst);
-    emit_status(&control.app);
-    loop {
-        std::thread::sleep(Duration::from_millis(200));
-        if !state.running.load(Ordering::SeqCst)
-            || state.run_generation.load(Ordering::SeqCst) != control.expected_generation
-        {
-            state.paused.store(false, Ordering::SeqCst);
-            if control.is_active() {
-                emit_status(&control.app);
-            }
-            return Some(String::from("Stopped"));
-        }
-        if process::check_process_list(config).is_none() {
-            break;
-        }
-    }
-    state.paused.store(false, Ordering::SeqCst);
-    emit_status(&control.app);
-    Some(String::from("Blocked by process list"))
 }
 
 fn update_target(
@@ -829,10 +801,6 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             st.stop_reason = reason;
             break;
         }
-        if let Some(reason) = handle_process_list_pause(&config, &control) {
-            st.stop_reason = reason;
-            break;
-        }
         if config.limit > 0 && st.click_count >= config.limit as i64 {
             st.stop_reason = format!("Click limit reached ({})", config.limit);
             break;
@@ -908,7 +876,7 @@ mod tests {
             edge_stop_right: 40,
             edge_stop_bottom: 40,
             edge_stop_left: 40,
-            input_type: 0,
+            input_type: crate::engine::InputType::Mouse,
             key_code: 0,
             keyboard_uppercase: false,
             process_list_enabled: false,

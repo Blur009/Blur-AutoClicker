@@ -9,12 +9,14 @@ import AppearanceSection from "./sections/AppearanceSection";
 import PresetsSection from "./sections/PresetsSection";
 import MaintenanceSection from "./sections/MaintenanceSection";
 import KeybindsSection from "./sections/KeybindsSection";
+import ProcessListSection from "./sections/ProcessListSection";
 
 type SettingsTab =
   | "general"
   | "behavior"
   | "appearance"
   | "keybinds"
+  | "process-list"
   | "presets"
   | "maintenance";
 
@@ -137,6 +139,29 @@ export default function SettingsPanel({
           Keybinds
         </button>
         <button
+          className={`sidebar-tab ${activeTab === "process-list" ? "active" : ""}`}
+          onClick={() => setActiveTab("process-list")}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="gray"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            className="lucide lucide-app-window-mac-icon lucide-app-window-mac"
+          >
+            <rect width="20" height="16" x="2" y="4" rx="2" />
+            <path d="M6 8h.01" />
+            <path d="M10 8h.01" />
+            <path d="M14 8h.01" />
+          </svg>
+          Process List
+        </button>
+        <button
           className={`sidebar-tab ${activeTab === "presets" ? "active" : ""}`}
           onClick={() => setActiveTab("presets")}
         >
@@ -202,6 +227,11 @@ export default function SettingsPanel({
         )}
         {activeTab === "keybinds" && (
           <KeybindsSection settings={settings} update={update} />
+        )}
+        {activeTab === "process-list" && (
+          <div className="settings-proc-list-wrapper">
+            <ProcessListSection settings={settings} update={update} />
+          </div>
         )}
         {activeTab === "presets" && (
           <PresetsSection

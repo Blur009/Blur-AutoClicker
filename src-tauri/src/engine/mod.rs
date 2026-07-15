@@ -20,16 +20,21 @@ pub enum ProcessListMode {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum ProcessListBehavior {
-    Pause,
-    Stop,
+pub enum InputType {
+    Mouse,
+    Keyboard,
+}
+
+impl InputType {
+    pub fn is_keyboard(self) -> bool {
+        matches!(self, InputType::Keyboard)
+    }
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessListEntry {
     pub name: String,
-    pub behavior: ProcessListBehavior,
     pub enabled: bool,
 }
 
@@ -68,7 +73,7 @@ pub struct ClickerConfig {
     pub edge_stop_right: i32,
     pub edge_stop_bottom: i32,
     pub edge_stop_left: i32,
-    pub input_type: i32,
+    pub input_type: InputType,
     pub key_code: u16,
     pub keyboard_uppercase: bool,
     pub process_list_enabled: bool,

@@ -33,6 +33,7 @@ import {
 import {
   APP_VERSION,
   DEFAULT_SETTINGS,
+  initAppVersion,
   type AppInfo,
   type ClickerStatus,
   type Settings,
@@ -40,6 +41,8 @@ import {
   loadSettings,
   saveSettings,
 } from "./store";
+
+void initAppVersion();
 
 const SimplePanel = lazy(() => import("./components/panels/SimplePanel"));
 const AdvancedPanel = lazy(
@@ -1115,10 +1118,13 @@ export default function App() {
 
   const [stopKey, setStopKey] = useState(0);
   const prevStopReasonRef = useRef(status.stopReason);
-  if (status.stopReason && status.stopReason !== prevStopReasonRef.current) {
-    prevStopReasonRef.current = status.stopReason;
-    setStopKey((k) => k + 1);
-  }
+
+  useEffect(() => {
+    if (status.stopReason && status.stopReason !== prevStopReasonRef.current) {
+      prevStopReasonRef.current = status.stopReason;
+      setStopKey((k) => k + 1);
+    }
+  }, [status.stopReason]);
 
   const handleTabChangeRef = useRef(handleTabChange);
   handleTabChangeRef.current = handleTabChange;

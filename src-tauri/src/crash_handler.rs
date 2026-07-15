@@ -21,6 +21,9 @@ pub fn initialize_crashpad() -> Result<(), Box<dyn std::error::Error>> {
         "[Crashpad] Initialized, crash reports directory: {}",
         crash_database.display()
     );
+    // Must not drop during process exit — Crashpad client sends crash reports on
+    // drop, but during abnormal termination the drop may hang or deadlock.
+    // Leaking ensures the handler process stays alive.
     std::mem::forget(client);
     Ok(())
 }

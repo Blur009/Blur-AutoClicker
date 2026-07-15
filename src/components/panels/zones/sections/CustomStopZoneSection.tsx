@@ -8,7 +8,6 @@ import {
   NumInput,
   ToggleBtn,
   CardDivider,
-  InfoIcon,
 } from "../../advanced/sections/shared";
 
 interface Props {
@@ -24,11 +23,7 @@ interface CustomStopZonePickedPayload {
   height: number;
 }
 
-export default function CustomStopZoneSection({
-  settings,
-  update,
-  showInfo,
-}: Props) {
+export default function CustomStopZoneSection({ settings, update }: Props) {
   const [drawingZone, setDrawingZone] = useState(false);
   const updateRef = useRef(update);
 
@@ -137,9 +132,6 @@ export default function CustomStopZoneSection({
             gap: "0.5rem",
           }}
         >
-          {showInfo ? (
-            <InfoIcon text="Draw a zone on screen that stops clicking when your cursor enters it." />
-          ) : null}
           <span className="adv-card-title">Custom Stop Zone</span>
         </div>
         <ToggleBtn
@@ -153,7 +145,14 @@ export default function CustomStopZoneSection({
         />
       </div>
       <CardDivider />
-      <Disableable enabled={settings.customStopZoneEnabled}>
+      <div className="adv-card-desc">
+        Draw a zone on screen. The clicker stops whenever your cursor moves
+        inside it.
+      </div>
+      <Disableable
+        enabled={settings.customStopZoneEnabled}
+        disabledReason="Enable Custom Stop Zone to draw a zone on screen."
+      >
         <div className="adv-stop-zone-body">
           <div className="adv-stop-zone-controls">
             <div className="adv-stop-zone-grid">
@@ -170,6 +169,7 @@ export default function CustomStopZoneSection({
                 <NumInput
                   value={settings.customStopZoneX}
                   onChange={(v) => update({ customStopZoneX: v })}
+                  min={0}
                   style={{ flex: 1, width: "100%", textAlign: "left" }}
                 />
               </label>
@@ -186,6 +186,7 @@ export default function CustomStopZoneSection({
                 <NumInput
                   value={settings.customStopZoneY}
                   onChange={(v) => update({ customStopZoneY: v })}
+                  min={0}
                   style={{ flex: 1, width: "100%", textAlign: "left" }}
                 />
               </label>
@@ -227,7 +228,7 @@ export default function CustomStopZoneSection({
             <div className="adv-click-points-actions adv-stop-zone-actions">
               <button
                 type="button"
-                className="adv-secondary-btn"
+                className="adv-secondary-btn adv-zone-draw-btn"
                 onClick={() => {
                   void (drawingZone
                     ? cancelCustomStopZonePick()

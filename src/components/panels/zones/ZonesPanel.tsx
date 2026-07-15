@@ -3,9 +3,7 @@ import "./ZonesPanel.css";
 import type { Settings } from "../../../store";
 import FailsafeSection from "./sections/FailsafeSection";
 import CustomStopZoneSection from "./sections/CustomStopZoneSection";
-import ProcessListSection from "./sections/ProcessListSection";
 
-// TODO: This still entirely needs to get done. I've just moved everything over here. If you are a back end dev, please be careful changing UI things xD
 // TODO: Custom Stop zones should be like Sequence clicking where you can add as many as you want in a list.
 
 interface Props {
@@ -32,13 +30,6 @@ function ZonesPanel({ settings, update, showInfo }: Props) {
             showInfo={showInfo}
           />
         </div>
-      </div>
-      <div className="adv-row adv-row--grow">
-        <ProcessListSection
-          settings={settings}
-          update={update}
-          showInfo={showInfo}
-        />
       </div>
     </div>
   );

@@ -8,7 +8,11 @@ import {
 
 const store = new LazyStore("settings.json");
 
-export const APP_VERSION = await getVersion();
+export let APP_VERSION = "0.0.0";
+
+export async function initAppVersion(): Promise<void> {
+  APP_VERSION = await getVersion();
+}
 
 export type {
   ClickInterval,
