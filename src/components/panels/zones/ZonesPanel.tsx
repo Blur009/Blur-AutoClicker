@@ -16,21 +16,17 @@ function ZonesPanel({ settings, update, showInfo }: Props) {
   return (
     <div className="adv-panel adv-panel-text adv-panel--zones">
       <div className="adv-zones-row">
-        <div className="adv-zones-left">
-          <FailsafeSection
-            settings={settings}
-            update={update}
-            showInfo={showInfo}
-          />
-        </div>
-        <div className="adv-zones-right">
-          <CustomStopZoneSection
-            settings={settings}
-            update={update}
-            showInfo={showInfo}
-          />
-        </div>
+        <FailsafeSection
+          settings={settings}
+          update={update}
+          showInfo={showInfo}
+        />
       </div>
+      <CustomStopZoneSection
+        settings={settings}
+        update={update}
+        showInfo={showInfo}
+      />
     </div>
   );
 }
