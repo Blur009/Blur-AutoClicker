@@ -21,6 +21,7 @@ export interface ClickPoint {
   x: number;
   y: number;
   clicks: number;
+  radius: number;
 }
 
 export interface StopZone {
@@ -363,6 +364,16 @@ const SETTINGS_ONLY_FIELDS = {
     default: false,
     ui: { section: "behavior", control: "toggle" },
   },
+  newClickPointClicks: {
+    default: 1,
+    limit: { min: 1, max: 999999 },
+    ui: { section: "behavior", control: "number" },
+  },
+  newClickPointRadius: {
+    default: 0,
+    limit: { min: 0, max: 9999 },
+    ui: { section: "behavior", control: "number" },
+  },
   accentColor: {
     default: DEFAULT_ACCENT_COLOR,
     ui: { section: "appearance", control: "color" },
@@ -616,7 +627,8 @@ const FIELD_LIMITS = {
 export const SETTINGS_LIMITS = {
   ...FIELD_LIMITS,
   stopBoundary: PRESET_FIELDS.cornerStopTL.limit,
-  clickPointClicks: { min: 1, max: 100000 },
+  clickPointClicks: { min: 1, max: 999999 },
+  clickPointRadius: { min: 0, max: 9999 },
 };
 
 export const SETTINGS_UI_SCHEMA = [
@@ -812,6 +824,11 @@ function sanitizeClickPoints(value: unknown): ClickPoint[] {
         Number.isFinite(candidate.clicks)
           ? Math.trunc(candidate.clicks)
           : 1;
+      const radius =
+        typeof candidate.radius === "number" &&
+        Number.isFinite(candidate.radius)
+          ? Math.trunc(candidate.radius)
+          : 0;
 
       if (x === null || y === null) return null;
 
@@ -824,6 +841,12 @@ function sanitizeClickPoints(value: unknown): ClickPoint[] {
           1,
           SETTINGS_LIMITS.clickPointClicks.min,
           SETTINGS_LIMITS.clickPointClicks.max,
+        ),
+        radius: clampNumber(
+          radius,
+          0,
+          SETTINGS_LIMITS.clickPointRadius.min,
+          SETTINGS_LIMITS.clickPointRadius.max,
         ),
       };
     })

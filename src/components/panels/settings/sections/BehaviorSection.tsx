@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { error } from "@tauri-apps/plugin-log";
 import { DEFAULT_MAX_CLICK_SPEED } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
+import { NumInput } from "../../advanced/sections/shared";
 import ConfirmDialog from "../../../ConfirmDialog";
 import { SettingsCard } from "./shared";
 
@@ -184,6 +185,60 @@ export default function BehaviorSection({
                 {option.label}
               </button>
             ))}
+          </div>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Click Points Defaults"
+        description="Default values for newly picked click points."
+      >
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Default Clicks</span>
+            <span className="settings-sublabel">
+              Clicks per point for new entries.
+            </span>
+          </div>
+          <div className="adv-numbox-sm" style={{ gap: "0.25rem" }}>
+            <span
+              className="adv-unit"
+              style={{ minWidth: "0.75rem", textAlign: "left" }}
+            >
+              clicks
+            </span>
+            <NumInput
+              hoverWheel={false}
+              value={settings.newClickPointClicks}
+              min={1}
+              max={999999}
+              onChange={(value) => update({ newClickPointClicks: value })}
+              style={{ width: "7ch", textAlign: "right" }}
+            />
+          </div>
+        </div>
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Default Radius</span>
+            <span className="settings-sublabel">
+              Randomization radius for new entries.
+            </span>
+          </div>
+          <div className="adv-numbox-sm" style={{ gap: "0.25rem" }}>
+            <span
+              className="adv-unit"
+              style={{ minWidth: "0.375rem", textAlign: "center" }}
+            >
+              r
+            </span>
+            <NumInput
+              hoverWheel={false}
+              value={settings.newClickPointRadius}
+              min={0}
+              max={9999}
+              onChange={(value) => update({ newClickPointRadius: value })}
+              style={{ width: "5ch", textAlign: "right" }}
+            />
           </div>
         </div>
       </SettingsCard>

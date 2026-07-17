@@ -93,6 +93,7 @@ export default function ClickPointsContent({
   const listViewportRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const latestPointsRef = useRef(settings.clickPoints);
+  const latestSettingsRef = useRef(settings);
   const updateRef = useRef(update);
   const dragStateRef = useRef<DragState | null>(null);
   const moveFrameRef = useRef<number | null>(null);
@@ -108,15 +109,19 @@ export default function ClickPointsContent({
     let unlistenEnded: (() => void) | null = null;
 
     void listen<ClickPointPickedPayload>("click-point-picked", (event) => {
-      const nextPoints = [
-        ...latestPointsRef.current,
-        {
-          id: createClickPointId(),
-          x: event.payload.x,
-          y: event.payload.y,
-          clicks: 1,
-        },
-      ];
+      const defaults = latestSettingsRef.current;
+      const newClicks = defaults.newClickPointClicks ?? 1;
+      const newRadius = defaults.newClickPointRadius ?? 0;
+      const currentPoints = latestPointsRef.current;
+      const newPoint: ClickPoint = {
+        id: createClickPointId(),
+        x: event.payload.x,
+        y: event.payload.y,
+        clicks: newClicks,
+        radius: newRadius,
+      };
+      const nextPoints = [...currentPoints, newPoint];
+
       latestPointsRef.current = nextPoints;
       updateRef.current({
         clickPointsEnabled: true,
@@ -363,6 +368,10 @@ export default function ClickPointsContent({
   );
 
   useEffect(() => {
+    latestSettingsRef.current = settings;
+  }, [settings]);
+
+  useEffect(() => {
     latestPointsRef.current = settings.clickPoints;
     const frame = window.requestAnimationFrame(() => {
       updateBottomFade();
@@ -485,9 +494,7 @@ export default function ClickPointsContent({
         <ToggleBtn
           value={settings.clickPointsEnabled}
           onChange={(v) => {
-            if (!v && picking) {
-              void cancelPick();
-            }
+            void cancelPick();
             update({
               clickPointsEnabled: v,
             });
@@ -505,7 +512,7 @@ export default function ClickPointsContent({
           <div className="adv-click-points-controls">
             <button
               type="button"
-              className="adv-secondary-btn adv-click-points-pick-btn"
+              className={`adv-secondary-btn adv-click-points-pick-btn${settings.clickPoints.length > 0 ? " adv-click-points-pick-btn--filled" : ""}`}
               onClick={() => {
                 void (picking ? cancelPick() : startPick());
               }}

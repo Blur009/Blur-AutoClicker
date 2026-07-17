@@ -77,6 +77,13 @@
             box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.28), 0 6px 18px rgba(0, 0, 0, 0.35);
             pointer-events: none;
         }
+        .click-points-radius {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px dashed;
+            pointer-events: none;
+            opacity: 0.55;
+        }
         .overlay-prompt {
             position: absolute;
             max-width: 260px;
@@ -398,11 +405,25 @@
 
         function addClickPointDot(point, index) {
             const scale = window.devicePixelRatio || 1;
+            const color = stableDotColor(point, index);
+
+            if (point.radius > 0) {
+                const circle = document.createElement('div');
+                circle.className = 'click-points-radius';
+                const diameter = (point.radius / scale) * 2;
+                circle.style.width = diameter + 'px';
+                circle.style.height = diameter + 'px';
+                circle.style.left = (point.x / scale - point.radius / scale) + 'px';
+                circle.style.top = (point.y / scale - point.radius / scale) + 'px';
+                circle.style.borderColor = color;
+                clickPointsLayer.appendChild(circle);
+            }
+
             const dot = document.createElement('div');
             dot.className = 'click-points-dot';
             dot.style.left = (point.x / scale - 5) + 'px';
             dot.style.top = (point.y / scale - 5) + 'px';
-            dot.style.background = stableDotColor(point, index);
+            dot.style.background = color;
             clickPointsLayer.appendChild(dot);
         }
 

@@ -306,6 +306,7 @@ fn emit_click_points(
                 "id": point.id,
                 "x": offset.left,
                 "y": offset.top,
+                "radius": point.radius,
             })
         })
         .collect();

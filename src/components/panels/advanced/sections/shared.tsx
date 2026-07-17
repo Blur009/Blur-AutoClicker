@@ -154,21 +154,33 @@ export function NumInput({
     onChange(clampValue(val));
   };
 
-  const handleWheel = (e: WheelEvent<HTMLInputElement>) => {
-    if (!hoverWheel && e.target !== document.activeElement) return;
-    e.preventDefault();
-    const direction = e.deltaY < 0 ? 1 : -1;
-    const current = Number.isFinite(value) ? value : (min ?? 0);
-    let step = 1;
-    if (e.shiftKey && e.ctrlKey) step = 100;
-    else if (e.ctrlKey) step = 25;
-    else if (e.shiftKey) step = 5;
-    wheelRef.current = true;
-    onChange(clampValue(current + direction * step));
-    setTimeout(() => {
-      wheelRef.current = false;
-    }, 0);
-  };
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      if (!hoverWheel && e.target !== el) return;
+      e.preventDefault();
+      const direction = e.deltaY < 0 ? 1 : -1;
+      const current = Number.isFinite(value) ? value : (min ?? 0);
+      let step = 1;
+      if (e.shiftKey && e.ctrlKey) step = 100;
+      else if (e.ctrlKey) step = 25;
+      else if (e.shiftKey) step = 5;
+      let next = current + direction * step;
+      if (min !== undefined && next < min) next = min;
+      if (max !== undefined && next > max) next = max;
+      wheelRef.current = true;
+      onChange(next);
+      setTimeout(() => {
+        wheelRef.current = false;
+      }, 0);
+    };
+    el.addEventListener("wheel", handler as unknown as EventListener, {
+      passive: false,
+    });
+    return () =>
+      el.removeEventListener("wheel", handler as unknown as EventListener);
+  }, [hoverWheel, value, min, max, onChange]);
 
   return (
     <input
@@ -180,7 +192,6 @@ export function NumInput({
       max={max}
       onChange={handleChange}
       onBlur={handleBlur}
-      onWheel={handleWheel}
       style={{
         background: "transparent",
         border: "none",

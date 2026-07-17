@@ -93,6 +93,10 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: var(--accent-ring);
 }
 
+.adv-numbox-sm:focus-within {
+  border-color: var(--accent-ring);
+}
+
 .adv-number-sm {
   font-family: "RobotoFlex", sans-serif;
   font-size: 0.875rem;

@@ -11,6 +11,8 @@ pub struct ClickPoint {
     pub y: i32,
     #[serde(default = "default_click_point_clicks")]
     pub clicks: u32,
+    #[serde(default)]
+    pub radius: u32,
 }
 
 fn default_click_point_clicks() -> u32 {

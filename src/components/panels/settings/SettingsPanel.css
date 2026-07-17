@@ -102,6 +102,7 @@
 }
 
 .settings-panel {
+  --adv-control-height: 32px;
   position: relative;
   flex: 1;
   display: flex;

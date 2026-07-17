@@ -43,6 +43,7 @@ pub struct ClickPointTarget {
     pub x: i32,
     pub y: i32,
     pub clicks: usize,
+    pub radius: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

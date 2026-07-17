@@ -283,7 +283,12 @@ fn current_cycle_target(config: &ClickerConfig, click_point_index: usize) -> Cli
         config.click_points[safe_index]
     } else {
         let (x, y) = get_cursor_pos();
-        ClickPointTarget { x, y, clicks: 1 }
+        ClickPointTarget {
+            x,
+            y,
+            clicks: 1,
+            radius: 0,
+        }
     }
 }
 
@@ -353,7 +358,8 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
             .map(|point| ClickPointTarget {
                 x: point.x,
                 y: point.y,
-                clicks: point.clicks.clamp(1, 100000) as usize,
+                clicks: point.clicks.clamp(1, 999999) as usize,
+                radius: point.radius,
             })
             .collect(),
         offset: 2.0,
@@ -623,15 +629,22 @@ fn update_target(
         return;
     }
     let target = current_cycle_target(config, st.click_point_index);
+    let mut jitter_x = 0.0f64;
+    let mut jitter_y = 0.0f64;
+    if config.use_click_points() && target.radius > 0 {
+        let angle = rng.next_f64() * 2.0 * PI;
+        let r = rng.next_f64().sqrt() * target.radius as f64;
+        jitter_x += r * angle.cos();
+        jitter_y += r * angle.sin();
+    }
     if config.offset_chance > 0.0 && rng.next_f64() * 100.0 <= config.offset_chance {
         let angle = rng.next_f64() * 2.0 * PI;
-        let radius = rng.next_f64().sqrt() * config.offset;
-        st.target_x = (target.x as f64 + radius * angle.cos()) as i32;
-        st.target_y = (target.y as f64 + radius * angle.sin()) as i32;
-    } else {
-        st.target_x = target.x;
-        st.target_y = target.y;
+        let r = rng.next_f64().sqrt() * config.offset;
+        jitter_x += r * angle.cos();
+        jitter_y += r * angle.sin();
     }
+    st.target_x = (target.x as f64 + jitter_x) as i32;
+    st.target_y = (target.y as f64 + jitter_y) as i32;
     let should_move =
         st.moved_click_point_index != Some(st.click_point_index) || config.offset > 0.0;
     if !should_move {
@@ -1009,11 +1022,13 @@ mod tests {
                 x: 10,
                 y: 10,
                 clicks: 1,
+                radius: 0,
             },
             ClickPointTarget {
                 x: 20,
                 y: 20,
                 clicks: 1,
+                radius: 0,
             },
         ];
 
@@ -1022,7 +1037,8 @@ mod tests {
             ClickPointTarget {
                 x: 10,
                 y: 10,
-                clicks: 1
+                clicks: 1,
+                radius: 0
             }
         );
         assert_eq!(
@@ -1030,7 +1046,8 @@ mod tests {
             ClickPointTarget {
                 x: 20,
                 y: 20,
-                clicks: 1
+                clicks: 1,
+                radius: 0
             }
         );
         assert_eq!(
@@ -1038,7 +1055,8 @@ mod tests {
             ClickPointTarget {
                 x: 10,
                 y: 10,
-                clicks: 1
+                clicks: 1,
+                radius: 0
             }
         );
     }

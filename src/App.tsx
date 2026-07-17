@@ -75,7 +75,7 @@ function getPanelSize(tab: Tab, hasUpdate: boolean) {
     return { width: 750, height: 175 + extra };
   }
   if (tab === "settings") return { width: 700, height: 720 + extra };
-  if (tab === "zones") return { width: 750, height: 700 + extra };
+  if (tab === "zones") return { width: 700, height: 700 + extra };
   if (tab === "click-points") return { width: 550, height: 600 + extra };
   return { width: 900, height: 469 + extra };
 }

@@ -7,6 +7,7 @@
 - Added the ability to customize each page individually in the appearance settings.
 - Added 'Stop when Complete' toggle to Sequence clicking (which has been re-named to Click Points).
 - Added the ability to have multiple custom stop zones.
+- Added a radius to the click points that randomizes the click position within that radius.
 ## Changed
 - Overhauled Advanced panel.
 - Settings panel now has a side menu for easier navigation and organization of settings.
@@ -21,6 +22,7 @@
 ## Fixed
 - Fixed alt menu opening when the autoclicker is launched while tabbed into another app.
 - Fixed simple tab button in the title bar showing the wrong background color when a custom accent color is selected.
+- Fixed click points picker overlay persisting when the click points are toggled off while the overlay is open.
 
 # v3.8.3 - 28.06.2026 (d.m.y)
 ## Changed

@@ -98,11 +98,7 @@ export default function ClickPointRow({
           hoverWheel={false}
           value={point.x}
           onChange={(value) => onUpdate(index, { x: value })}
-          style={{
-            flex: 1,
-            width: "100%",
-            textAlign: "right",
-          }}
+          style={{ textAlign: "right", width: undefined }}
         />
       </label>
       <label
@@ -122,11 +118,7 @@ export default function ClickPointRow({
           hoverWheel={false}
           value={point.y}
           onChange={(value) => onUpdate(index, { y: value })}
-          style={{
-            flex: 1,
-            width: "100%",
-            textAlign: "right",
-          }}
+          style={{ textAlign: "right", width: undefined }}
         />
       </label>
       <label
@@ -143,13 +135,28 @@ export default function ClickPointRow({
           hoverWheel={false}
           value={point.clicks}
           min={1}
-          max={100000}
+          max={999999}
           onChange={(value) => onUpdate(index, { clicks: value })}
-          style={{
-            flex: 1,
-            width: "100%",
-            textAlign: "right",
-          }}
+          style={{ textAlign: "right", width: undefined }}
+        />
+      </label>
+      <label
+        className="adv-numbox-sm adv-click-points-coord adv-click-points-radius"
+        style={{ gap: "0.25rem" }}
+      >
+        <span
+          className="adv-unit"
+          style={{ minWidth: "0.375rem", textAlign: "center" }}
+        >
+          r
+        </span>
+        <NumInput
+          hoverWheel={false}
+          value={point.radius}
+          min={0}
+          max={9999}
+          onChange={(value) => onUpdate(index, { radius: value })}
+          style={{ textAlign: "right", width: undefined }}
         />
       </label>
       <div className="adv-click-points-actions">
