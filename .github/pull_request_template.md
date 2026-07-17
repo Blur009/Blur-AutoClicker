@@ -22,6 +22,6 @@ List the exact commands you ran and the result for each one.
 
 ## Checklist
 
-- [ ] I ran `npm run check:all` and it passed with no errors
+- [ ] I ran `npm run check` and it passed with no errors
 - [ ] I kept the change focused and avoided unrelated refactors
 - [ ] I updated related documentation, templates, or contributor guidance when needed

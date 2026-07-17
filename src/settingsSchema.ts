@@ -23,6 +23,15 @@ export interface ClickPoint {
   clicks: number;
 }
 
+export interface StopZone {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  action: "stop" | "pause" | "start";
+}
+
 export const DEFAULT_ACCENT_COLOR = "#22c55e";
 export const MAX_PRESETS = 20;
 export const PRESET_NAME_MAX_LENGTH = 40;
@@ -95,6 +104,13 @@ function createClickPointId(): string {
   return (
     globalThis.crypto?.randomUUID?.() ??
     `cp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  );
+}
+
+function createStopZoneId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `sz-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   );
 }
 
@@ -229,6 +245,10 @@ const PRESET_FIELDS = {
     default: false,
     ui: { section: "core", control: "toggle" },
   },
+  stopZonesEnabled: {
+    default: false,
+    ui: { section: "failsafe", control: "toggle" },
+  },
   stopWhenComplete: {
     default: false,
     ui: { section: "core", control: "toggle" },
@@ -295,29 +315,9 @@ const SETTINGS_ONLY_FIELDS = {
     limit: { min: 0, max: 100 },
     ui: { section: "limits", control: "number" },
   },
-  customStopZoneEnabled: {
-    default: false,
-    ui: { section: "failsafe", control: "toggle" },
-  },
-  customStopZoneX: {
-    default: 0,
-    limit: { min: 0 },
-    ui: { section: "failsafe", control: "number" },
-  },
-  customStopZoneY: {
-    default: 0,
-    limit: { min: 0 },
-    ui: { section: "failsafe", control: "number" },
-  },
-  customStopZoneWidth: {
-    default: 100,
-    limit: { min: 1 },
-    ui: { section: "failsafe", control: "number" },
-  },
-  customStopZoneHeight: {
-    default: 100,
-    limit: { min: 1 },
-    ui: { section: "failsafe", control: "number" },
+  stopZones: {
+    default: [] as StopZone[],
+    ui: { section: "failsafe", control: "custom" },
   },
   disableScreenshots: {
     default: false,
@@ -616,8 +616,8 @@ const FIELD_LIMITS = {
 export const SETTINGS_LIMITS = {
   ...FIELD_LIMITS,
   stopBoundary: PRESET_FIELDS.cornerStopTL.limit,
-  position: SETTINGS_ONLY_FIELDS.customStopZoneX.limit,
-  stopZoneDimension: SETTINGS_ONLY_FIELDS.customStopZoneWidth.limit,
+  position: { min: 0 },
+  stopZoneDimension: { min: 1 },
   clickPointClicks: { min: 1, max: 100000 },
 };
 
@@ -830,6 +830,46 @@ function sanitizeClickPoints(value: unknown): ClickPoint[] {
       };
     })
     .filter((point): point is ClickPoint => point !== null);
+}
+
+function sanitizeStopZones(value: unknown): StopZone[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((zone) => {
+      if (!zone || typeof zone !== "object") return null;
+      const candidate = zone as Partial<StopZone>;
+      const id =
+        typeof candidate.id === "string" && candidate.id.trim()
+          ? candidate.id.trim()
+          : createStopZoneId();
+      const x =
+        typeof candidate.x === "number" && Number.isFinite(candidate.x)
+          ? Math.trunc(candidate.x)
+          : 0;
+      const y =
+        typeof candidate.y === "number" && Number.isFinite(candidate.y)
+          ? Math.trunc(candidate.y)
+          : 0;
+      const width =
+        typeof candidate.width === "number" && Number.isFinite(candidate.width)
+          ? Math.max(1, Math.trunc(candidate.width))
+          : 100;
+      const height =
+        typeof candidate.height === "number" &&
+        Number.isFinite(candidate.height)
+          ? Math.max(1, Math.trunc(candidate.height))
+          : 100;
+      const action =
+        candidate.action === "stop" ||
+        candidate.action === "pause" ||
+        candidate.action === "start"
+          ? candidate.action
+          : ("stop" as const);
+
+      return { id, x, y, width, height, action };
+    })
+    .filter((zone): zone is StopZone => zone !== null);
 }
 
 export function createDefaultSettings(version: string): Settings {
@@ -1066,6 +1106,39 @@ export function sanitizeSettings(
     saved.accentColor,
     defaults.accentColor,
   );
+
+  // Sanitize stopZones from raw data (skip sanitizeFields default)
+  const rawStopZones = savedRecord.stopZones;
+  if (Array.isArray(rawStopZones)) {
+    settingsOnly.stopZones = sanitizeStopZones(rawStopZones);
+  }
+
+  // Migration: old customStopZoneEnabled + coords → stopZones[0]
+  if (settingsOnly.stopZones.length === 0) {
+    const oldEnabled = savedRecord.customStopZoneEnabled as boolean | undefined;
+    if (oldEnabled) {
+      const oldX = clampNumber(savedRecord.customStopZoneX, 0, 0);
+      const oldY = clampNumber(savedRecord.customStopZoneY, 0, 0);
+      const oldW = Math.max(
+        1,
+        clampNumber(savedRecord.customStopZoneWidth, 100, 1),
+      );
+      const oldH = Math.max(
+        1,
+        clampNumber(savedRecord.customStopZoneHeight, 100, 1),
+      );
+      settingsOnly.stopZones = [
+        {
+          id: createStopZoneId(),
+          x: oldX,
+          y: oldY,
+          width: oldW,
+          height: oldH,
+          action: "stop",
+        },
+      ];
+    }
+  }
   presetSettings.clickSpeed = clampNumber(
     saved.clickSpeed,
     presetSettings.clickSpeed,

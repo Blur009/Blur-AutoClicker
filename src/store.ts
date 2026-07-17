@@ -26,6 +26,7 @@ export type {
   RateInputMode,
   SavedPanel,
   ClickPoint,
+  StopZone,
   Settings,
   Theme,
   TimeLimitUnit,

@@ -43,6 +43,16 @@
             border-color: rgba(255, 196, 0, 0.92);
             border-style: dashed;
         }
+        .zone-pause {
+            background: rgba(0, 180, 255, 0.18);
+            border-color: rgba(0, 180, 255, 0.92);
+            border-style: solid;
+        }
+        .zone-start {
+            background: rgba(34, 197, 94, 0.18);
+            border-color: rgba(34, 197, 94, 0.92);
+            border-style: solid;
+        }
         .zone-disabled {
             background: rgba(128, 128, 128, 0.15);
             border-color: rgba(128, 128, 128, 0.5);
@@ -194,14 +204,13 @@
                 addZone(monitor.x, monitor.y, monitor.width, monitor.height, 'zone-monitor');
             }
 
-            if (data.customStopZoneEnabled && data.customStopZone) {
-                addZone(
-                    data.customStopZone.x,
-                    data.customStopZone.y,
-                    data.customStopZone.width,
-                    data.customStopZone.height,
-                    'zone-custom'
-                );
+            if (Array.isArray(data.stopZones)) {
+                for (const zone of data.stopZones) {
+                    let cls = 'zone-custom';
+                    if (zone.action === 'pause') cls = 'zone-pause';
+                    else if (zone.action === 'start') cls = 'zone-start';
+                    addZone(zone.x, zone.y, zone.width, zone.height, cls);
+                }
             }
 
             for (const monitor of monitors) {

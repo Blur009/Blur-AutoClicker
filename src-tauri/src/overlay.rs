@@ -103,13 +103,23 @@ pub fn show_overlay(app: &AppHandle) -> AppResult<()> {
 
     let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
     let monitors = current_monitor_rects().unwrap_or_else(|| vec![bounds]);
-    let custom_stop_zone = VirtualScreenRect::new(
-        settings.custom_stop_zone_x,
-        settings.custom_stop_zone_y,
-        settings.custom_stop_zone_width.max(1),
-        settings.custom_stop_zone_height.max(1),
-    )
-    .offset_from(bounds);
+    let stop_zones_payload: Vec<_> = settings
+        .stop_zones
+        .iter()
+        .map(|zone| {
+            let offset =
+                VirtualScreenRect::new(zone.x, zone.y, zone.width.max(1), zone.height.max(1))
+                    .offset_from(bounds);
+            serde_json::json!({
+                "id": zone.id,
+                "x": offset.left,
+                "y": offset.top,
+                "width": offset.width,
+                "height": offset.height,
+                "action": zone.action,
+            })
+        })
+        .collect();
     let monitor_payload: Vec<_> = monitors
         .into_iter()
         .map(|monitor| {
@@ -135,13 +145,7 @@ pub fn show_overlay(app: &AppHandle) -> AppResult<()> {
             "cornerStopTR": settings.corner_stop_tr,
             "cornerStopBL": settings.corner_stop_bl,
             "cornerStopBR": settings.corner_stop_br,
-            "customStopZoneEnabled": settings.custom_stop_zone_enabled,
-            "customStopZone": {
-                "x": custom_stop_zone.left,
-                "y": custom_stop_zone.top,
-                "width": custom_stop_zone.width,
-                "height": custom_stop_zone.height,
-            },
+            "stopZones": stop_zones_payload,
             "screenWidth": bounds.width,
             "screenHeight": bounds.height,
             "monitors": monitor_payload,
@@ -283,14 +287,6 @@ pub fn hide_custom_stop_zone_pick_overlay(app: &AppHandle) -> AppResult<()> {
     if let Some(window) = app.get_webview_window("overlay") {
         let _ = window.emit("custom-stop-zone-clear-preview", ());
         hide_overlay_window(&window);
-    }
-    Ok(())
-}
-
-pub fn end_custom_stop_zone_pick_overlay(app: &AppHandle) -> AppResult<()> {
-    set_custom_stop_zone_pick_mode(app, false)?;
-    if let Some(window) = app.get_webview_window("overlay") {
-        let _ = window.emit("custom-stop-zone-clear-preview", ());
     }
     Ok(())
 }

@@ -27,6 +27,8 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Listener, Manager};
 
+pub static ZONE_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
+
 const STATUS_EVENT: &str = "clicker-status";
 
 #[cfg(target_os = "windows")]
@@ -187,6 +189,72 @@ fn spawn_overlay_auto_hide(app: &AppHandle) {
     });
 }
 
+fn spawn_start_zone_monitor(app: &AppHandle) {
+    let handle = app.clone();
+    ZONE_MONITOR_RUNNING.store(true, std::sync::atomic::Ordering::SeqCst);
+    std::thread::spawn(move || {
+        let mut prev_in_start_zone = false;
+        while ZONE_MONITOR_RUNNING.load(std::sync::atomic::Ordering::SeqCst) {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+
+            let state = handle.state::<ClickerState>();
+            let settings = state.settings.lock().unwrap_or_else(poisoned_inner).clone();
+
+            let has_start_zones = settings.stop_zones_enabled
+                && settings.stop_zones.iter().any(|z| z.action == "start");
+            if !has_start_zones {
+                prev_in_start_zone = false;
+                continue;
+            }
+
+            let cursor = match crate::engine::mouse::current_cursor_position() {
+                Some(c) => c,
+                None => continue,
+            };
+
+            let in_start_zone = settings.stop_zones.iter().any(|z| {
+                z.action == "start"
+                    && cursor.0 >= z.x
+                    && cursor.0 < z.x + z.width
+                    && cursor.1 >= z.y
+                    && cursor.1 < z.y + z.height
+            });
+
+            let running = state.running.load(std::sync::atomic::Ordering::SeqCst);
+            let zone_started = state
+                .zone_started_clicker
+                .load(std::sync::atomic::Ordering::SeqCst);
+
+            // Transition: outside → inside, start clicker if off
+            if in_start_zone && !prev_in_start_zone && !running {
+                if let Err(e) = crate::engine::worker::start_clicker_inner(&handle) {
+                    log::error!("[ZoneMonitor] start failed: {e}");
+                } else {
+                    state
+                        .zone_started_clicker
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                }
+            }
+            // Transition: inside → outside, stop clicker if we started it
+            else if !in_start_zone && prev_in_start_zone && zone_started {
+                if running {
+                    if let Err(e) = crate::engine::worker::stop_clicker_inner(
+                        &handle,
+                        Some(String::from("Left start zone")),
+                    ) {
+                        log::error!("[ZoneMonitor] stop failed: {e}");
+                    }
+                }
+                state
+                    .zone_started_clicker
+                    .store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+
+            prev_in_start_zone = in_start_zone;
+        }
+    });
+}
+
 fn setup_hotkeys(app: &AppHandle) -> Result<(), std::io::Error> {
     let initial_hotkey = {
         let state = app.state::<ClickerState>();
@@ -245,6 +313,8 @@ fn create_clicker_state() -> ClickerState {
         custom_stop_zone_pick_active: AtomicBool::new(false),
         settings_initialized: AtomicBool::new(false),
         paused: Arc::new(AtomicBool::new(false)),
+        paused_by_zone: AtomicBool::new(false),
+        zone_started_clicker: AtomicBool::new(false),
         warning: Mutex::new(None),
     }
 }
@@ -289,6 +359,7 @@ pub fn run() {
             }
             setup_tray(&handle)?;
             spawn_overlay_auto_hide(&handle);
+            spawn_start_zone_monitor(&handle);
             window_lifecycle::start_periodic_trimming(30);
             setup_hotkeys(&handle)?;
             setup_frontend_listener(&handle);
@@ -344,6 +415,7 @@ pub fn run() {
                         .store(true, std::sync::atomic::Ordering::SeqCst);
                     crate::overlay::OVERLAY_THREAD_RUNNING
                         .store(false, std::sync::atomic::Ordering::SeqCst);
+                    ZONE_MONITOR_RUNNING.store(false, std::sync::atomic::Ordering::SeqCst);
                     crate::click_point_picker::cancel_click_point_pick_inner(app_handle);
                     crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(app_handle);
                     app_handle.exit(0);

@@ -84,11 +84,8 @@ pub fn update_settings(app: AppHandle, settings: ClickerSettings) -> AppResult<C
             || old.corner_stop_tr != settings.corner_stop_tr
             || old.corner_stop_bl != settings.corner_stop_bl
             || old.corner_stop_br != settings.corner_stop_br
-            || old.custom_stop_zone_enabled != settings.custom_stop_zone_enabled
-            || old.custom_stop_zone_x != settings.custom_stop_zone_x
-            || old.custom_stop_zone_y != settings.custom_stop_zone_y
-            || old.custom_stop_zone_width != settings.custom_stop_zone_width
-            || old.custom_stop_zone_height != settings.custom_stop_zone_height;
+            || old.stop_zones_enabled != settings.stop_zones_enabled
+            || old.stop_zones != settings.stop_zones;
         click_points_changed = old.click_points_enabled != settings.click_points_enabled
             || old.click_points != settings.click_points;
         *old = settings.clone();

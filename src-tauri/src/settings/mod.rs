@@ -27,6 +27,23 @@ fn default_true() -> bool {
 
 use crate::engine::ProcessListEntry;
 
+#[derive(Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct StopZoneConfig {
+    #[serde(default)]
+    pub id: String,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+    #[serde(default = "default_stop_zone_action")]
+    pub action: String,
+}
+
+fn default_stop_zone_action() -> String {
+    "stop".to_string()
+}
+
 #[derive(Clone, serde::Deserialize, serde::Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ClickerSettings {
@@ -79,6 +96,8 @@ pub struct ClickerSettings {
     pub edge_stop_left: i32,
 
     pub click_points_enabled: bool,
+    #[serde(rename = "stopZonesEnabled")]
+    pub stop_zones_enabled: bool,
     #[serde(default)]
     pub stop_when_complete: bool,
     pub click_points: Vec<ClickPoint>,
@@ -97,11 +116,8 @@ pub struct ClickerSettings {
     pub duration_seconds: u32,
     pub duration_milliseconds: u32,
 
-    pub custom_stop_zone_enabled: bool,
-    pub custom_stop_zone_x: i32,
-    pub custom_stop_zone_y: i32,
-    pub custom_stop_zone_width: i32,
-    pub custom_stop_zone_height: i32,
+    #[serde(default)]
+    pub stop_zones: Vec<StopZoneConfig>,
 
     pub disable_screenshots: bool,
     pub advanced_settings_enabled: bool,
@@ -162,6 +178,7 @@ impl Default for ClickerSettings {
             edge_stop_left: 40,
 
             click_points_enabled: false,
+            stop_zones_enabled: false,
             stop_when_complete: false,
             click_points: Vec::new(),
 
@@ -178,11 +195,7 @@ impl Default for ClickerSettings {
             duration_seconds: 0,
             duration_milliseconds: 40,
 
-            custom_stop_zone_enabled: false,
-            custom_stop_zone_x: 0,
-            custom_stop_zone_y: 0,
-            custom_stop_zone_width: 100,
-            custom_stop_zone_height: 100,
+            stop_zones: Vec::new(),
 
             disable_screenshots: false,
             advanced_settings_enabled: true,

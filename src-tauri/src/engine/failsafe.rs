@@ -1,12 +1,26 @@
 use super::mouse::{current_cursor_position, current_monitor_rects, VirtualScreenRect};
-use super::ClickerConfig;
+use super::{ClickerConfig, ZoneAction};
 
-fn detect_custom_stop_zone(cursor: (i32, i32), config: &ClickerConfig) -> Option<String> {
-    if config.custom_stop_zone_enabled && config.custom_stop_zone.contains(cursor.0, cursor.1) {
-        return Some(String::from("Custom stop zone failsafe"));
+pub fn detect_stop_zones(
+    cursor: (i32, i32),
+    config: &ClickerConfig,
+) -> Option<(ZoneAction, usize)> {
+    let mut result: Option<(ZoneAction, usize)> = None;
+    for (i, zone) in config.stop_zones.iter().enumerate() {
+        if !zone.rect.contains(cursor.0, cursor.1) {
+            continue;
+        }
+        match zone.action {
+            ZoneAction::Stop => return Some((zone.action, i)),
+            ZoneAction::Start => result = Some((zone.action, i)),
+            ZoneAction::Pause => {
+                if result.is_none() {
+                    result = Some((zone.action, i));
+                }
+            }
+        }
     }
-
-    None
+    result
 }
 
 fn detect_corner_failsafe(
@@ -74,8 +88,8 @@ pub fn detect_failsafe(
     monitors: &[VirtualScreenRect],
     config: &ClickerConfig,
 ) -> Option<String> {
-    if let Some(reason) = detect_custom_stop_zone(cursor, config) {
-        return Some(reason);
+    if let Some((ZoneAction::Stop, _)) = detect_stop_zones(cursor, config) {
+        return Some(String::from("Custom stop zone failsafe"));
     }
 
     if config.corner_stop_enabled {
@@ -105,6 +119,7 @@ pub fn should_stop_for_failsafe(config: &ClickerConfig) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::StopZoneConfig;
     use super::*;
 
     fn sample_config() -> ClickerConfig {
@@ -118,13 +133,13 @@ mod tests {
             double_click_enabled: false,
             double_click_gap_ms: 450,
             click_points_enabled: false,
+            stop_zones_enabled: false,
             stop_when_complete: false,
             click_points: Vec::new(),
             offset: 0.0,
             offset_chance: 0.0,
             smoothing: 0,
-            custom_stop_zone_enabled: false,
-            custom_stop_zone: VirtualScreenRect::new(0, 0, 100, 100),
+            stop_zones: Vec::new(),
             corner_stop_enabled: true,
             corner_stop_tl: 50,
             corner_stop_tr: 50,
@@ -196,8 +211,10 @@ mod tests {
     #[test]
     fn detects_custom_stop_zone_before_other_failsafes() {
         let mut config = sample_config();
-        config.custom_stop_zone_enabled = true;
-        config.custom_stop_zone = VirtualScreenRect::new(100, 100, 200, 150);
+        config.stop_zones.push(StopZoneConfig {
+            rect: VirtualScreenRect::new(100, 100, 200, 150),
+            action: ZoneAction::Stop,
+        });
         let monitors = [VirtualScreenRect::new(0, 0, 1920, 1080)];
 
         let reason = detect_failsafe((150, 120), &monitors, &config);
@@ -207,8 +224,10 @@ mod tests {
     #[test]
     fn detects_custom_stop_zone_with_negative_coordinates() {
         let mut config = sample_config();
-        config.custom_stop_zone_enabled = true;
-        config.custom_stop_zone = VirtualScreenRect::new(-300, -200, 150, 100);
+        config.stop_zones.push(StopZoneConfig {
+            rect: VirtualScreenRect::new(-300, -200, 150, 100),
+            action: ZoneAction::Stop,
+        });
         let monitors = [
             VirtualScreenRect::new(-1920, 0, 1920, 1080),
             VirtualScreenRect::new(0, 0, 1920, 1080),
@@ -216,5 +235,74 @@ mod tests {
 
         let reason = detect_failsafe((-250, -150), &monitors, &config);
         assert_eq!(reason.as_deref(), Some("Custom stop zone failsafe"));
+    }
+
+    #[test]
+    fn pause_zone_does_not_trigger_failsafe_stop() {
+        let mut config = sample_config();
+        config.stop_zones.push(StopZoneConfig {
+            rect: VirtualScreenRect::new(100, 100, 200, 150),
+            action: ZoneAction::Pause,
+        });
+        let monitors = [VirtualScreenRect::new(0, 0, 1920, 1080)];
+
+        let reason = detect_failsafe((150, 120), &monitors, &config);
+        assert_eq!(reason, None);
+
+        let zone = detect_stop_zones((150, 120), &config);
+        assert_eq!(zone, Some((ZoneAction::Pause, 0)));
+    }
+
+    #[test]
+    fn stop_overrides_start_overrides_pause() {
+        let mut config = sample_config();
+        config.stop_zones.push(StopZoneConfig {
+            rect: VirtualScreenRect::new(0, 0, 100, 100),
+            action: ZoneAction::Pause,
+        });
+        config.stop_zones.push(StopZoneConfig {
+            rect: VirtualScreenRect::new(0, 0, 100, 100),
+            action: ZoneAction::Stop,
+        });
+
+        let zone = detect_stop_zones((50, 50), &config);
+        assert_eq!(zone, Some((ZoneAction::Stop, 1)));
+    }
+
+    #[test]
+    fn start_overrides_pause() {
+        let mut config = sample_config();
+        config.stop_zones.push(StopZoneConfig {
+            rect: VirtualScreenRect::new(0, 0, 200, 200),
+            action: ZoneAction::Pause,
+        });
+        config.stop_zones.push(StopZoneConfig {
+            rect: VirtualScreenRect::new(50, 50, 100, 100),
+            action: ZoneAction::Start,
+        });
+
+        // Cursor inside both zones → Start wins
+        let zone = detect_stop_zones((75, 75), &config);
+        assert_eq!(zone, Some((ZoneAction::Start, 1)));
+
+        // Cursor inside pause zone but outside start zone → Pause
+        let zone = detect_stop_zones((10, 10), &config);
+        assert_eq!(zone, Some((ZoneAction::Pause, 0)));
+    }
+
+    #[test]
+    fn none_when_no_zone_contains_cursor() {
+        let mut config = sample_config();
+        config.stop_zones.push(StopZoneConfig {
+            rect: VirtualScreenRect::new(0, 0, 100, 100),
+            action: ZoneAction::Pause,
+        });
+        config.stop_zones.push(StopZoneConfig {
+            rect: VirtualScreenRect::new(200, 200, 50, 50),
+            action: ZoneAction::Start,
+        });
+
+        let zone = detect_stop_zones((500, 500), &config);
+        assert_eq!(zone, None);
     }
 }

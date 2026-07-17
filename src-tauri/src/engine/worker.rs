@@ -16,10 +16,12 @@ use crate::STATUS_EVENT;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
 use super::cycle::ClickCyclePlan;
+use super::failsafe::detect_stop_zones;
 use super::failsafe::should_stop_for_failsafe;
 use super::keyboard::{is_alphabetic_vk, send_key_presses};
 use super::mouse::{
-    get_button_flags, get_cursor_pos, move_mouse, send_clicks, smooth_move, VirtualScreenRect,
+    current_cursor_position, get_button_flags, get_cursor_pos, move_mouse, send_clicks,
+    smooth_move, VirtualScreenRect,
 };
 use super::process;
 use super::rng::SmallRng;
@@ -229,6 +231,7 @@ pub fn stop_clicker_inner(
     let was_running = state.running.swap(false, Ordering::SeqCst);
     state.active_click_point_index.store(-1, Ordering::SeqCst);
     state.active_click_point_tick.store(0, Ordering::SeqCst);
+    state.zone_started_clicker.store(false, Ordering::SeqCst);
     if was_running {
         state.run_generation.fetch_add(1, Ordering::SeqCst);
     }
@@ -341,6 +344,7 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
         double_click_enabled: settings.double_click_enabled,
         double_click_gap_ms: system_double_click_gap_ms(),
         click_points_enabled: settings.click_points_enabled,
+        stop_zones_enabled: settings.stop_zones_enabled,
         stop_when_complete: settings.stop_when_complete,
         click_points: settings
             .click_points
@@ -354,13 +358,26 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
         offset: 2.0,
         offset_chance: 21.6,
         smoothing: 1,
-        custom_stop_zone_enabled: settings.custom_stop_zone_enabled,
-        custom_stop_zone: VirtualScreenRect::new(
-            settings.custom_stop_zone_x,
-            settings.custom_stop_zone_y,
-            settings.custom_stop_zone_width.max(1),
-            settings.custom_stop_zone_height.max(1),
-        ),
+        stop_zones: settings
+            .stop_zones
+            .iter()
+            .map(|zone| {
+                let action = match zone.action.as_str() {
+                    "pause" => crate::engine::ZoneAction::Pause,
+                    "start" => crate::engine::ZoneAction::Start,
+                    _ => crate::engine::ZoneAction::Stop,
+                };
+                crate::engine::StopZoneConfig {
+                    rect: VirtualScreenRect::new(
+                        zone.x,
+                        zone.y,
+                        zone.width.max(1),
+                        zone.height.max(1),
+                    ),
+                    action,
+                }
+            })
+            .collect(),
         corner_stop_enabled: settings.corner_stop_enabled,
         corner_stop_tl: settings.corner_stop_tl,
         corner_stop_tr: settings.corner_stop_tr,
@@ -795,6 +812,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     }
 
     let should_abort = || check_abort(&config, start_time).is_some();
+    let clicker_state = control.app.state::<ClickerState>();
 
     while control.is_active() {
         if let Some(reason) = check_abort(&config, start_time) {
@@ -804,6 +822,34 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
         if config.limit > 0 && st.click_count >= config.limit as i64 {
             st.stop_reason = format!("Click limit reached ({})", config.limit);
             break;
+        }
+
+        // Zone pause/resume (check every frame)
+        if config.stop_zones_enabled && !config.stop_zones.is_empty() {
+            if let Some(cursor) = current_cursor_position() {
+                match detect_stop_zones(cursor, &config) {
+                    Some((crate::engine::ZoneAction::Stop, _)) => {
+                        st.stop_reason = String::from("Custom stop zone failsafe");
+                        break;
+                    }
+                    Some((crate::engine::ZoneAction::Pause, _)) => {
+                        clicker_state.paused_by_zone.store(true, Ordering::SeqCst);
+                    }
+                    Some((crate::engine::ZoneAction::Start, _)) => {
+                        clicker_state.paused_by_zone.store(false, Ordering::SeqCst);
+                    }
+                    None => {
+                        clicker_state.paused_by_zone.store(false, Ordering::SeqCst);
+                    }
+                }
+            }
+        }
+
+        if clicker_state.paused.load(Ordering::SeqCst)
+            || clicker_state.paused_by_zone.load(Ordering::SeqCst)
+        {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            continue;
         }
 
         update_target(&config, &ctx, &mut rng, &mut st);
@@ -859,13 +905,13 @@ mod tests {
             double_click_enabled: false,
             double_click_gap_ms: 450,
             click_points_enabled: false,
+            stop_zones_enabled: false,
             stop_when_complete: false,
             click_points: Vec::new(),
             offset: 0.0,
             offset_chance: 0.0,
             smoothing: 0,
-            custom_stop_zone_enabled: false,
-            custom_stop_zone: VirtualScreenRect::new(0, 0, 100, 100),
+            stop_zones: Vec::new(),
             corner_stop_enabled: true,
             corner_stop_tl: 50,
             corner_stop_tr: 50,

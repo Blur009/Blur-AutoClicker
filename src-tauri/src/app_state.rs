@@ -20,6 +20,8 @@ pub struct ClickerState {
     pub registered_hotkey: Mutex<Option<HotkeyBinding>>,
     pub settings_initialized: AtomicBool,
     pub paused: Arc<AtomicBool>,
+    pub paused_by_zone: AtomicBool,
+    pub zone_started_clicker: AtomicBool,
     pub warning: Mutex<Option<String>>,
 }
 
