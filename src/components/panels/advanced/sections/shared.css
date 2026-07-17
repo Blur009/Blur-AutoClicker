@@ -243,22 +243,15 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .adv-click-points-coord {
   min-width: 0;
-  min-height: 26px;
-  padding: 0 0.35rem;
+  min-height: 2rem;
+  padding: 0 0.5rem;
 }
 
 .adv-click-points-coord .adv-number-sm {
-  height: 26px;
-  line-height: 26px;
+  height: 2rem;
+  line-height: 2rem;
   box-sizing: border-box;
   padding: 0;
-}
-
-.adv-click-points-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-left: auto;
 }
 
 .adv-click-points-item {

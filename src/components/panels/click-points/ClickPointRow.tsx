@@ -83,7 +83,7 @@ export default function ClickPointRow({
       </div>
       <label
         className="adv-numbox-sm adv-click-points-coord adv-click-points-position"
-        style={{ gap: "6px" }}
+        style={{ gap: "0.25rem" }}
       >
         <span
           className="adv-unit"
@@ -107,7 +107,7 @@ export default function ClickPointRow({
       </label>
       <label
         className="adv-numbox-sm adv-click-points-coord adv-click-points-position"
-        style={{ gap: "6px" }}
+        style={{ gap: "0.25rem" }}
       >
         <span
           className="adv-unit"
@@ -131,7 +131,7 @@ export default function ClickPointRow({
       </label>
       <label
         className="adv-numbox-sm adv-click-points-coord adv-click-points-clicks"
-        style={{ gap: "6px" }}
+        style={{ gap: "0.25rem" }}
       >
         <span
           className="adv-unit"
