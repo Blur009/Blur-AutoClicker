@@ -232,6 +232,7 @@ pub fn stop_clicker_inner(
     state.active_click_point_index.store(-1, Ordering::SeqCst);
     state.active_click_point_tick.store(0, Ordering::SeqCst);
     state.zone_started_clicker.store(false, Ordering::SeqCst);
+    state.paused_by_zone.store(false, Ordering::SeqCst);
     if was_running {
         state.run_generation.fetch_add(1, Ordering::SeqCst);
     }
@@ -815,33 +816,45 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     let clicker_state = control.app.state::<ClickerState>();
 
     while control.is_active() {
-        if let Some(reason) = check_abort(&config, start_time) {
-            st.stop_reason = reason;
-            break;
-        }
         if config.limit > 0 && st.click_count >= config.limit as i64 {
             st.stop_reason = format!("Click limit reached ({})", config.limit);
             break;
         }
 
-        // Zone pause/resume (check every frame)
-        if config.stop_zones_enabled && !config.stop_zones.is_empty() {
-            if let Some(cursor) = current_cursor_position() {
-                match detect_stop_zones(cursor, &config) {
-                    Some((crate::engine::ZoneAction::Stop, _)) => {
-                        st.stop_reason = String::from("Custom stop zone failsafe");
-                        break;
-                    }
-                    Some((crate::engine::ZoneAction::Pause, _)) => {
-                        clicker_state.paused_by_zone.store(true, Ordering::SeqCst);
-                    }
-                    Some((crate::engine::ZoneAction::Start, _)) => {
-                        clicker_state.paused_by_zone.store(false, Ordering::SeqCst);
-                    }
-                    None => {
-                        clicker_state.paused_by_zone.store(false, Ordering::SeqCst);
-                    }
-                }
+        let zone_hit = if config.stop_zones_enabled && !config.stop_zones.is_empty() {
+            current_cursor_position().and_then(|cursor| detect_stop_zones(cursor, &config))
+        } else {
+            None
+        };
+
+        if let Some((crate::engine::ZoneAction::Stop, _)) = zone_hit {
+            st.stop_reason = String::from("Custom stop zone failsafe");
+            break;
+        }
+
+        if let Some(reason) = should_stop_for_failsafe(&config) {
+            st.stop_reason = reason;
+            break;
+        }
+        if config.task_switcher_stop_enabled && process::is_task_switcher_active() {
+            st.stop_reason = String::from("Blocked by Alt+Tab");
+            break;
+        }
+        if config.process_list_enabled && process::check_process_list(&config).is_some() {
+            st.stop_reason = String::from("Blocked by process list");
+            break;
+        }
+        if config.time_limit > 0.0 && start_time.elapsed().as_secs_f64() >= config.time_limit {
+            st.stop_reason = format!("Time limit reached ({:.1}s)", config.time_limit);
+            break;
+        }
+
+        match zone_hit {
+            Some((crate::engine::ZoneAction::Pause, _)) => {
+                clicker_state.paused_by_zone.store(true, Ordering::SeqCst);
+            }
+            _ => {
+                clicker_state.paused_by_zone.store(false, Ordering::SeqCst);
             }
         }
 

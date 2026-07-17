@@ -146,6 +146,7 @@ pub fn show_overlay(app: &AppHandle) -> AppResult<()> {
             "cornerStopBL": settings.corner_stop_bl,
             "cornerStopBR": settings.corner_stop_br,
             "stopZones": stop_zones_payload,
+            "stopZonesEnabled": settings.stop_zones_enabled,
             "screenWidth": bounds.width,
             "screenHeight": bounds.height,
             "monitors": monitor_payload,

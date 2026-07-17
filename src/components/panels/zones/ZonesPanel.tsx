@@ -2,7 +2,7 @@ import "../advanced/sections/shared.css";
 import "./ZonesPanel.css";
 import type { Settings } from "../../../store";
 import FailsafeSection from "./sections/FailsafeSection";
-import StopZonesSection from "./sections/CustomStopZoneSection";
+import StopZonesSection from "./sections/StopZonesSection";
 
 interface Props {
   settings: Settings;

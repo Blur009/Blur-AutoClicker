@@ -194,16 +194,22 @@ fn spawn_start_zone_monitor(app: &AppHandle) {
     ZONE_MONITOR_RUNNING.store(true, std::sync::atomic::Ordering::SeqCst);
     std::thread::spawn(move || {
         let mut prev_in_start_zone = false;
+        let mut prev_has_start_zones = false;
         while ZONE_MONITOR_RUNNING.load(std::sync::atomic::Ordering::SeqCst) {
             std::thread::sleep(std::time::Duration::from_millis(100));
 
             let state = handle.state::<ClickerState>();
-            let settings = state.settings.lock().unwrap_or_else(poisoned_inner).clone();
 
-            let has_start_zones = settings.stop_zones_enabled
-                && settings.stop_zones.iter().any(|z| z.action == "start");
+            let (has_start_zones, zones) = {
+                let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
+                let has = settings.stop_zones_enabled
+                    && settings.stop_zones.iter().any(|z| z.action == "start");
+                (has, settings.stop_zones.clone())
+            };
+
             if !has_start_zones {
                 prev_in_start_zone = false;
+                prev_has_start_zones = false;
                 continue;
             }
 
@@ -212,13 +218,18 @@ fn spawn_start_zone_monitor(app: &AppHandle) {
                 None => continue,
             };
 
-            let in_start_zone = settings.stop_zones.iter().any(|z| {
+            let in_start_zone = zones.iter().any(|z| {
                 z.action == "start"
                     && cursor.0 >= z.x
                     && cursor.0 < z.x + z.width
                     && cursor.1 >= z.y
                     && cursor.1 < z.y + z.height
             });
+
+            if !prev_has_start_zones {
+                prev_in_start_zone = in_start_zone;
+            }
+            prev_has_start_zones = true;
 
             let running = state.running.load(std::sync::atomic::Ordering::SeqCst);
             let zone_started = state

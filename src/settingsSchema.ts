@@ -107,7 +107,7 @@ function createClickPointId(): string {
   );
 }
 
-function createStopZoneId(): string {
+export function createStopZoneId(): string {
   return (
     globalThis.crypto?.randomUUID?.() ??
     `sz-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -616,8 +616,6 @@ const FIELD_LIMITS = {
 export const SETTINGS_LIMITS = {
   ...FIELD_LIMITS,
   stopBoundary: PRESET_FIELDS.cornerStopTL.limit,
-  position: { min: 0 },
-  stopZoneDimension: { min: 1 },
   clickPointClicks: { min: 1, max: 100000 },
 };
 

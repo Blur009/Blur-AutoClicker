@@ -6,6 +6,7 @@
 - Added Keybinds for switching between all pages.(1 to 5 for simple, advanced, zones, click points, settings)
 - Added the ability to customize each page individually in the appearance settings.
 - Added 'Stop when Complete' toggle to Sequence clicking (which has been re-named to Click Points).
+- Added the ability to have multiple custom stop zones.
 ## Changed
 - Overhauled Advanced panel.
 - Settings panel now has a side menu for easier navigation and organization of settings.
@@ -15,6 +16,8 @@
 - Changed scroll behaviour for number inputs to be: shift = 5, ctrl = 25, shift + ctrl = 100.
 - Made settings icon 1px bigger :). 
 - Moved Process (white/black)list to the settings.
+- Overhauled Custom Stop Zones.
+- Zones overlay now shows a different color for disabled state of zones
 ## Fixed
 - Fixed alt menu opening when the autoclicker is launched while tabbed into another app.
 - Fixed simple tab button in the title bar showing the wrong background color when a custom accent color is selected.
@@ -37,7 +40,7 @@
 - Fixed program sometimes launching with a blank window.
 - Fixed program crash when clicking into Zones panel.
 ## Info
-as for some information for any devs. I have added a new command 'npm run check:all' and 'npm run fix:all' which will check and try to fix most common issues. Make sure to check out package.json for the commands. I really recommend running 'npm run check:all' before any sort of commit as it will make everyone's life easier when code is formatted consistently.
+as for some information for any devs. I have added a new command 'npm run check' and 'npm run fix' which will check and try to fix most common issues. Make sure to check out package.json for the commands. I really recommend running 'npm run check' before any sort of commit as it will make everyone's life easier when code is formatted consistently.
 
 # v3.8.1 - 23.06.2026 (d.m.y)
 ## Changed

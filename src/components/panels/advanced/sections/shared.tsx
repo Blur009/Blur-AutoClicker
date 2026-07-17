@@ -331,12 +331,14 @@ export function AdvDropdown({
   value,
   options,
   onChange,
+  hoverWheel = true,
   allowWindowOverflow = false,
   windowOverflowBottom = 190,
 }: {
   value: string;
   options: readonly { value: string; label: string }[];
   onChange: (value: string) => void;
+  hoverWheel?: boolean;
   allowWindowOverflow?: boolean;
   windowOverflowBottom?: number;
 }) {
@@ -438,7 +440,7 @@ export function AdvDropdown({
   }, [open]);
 
   const handleWheel = (e: WheelEvent) => {
-    if (open) return;
+    if (!hoverWheel || open) return;
     e.preventDefault();
     const currentIndex = options.findIndex((o) => o.value === value);
     if (currentIndex === -1) return;
