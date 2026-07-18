@@ -1196,6 +1196,17 @@ export default function App() {
     tab,
   ]);
 
+  useEffect(() => {
+    const cleanup = listen<boolean>("minimized-changed", (event) => {
+      const root = document.querySelector(".app-root") as HTMLElement | null;
+      if (!root) return;
+      root.toggleAttribute("data-minimized", event.payload);
+    });
+    return () => {
+      cleanup.then((fn) => fn());
+    };
+  }, []);
+
   useLayoutEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;
     if (!root) return;

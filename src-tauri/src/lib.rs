@@ -25,7 +25,7 @@ use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64};
 use std::sync::{Arc, Mutex};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Listener, Manager};
+use tauri::{AppHandle, Emitter, Listener, Manager};
 
 pub static ZONE_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
 
@@ -427,22 +427,26 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let tauri::RunEvent::WindowEvent {
-                event: tauri::WindowEvent::CloseRequested { api, .. },
-                label,
-                ..
-            } = &event
-            {
-                if label == "main" {
-                    api.prevent_close();
-                    crate::app_events::APP_EVENTS_SHUTDOWN
-                        .store(true, std::sync::atomic::Ordering::SeqCst);
-                    crate::overlay::OVERLAY_THREAD_RUNNING
-                        .store(false, std::sync::atomic::Ordering::SeqCst);
-                    ZONE_MONITOR_RUNNING.store(false, std::sync::atomic::Ordering::SeqCst);
-                    crate::click_point_picker::cancel_click_point_pick_inner(app_handle);
-                    crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(app_handle);
-                    app_handle.exit(0);
+            if let tauri::RunEvent::WindowEvent { event, label, .. } = &event {
+                match event {
+                    tauri::WindowEvent::CloseRequested { api, .. } if label == "main" => {
+                        api.prevent_close();
+                        crate::app_events::APP_EVENTS_SHUTDOWN
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        crate::overlay::OVERLAY_THREAD_RUNNING
+                            .store(false, std::sync::atomic::Ordering::SeqCst);
+                        ZONE_MONITOR_RUNNING.store(false, std::sync::atomic::Ordering::SeqCst);
+                        crate::click_point_picker::cancel_click_point_pick_inner(app_handle);
+                        crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(
+                            app_handle,
+                        );
+                        app_handle.exit(0);
+                    }
+                    tauri::WindowEvent::Resized(size) if label == "main" => {
+                        let minimized = size.width == 0 || size.height == 0;
+                        let _ = app_handle.emit("minimized-changed", minimized);
+                    }
+                    _ => {}
                 }
             }
         });

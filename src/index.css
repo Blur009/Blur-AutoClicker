@@ -141,6 +141,11 @@ body {
   transition: opacity 0.2s ease;
 }
 
+.app-root[data-minimized]::before {
+  background-image: none !important;
+  opacity: 0 !important;
+}
+
 .app-root > * {
   position: relative;
   z-index: 1;
