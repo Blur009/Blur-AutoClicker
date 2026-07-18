@@ -8,10 +8,13 @@ import {
 
 const store = new LazyStore("settings.json");
 
-export const APP_VERSION = await getVersion();
+export let APP_VERSION = "0.0.0";
+
+export async function initAppVersion(): Promise<void> {
+  APP_VERSION = await getVersion();
+}
 
 export type {
-  AdvancedSequenceLayout,
   ClickInterval,
   ClickMode,
   InputType,
@@ -22,7 +25,8 @@ export type {
   PresetSnapshot,
   RateInputMode,
   SavedPanel,
-  SequencePoint,
+  ClickPoint,
+  StopZone,
   Settings,
   Theme,
   TimeLimitUnit,
@@ -35,8 +39,8 @@ export interface ClickerStatus {
   lastError: string | null;
   stopReason: string | null;
   warning: string | null;
-  activeSequenceIndex: number | null;
-  activeSequenceTick: number;
+  activeClickPointIndex: number | null;
+  activeClickPointTick: number;
 }
 
 export interface AppInfo {

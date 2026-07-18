@@ -23,13 +23,11 @@ interface Props {
   tab: Tab;
   setTab: (t: Tab) => void;
   running: boolean;
-  paused: boolean;
-  stopReason?: string | null;
-  stopKey: number;
   isAlwaysOnTop: boolean;
   onToggleAlwaysOnTop: () => Promise<void>;
   onRequestClose: () => Promise<void>;
-  warning?: string | null;
+  stopReason: string | null;
+  statusBarHidden: boolean;
 }
 
 type NavTab = Exclude<Tab, "settings">;
@@ -60,19 +58,19 @@ const DEFAULT_TITLE_STATE: TitleViewState = {
 };
 
 const STOP_REASON_TEXTS: Record<string, string> = {
-  "Stopped from UI": "Stopped from UI",
-  "Stopped from toggle": "Stopped from toggle",
-  "Stopped from hotkey": "Stopped from hotkey",
-  "Stopped from hold hotkey": "Stopped from hold hotkey",
+  "Stopped from UI": "Stopped",
+  "Stopped from toggle": "Stopped",
+  "Stopped from hotkey": "Stopped",
+  "Stopped from hold hotkey": "Stopped",
   Stopped: "Stopped",
-  "Top-left corner failsafe": "Top-left corner failsafe",
-  "Top-right corner failsafe": "Top-right corner failsafe",
-  "Bottom-left corner failsafe": "Bottom-left corner failsafe",
-  "Bottom-right corner failsafe": "Bottom-right corner failsafe",
-  "Top edge failsafe": "Top edge failsafe",
-  "Right edge failsafe": "Right edge failsafe",
-  "Bottom edge failsafe": "Bottom edge failsafe",
-  "Left edge failsafe": "Left edge failsafe",
+  "Top-left corner failsafe": "Corner failsafe",
+  "Top-right corner failsafe": "Corner failsafe",
+  "Bottom-left corner failsafe": "Corner failsafe",
+  "Bottom-right corner failsafe": "Corner failsafe",
+  "Top edge failsafe": "Edge failsafe",
+  "Right edge failsafe": "Edge failsafe",
+  "Bottom edge failsafe": "Edge failsafe",
+  "Left edge failsafe": "Edge failsafe",
   "Blocked by Alt+Tab": "Blocked by Alt+Tab",
   "Blocked by process list": "Blocked by process list",
 };
@@ -83,14 +81,10 @@ function translateStopReason(stopReason: string | null | undefined): string {
   if (staticText) return staticText;
 
   const clickLimit = stopReason.match(/^Click limit reached \((.+)\)$/);
-  if (clickLimit) {
-    return `Click limit reached (${clickLimit[1]})`;
-  }
+  if (clickLimit) return "Click limit reached";
 
   const timeLimit = stopReason.match(/^Time limit reached \((.+)\)$/);
-  if (timeLimit) {
-    return `Time limit reached (${timeLimit[1]})`;
-  }
+  if (timeLimit) return "Time limit reached";
 
   return stopReason;
 }
@@ -109,7 +103,7 @@ const SimpleIcon = memo(function SimpleIcon({ active }: TabIconProps) {
       aria-hidden="true"
     >
       <rect x="7" y="3" width="10" height="18" rx="5" />
-      <path d="M12 7v4" />
+      <path className="simple-bar" d="M12 7v4" />
     </svg>
   );
 });
@@ -127,9 +121,9 @@ const AdvancedIcon = memo(function AdvancedIcon({ active }: TabIconProps) {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3z" />
-      <path d="m3 12.5 9 4.5 9-4.5" />
-      <path d="m3 17.5 9 4.5 9-4.5" />
+      <path className="adv-layer1" d="m12 3 9 4.5-9 4.5-9-4.5L12 3z" />
+      <path className="adv-layer2" d="m3 12.5 9 4.5 9-4.5" />
+      <path className="adv-layer3" d="m3 17.5 9 4.5 9-4.5" />
     </svg>
   );
 });
@@ -152,13 +146,51 @@ const ZonesIcon = memo(function ZonesIcon({ active }: TabIconProps) {
   );
 });
 
+const ClickPointsIcon = memo(function ClickPointsIcon({
+  active,
+}: TabIconProps) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? "2.2" : "2"}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path className="cp-line1" d="M4 6h16" />
+      <path className="cp-line2" d="M4 12h12" />
+      <path className="cp-line3" d="M4 18h8" />
+      <circle
+        className="cp-dot1"
+        cx="20"
+        cy="12"
+        r="1.5"
+        fill="currentColor"
+        stroke="none"
+      />
+      <circle
+        className="cp-dot2"
+        cx="16"
+        cy="18"
+        r="1.5"
+        fill="currentColor"
+        stroke="none"
+      />
+    </svg>
+  );
+});
+
 const TAB_ITEMS: readonly TabItem[] = [
   {
     value: "simple",
     label: "Simple",
-    color: "var(--accent-green)",
-    activeBg: "rgba(25, 194, 51, 0.1)",
-    activeFocusRing: "rgba(25, 194, 51, 0.25)",
+    color: "var(--accent)",
+    activeBg: "var(--accent-soft)",
+    activeFocusRing: "var(--accent-ring)",
     icon: ({ active }) => <SimpleIcon active={active} />,
   },
   {
@@ -177,19 +209,25 @@ const TAB_ITEMS: readonly TabItem[] = [
     activeFocusRing: "hsla(208, 85%, 58%, 0.35)",
     icon: ({ active }) => <ZonesIcon active={active} />,
   },
+  {
+    value: "click-points",
+    label: "Click Points",
+    color: "hsl(180 75% 40%)",
+    activeBg: "hsla(180, 75%, 40%, 0.14)",
+    activeFocusRing: "hsla(180, 75%, 40%, 0.35)",
+    icon: ({ active }) => <ClickPointsIcon active={active} />,
+  },
 ] as const;
 
 const TitleBar = memo(function TitleBar({
   tab,
   setTab,
   running,
-  paused,
-  stopReason,
-  stopKey,
   isAlwaysOnTop,
   onToggleAlwaysOnTop,
   onRequestClose,
-  warning,
+  stopReason,
+  statusBarHidden,
 }: Props) {
   const setTabRef = useRef(setTab);
   useEffect(() => {
@@ -215,6 +253,7 @@ const TitleBar = memo(function TitleBar({
       }
       data-tauri-drag-region
       data-running={running}
+      data-tab={tab}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
         <button
@@ -227,8 +266,8 @@ const TitleBar = memo(function TitleBar({
         >
           <svg
             className="settings-svg"
-            width="15"
-            height="15"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -262,11 +301,9 @@ const TitleBar = memo(function TitleBar({
 
       <div className="title-wrapper">
         <AnimatedTitle
-          running={running}
-          paused={paused}
+          statusBarHidden={statusBarHidden}
           stopReason={stopReason}
-          stopKey={stopKey}
-          warning={warning}
+          running={running}
         />
       </div>
 
@@ -290,18 +327,21 @@ const TitleBar = memo(function TitleBar({
           }
           label={
             <svg
+              xmlns="http://www.w3.org/2000/svg"
               width="16"
               height="16"
               viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              fill="currentColor"
+              stroke="none"
+              className="lucide lucide-pin-icon lucide-pin"
             >
-              <path d="M8 4h8l-1.4 5.2h-5.2L8 4z" />
-              <path d="M6 9.2h12" />
-              <path d="M12 9.2v10.8" />
+              <path
+                className="pin-body"
+                d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+              />
+              <g className="pin-needle">
+                <path d="M-1 0h2v5H-1z" />
+              </g>
             </svg>
           }
         />
@@ -338,12 +378,14 @@ const TitleBar = memo(function TitleBar({
 });
 
 function AnimatedTitle({
-  running,
-  paused,
+  statusBarHidden,
   stopReason,
-  stopKey,
-  warning,
-}: Pick<Props, "running" | "paused" | "stopReason" | "stopKey" | "warning">) {
+  running,
+}: {
+  statusBarHidden: boolean;
+  stopReason: string | null;
+  running: boolean;
+}) {
   const [titleState, setTitleState] = useState(DEFAULT_TITLE_STATE);
   const frameIdsRef = useRef<number[]>([]);
   const timeoutIdsRef = useRef<number[]>([]);
@@ -369,19 +411,7 @@ function AnimatedTitle({
   useEffect(() => {
     clearScheduledWork();
 
-    if (warning) {
-      lastShownStopReasonRef.current = null;
-      queueFrame(() => {
-        setTitleState({
-          text: `⚠ ${warning}`,
-          isReason: true,
-          flipClass: "",
-        });
-      });
-      return clearScheduledWork;
-    }
-
-    if (running && !paused && !stopReason) {
+    if (!statusBarHidden || !stopReason) {
       lastShownStopReasonRef.current = null;
       queueFrame(() => {
         setTitleState(DEFAULT_TITLE_STATE);
@@ -389,21 +419,7 @@ function AnimatedTitle({
       return clearScheduledWork;
     }
 
-    if (paused) {
-      lastShownStopReasonRef.current = null;
-      queueFrame(() => {
-        setTitleState({
-          text: stopReason
-            ? `Paused: ${translateStopReason(stopReason)}`
-            : "Paused",
-          isReason: true,
-          flipClass: "",
-        });
-      });
-      return clearScheduledWork;
-    }
-
-    if (!stopReason) {
+    if (running) {
       lastShownStopReasonRef.current = null;
       queueFrame(() => {
         setTitleState(DEFAULT_TITLE_STATE);
@@ -437,7 +453,7 @@ function AnimatedTitle({
     }, 5000);
 
     return clearScheduledWork;
-  }, [running, stopKey, warning, paused, stopReason]);
+  }, [statusBarHidden, stopReason, running]);
 
   return (
     <span
@@ -467,13 +483,33 @@ const TabIconButton = memo(function TabIconButton({
   activeBg: string;
   activeFocusRing: string;
 }) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const handleMouseEnter = () => {
+    if (Math.random() < 0.1) {
+      const el = btnRef.current;
+      if (!el) return;
+      el.classList.remove("tab-icon-btn--animate");
+      void el.offsetWidth;
+      el.classList.add("tab-icon-btn--animate");
+    }
+  };
+
+  const handleAnimationEnd = () => {
+    btnRef.current?.classList.remove("tab-icon-btn--animate");
+  };
+
   return (
     <button
+      ref={btnRef}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={() => onClick(value)}
+      onMouseEnter={handleMouseEnter}
+      onAnimationEnd={handleAnimationEnd}
       className={`tab-icon-btn ${active ? "active" : ""}`}
       aria-label={label}
       title={label}
+      data-tab={value}
       style={
         {
           "--active-color": color,

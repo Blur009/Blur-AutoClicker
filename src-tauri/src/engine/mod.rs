@@ -20,24 +20,43 @@ pub enum ProcessListMode {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum ProcessListBehavior {
-    Pause,
-    Stop,
+pub enum InputType {
+    Mouse,
+    Keyboard,
+}
+
+impl InputType {
+    pub fn is_keyboard(self) -> bool {
+        matches!(self, InputType::Keyboard)
+    }
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessListEntry {
     pub name: String,
-    pub behavior: ProcessListBehavior,
     pub enabled: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SequenceTarget {
+pub struct ClickPointTarget {
     pub x: i32,
     pub y: i32,
     pub clicks: usize,
+    pub radius: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ZoneAction {
+    Stop,
+    Pause,
+    Start,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct StopZoneConfig {
+    pub rect: VirtualScreenRect,
+    pub action: ZoneAction,
 }
 
 #[derive(Clone, Debug)]
@@ -50,13 +69,14 @@ pub struct ClickerConfig {
     pub button: i32,
     pub double_click_enabled: bool,
     pub double_click_gap_ms: u32,
-    pub sequence_enabled: bool,
-    pub sequence_points: Vec<SequenceTarget>,
+    pub click_points_enabled: bool,
+    pub stop_zones_enabled: bool,
+    pub stop_when_complete: bool,
+    pub click_points: Vec<ClickPointTarget>,
     pub offset: f64,
     pub offset_chance: f64,
     pub smoothing: i32,
-    pub custom_stop_zone_enabled: bool,
-    pub custom_stop_zone: VirtualScreenRect,
+    pub stop_zones: Vec<StopZoneConfig>,
     pub corner_stop_enabled: bool,
     pub corner_stop_tl: i32,
     pub corner_stop_tr: i32,
@@ -67,7 +87,7 @@ pub struct ClickerConfig {
     pub edge_stop_right: i32,
     pub edge_stop_bottom: i32,
     pub edge_stop_left: i32,
-    pub input_type: i32,
+    pub input_type: InputType,
     pub key_code: u16,
     pub keyboard_uppercase: bool,
     pub process_list_enabled: bool,

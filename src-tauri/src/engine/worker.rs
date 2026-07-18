@@ -2,6 +2,8 @@ use std::f64::consts::PI;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use image::ImageEncoder;
+use tauri::image::Image;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::engine::start_clicker as engine_start;
@@ -10,24 +12,161 @@ use crate::error::poisoned_inner;
 use crate::error::AppError;
 use crate::error::AppResult;
 use crate::ClickerSettings;
-use crate::ClickerState;
 use crate::ClickerStatusPayload;
 use crate::STATUS_EVENT;
+use crate::{ClickerState, IconState};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
 use super::cycle::ClickCyclePlan;
+use super::failsafe::detect_stop_zones;
 use super::failsafe::should_stop_for_failsafe;
 use super::keyboard::{is_alphabetic_vk, send_key_presses};
 use super::mouse::{
-    get_button_flags, get_cursor_pos, move_mouse, send_clicks, smooth_move, VirtualScreenRect,
+    current_cursor_position, get_button_flags, get_cursor_pos, move_mouse, send_clicks,
+    smooth_move, VirtualScreenRect,
 };
 use super::process;
 use super::rng::SmallRng;
+use super::ClickPointTarget;
 use super::ClickerConfig;
 use super::NtSetTimerResolution;
 use super::RunOutcome;
-use super::SequenceTarget;
 use super::CLICK_COUNT;
+
+const ICON_ACTIVATED_DARK: &[u8] = include_bytes!("../../icons/icon-activated-dark.ico");
+const ICON_ACTIVATED_LIGHT: &[u8] = include_bytes!("../../icons/Icon-activated-light.ico");
+const ICON_DEACTIVATED_DARK: &[u8] = include_bytes!("../../icons/icon-deactivated-dark.ico");
+const ICON_DEACTIVATED_LIGHT: &[u8] = include_bytes!("../../icons/Icon-deactivated-light.ico");
+const MASK_PNG_BYTES: &[u8] = include_bytes!("../../icons/icon-mask.png");
+
+fn tint_icon(base_ico: &[u8], mask_png: &[u8], hex_color: &str) -> Option<Vec<u8>> {
+    let hex = hex_color.trim_start_matches('#');
+    if hex.len() < 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+
+    let base = image::load_from_memory(base_ico).ok()?.to_rgba8();
+    let mask = image::load_from_memory(mask_png).ok()?.to_rgba8();
+    let (w, h) = base.dimensions();
+    let mw = mask.width().min(w);
+    let mh = mask.height().min(h);
+
+    let mut out = base;
+    for y in 0..mh {
+        for x in 0..mw {
+            let mp = mask.get_pixel(x, y);
+            if mp[0] > 200 && mp[1] > 200 && mp[2] > 200 && mp[3] > 128 {
+                let p = out.get_pixel_mut(x, y);
+                p[0] = r;
+                p[1] = g;
+                p[2] = b;
+            }
+        }
+    }
+
+    let mut buf = Vec::new();
+    let encoder = image::codecs::png::PngEncoder::new(&mut buf);
+    let color_type = image::ExtendedColorType::Rgba8;
+    encoder.write_image(&out, w, h, color_type).ok()?;
+    Some(buf)
+}
+
+fn resolve_icon_theme(icon_state: &IconState) -> String {
+    if icon_state.icon_theme == "auto" {
+        icon_state.theme.clone()
+    } else {
+        icon_state.icon_theme.clone()
+    }
+}
+
+pub fn set_app_icons(app: &AppHandle) {
+    let state = app.state::<ClickerState>();
+    let active = state.running.load(Ordering::SeqCst);
+    let icon_state = state.icon_state.lock().unwrap_or_else(poisoned_inner);
+    let is_dark = resolve_icon_theme(&icon_state) == "dark";
+
+    if active {
+        let storage = if is_dark {
+            &icon_state.active_icon_dark
+        } else {
+            &icon_state.active_icon_light
+        };
+        if let Some(bytes) = storage.as_deref() {
+            if let Ok(img) = Image::from_bytes(bytes) {
+                drop(icon_state);
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_icon(img.clone());
+                }
+                if let Some(tray) = app.tray_by_id("main") {
+                    let _ = tray.set_icon(Some(img));
+                }
+                return;
+            }
+        }
+    }
+
+    let bytes: &[u8] = if active {
+        if is_dark {
+            ICON_ACTIVATED_DARK
+        } else {
+            ICON_ACTIVATED_LIGHT
+        }
+    } else {
+        if is_dark {
+            ICON_DEACTIVATED_DARK
+        } else {
+            ICON_DEACTIVATED_LIGHT
+        }
+    };
+
+    let Ok(img) = Image::from_bytes(bytes) else {
+        return;
+    };
+
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_icon(img.clone());
+    }
+    if let Some(tray) = app.tray_by_id("main") {
+        let _ = tray.set_icon(Some(img));
+    }
+}
+
+pub fn set_icon_theme_inner(
+    app: &AppHandle,
+    hex_color: &str,
+    theme: &str,
+    icon_enabled: bool,
+    icon_theme: &str,
+    icon_color: &str,
+) {
+    let state = app.state::<ClickerState>();
+
+    let use_tint = icon_enabled && icon_color == "theme";
+
+    let (dark, light) = if use_tint {
+        (
+            tint_icon(ICON_ACTIVATED_DARK, MASK_PNG_BYTES, hex_color),
+            tint_icon(ICON_ACTIVATED_LIGHT, MASK_PNG_BYTES, hex_color),
+        )
+    } else {
+        (None, None)
+    };
+
+    let mut icon_state = state.icon_state.lock().unwrap_or_else(poisoned_inner);
+    icon_state.accent_color = hex_color.to_string();
+    icon_state.theme = theme.to_string();
+    icon_state.icon_enabled = icon_enabled;
+    icon_state.icon_theme = icon_theme.to_string();
+    icon_state.icon_color = icon_color.to_string();
+    icon_state.active_icon_dark = dark;
+    icon_state.active_icon_light = light;
+    drop(icon_state);
+
+    set_app_icons(app);
+}
 
 // -- CPU measurement --
 // changed from normal cpu measurement because it was not accurately
@@ -50,8 +189,8 @@ fn thread_cycles() -> u64 {
 }
 
 impl ClickerConfig {
-    pub fn use_sequence(&self) -> bool {
-        self.sequence_enabled && !self.sequence_points.is_empty()
+    pub fn use_click_points(&self) -> bool {
+        self.click_points_enabled && !self.click_points.is_empty()
     }
 }
 
@@ -138,7 +277,7 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
     let config = build_config(&settings)?;
 
     // Prevent feedback loop: keyboard key must not match a modifier-free hotkey
-    if config.input_type == 1 && config.key_code > 0 {
+    if config.input_type == crate::engine::InputType::Keyboard && config.key_code > 0 {
         let hotkey_binding = state
             .registered_hotkey
             .lock()
@@ -186,13 +325,17 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
         *state.warning.lock().unwrap_or_else(poisoned_inner) = None;
     }
 
-    if config.use_sequence() {
-        state.active_sequence_index.store(0, Ordering::SeqCst);
-        state.active_sequence_tick.store(0, Ordering::SeqCst);
+    if config.use_click_points() {
+        state.active_click_point_index.store(0, Ordering::SeqCst);
+        state.active_click_point_tick.store(0, Ordering::SeqCst);
     }
     let expected_generation = state.run_generation.fetch_add(1, Ordering::SeqCst) + 1;
     let control = RunControl::new(app.clone(), expected_generation);
     let app_handle = app.clone();
+
+    let payload = current_status(app);
+    set_app_icons(app);
+    emit_status(app);
 
     std::thread::spawn(move || {
         let outcome = engine_start(config, control.clone());
@@ -208,8 +351,10 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
 
         let state = app_handle.state::<ClickerState>();
         state.running.store(false, Ordering::SeqCst);
-        state.active_sequence_index.store(-1, Ordering::SeqCst);
-        state.active_sequence_tick.store(0, Ordering::SeqCst);
+        state.active_click_point_index.store(-1, Ordering::SeqCst);
+        state.active_click_point_tick.store(0, Ordering::SeqCst);
+
+        set_app_icons(&app_handle);
 
         *state.stop_reason.lock().unwrap_or_else(poisoned_inner) =
             Some(outcome.stop_reason.clone());
@@ -217,8 +362,6 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
         emit_status(&app_handle);
     });
 
-    let payload = current_status(app);
-    emit_status(app);
     Ok(payload)
 }
 pub fn stop_clicker_inner(
@@ -227,8 +370,10 @@ pub fn stop_clicker_inner(
 ) -> AppResult<ClickerStatusPayload> {
     let state = app.state::<ClickerState>();
     let was_running = state.running.swap(false, Ordering::SeqCst);
-    state.active_sequence_index.store(-1, Ordering::SeqCst);
-    state.active_sequence_tick.store(0, Ordering::SeqCst);
+    state.active_click_point_index.store(-1, Ordering::SeqCst);
+    state.active_click_point_tick.store(0, Ordering::SeqCst);
+    state.zone_started_clicker.store(false, Ordering::SeqCst);
+    state.paused_by_zone.store(false, Ordering::SeqCst);
     if was_running {
         state.run_generation.fetch_add(1, Ordering::SeqCst);
     }
@@ -239,6 +384,9 @@ pub fn stop_clicker_inner(
     }
     *state.warning.lock().unwrap_or_else(poisoned_inner) = None;
     let payload = current_status(app);
+    if was_running {
+        set_app_icons(app);
+    }
     emit_status(app);
     Ok(payload)
 }
@@ -273,13 +421,18 @@ fn system_double_click_gap_ms() -> u32 {
     ((system_timeout_ms as f64) * 0.9).floor() as u32
 }
 
-fn current_cycle_target(config: &ClickerConfig, sequence_index: usize) -> SequenceTarget {
-    if config.use_sequence() {
-        let safe_index = sequence_index % config.sequence_points.len();
-        config.sequence_points[safe_index]
+fn current_cycle_target(config: &ClickerConfig, click_point_index: usize) -> ClickPointTarget {
+    if config.use_click_points() {
+        let safe_index = click_point_index % config.click_points.len();
+        config.click_points[safe_index]
     } else {
         let (x, y) = get_cursor_pos();
-        SequenceTarget { x, y, clicks: 1 }
+        ClickPointTarget {
+            x,
+            y,
+            clicks: 1,
+            radius: 0,
+        }
     }
 }
 
@@ -321,8 +474,8 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
 
     Ok(ClickerConfig {
         interval_secs: base_interval_secs,
-        variation: if settings.speed_variation_enabled {
-            settings.speed_variation
+        variation: if settings.speed_randomization_enabled {
+            settings.speed_randomization
         } else {
             0.0
         },
@@ -340,26 +493,42 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
         button,
         double_click_enabled: settings.double_click_enabled,
         double_click_gap_ms: system_double_click_gap_ms(),
-        sequence_enabled: settings.sequence_enabled,
-        sequence_points: settings
-            .sequence_points
+        click_points_enabled: settings.click_points_enabled,
+        stop_zones_enabled: settings.stop_zones_enabled,
+        stop_when_complete: settings.stop_when_complete,
+        click_points: settings
+            .click_points
             .iter()
-            .map(|point| SequenceTarget {
+            .map(|point| ClickPointTarget {
                 x: point.x,
                 y: point.y,
-                clicks: point.clicks.clamp(1, 100000) as usize,
+                clicks: point.clicks.clamp(1, 999999) as usize,
+                radius: point.radius,
             })
             .collect(),
         offset: 2.0,
         offset_chance: 21.6,
         smoothing: 1,
-        custom_stop_zone_enabled: settings.custom_stop_zone_enabled,
-        custom_stop_zone: VirtualScreenRect::new(
-            settings.custom_stop_zone_x,
-            settings.custom_stop_zone_y,
-            settings.custom_stop_zone_width.max(1),
-            settings.custom_stop_zone_height.max(1),
-        ),
+        stop_zones: settings
+            .stop_zones
+            .iter()
+            .map(|zone| {
+                let action = match zone.action.as_str() {
+                    "pause" => crate::engine::ZoneAction::Pause,
+                    "start" => crate::engine::ZoneAction::Start,
+                    _ => crate::engine::ZoneAction::Stop,
+                };
+                crate::engine::StopZoneConfig {
+                    rect: VirtualScreenRect::new(
+                        zone.x,
+                        zone.y,
+                        zone.width.max(1),
+                        zone.height.max(1),
+                    ),
+                    action,
+                }
+            })
+            .collect(),
         corner_stop_enabled: settings.corner_stop_enabled,
         corner_stop_tl: settings.corner_stop_tl,
         corner_stop_tr: settings.corner_stop_tr,
@@ -370,7 +539,11 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
         edge_stop_right: settings.edge_stop_right,
         edge_stop_bottom: settings.edge_stop_bottom,
         edge_stop_left: settings.edge_stop_left,
-        input_type: if is_keyboard { 1 } else { 0 },
+        input_type: if is_keyboard {
+            crate::engine::InputType::Keyboard
+        } else {
+            crate::engine::InputType::Mouse
+        },
         key_code,
         keyboard_uppercase,
         process_list_enabled: settings.process_list_enabled,
@@ -404,8 +577,8 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
         .unwrap_or_else(poisoned_inner)
         .clone();
     let warning = state.warning.lock().unwrap_or_else(poisoned_inner).clone();
-    let active_sequence_index = state.active_sequence_index.load(Ordering::SeqCst);
-    let active_sequence_tick = state.active_sequence_tick.load(Ordering::SeqCst);
+    let active_click_point_index = state.active_click_point_index.load(Ordering::SeqCst);
+    let active_click_point_tick = state.active_click_point_tick.load(Ordering::SeqCst);
 
     ClickerStatusPayload {
         running: state.running.load(Ordering::SeqCst),
@@ -414,12 +587,12 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
         last_error,
         stop_reason,
         warning,
-        active_sequence_index: if active_sequence_index >= 0 {
-            Some(active_sequence_index as usize)
+        active_click_point_index: if active_click_point_index >= 0 {
+            Some(active_click_point_index as usize)
         } else {
             None
         },
-        active_sequence_tick,
+        active_click_point_tick,
     }
 }
 
@@ -494,7 +667,7 @@ struct ClickerContext {
 
 impl ClickerContext {
     fn new(config: &ClickerConfig) -> Self {
-        let is_keyboard = config.input_type == 1 && config.key_code > 0;
+        let is_keyboard = config.input_type.is_keyboard() && config.key_code > 0;
         let (down_flag, up_flag) = if is_keyboard {
             (0, 0)
         } else {
@@ -532,7 +705,7 @@ impl ClickerContext {
             down_flag,
             up_flag,
             batch_size,
-            has_position: config.use_sequence(),
+            has_position: config.use_click_points(),
             use_smoothing: config.smoothing == 1 && cps < 50.0,
             single_plan: ClickCyclePlan::single(hold_ms),
             double_plan: ClickCyclePlan::double(hold_ms, cycle_ms, config.double_click_gap_ms),
@@ -543,18 +716,19 @@ impl ClickerContext {
 struct LoopState {
     click_count: i64,
     stop_reason: String,
-    sequence_index: usize,
-    sequence_clicks_remaining: usize,
+    stop_reason_finalized: bool,
+    click_point_index: usize,
+    click_point_clicks_remaining: usize,
     target_x: i32,
     target_y: i32,
     next_batch_time: Instant,
-    moved_sequence_index: Option<usize>,
+    moved_click_point_index: Option<usize>,
 }
 
 impl LoopState {
     fn new(config: &ClickerConfig) -> Self {
         let target = current_cycle_target(config, 0);
-        let (target_x, target_y) = if config.use_sequence() {
+        let (target_x, target_y) = if config.use_click_points() {
             (target.x, target.y)
         } else {
             get_cursor_pos()
@@ -562,12 +736,13 @@ impl LoopState {
         Self {
             click_count: 0,
             stop_reason: String::from("Stopped"),
-            sequence_index: 0,
-            sequence_clicks_remaining: target.clicks.max(1),
+            stop_reason_finalized: false,
+            click_point_index: 0,
+            click_point_clicks_remaining: target.clicks.max(1),
             target_x,
             target_y,
             next_batch_time: Instant::now(),
-            moved_sequence_index: None,
+            moved_click_point_index: None,
         }
     }
 }
@@ -579,45 +754,13 @@ fn check_abort(config: &ClickerConfig, start_time: Instant) -> Option<String> {
     if config.task_switcher_stop_enabled && process::is_task_switcher_active() {
         return Some(String::from("Blocked by Alt+Tab"));
     }
-    if config.process_list_enabled
-        && process::check_process_list(config) == Some(super::ProcessListBehavior::Stop)
-    {
+    if config.process_list_enabled && process::check_process_list(config).is_some() {
         return Some(String::from("Blocked by process list"));
     }
     if config.time_limit > 0.0 && start_time.elapsed().as_secs_f64() >= config.time_limit {
         return Some(format!("Time limit reached ({:.1}s)", config.time_limit));
     }
     None
-}
-
-fn handle_process_list_pause(config: &ClickerConfig, control: &RunControl) -> Option<String> {
-    if !config.process_list_enabled {
-        return None;
-    }
-    if process::check_process_list(config) != Some(super::ProcessListBehavior::Pause) {
-        return None;
-    }
-    let state = control.app.state::<ClickerState>();
-    state.paused.store(true, Ordering::SeqCst);
-    emit_status(&control.app);
-    loop {
-        std::thread::sleep(Duration::from_millis(200));
-        if !state.running.load(Ordering::SeqCst)
-            || state.run_generation.load(Ordering::SeqCst) != control.expected_generation
-        {
-            state.paused.store(false, Ordering::SeqCst);
-            if control.is_active() {
-                emit_status(&control.app);
-            }
-            return Some(String::from("Stopped"));
-        }
-        if process::check_process_list(config).is_none() {
-            break;
-        }
-    }
-    state.paused.store(false, Ordering::SeqCst);
-    emit_status(&control.app);
-    Some(String::from("Blocked by process list"))
 }
 
 fn update_target(
@@ -629,17 +772,25 @@ fn update_target(
     if !ctx.has_position {
         return;
     }
-    let target = current_cycle_target(config, st.sequence_index);
+    let target = current_cycle_target(config, st.click_point_index);
+    let mut jitter_x = 0.0f64;
+    let mut jitter_y = 0.0f64;
+    if config.use_click_points() && target.radius > 0 {
+        let angle = rng.next_f64() * 2.0 * PI;
+        let r = rng.next_f64().sqrt() * target.radius as f64;
+        jitter_x += r * angle.cos();
+        jitter_y += r * angle.sin();
+    }
     if config.offset_chance > 0.0 && rng.next_f64() * 100.0 <= config.offset_chance {
         let angle = rng.next_f64() * 2.0 * PI;
-        let radius = rng.next_f64().sqrt() * config.offset;
-        st.target_x = (target.x as f64 + radius * angle.cos()) as i32;
-        st.target_y = (target.y as f64 + radius * angle.sin()) as i32;
-    } else {
-        st.target_x = target.x;
-        st.target_y = target.y;
+        let r = rng.next_f64().sqrt() * config.offset;
+        jitter_x += r * angle.cos();
+        jitter_y += r * angle.sin();
     }
-    let should_move = st.moved_sequence_index != Some(st.sequence_index) || config.offset > 0.0;
+    st.target_x = (target.x as f64 + jitter_x) as i32;
+    st.target_y = (target.y as f64 + jitter_y) as i32;
+    let should_move =
+        st.moved_click_point_index != Some(st.click_point_index) || config.offset > 0.0;
     if !should_move {
         return;
     }
@@ -660,7 +811,7 @@ fn update_target(
     } else {
         move_mouse(st.target_x, st.target_y);
     }
-    st.moved_sequence_index = Some(st.sequence_index);
+    st.moved_click_point_index = Some(st.click_point_index);
 }
 
 fn run_batch(
@@ -671,8 +822,8 @@ fn run_batch(
     control: &RunControl,
     should_abort: &dyn Fn() -> bool,
 ) -> bool {
-    let requested = if config.use_sequence() {
-        st.sequence_clicks_remaining.min(ctx.batch_size)
+    let requested = if config.use_click_points() {
+        st.click_point_clicks_remaining.min(ctx.batch_size)
     } else {
         ctx.batch_size
     };
@@ -750,16 +901,30 @@ fn run_batch(
         sleep_interruptible(sleep_dur, control);
     }
 
-    if config.use_sequence() {
-        st.sequence_clicks_remaining = st.sequence_clicks_remaining.saturating_sub(batch.cycles);
-        if st.sequence_clicks_remaining == 0 {
-            st.sequence_index = (st.sequence_index + 1) % config.sequence_points.len();
-            st.sequence_clicks_remaining = config.sequence_points[st.sequence_index].clicks.max(1);
+    if config.use_click_points() {
+        st.click_point_clicks_remaining =
+            st.click_point_clicks_remaining.saturating_sub(batch.cycles);
+        if st.click_point_clicks_remaining == 0 {
+            let next_index = (st.click_point_index + 1) % config.click_points.len();
+            if config.stop_when_complete && next_index == 0 {
+                st.stop_reason = String::from("All click points completed");
+                st.stop_reason_finalized = true;
+                let state = control.app.state::<ClickerState>();
+                state
+                    .active_click_point_index
+                    .store(st.click_point_index as i64, Ordering::SeqCst);
+                state.active_click_point_tick.fetch_add(1, Ordering::SeqCst);
+                emit_status(&control.app);
+                return false;
+            }
+            st.click_point_index = next_index;
+            st.click_point_clicks_remaining =
+                config.click_points[st.click_point_index].clicks.max(1);
             let state = control.app.state::<ClickerState>();
             state
-                .active_sequence_index
-                .store(st.sequence_index as i64, Ordering::SeqCst);
-            state.active_sequence_tick.fetch_add(1, Ordering::SeqCst);
+                .active_click_point_index
+                .store(st.click_point_index as i64, Ordering::SeqCst);
+            state.active_click_point_tick.fetch_add(1, Ordering::SeqCst);
             emit_status(&control.app);
         }
     }
@@ -795,35 +960,72 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
 
     if ctx.has_position {
         move_mouse(st.target_x, st.target_y);
-        st.moved_sequence_index = Some(0);
+        st.moved_click_point_index = Some(0);
     }
-    if config.use_sequence() {
+    if config.use_click_points() {
         let state = control.app.state::<ClickerState>();
-        state.active_sequence_index.store(0, Ordering::SeqCst);
-        state.active_sequence_tick.fetch_add(1, Ordering::SeqCst);
+        state.active_click_point_index.store(0, Ordering::SeqCst);
+        state.active_click_point_tick.fetch_add(1, Ordering::SeqCst);
         emit_status(&control.app);
     }
 
     let should_abort = || check_abort(&config, start_time).is_some();
+    let clicker_state = control.app.state::<ClickerState>();
 
     while control.is_active() {
-        if let Some(reason) = check_abort(&config, start_time) {
-            st.stop_reason = reason;
-            break;
-        }
-        if let Some(reason) = handle_process_list_pause(&config, &control) {
-            st.stop_reason = reason;
-            break;
-        }
         if config.limit > 0 && st.click_count >= config.limit as i64 {
             st.stop_reason = format!("Click limit reached ({})", config.limit);
             break;
         }
 
+        let zone_hit = if config.stop_zones_enabled && !config.stop_zones.is_empty() {
+            current_cursor_position().and_then(|cursor| detect_stop_zones(cursor, &config))
+        } else {
+            None
+        };
+
+        if let Some((crate::engine::ZoneAction::Stop, _)) = zone_hit {
+            st.stop_reason = String::from("Custom stop zone failsafe");
+            break;
+        }
+
+        if let Some(reason) = should_stop_for_failsafe(&config) {
+            st.stop_reason = reason;
+            break;
+        }
+        if config.task_switcher_stop_enabled && process::is_task_switcher_active() {
+            st.stop_reason = String::from("Blocked by Alt+Tab");
+            break;
+        }
+        if config.process_list_enabled && process::check_process_list(&config).is_some() {
+            st.stop_reason = String::from("Blocked by process list");
+            break;
+        }
+        if config.time_limit > 0.0 && start_time.elapsed().as_secs_f64() >= config.time_limit {
+            st.stop_reason = format!("Time limit reached ({:.1}s)", config.time_limit);
+            break;
+        }
+
+        match zone_hit {
+            Some((crate::engine::ZoneAction::Pause, _)) => {
+                clicker_state.paused_by_zone.store(true, Ordering::SeqCst);
+            }
+            _ => {
+                clicker_state.paused_by_zone.store(false, Ordering::SeqCst);
+            }
+        }
+
+        if clicker_state.paused.load(Ordering::SeqCst)
+            || clicker_state.paused_by_zone.load(Ordering::SeqCst)
+        {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            continue;
+        }
+
         update_target(&config, &ctx, &mut rng, &mut st);
 
         if !run_batch(&config, &ctx, &mut rng, &mut st, &control, &should_abort) {
-            if control.is_active() {
+            if control.is_active() && !st.stop_reason_finalized {
                 st.stop_reason = format!("Click limit reached ({})", config.limit);
             }
             break;
@@ -872,13 +1074,14 @@ mod tests {
             button: 1,
             double_click_enabled: false,
             double_click_gap_ms: 450,
-            sequence_enabled: false,
-            sequence_points: Vec::new(),
+            click_points_enabled: false,
+            stop_zones_enabled: false,
+            stop_when_complete: false,
+            click_points: Vec::new(),
             offset: 0.0,
             offset_chance: 0.0,
             smoothing: 0,
-            custom_stop_zone_enabled: false,
-            custom_stop_zone: VirtualScreenRect::new(0, 0, 100, 100),
+            stop_zones: Vec::new(),
             corner_stop_enabled: true,
             corner_stop_tl: 50,
             corner_stop_tr: 50,
@@ -889,7 +1092,7 @@ mod tests {
             edge_stop_right: 40,
             edge_stop_bottom: 40,
             edge_stop_left: 40,
-            input_type: 0,
+            input_type: crate::engine::InputType::Mouse,
             key_code: 0,
             keyboard_uppercase: false,
             process_list_enabled: false,
@@ -955,44 +1158,49 @@ mod tests {
     }
 
     #[test]
-    fn sequence_point_rotation_is_round_robin() {
+    fn click_point_rotation_is_round_robin() {
         let mut config = sample_config();
-        config.sequence_enabled = true;
-        config.sequence_points = vec![
-            SequenceTarget {
+        config.click_points_enabled = true;
+        config.click_points = vec![
+            ClickPointTarget {
                 x: 10,
                 y: 10,
                 clicks: 1,
+                radius: 0,
             },
-            SequenceTarget {
+            ClickPointTarget {
                 x: 20,
                 y: 20,
                 clicks: 1,
+                radius: 0,
             },
         ];
 
         assert_eq!(
             current_cycle_target(&config, 0),
-            SequenceTarget {
+            ClickPointTarget {
                 x: 10,
                 y: 10,
-                clicks: 1
+                clicks: 1,
+                radius: 0
             }
         );
         assert_eq!(
             current_cycle_target(&config, 1),
-            SequenceTarget {
+            ClickPointTarget {
                 x: 20,
                 y: 20,
-                clicks: 1
+                clicks: 1,
+                radius: 0
             }
         );
         assert_eq!(
             current_cycle_target(&config, 2),
-            SequenceTarget {
+            ClickPointTarget {
                 x: 10,
                 y: 10,
-                clicks: 1
+                clicks: 1,
+                radius: 0
             }
         );
     }

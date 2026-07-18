@@ -34,7 +34,7 @@ const INTERVAL_MS: Record<ClickInterval, number> = {
   d: 86_400_000,
 };
 
-export function getDurationTotalMs(settings: CadenceSettings): number {
+export function getDurationTotalMs(settings: CadenceDurationFields): number {
   return (
     settings.durationHours * 3_600_000 +
     settings.durationMinutes * 60_000 +
@@ -45,6 +45,44 @@ export function getDurationTotalMs(settings: CadenceSettings): number {
 
 export function getIntervalMilliseconds(interval: ClickInterval): number {
   return INTERVAL_MS[interval] ?? 1_000;
+}
+
+export function decomposeMs(totalMs: number): CadenceDurationFields {
+  const totalRounded = Math.round(totalMs);
+  const hours = Math.floor(totalRounded / 3_600_000);
+  const remainderAfterHours = totalRounded % 3_600_000;
+  const minutes = Math.floor(remainderAfterHours / 60_000);
+  const remainderAfterMinutes = remainderAfterHours % 60_000;
+  const seconds = Math.floor(remainderAfterMinutes / 1_000);
+  const milliseconds = remainderAfterMinutes % 1_000;
+
+  return {
+    durationHours: hours,
+    durationMinutes: minutes,
+    durationSeconds: seconds,
+    durationMilliseconds: milliseconds,
+  };
+}
+
+const FIELD_TO_MS: Record<keyof CadenceDurationFields, number> = {
+  durationHours: 3_600_000,
+  durationMinutes: 60_000,
+  durationSeconds: 1_000,
+  durationMilliseconds: 1,
+};
+
+export function overflowDurationField(
+  field: keyof CadenceDurationFields,
+  rawValue: number,
+  current: CadenceDurationFields,
+): CadenceDurationFields | null {
+  const multiplier = FIELD_TO_MS[field];
+  const oldTotal = getDurationTotalMs(current);
+  const oldMs = current[field] * multiplier;
+  const newMs = rawValue * multiplier;
+  const newTotal = oldTotal - oldMs + newMs;
+  if (newTotal === oldTotal) return null;
+  return decomposeMs(Math.max(0, newTotal));
 }
 
 export function convertRateToDuration(
@@ -60,20 +98,7 @@ export function convertRateToDuration(
     return null;
   }
 
-  const totalRounded = Math.round(totalMs);
-  const hours = Math.floor(totalRounded / 3_600_000);
-  const remainderAfterHours = totalRounded % 3_600_000;
-  const minutes = Math.floor(remainderAfterHours / 60_000);
-  const remainderAfterMinutes = remainderAfterHours % 60_000;
-  const seconds = Math.floor(remainderAfterMinutes / 1_000);
-  const milliseconds = remainderAfterMinutes % 1_000;
-
-  return {
-    durationHours: hours,
-    durationMinutes: minutes,
-    durationSeconds: seconds,
-    durationMilliseconds: milliseconds,
-  };
+  return decomposeMs(totalMs);
 }
 
 export function convertDurationToRate(
@@ -143,8 +168,39 @@ export function getEffectiveClicksPerSecond(settings: CadenceSettings): number {
   return 1_000 / getEffectiveIntervalMs(settings);
 }
 
+export function formatIntervalMs(ms: number): string {
+  if (ms < 1_000) return `${Math.round(ms)}ms`;
+
+  const totalSec = ms / 1000;
+  const h = Math.floor(totalSec / 3600);
+
+  if (h >= 24) {
+    const d = Math.floor(h / 24);
+    const rh = h % 24;
+    if (rh > 0)
+      return `${d} day${d > 1 ? "s" : ""} ${rh} hr${rh > 1 ? "s" : ""}`;
+    return `${d} day${d > 1 ? "s" : ""}`;
+  }
+
+  const m = Math.floor((totalSec % 3600) / 60);
+
+  if (h > 0) {
+    if (m > 0) return `${h} hr${h > 1 ? "s" : ""} ${m} min${m > 1 ? "s" : ""}`;
+    return `${h} hr${h > 1 ? "s" : ""}`;
+  }
+
+  if (m > 0) {
+    const s = Math.round(totalSec % 60);
+    if (s > 0) return `${m} min${m > 1 ? "s" : ""} ${s} sec${s > 1 ? "s" : ""}`;
+    return `${m} min${m > 1 ? "s" : ""}`;
+  }
+
+  const s = +(totalSec % 60).toFixed(1);
+  return `${s} sec${s > 1 ? "s" : ""}`;
+}
+
 export function isDoubleClickSupported(settings: CadenceSettings): boolean {
-  return getEffectiveClicksPerSecond(settings) < 50;
+  return getEffectiveClicksPerSecond(settings) < 11;
 }
 
 export function formatDurationSummary(settings: CadenceSettings): string {

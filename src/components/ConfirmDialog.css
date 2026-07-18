@@ -21,7 +21,7 @@
 }
 
 .confirm-dialog-title {
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -30,7 +30,7 @@
 }
 
 .confirm-dialog-message {
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.8125rem;
   font-weight: 400;
   color: var(--text-muted);
@@ -45,7 +45,7 @@
 }
 
 .confirm-dialog-btn {
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 0.875rem;
   font-weight: 600;
   padding: 0.3125rem 0.875rem;

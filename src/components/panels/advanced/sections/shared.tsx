@@ -13,8 +13,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { normalizeIntegerRaw } from "../../../numberInput";
-import UnavailableReason from "../../UnavailableReason";
+import { normalizeIntegerRaw } from "../../../../numberInput";
+import UnavailableReason from "../../../UnavailableReason";
+
+import "./shared.css";
 
 // ToggleBtn ← These are here just for some visual space
 
@@ -152,20 +154,33 @@ export function NumInput({
     onChange(clampValue(val));
   };
 
-  const handleWheel = (e: WheelEvent<HTMLInputElement>) => {
-    if (!hoverWheel && e.target !== document.activeElement) return;
-    e.preventDefault();
-    const direction = e.deltaY < 0 ? 1 : -1;
-    const current = Number.isFinite(value) ? value : (min ?? 0);
-    let step = 1;
-    if (e.shiftKey && e.ctrlKey) step = 10;
-    else if (e.shiftKey) step = 5;
-    wheelRef.current = true;
-    onChange(clampValue(current + direction * step));
-    setTimeout(() => {
-      wheelRef.current = false;
-    }, 0);
-  };
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      if (!hoverWheel && e.target !== el) return;
+      e.preventDefault();
+      const direction = e.deltaY < 0 ? 1 : -1;
+      const current = Number.isFinite(value) ? value : (min ?? 0);
+      let step = 1;
+      if (e.shiftKey && e.ctrlKey) step = 100;
+      else if (e.ctrlKey) step = 25;
+      else if (e.shiftKey) step = 5;
+      let next = current + direction * step;
+      if (min !== undefined && next < min) next = min;
+      if (max !== undefined && next > max) next = max;
+      wheelRef.current = true;
+      onChange(next);
+      setTimeout(() => {
+        wheelRef.current = false;
+      }, 0);
+    };
+    el.addEventListener("wheel", handler as unknown as EventListener, {
+      passive: false,
+    });
+    return () =>
+      el.removeEventListener("wheel", handler as unknown as EventListener);
+  }, [hoverWheel, value, min, max, onChange]);
 
   return (
     <input
@@ -177,7 +192,6 @@ export function NumInput({
       max={max}
       onChange={handleChange}
       onBlur={handleBlur}
-      onWheel={handleWheel}
       style={{
         background: "transparent",
         border: "none",
@@ -328,12 +342,14 @@ export function AdvDropdown({
   value,
   options,
   onChange,
+  hoverWheel = true,
   allowWindowOverflow = false,
   windowOverflowBottom = 190,
 }: {
   value: string;
   options: readonly { value: string; label: string }[];
   onChange: (value: string) => void;
+  hoverWheel?: boolean;
   allowWindowOverflow?: boolean;
   windowOverflowBottom?: number;
 }) {
@@ -435,7 +451,7 @@ export function AdvDropdown({
   }, [open]);
 
   const handleWheel = (e: WheelEvent) => {
-    if (open) return;
+    if (!hoverWheel || open) return;
     e.preventDefault();
     const currentIndex = options.findIndex((o) => o.value === value);
     if (currentIndex === -1) return;

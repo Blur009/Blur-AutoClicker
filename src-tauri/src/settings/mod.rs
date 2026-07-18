@@ -4,16 +4,18 @@
 
 #[derive(Clone, serde::Deserialize, serde::Serialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SequencePoint {
+pub struct ClickPoint {
     #[serde(default)]
     pub id: String,
     pub x: i32,
     pub y: i32,
-    #[serde(default = "default_sequence_point_clicks")]
+    #[serde(default = "default_click_point_clicks")]
     pub clicks: u32,
+    #[serde(default)]
+    pub radius: u32,
 }
 
-fn default_sequence_point_clicks() -> u32 {
+fn default_click_point_clicks() -> u32 {
     1
 }
 
@@ -26,6 +28,23 @@ fn default_true() -> bool {
 }
 
 use crate::engine::ProcessListEntry;
+
+#[derive(Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct StopZoneConfig {
+    #[serde(default)]
+    pub id: String,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+    #[serde(default = "default_stop_zone_action")]
+    pub action: String,
+}
+
+fn default_stop_zone_action() -> String {
+    "stop".to_string()
+}
 
 #[derive(Clone, serde::Deserialize, serde::Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -43,11 +62,15 @@ pub struct ClickerSettings {
     pub mouse_button: String,
     pub mode: String,
 
+    pub duty_cycle_mode: String,
+    pub saved_click_speed: f64,
+    pub saved_click_interval: String,
+
     pub duty_cycle_enabled: bool,
     pub duty_cycle: f64,
 
-    pub speed_variation_enabled: bool,
-    pub speed_variation: f64,
+    pub speed_randomization_enabled: bool,
+    pub speed_randomization: f64,
 
     pub double_click_enabled: bool,
 
@@ -74,8 +97,12 @@ pub struct ClickerSettings {
     pub edge_stop_bottom: i32,
     pub edge_stop_left: i32,
 
-    pub sequence_enabled: bool,
-    pub sequence_points: Vec<SequencePoint>,
+    pub click_points_enabled: bool,
+    #[serde(rename = "stopZonesEnabled")]
+    pub stop_zones_enabled: bool,
+    #[serde(default)]
+    pub stop_when_complete: bool,
+    pub click_points: Vec<ClickPoint>,
 
     pub process_list_enabled: bool,
     pub process_list_mode: String,
@@ -91,11 +118,8 @@ pub struct ClickerSettings {
     pub duration_seconds: u32,
     pub duration_milliseconds: u32,
 
-    pub custom_stop_zone_enabled: bool,
-    pub custom_stop_zone_x: i32,
-    pub custom_stop_zone_y: i32,
-    pub custom_stop_zone_width: i32,
-    pub custom_stop_zone_height: i32,
+    #[serde(default)]
+    pub stop_zones: Vec<StopZoneConfig>,
 
     pub disable_screenshots: bool,
     pub advanced_settings_enabled: bool,
@@ -106,8 +130,8 @@ pub struct ClickerSettings {
 }
 
 // Frontend-only settings intentionally omitted from Rust:
-// language, minimizeToTray, theme, advancedSequenceLayout, alwaysOnTop,
-// accentColor, presets, activePresetId.
+// language, minimizeToTray, theme, alwaysOnTop, accentColor, presets,
+// activePresetId.
 
 impl Default for ClickerSettings {
     fn default() -> Self {
@@ -124,11 +148,15 @@ impl Default for ClickerSettings {
             mouse_button: "Left".to_string(),
             mode: "Toggle".to_string(),
 
+            duty_cycle_mode: "Click".to_string(),
+            saved_click_speed: 25.0,
+            saved_click_interval: "s".to_string(),
+
             duty_cycle_enabled: true,
             duty_cycle: 45.0,
 
-            speed_variation_enabled: true,
-            speed_variation: 35.0,
+            speed_randomization_enabled: true,
+            speed_randomization: 35.0,
 
             double_click_enabled: false,
 
@@ -151,8 +179,10 @@ impl Default for ClickerSettings {
             edge_stop_bottom: 40,
             edge_stop_left: 40,
 
-            sequence_enabled: false,
-            sequence_points: Vec::new(),
+            click_points_enabled: false,
+            stop_zones_enabled: false,
+            stop_when_complete: false,
+            click_points: Vec::new(),
 
             process_list_enabled: false,
             process_list_mode: "whitelist".to_string(),
@@ -167,11 +197,7 @@ impl Default for ClickerSettings {
             duration_seconds: 0,
             duration_milliseconds: 40,
 
-            custom_stop_zone_enabled: false,
-            custom_stop_zone_x: 0,
-            custom_stop_zone_y: 0,
-            custom_stop_zone_width: 100,
-            custom_stop_zone_height: 100,
+            stop_zones: Vec::new(),
 
             disable_screenshots: false,
             advanced_settings_enabled: true,

@@ -28,7 +28,7 @@
   background: var(--unavailable-reason-surface);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
   color: var(--text-primary);
-  font-family: "DMSans", sans-serif;
+  font-family: "RobotoFlex", sans-serif;
   font-size: 11px;
   font-weight: var(--font-weight-md);
   line-height: 1.35;

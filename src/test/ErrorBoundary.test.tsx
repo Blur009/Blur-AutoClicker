@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import ErrorBoundary from "../ErrorBoundary";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 function BrokenComponent({ message = "Kaboom" }: { message?: string }): never {
   throw new Error(message);

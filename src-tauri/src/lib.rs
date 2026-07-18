@@ -6,17 +6,17 @@ pub use settings::ClickerSettings;
 mod app_events;
 mod app_state;
 mod autostart;
+mod click_point_picker;
 mod custom_stop_zone_picker;
 mod engine;
 mod hotkeys;
 mod overlay;
-mod sequence_picker;
 mod ui_commands;
 mod updates;
 mod window_lifecycle;
 
-pub use crate::app_state::ClickerState;
 pub use crate::app_state::ClickerStatusPayload;
+pub use crate::app_state::{ClickerState, IconState};
 use crate::engine::worker::emit_status;
 use crate::error::poisoned_inner;
 use crate::hotkeys::register_hotkey_inner;
@@ -25,9 +25,34 @@ use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64};
 use std::sync::{Arc, Mutex};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Listener, Manager};
+use tauri::{AppHandle, Emitter, Listener, Manager};
+
+pub static ZONE_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
 
 const STATUS_EVENT: &str = "clicker-status";
+
+#[cfg(target_os = "windows")]
+fn apply_ws_ex_noactivate(window: &tauri::WebviewWindow, enable: bool) {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongW, SetWindowLongW, GWL_EXSTYLE,
+    };
+
+    if let Ok(handle) = window.window_handle() {
+        if let RawWindowHandle::Win32(w) = handle.as_raw() {
+            let hwnd = w.hwnd.get() as *mut std::ffi::c_void;
+            unsafe {
+                let ex = GetWindowLongW(hwnd, GWL_EXSTYLE);
+                let new_ex = if enable {
+                    (ex as u32 | 0x08000000) as i32
+                } else {
+                    (ex as u32 & !0x08000000) as i32
+                };
+                SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex);
+            }
+        }
+    }
+}
 
 fn is_rtss_running() -> bool {
     crate::engine::process::is_process_running("RTSS.exe")
@@ -96,7 +121,7 @@ fn setup_logging(app: &AppHandle) {
             .level(log_level)
             .level_for("tao", log::LevelFilter::Warn)
             .max_file_size(2_500_000)
-            .rotation_strategy(RotationStrategy::KeepSome(0))
+            .rotation_strategy(RotationStrategy::KeepSome(1))
             .timezone_strategy(TimezoneStrategy::UseLocal)
             .build(),
     );
@@ -107,7 +132,7 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
-    TrayIconBuilder::new()
+    TrayIconBuilder::with_id("main")
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
         .tooltip("BlurAutoClicker")
@@ -115,7 +140,10 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
             "show" => {
                 crate::window_lifecycle::on_show(app);
                 if let Some(window) = app.get_webview_window("main") {
+                    #[cfg(target_os = "windows")]
+                    apply_ws_ex_noactivate(&window, false);
                     let _ = window.show();
+                    crate::engine::worker::set_app_icons(app);
                     let _ = window.set_focus();
                 }
             }
@@ -124,7 +152,7 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
                     .store(true, std::sync::atomic::Ordering::SeqCst);
                 crate::overlay::OVERLAY_THREAD_RUNNING
                     .store(false, std::sync::atomic::Ordering::SeqCst);
-                crate::sequence_picker::cancel_sequence_point_pick_inner(app);
+                crate::click_point_picker::cancel_click_point_pick_inner(app);
                 crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(app);
                 app.exit(0);
             }
@@ -140,7 +168,10 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
                 let app = tray.app_handle();
                 crate::window_lifecycle::on_show(app);
                 if let Some(window) = app.get_webview_window("main") {
+                    #[cfg(target_os = "windows")]
+                    apply_ws_ex_noactivate(&window, false);
                     let _ = window.show();
+                    crate::engine::worker::set_app_icons(app);
                     let _ = window.set_focus();
                 }
             }
@@ -156,6 +187,83 @@ fn spawn_overlay_auto_hide(app: &AppHandle) {
         while crate::overlay::OVERLAY_THREAD_RUNNING.load(std::sync::atomic::Ordering::SeqCst) {
             std::thread::sleep(std::time::Duration::from_secs(1));
             overlay::check_auto_hide(&auto_hide_handle);
+        }
+    });
+}
+
+fn spawn_start_zone_monitor(app: &AppHandle) {
+    let handle = app.clone();
+    ZONE_MONITOR_RUNNING.store(true, std::sync::atomic::Ordering::SeqCst);
+    std::thread::spawn(move || {
+        let mut prev_in_start_zone = false;
+        let mut prev_has_start_zones = false;
+        while ZONE_MONITOR_RUNNING.load(std::sync::atomic::Ordering::SeqCst) {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+
+            let state = handle.state::<ClickerState>();
+
+            let (has_start_zones, zones) = {
+                let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
+                let has = settings.stop_zones_enabled
+                    && settings.stop_zones.iter().any(|z| z.action == "start");
+                (has, settings.stop_zones.clone())
+            };
+
+            if !has_start_zones {
+                prev_in_start_zone = false;
+                prev_has_start_zones = false;
+                continue;
+            }
+
+            let cursor = match crate::engine::mouse::current_cursor_position() {
+                Some(c) => c,
+                None => continue,
+            };
+
+            let in_start_zone = zones.iter().any(|z| {
+                z.action == "start"
+                    && cursor.0 >= z.x
+                    && cursor.0 < z.x + z.width
+                    && cursor.1 >= z.y
+                    && cursor.1 < z.y + z.height
+            });
+
+            if !prev_has_start_zones {
+                prev_in_start_zone = in_start_zone;
+            }
+            prev_has_start_zones = true;
+
+            let running = state.running.load(std::sync::atomic::Ordering::SeqCst);
+            let zone_started = state
+                .zone_started_clicker
+                .load(std::sync::atomic::Ordering::SeqCst);
+
+            // Transition: outside → inside, start clicker if off
+            if in_start_zone && !prev_in_start_zone && !running {
+                if let Err(e) = crate::engine::worker::start_clicker_inner(&handle) {
+                    log::error!("[ZoneMonitor] start failed: {e}");
+                } else {
+                    state
+                        .zone_started_clicker
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                }
+            }
+            // Transition: inside → outside, stop clicker if we started it
+            else if !in_start_zone && prev_in_start_zone && zone_started {
+                if running {
+                    if let Err(e) = crate::engine::worker::stop_clicker_inner(
+                        &handle,
+                        Some(String::from("Left start zone")),
+                    ) {
+                        log::error!("[ZoneMonitor] stop failed: {e}");
+                    }
+                }
+                state
+                    .zone_started_clicker
+                    .store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+
+            prev_in_start_zone = in_start_zone;
         }
     });
 }
@@ -185,6 +293,11 @@ fn setup_frontend_listener(app: &AppHandle) {
         if let Err(e) = overlay::init_overlay(&overlay_init_handle) {
             log::error!("[Window] Overlay init failed: {e}");
         }
+        #[cfg(target_os = "windows")]
+        if let Some(window) = overlay_init_handle.get_webview_window("main") {
+            apply_ws_ex_noactivate(&window, false);
+            log::info!("[Window] Cleared WS_EX_NOACTIVATE on main window");
+        }
     });
 }
 
@@ -203,17 +316,28 @@ fn create_clicker_state() -> ClickerState {
         settings: Mutex::new(ClickerSettings::default()),
         last_error: Mutex::new(None),
         stop_reason: Mutex::new(None),
-        active_sequence_index: AtomicI64::new(-1),
-        active_sequence_tick: AtomicU64::new(0),
+        active_click_point_index: AtomicI64::new(-1),
+        active_click_point_tick: AtomicU64::new(0),
         registered_hotkey: Mutex::new(None),
         suppress_hotkey_until_ms: AtomicU64::new(0),
         suppress_hotkey_until_release: AtomicBool::new(false),
         hotkey_capture_active: AtomicBool::new(false),
-        sequence_pick_active: AtomicBool::new(false),
+        click_point_pick_active: AtomicBool::new(false),
         custom_stop_zone_pick_active: AtomicBool::new(false),
         settings_initialized: AtomicBool::new(false),
         paused: Arc::new(AtomicBool::new(false)),
+        paused_by_zone: AtomicBool::new(false),
+        zone_started_clicker: AtomicBool::new(false),
         warning: Mutex::new(None),
+        icon_state: Mutex::new(IconState {
+            accent_color: String::from("#22c55e"),
+            theme: String::from("dark"),
+            icon_enabled: true,
+            icon_theme: String::from("auto"),
+            icon_color: String::from("theme"),
+            active_icon_dark: None,
+            active_icon_light: None,
+        }),
     }
 }
 
@@ -238,6 +362,13 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
             setup_logging(&handle);
+
+            #[cfg(target_os = "windows")]
+            if let Some(window) = app.get_webview_window("main") {
+                apply_ws_ex_noactivate(&window, true);
+                log::info!("[Window] Applied WS_EX_NOACTIVATE to main window");
+            }
+
             if rtss_detected {
                 log::warn!(
                     "[RTSS] RivaTuner Statistics Server detected. \
@@ -249,7 +380,11 @@ pub fn run() {
                 log::warn!("[Crashpad] Failed to initialize: {e}");
             }
             setup_tray(&handle)?;
+            crate::engine::worker::set_icon_theme_inner(
+                &handle, "#22c55e", "dark", true, "auto", "theme",
+            );
             spawn_overlay_auto_hide(&handle);
+            spawn_start_zone_monitor(&handle);
             window_lifecycle::start_periodic_trimming(30);
             setup_hotkeys(&handle)?;
             setup_frontend_listener(&handle);
@@ -269,8 +404,8 @@ pub fn run() {
             ui_commands::register_hotkey,
             ui_commands::set_hotkey_capture_active,
             ui_commands::pick_position,
-            ui_commands::start_sequence_point_pick,
-            ui_commands::cancel_sequence_point_pick,
+            ui_commands::start_click_point_pick,
+            ui_commands::cancel_click_point_pick,
             ui_commands::start_custom_stop_zone_pick,
             ui_commands::cancel_custom_stop_zone_pick,
             ui_commands::get_app_info,
@@ -287,27 +422,33 @@ pub fn run() {
             ui_commands::get_diagnostics_info,
             ui_commands::open_diagnostics_folder,
             ui_commands::export_diagnostics_bundle,
+            ui_commands::set_accent_color,
             ui_commands::debug_trigger_panic,
             ui_commands::debug_trigger_crash,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let tauri::RunEvent::WindowEvent {
-                event: tauri::WindowEvent::CloseRequested { api, .. },
-                label,
-                ..
-            } = &event
-            {
-                if label == "main" {
-                    api.prevent_close();
-                    crate::app_events::APP_EVENTS_SHUTDOWN
-                        .store(true, std::sync::atomic::Ordering::SeqCst);
-                    crate::overlay::OVERLAY_THREAD_RUNNING
-                        .store(false, std::sync::atomic::Ordering::SeqCst);
-                    crate::sequence_picker::cancel_sequence_point_pick_inner(app_handle);
-                    crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(app_handle);
-                    app_handle.exit(0);
+            if let tauri::RunEvent::WindowEvent { event, label, .. } = &event {
+                match event {
+                    tauri::WindowEvent::CloseRequested { api, .. } if label == "main" => {
+                        api.prevent_close();
+                        crate::app_events::APP_EVENTS_SHUTDOWN
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        crate::overlay::OVERLAY_THREAD_RUNNING
+                            .store(false, std::sync::atomic::Ordering::SeqCst);
+                        ZONE_MONITOR_RUNNING.store(false, std::sync::atomic::Ordering::SeqCst);
+                        crate::click_point_picker::cancel_click_point_pick_inner(app_handle);
+                        crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(
+                            app_handle,
+                        );
+                        app_handle.exit(0);
+                    }
+                    tauri::WindowEvent::Resized(size) if label == "main" => {
+                        let minimized = size.width == 0 || size.height == 0;
+                        let _ = app_handle.emit("minimized-changed", minimized);
+                    }
+                    _ => {}
                 }
             }
         });

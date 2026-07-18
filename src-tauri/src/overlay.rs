@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
 static LAST_ZONE_SHOW: Mutex<Option<Instant>> = Mutex::new(None);
-static SEQUENCE_PICK_OVERLAY_ACTIVE: AtomicBool = AtomicBool::new(false);
+static CLICK_POINT_PICK_OVERLAY_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CUSTOM_STOP_ZONE_PICK_OVERLAY_ACTIVE: AtomicBool = AtomicBool::new(false);
 pub static OVERLAY_THREAD_RUNNING: AtomicBool = AtomicBool::new(true);
 
@@ -45,7 +45,6 @@ pub fn init_overlay(app: &AppHandle) -> AppResult<()> {
                 tauri::WebviewUrl::App("overlay.html".into()),
             )
             .title("Overlay")
-            .fullscreen(true)
             .transparent(true)
             .decorations(false)
             .always_on_top(true)
@@ -104,13 +103,23 @@ pub fn show_overlay(app: &AppHandle) -> AppResult<()> {
 
     let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
     let monitors = current_monitor_rects().unwrap_or_else(|| vec![bounds]);
-    let custom_stop_zone = VirtualScreenRect::new(
-        settings.custom_stop_zone_x,
-        settings.custom_stop_zone_y,
-        settings.custom_stop_zone_width.max(1),
-        settings.custom_stop_zone_height.max(1),
-    )
-    .offset_from(bounds);
+    let stop_zones_payload: Vec<_> = settings
+        .stop_zones
+        .iter()
+        .map(|zone| {
+            let offset =
+                VirtualScreenRect::new(zone.x, zone.y, zone.width.max(1), zone.height.max(1))
+                    .offset_from(bounds);
+            serde_json::json!({
+                "id": zone.id,
+                "x": offset.left,
+                "y": offset.top,
+                "width": offset.width,
+                "height": offset.height,
+                "action": zone.action,
+            })
+        })
+        .collect();
     let monitor_payload: Vec<_> = monitors
         .into_iter()
         .map(|monitor| {
@@ -136,13 +145,8 @@ pub fn show_overlay(app: &AppHandle) -> AppResult<()> {
             "cornerStopTR": settings.corner_stop_tr,
             "cornerStopBL": settings.corner_stop_bl,
             "cornerStopBR": settings.corner_stop_br,
-            "customStopZoneEnabled": settings.custom_stop_zone_enabled,
-            "customStopZone": {
-                "x": custom_stop_zone.left,
-                "y": custom_stop_zone.top,
-                "width": custom_stop_zone.width,
-                "height": custom_stop_zone.height,
-            },
+            "stopZones": stop_zones_payload,
+            "stopZonesEnabled": settings.stop_zones_enabled,
             "screenWidth": bounds.width,
             "screenHeight": bounds.height,
             "monitors": monitor_payload,
@@ -154,7 +158,7 @@ pub fn show_overlay(app: &AppHandle) -> AppResult<()> {
     Ok(())
 }
 
-pub fn show_sequence_points_overlay(app: &AppHandle) -> AppResult<()> {
+pub fn show_click_points_overlay(app: &AppHandle) -> AppResult<()> {
     let state = app.state::<ClickerState>();
     if !state.settings_initialized.load(Ordering::SeqCst) {
         return Ok(());
@@ -167,7 +171,7 @@ pub fn show_sequence_points_overlay(app: &AppHandle) -> AppResult<()> {
         .ok_or_else(|| AppError::State("Virtual screen bounds not available".into()))?;
     let points = {
         let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
-        settings.sequence_points.clone()
+        settings.click_points.clone()
     };
 
     #[cfg(target_os = "windows")]
@@ -178,8 +182,8 @@ pub fn show_sequence_points_overlay(app: &AppHandle) -> AppResult<()> {
         }
     }
 
-    emit_sequence_points(&window, bounds, &points, false);
-    if points.is_empty() && !SEQUENCE_PICK_OVERLAY_ACTIVE.load(Ordering::SeqCst) {
+    emit_click_points(&window, bounds, &points, false);
+    if points.is_empty() && !CLICK_POINT_PICK_OVERLAY_ACTIVE.load(Ordering::SeqCst) {
         *LAST_ZONE_SHOW.lock().unwrap_or_else(poisoned_inner) = None;
         hide_overlay_window(&window);
     } else {
@@ -188,7 +192,7 @@ pub fn show_sequence_points_overlay(app: &AppHandle) -> AppResult<()> {
     Ok(())
 }
 
-pub fn show_sequence_pick_overlay(app: &AppHandle) -> AppResult<()> {
+pub fn show_click_point_pick_overlay(app: &AppHandle) -> AppResult<()> {
     let window = app
         .get_webview_window("overlay")
         .ok_or_else(|| AppError::OverlayNotFound)?;
@@ -201,17 +205,17 @@ pub fn show_sequence_pick_overlay(app: &AppHandle) -> AppResult<()> {
         show_overlay_window(&window)?;
     }
 
-    SEQUENCE_PICK_OVERLAY_ACTIVE.store(true, Ordering::SeqCst);
+    CLICK_POINT_PICK_OVERLAY_ACTIVE.store(true, Ordering::SeqCst);
 
     let state = app.state::<ClickerState>();
     let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
-    emit_sequence_points(&window, bounds, &settings.sequence_points, true);
-    set_sequence_pick_mode(app, true)?;
+    emit_click_points(&window, bounds, &settings.click_points, true);
+    set_click_point_pick_mode(app, true)?;
 
     if let Some((x, y)) = current_cursor_position() {
         let offset = VirtualScreenRect::new(x, y, 1, 1).offset_from(bounds);
         let _ = window.emit(
-            "sequence-pick-cursor",
+            "click-pick-cursor",
             serde_json::json!({
                 "x": offset.left,
                 "y": offset.top,
@@ -222,11 +226,11 @@ pub fn show_sequence_pick_overlay(app: &AppHandle) -> AppResult<()> {
     Ok(())
 }
 
-pub fn set_sequence_pick_mode(app: &AppHandle, active: bool) -> AppResult<()> {
-    SEQUENCE_PICK_OVERLAY_ACTIVE.store(active, Ordering::SeqCst);
+pub fn set_click_point_pick_mode(app: &AppHandle, active: bool) -> AppResult<()> {
+    CLICK_POINT_PICK_OVERLAY_ACTIVE.store(active, Ordering::SeqCst);
     if let Some(window) = app.get_webview_window("overlay") {
         let _ = window.emit(
-            "sequence-pick-mode",
+            "click-pick-mode",
             serde_json::json!({
                 "active": active,
             }),
@@ -288,18 +292,10 @@ pub fn hide_custom_stop_zone_pick_overlay(app: &AppHandle) -> AppResult<()> {
     Ok(())
 }
 
-pub fn end_custom_stop_zone_pick_overlay(app: &AppHandle) -> AppResult<()> {
-    set_custom_stop_zone_pick_mode(app, false)?;
-    if let Some(window) = app.get_webview_window("overlay") {
-        let _ = window.emit("custom-stop-zone-clear-preview", ());
-    }
-    Ok(())
-}
-
-fn emit_sequence_points(
+fn emit_click_points(
     window: &tauri::WebviewWindow,
     bounds: VirtualScreenRect,
-    points: &[crate::settings::SequencePoint],
+    points: &[crate::settings::ClickPoint],
     persistent: bool,
 ) {
     let points_payload: Vec<_> = points
@@ -310,12 +306,13 @@ fn emit_sequence_points(
                 "id": point.id,
                 "x": offset.left,
                 "y": offset.top,
+                "radius": point.radius,
             })
         })
         .collect();
 
     let _ = window.emit(
-        "sequence-points-data",
+        "click-points-data",
         serde_json::json!({
             "points": points_payload,
             "screenWidth": bounds.width,
@@ -328,7 +325,7 @@ fn emit_sequence_points(
 // ---- Background timer ----
 
 pub fn check_auto_hide(app: &AppHandle) {
-    if SEQUENCE_PICK_OVERLAY_ACTIVE.load(Ordering::SeqCst)
+    if CLICK_POINT_PICK_OVERLAY_ACTIVE.load(Ordering::SeqCst)
         || CUSTOM_STOP_ZONE_PICK_OVERLAY_ACTIVE.load(Ordering::SeqCst)
     {
         return;
@@ -351,7 +348,7 @@ pub fn check_auto_hide(app: &AppHandle) {
 #[tauri::command]
 pub fn hide_overlay(app: AppHandle) -> AppResult<()> {
     *LAST_ZONE_SHOW.lock().unwrap_or_else(poisoned_inner) = None;
-    SEQUENCE_PICK_OVERLAY_ACTIVE.store(false, Ordering::SeqCst);
+    CLICK_POINT_PICK_OVERLAY_ACTIVE.store(false, Ordering::SeqCst);
     CUSTOM_STOP_ZONE_PICK_OVERLAY_ACTIVE.store(false, Ordering::SeqCst);
     if let Some(window) = app.get_webview_window("overlay") {
         hide_overlay_window(&window);
@@ -443,7 +440,7 @@ fn sync_overlay_bounds(window: &tauri::WebviewWindow) -> AppResult<VirtualScreen
 fn show_overlay_window(window: &tauri::WebviewWindow) -> AppResult<()> {
     let _ = window.eval(
         "document.getElementById('zone-layer').innerHTML = ''; \
-         document.getElementById('sequence-layer').innerHTML = '';",
+         document.getElementById('click-points-layer').innerHTML = '';",
     );
 
     let hwnd = get_hwnd(window)?;

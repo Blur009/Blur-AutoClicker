@@ -11,12 +11,12 @@
   font-size: 0.65rem;
   padding: 0.0625rem 0.25rem;
   background: var(--bg-elevated);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
 }
 
 .changelog-content a {
-  color: var(--accent-green-strong);
+  color: var(--accent-strong);
   text-decoration: none;
 }
 

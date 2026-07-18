@@ -277,6 +277,13 @@ unsafe extern "system" fn keyboard_ll_proc(n_code: i32, w_param: usize, l_param:
 
 pub fn start_hotkey_listener(app: AppHandle) {
     std::thread::spawn(move || unsafe {
+        // Delay hook installation to let WebView2/windows fully initialise.
+        // Installing WH_KEYBOARD_LL too early can cause Windows to generate
+        // spurious Alt-menu events in other applications. Hotkey detection
+        // falls back to GetAsyncKeyState via the HOOKS_ACTIVE check below
+        // during this window.
+        std::thread::sleep(Duration::from_secs(2));
+
         let mouse_hook =
             SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_ll_proc), std::ptr::null_mut(), 0);
         let kb_hook = SetWindowsHookExW(
@@ -339,11 +346,12 @@ pub fn start_hotkey_listener(app: AppHandle) {
                 let suppress_until_release =
                     state.suppress_hotkey_until_release.load(Ordering::SeqCst);
                 let hotkey_capture_active = state.hotkey_capture_active.load(Ordering::SeqCst);
-                let sequence_pick_active = state.sequence_pick_active.load(Ordering::SeqCst);
+                let click_point_pick_active = state.click_point_pick_active.load(Ordering::SeqCst);
                 let custom_stop_zone_pick_active =
                     state.custom_stop_zone_pick_active.load(Ordering::SeqCst);
 
-                if hotkey_capture_active || sequence_pick_active || custom_stop_zone_pick_active {
+                if hotkey_capture_active || click_point_pick_active || custom_stop_zone_pick_active
+                {
                     if currently_pressed && !was_pressed && hotkey_capture_active {
                         let needs_emit = {
                             let mut warning = state.warning.lock().unwrap_or_else(poisoned_inner);

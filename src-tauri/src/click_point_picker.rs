@@ -23,7 +23,7 @@ const CURSOR_EMIT_INTERVAL: Duration = Duration::from_millis(16);
 
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SequencePointPickedPayload {
+struct ClickPointPickedPayload {
     x: i32,
     y: i32,
     continue_picking: bool,
@@ -31,7 +31,7 @@ struct SequencePointPickedPayload {
 
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SequencePointDeleteRequestedPayload {
+struct ClickPointDeleteRequestedPayload {
     x: i32,
     y: i32,
 }
@@ -90,13 +90,13 @@ fn classify_keyboard_message(message: u32, virtual_key: u32) -> KeyboardHookDeci
     }
 }
 
-pub fn start_sequence_point_pick_inner(app: AppHandle) -> AppResult<()> {
+pub fn start_click_point_pick_inner(app: AppHandle) -> AppResult<()> {
     crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(&app);
 
     {
         let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
         if runtime.active {
-            crate::overlay::show_sequence_pick_overlay(&app)?;
+            crate::overlay::show_click_point_pick_overlay(&app)?;
             return Ok(());
         }
 
@@ -107,10 +107,10 @@ pub fn start_sequence_point_pick_inner(app: AppHandle) -> AppResult<()> {
     }
 
     app.state::<ClickerState>()
-        .sequence_pick_active
+        .click_point_pick_active
         .store(true, std::sync::atomic::Ordering::SeqCst);
 
-    crate::overlay::show_sequence_pick_overlay(&app)?;
+    crate::overlay::show_click_point_pick_overlay(&app)?;
 
     let (ready_tx, ready_rx) = mpsc::channel();
     std::thread::spawn(move || unsafe {
@@ -164,29 +164,29 @@ pub fn start_sequence_point_pick_inner(app: AppHandle) -> AppResult<()> {
     match ready_rx.recv_timeout(Duration::from_secs(1)) {
         Ok(Ok(())) => Ok(()),
         Ok(Err(error)) => {
-            cancel_sequence_point_pick_inner(&app);
+            cancel_click_point_pick_inner(&app);
             Err(error)
         }
         Err(_) => {
-            cancel_sequence_point_pick_inner(&app);
+            cancel_click_point_pick_inner(&app);
             Err(AppError::ChannelFailure)
         }
     }
 }
 
-fn cancel_sequence_point_pick_from_hook() {
-    let app = stop_sequence_point_pick(None, true);
+fn cancel_click_point_pick_from_hook() {
+    let app = stop_click_point_pick(None, true);
     if let Some(app) = app {
         let _ = crate::overlay::hide_overlay(app);
     }
 }
 
-pub fn cancel_sequence_point_pick_inner(app: &AppHandle) {
-    stop_sequence_point_pick(Some(app.clone()), true);
+pub fn cancel_click_point_pick_inner(app: &AppHandle) {
+    stop_click_point_pick(Some(app.clone()), true);
     let _ = crate::overlay::hide_overlay(app.clone());
 }
 
-fn stop_sequence_point_pick(
+fn stop_click_point_pick(
     app_override: Option<AppHandle>,
     notify_overlay: bool,
 ) -> Option<AppHandle> {
@@ -203,11 +203,11 @@ fn stop_sequence_point_pick(
 
     if let Some(app) = &app {
         app.state::<ClickerState>()
-            .sequence_pick_active
+            .click_point_pick_active
             .store(false, std::sync::atomic::Ordering::SeqCst);
-        let _ = app.emit("sequence-pick-ended", ());
+        let _ = app.emit("click-pick-ended", ());
         if notify_overlay {
-            let _ = crate::overlay::set_sequence_pick_mode(app, false);
+            let _ = crate::overlay::set_click_point_pick_mode(app, false);
         }
     }
 
@@ -245,7 +245,7 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
                     should_stop
                 };
                 if should_stop {
-                    stop_sequence_point_pick(None, true);
+                    stop_click_point_pick(None, true);
                 }
             }
             1
@@ -275,7 +275,7 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
     match classify_keyboard_message(message, keyboard.vkCode) {
         KeyboardHookDecision::Pass => CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam),
         KeyboardHookDecision::Cancel => {
-            cancel_sequence_point_pick_from_hook();
+            cancel_click_point_pick_from_hook();
             1
         }
     }
@@ -308,7 +308,7 @@ fn emit_cursor_position(x: i32, y: i32) {
             .unwrap_or((x, y));
 
         let _ = app.emit(
-            "sequence-pick-cursor",
+            "click-pick-cursor",
             serde_json::json!({
                 "x": overlay_x,
                 "y": overlay_y,
@@ -328,8 +328,8 @@ fn emit_pick(x: i32, y: i32, continue_picking: bool) {
 
     if let Some(app) = app {
         let _ = app.emit(
-            "sequence-point-picked",
-            SequencePointPickedPayload {
+            "click-point-picked",
+            ClickPointPickedPayload {
                 x,
                 y,
                 continue_picking,
@@ -349,8 +349,8 @@ fn emit_delete_request(x: i32, y: i32) {
 
     if let Some(app) = app {
         let _ = app.emit(
-            "sequence-point-delete-requested",
-            SequencePointDeleteRequestedPayload { x, y },
+            "click-point-delete-requested",
+            ClickPointDeleteRequestedPayload { x, y },
         );
     }
 }

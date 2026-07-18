@@ -5,6 +5,7 @@ import {
   currentMonitor,
   getCurrentWindow,
   LogicalSize,
+  PhysicalPosition,
 } from "@tauri-apps/api/window";
 import {
   lazy,
@@ -16,19 +17,28 @@ import {
 } from "react";
 import { applyAccentTheme } from "./accentTheme";
 import UpdateBanner from "./components/Updatebanner";
-import { canonicalizeHotkeyForBackend } from "./hotkeys";
+import {
+  canonicalizeHotkeyForBackend,
+  captureHotkey,
+  captureModifierHotkey,
+} from "./hotkeys";
 
 import {
+  applyPresetSnapshot,
   buildPresetSnapshot,
   createPresetDefinition,
-  MAX_PRESETS,
+  sanitizePresetSnapshot,
   sanitizeSettings,
   sanitizePresetName,
+  type PresetDefinition,
   type PresetId,
 } from "./settingsSchema";
+import { save, open } from "@tauri-apps/plugin-dialog";
+import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import {
   APP_VERSION,
   DEFAULT_SETTINGS,
+  initAppVersion,
   type AppInfo,
   type ClickerStatus,
   type Settings,
@@ -37,41 +47,41 @@ import {
   saveSettings,
 } from "./store";
 
+void initAppVersion();
+
 const SimplePanel = lazy(() => import("./components/panels/SimplePanel"));
 const AdvancedPanel = lazy(
   () => import("./components/panels/advanced/AdvancedPanel"),
 );
 const ZonesPanel = lazy(() => import("./components/panels/zones/ZonesPanel"));
-const SettingsPanel = lazy(() => import("./components/panels/SettingsPanel"));
+const SettingsPanel = lazy(
+  () => import("./components/panels/settings/SettingsPanel"),
+);
+const ClickPointsPanel = lazy(
+  () => import("./components/panels/click-points/ClickPointsPanel"),
+);
 const TitleBar = lazy(() => import("./components/TitleBar"));
-export type Tab = "simple" | "advanced" | "zones" | "settings";
+const StatusBar = lazy(() => import("./components/StatusBar"));
+export type Tab = "simple" | "advanced" | "zones" | "settings" | "click-points";
 
 const BACKEND_SETTINGS_SCHEMA_VERSION = 10;
 const MAX_DROPDOWN_OVERFLOW_BOTTOM = 220;
-const OPERATIONAL_SETTING_KEYS = new Set<string>(
-  Object.keys(buildPresetSnapshot(DEFAULT_SETTINGS)),
-);
+const STATUS_BAR_HEIGHT = 26;
 
 type DropdownOverflowDetail = {
   active: boolean;
   bottom?: number;
 };
 
-function getPanelSize(
-  tab: Tab,
-  hasUpdate: boolean,
-  advancedSequenceLayout: Settings["advancedSequenceLayout"],
-) {
+function getPanelSize(tab: Tab, hasUpdate: boolean) {
   const extra = hasUpdate ? 30 : 0;
   if (tab === "simple") {
-    return { width: 650, height: 175 + extra };
+    return { width: 750, height: 175 + extra };
   }
-  if (tab === "settings") return { width: 560, height: 720 + extra };
-  if (tab === "zones") return { width: 750, height: 720 + extra };
-  if (advancedSequenceLayout === "tall") {
-    return { width: 560, height: 720 + extra };
-  }
-  return { width: 912, height: 527 + extra };
+  if (tab === "settings") return { width: 700, height: 720 + extra };
+  if (tab === "zones") return { width: 700, height: 700 + extra };
+  if (tab === "click-points") return { width: 550, height: 600 + extra };
+  return { width: 900, height: 469 + extra };
 }
 
 async function getClampedPanelSize(
@@ -106,18 +116,14 @@ const DEFAULT_STATUS: ClickerStatus = {
   lastError: null,
   stopReason: null,
   warning: null,
-  activeSequenceIndex: null,
-  activeSequenceTick: 0,
+  activeClickPointIndex: null,
+  activeClickPointTick: 0,
 };
 
 const DEFAULT_APP_INFO: AppInfo = {
   version: APP_VERSION,
   updateStatus: "Update checks are disabled in development",
   screenshotProtectionSupported: false,
-};
-
-type UpdateSettingsOptions = {
-  preserveActivePreset?: boolean;
 };
 
 async function syncSettingsToBackend(settings: Settings) {
@@ -148,9 +154,26 @@ async function checkForUpdates(): Promise<UpdateCheckResult | null> {
   try {
     return await invoke<UpdateCheckResult>("check_for_updates");
   } catch (err) {
-    error(JSON.stringify({ source: "App.updateCheck", error: String(err) }));
+    error(
+      JSON.stringify({
+        source: "App.updateCheck",
+        error: JSON.stringify(err),
+      }),
+    );
     return null;
   }
+}
+
+function tabSuffix(t: Tab): string {
+  if (t === "click-points") return "ClickPoints";
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function resolvePerPage<T>(settings: Settings, globalVal: T, field: string): T {
+  if (settings.perPageAppearance) {
+    return ((settings as Record<string, unknown>)[field] as T) ?? globalVal;
+  }
+  return globalVal;
 }
 
 export default function App() {
@@ -167,6 +190,9 @@ export default function App() {
     "idle" | "checking" | "available" | "unavailable" | "error"
   >("idle");
   const [dropdownOverflowBottom, setDropdownOverflowBottom] = useState(0);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<
+    string | undefined
+  >();
 
   const hotkeyTimer = useRef<number | null>(null);
   const hotkeyRequestIdRef = useRef(0);
@@ -174,10 +200,12 @@ export default function App() {
   const committedSettingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const lastValidHotkeyRef = useRef(DEFAULT_SETTINGS.hotkey);
   const launchWindowPlacementDone = useRef(false);
+  const pendingShowWindowRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resizeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toggleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const mountedRef = useRef(false);
 
   const setUiSettings = (nextSettings: Settings) => {
@@ -290,55 +318,59 @@ export default function App() {
     queueHotkeyRegistrationRef.current = queueHotkeyRegistration;
   });
 
-  const updateSettings = useCallback(
-    (patch: Partial<Settings>, options: UpdateSettingsOptions = {}) => {
-      const { hotkey, ...rest } = patch;
-      const shouldClearActivePreset =
-        !options.preserveActivePreset &&
-        (hotkey !== undefined ||
-          Object.keys(rest).some((key) => OPERATIONAL_SETTING_KEYS.has(key)));
+  const updateSettings = useCallback((patch: Partial<Settings>) => {
+    const { hotkey, ...rest } = patch;
 
-      const restPatch: Partial<Settings> = { ...rest };
-      if (
-        shouldClearActivePreset &&
-        patch.activePresetId === undefined &&
-        committedSettingsRef.current.activePresetId !== null
-      ) {
-        restPatch.activePresetId = null;
-      }
+    if (Object.keys(rest).length > 0) {
+      const nextUiSettings = sanitizeSettings(
+        { ...uiSettingsRef.current, ...rest },
+        APP_VERSION,
+      );
+      const nextCommittedSettings = sanitizeSettings(
+        { ...committedSettingsRef.current, ...rest },
+        APP_VERSION,
+      );
 
-      if (Object.keys(restPatch).length > 0) {
-        const nextUiSettings = sanitizeSettings(
-          { ...uiSettingsRef.current, ...restPatch },
-          APP_VERSION,
-        );
-        const nextCommittedSettings = sanitizeSettings(
-          { ...committedSettingsRef.current, ...restPatch },
-          APP_VERSION,
-        );
+      persistCommittedSettingsRef.current(
+        nextCommittedSettings,
+        nextUiSettings,
+      );
+    }
 
-        persistCommittedSettingsRef.current(
-          nextCommittedSettings,
-          nextUiSettings,
-        );
-      }
-
-      if (hotkey !== undefined) {
-        setUiSettingsRef.current({
-          ...uiSettingsRef.current,
-          hotkey,
-        });
-        queueHotkeyRegistrationRef.current(hotkey);
-      }
-    },
-    [],
-  );
+    if (hotkey !== undefined) {
+      setUiSettingsRef.current({
+        ...uiSettingsRef.current,
+        hotkey,
+      });
+      queueHotkeyRegistrationRef.current(hotkey);
+    }
+  }, []);
 
   const applyStartupWindowPlacement = async () => {
-    await getCurrentWindow().center();
+    const pos = committedSettingsRef.current.windowPosition;
+    if (
+      committedSettingsRef.current.rememberWindowPosition &&
+      pos.x !== null &&
+      pos.y !== null
+    ) {
+      await getCurrentWindow().setPosition(new PhysicalPosition(pos.x, pos.y));
+    } else {
+      await getCurrentWindow().center();
+    }
   };
 
   const handleWindowClose = async () => {
+    if (committedSettingsRef.current.rememberWindowPosition) {
+      const pos = await getCurrentWindow().outerPosition();
+      const next = sanitizeSettings(
+        {
+          ...committedSettingsRef.current,
+          windowPosition: { x: pos.x, y: pos.y },
+        },
+        APP_VERSION,
+      );
+      await saveSettings(next);
+    }
     if (uiSettingsRef.current.minimizeToTray) {
       await invoke("hide_main_window");
     } else {
@@ -351,12 +383,9 @@ export default function App() {
 
     try {
       await getCurrentWindow().setAlwaysOnTop(nextValue);
-      updateSettings(
-        {
-          alwaysOnTop: nextValue,
-        },
-        { preserveActivePreset: true },
-      );
+      updateSettings({
+        alwaysOnTop: nextValue,
+      });
     } catch (err) {
       error(JSON.stringify({ source: "App.alwaysOnTop", error: String(err) }));
     }
@@ -364,10 +393,6 @@ export default function App() {
 
   const handleSavePreset = (name: string) => {
     if (status.running) {
-      return false;
-    }
-
-    if (committedSettingsRef.current.presets.length >= MAX_PRESETS) {
       return false;
     }
 
@@ -404,13 +429,10 @@ export default function App() {
       return false;
     }
 
-    updateSettings(
-      {
-        ...preset.settings,
-        activePresetId: presetId,
-      },
-      { preserveActivePreset: true },
-    );
+    updateSettings({
+      ...preset.settings,
+      activePresetId: presetId,
+    });
     return true;
   };
 
@@ -527,6 +549,150 @@ export default function App() {
     return true;
   };
 
+  const handleDuplicatePreset = (presetId: PresetId) => {
+    if (status.running) {
+      return false;
+    }
+
+    const source = committedSettingsRef.current.presets.find(
+      (p) => p.id === presetId,
+    );
+    if (!source) {
+      return false;
+    }
+
+    const baseName = source.name.replace(/\s*\(\d+\)$/, "");
+    let newName = `${baseName} (2)`;
+    let counter = 2;
+    while (
+      committedSettingsRef.current.presets.some((p) => p.name === newName)
+    ) {
+      counter++;
+      newName = `${baseName} (${counter})`;
+    }
+
+    const preset = createPresetDefinition(
+      newName,
+      applyPresetSnapshot(committedSettingsRef.current, source.settings),
+    );
+    if (!preset.name) {
+      return false;
+    }
+
+    const nextPresets = [...committedSettingsRef.current.presets, preset];
+    const nextCommittedSettings = {
+      ...committedSettingsRef.current,
+      presets: nextPresets,
+    };
+    const nextUiSettings = {
+      ...uiSettingsRef.current,
+      presets: nextPresets,
+    };
+
+    persistCommittedSettings(nextCommittedSettings, nextUiSettings);
+    return true;
+  };
+
+  const handleExportPreset = async (presetId: PresetId) => {
+    const preset = committedSettingsRef.current.presets.find(
+      (p) => p.id === presetId,
+    );
+    if (!preset) {
+      return false;
+    }
+
+    try {
+      const filePath = await save({
+        defaultPath: `${preset.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`,
+        filters: [{ name: "Preset JSON", extensions: ["json"] }],
+      });
+      if (!filePath) {
+        return false;
+      }
+
+      const data = JSON.stringify(
+        { type: "blur-autoclicker-preset", version: 1, preset },
+        null,
+        2,
+      );
+      await writeTextFile(filePath, data);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleImportPreset = async () => {
+    try {
+      const filePath = await open({
+        multiple: false,
+        filters: [{ name: "Preset JSON", extensions: ["json"] }],
+      });
+      if (!filePath) {
+        return null;
+      }
+
+      const content = await readTextFile(filePath as string);
+      const parsed = JSON.parse(content) as {
+        type?: string;
+        version?: number;
+        preset?: PresetDefinition;
+      };
+
+      if (parsed.type !== "blur-autoclicker-preset" || !parsed.preset) {
+        return null;
+      }
+
+      const importName = sanitizePresetName(parsed.preset.name);
+      if (!importName) {
+        return null;
+      }
+
+      let finalName = importName;
+      let counter = 1;
+      while (
+        committedSettingsRef.current.presets.some((p) => p.name === finalName)
+      ) {
+        counter++;
+        finalName = `${importName} (${counter})`;
+      }
+
+      const now = new Date().toISOString();
+      const id =
+        globalThis.crypto?.randomUUID?.() ??
+        `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      const defaultSnapshot = buildPresetSnapshot(committedSettingsRef.current);
+      const sanitizedSettings = sanitizePresetSnapshot(
+        parsed.preset.settings,
+        defaultSnapshot,
+      );
+
+      const preset: PresetDefinition = {
+        id,
+        name: finalName,
+        createdAt: now,
+        updatedAt: now,
+        settings: sanitizedSettings,
+      };
+
+      const nextPresets = [...committedSettingsRef.current.presets, preset];
+      const nextCommittedSettings = {
+        ...committedSettingsRef.current,
+        presets: nextPresets,
+      };
+      const nextUiSettings = {
+        ...uiSettingsRef.current,
+        presets: nextPresets,
+      };
+
+      persistCommittedSettings(nextCommittedSettings, nextUiSettings);
+      return true;
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     mountedRef.current = true;
@@ -601,6 +767,18 @@ export default function App() {
 
           setTab(hydratedSettings.lastPanel);
           setSettings(hydratedSettings);
+          {
+            const theme = hydratedSettings.theme ?? "dark";
+            document.documentElement.dataset.theme = theme;
+            applyAccentTheme(hydratedSettings.accentColor, theme);
+            invoke("set_accent_color", {
+              color: hydratedSettings.accentColor,
+              theme,
+              iconEnabled: hydratedSettings.taskbarIconEnabled,
+              iconTheme: hydratedSettings.taskbarIconTheme,
+              iconColor: hydratedSettings.taskbarIconColor,
+            });
+          }
           setAppInfo(loadedAppInfo);
           setStatus(loadedStatus);
           setSettingsLoaded(true);
@@ -614,9 +792,7 @@ export default function App() {
             await saveSettings(hydratedSettings);
           }
 
-          if (!autostartLaunch) {
-            await getCurrentWindow().show();
-          }
+          pendingShowWindowRef.current = !autostartLaunch;
           emit("frontend-ready", {}).catch((err) =>
             error(
               JSON.stringify({
@@ -631,13 +807,7 @@ export default function App() {
         error(JSON.stringify({ source: "App.boot", error: String(err) }));
         if (!mounted) return;
         setSettingsLoaded(true);
-        getCurrentWindow()
-          .show()
-          .catch((err) =>
-            error(
-              JSON.stringify({ source: "App.bootShow", error: String(err) }),
-            ),
-          );
+        pendingShowWindowRef.current = true;
         emit("frontend-ready", {}).catch((err) =>
           error(JSON.stringify({ source: "App.bootEmit", error: String(err) })),
         );
@@ -722,16 +892,16 @@ export default function App() {
         const textScale = await invoke<number>("get_text_scale_factor");
         document.documentElement.style.fontSize = `${16 * textScale}px`;
 
-        const preferredSize = getPanelSize(
-          tab,
-          !!updateInfo,
-          settings.advancedSequenceLayout,
-        );
+        const preferredSize = getPanelSize(tab, !!updateInfo);
         const { width, height } = await getClampedPanelSize(
           preferredSize,
           textScale,
         );
-        const windowHeight = height + dropdownOverflowBottom;
+        const statusBarOffset = settings.statusBarEnabled
+          ? STATUS_BAR_HEIGHT
+          : 0;
+        const appHeight = height + statusBarOffset;
+        const windowHeight = appHeight + dropdownOverflowBottom;
 
         const appWindow = getCurrentWindow();
 
@@ -741,11 +911,15 @@ export default function App() {
 
           if (cancelled) return;
           root.style.width = `${width}px`;
-          root.style.height = `${height}px`;
+          root.style.height = `${appHeight}px`;
 
           await wait(30);
           if (cancelled) return;
           await applyStartupWindowPlacement();
+          if (pendingShowWindowRef.current) {
+            await appWindow.show();
+            pendingShowWindowRef.current = false;
+          }
           launchWindowPlacementDone.current = true;
           return;
         }
@@ -766,7 +940,7 @@ export default function App() {
 
           if (cancelled) return;
           root.style.width = `${width}px`;
-          root.style.height = `${height}px`;
+          root.style.height = `${appHeight}px`;
 
           const changedProps: string[] = [];
           if (width !== currentW) changedProps.push("width");
@@ -828,7 +1002,7 @@ export default function App() {
           void root.offsetHeight;
 
           root.style.width = `${width}px`;
-          root.style.height = `${height}px`;
+          root.style.height = `${appHeight}px`;
         }
       } catch (err) {
         if (!cancelled) {
@@ -854,10 +1028,12 @@ export default function App() {
     updateInfo,
     dropdownOverflowBottom,
     settingsLoaded,
-    settings.advancedSequenceLayout,
+    settings.statusBarEnabled,
   ]);
 
   useEffect(() => {
+    if (import.meta.env.DEV) return;
+
     const check = async () => {
       const result = await checkForUpdates();
       if (result?.updateAvailable) {
@@ -912,33 +1088,59 @@ export default function App() {
     const theme = settings.theme ?? "dark";
     document.documentElement.dataset.theme = theme;
     applyAccentTheme(settings.accentColor, theme);
-  }, [settings.accentColor, settings.theme]);
+
+    invoke("set_accent_color", {
+      color: settings.accentColor,
+      theme,
+      iconEnabled: settings.taskbarIconEnabled,
+      iconTheme: settings.taskbarIconTheme,
+      iconColor: settings.taskbarIconColor,
+    });
+  }, [
+    settings.accentColor,
+    settings.theme,
+    settings.taskbarIconEnabled,
+    settings.taskbarIconTheme,
+    settings.taskbarIconColor,
+  ]);
 
   useEffect(() => {
     document.documentElement.lang = "en";
     document.documentElement.dir = "ltr";
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;
     if (!root) return;
 
-    const panelOpacity = settings.panelOpacity / 100;
+    const sfx = tabSuffix(tab);
+    const panelOpacity =
+      resolvePerPage(settings, settings.panelOpacity, `panelOpacity${sfx}`) /
+      100;
+    const windowOpacity =
+      resolvePerPage(settings, settings.windowOpacity, `windowOpacity${sfx}`) /
+      100;
     const colors =
       settings.theme === "light"
         ? {
+            base: "229, 223, 231",
             surface: "255, 255, 255",
             elevated: "242, 242, 242",
             input: "217, 217, 217",
             inputOff: "217, 217, 217",
           }
         : {
+            base: "12, 12, 14",
             surface: "26, 26, 26",
             elevated: "38, 38, 38",
             input: "59, 59, 59",
             inputOff: "51, 51, 51",
           };
 
+    root.style.setProperty(
+      "--bg-base",
+      `rgba(${colors.base}, ${windowOpacity})`,
+    );
     root.style.setProperty(
       "--bg-surface",
       `rgba(${colors.surface}, ${panelOpacity})`,
@@ -955,22 +1157,65 @@ export default function App() {
       "--bg-input-off",
       `rgba(${colors.inputOff}, ${panelOpacity})`,
     );
-    root.style.setProperty("--bg-panel-blur", `${settings.panelBlur}px`);
+    root.style.setProperty(
+      "--bg-panel-blur",
+      `${resolvePerPage(settings, settings.panelBlur, `panelBlur${sfx}`)}px`,
+    );
 
     return () => {
+      root.style.removeProperty("--bg-base");
       root.style.removeProperty("--bg-surface");
       root.style.removeProperty("--bg-elevated");
       root.style.removeProperty("--bg-input");
       root.style.removeProperty("--bg-input-off");
       root.style.removeProperty("--bg-panel-blur");
     };
-  }, [settings.panelOpacity, settings.panelBlur, settings.theme]);
+  }, [
+    settings,
+    settings.windowOpacity,
+    settings.panelOpacity,
+    settings.panelBlur,
+    settings.theme,
+    settings.perPageAppearance,
+    settings.panelOpacitySimple,
+    settings.panelOpacityAdvanced,
+    settings.panelOpacityZones,
+    settings.panelOpacityClickPoints,
+    settings.panelOpacitySettings,
+    settings.panelBlurSimple,
+    settings.panelBlurAdvanced,
+    settings.panelBlurZones,
+    settings.panelBlurClickPoints,
+    settings.panelBlurSettings,
+    settings.windowOpacitySimple,
+    settings.windowOpacityAdvanced,
+    settings.windowOpacityZones,
+    settings.windowOpacityClickPoints,
+    settings.windowOpacitySettings,
+    tab,
+  ]);
 
   useEffect(() => {
+    const cleanup = listen<boolean>("minimized-changed", (event) => {
+      const root = document.querySelector(".app-root") as HTMLElement | null;
+      if (!root) return;
+      root.toggleAttribute("data-minimized", event.payload);
+    });
+    return () => {
+      cleanup.then((fn) => fn());
+    };
+  }, []);
+
+  useLayoutEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;
     if (!root) return;
 
-    const img = settings.backgroundImage;
+    const sfx = tabSuffix(tab);
+    const img = resolvePerPage(
+      settings,
+      settings.backgroundImage,
+      `backgroundImage${sfx}`,
+    );
     const escape = (s: string) => s.replace(/"/g, '\\"');
 
     if (!img) {
@@ -987,13 +1232,40 @@ export default function App() {
         `url("${escape(convertFileSrc(img))}")`,
       );
     }
-  }, [settings.backgroundImage]);
+  }, [
+    settings,
+    settings.backgroundImage,
+    settings.perPageAppearance,
+    settings.backgroundImageSimple,
+    settings.backgroundImageAdvanced,
+    settings.backgroundImageZones,
+    settings.backgroundImageClickPoints,
+    settings.backgroundImageSettings,
+    tab,
+  ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;
     if (!root) return;
-    root.style.setProperty("--bg-opacity", String(settings.backgroundOpacity));
-  }, [settings.backgroundOpacity]);
+
+    const sfx = tabSuffix(tab);
+    const bgOp = resolvePerPage(
+      settings,
+      settings.backgroundOpacity,
+      `backgroundOpacity${sfx}`,
+    );
+    root.style.setProperty("--bg-opacity", String(bgOp));
+  }, [
+    settings,
+    settings.backgroundOpacity,
+    settings.perPageAppearance,
+    settings.backgroundOpacitySimple,
+    settings.backgroundOpacityAdvanced,
+    settings.backgroundOpacityZones,
+    settings.backgroundOpacityClickPoints,
+    settings.backgroundOpacitySettings,
+    tab,
+  ]);
 
   const handleTabChange = (nextTab: Tab) => {
     setTab(nextTab);
@@ -1030,11 +1302,96 @@ export default function App() {
     }
   };
 
-  const [stopKey, setStopKey] = useState(0);
-  const prevStopReasonRef = useRef(status.stopReason);
-  if (status.stopReason && status.stopReason !== prevStopReasonRef.current) {
-    prevStopReasonRef.current = status.stopReason;
-    setStopKey((k) => k + 1);
+  const handleGoToPresets = useCallback(() => {
+    setSettingsInitialTab("presets");
+    setTab("settings");
+  }, []);
+
+  const handleGoToVersionInfo = useCallback(() => {
+    setSettingsInitialTab("general");
+    setTab("settings");
+  }, []);
+
+  const handleInitialTabConsumed = useCallback(() => {
+    setSettingsInitialTab(undefined);
+  }, []);
+
+  const handleTabChangeRef = useRef(handleTabChange);
+  handleTabChangeRef.current = handleTabChange;
+
+  const keybindMapRef = useRef<Record<string, Tab>>({});
+
+  useEffect(() => {
+    const map: Record<string, Tab> = {};
+    const add = (stored: string, tab: Tab) => {
+      if (stored) map[stored] = tab;
+    };
+    add(settings.keybindSimple, "simple");
+    add(settings.keybindAdvanced, "advanced");
+    add(settings.keybindZones, "zones");
+    add(settings.keybindClickPoints, "click-points");
+    add(settings.keybindSettings, "settings");
+    keybindMapRef.current = map;
+  }, [
+    settings.keybindSimple,
+    settings.keybindAdvanced,
+    settings.keybindZones,
+    settings.keybindClickPoints,
+    settings.keybindSettings,
+  ]);
+
+  useEffect(() => {
+    const normalizeKey = (e: KeyboardEvent): string | null => {
+      const modifierHit = captureModifierHotkey(e);
+      if (modifierHit) return modifierHit;
+      if (e.key === "Escape" || e.code === "Escape") return "escape";
+      if (e.key === "Backspace") return "backspace";
+      if (e.key === "Delete") return "delete";
+      const captured = captureHotkey(e);
+      if (!captured) return null;
+      return captured.split("+").pop() ?? captured;
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLElement &&
+        (e.target.isContentEditable ||
+          e.target.tagName === "INPUT" ||
+          e.target.tagName === "TEXTAREA" ||
+          e.target.tagName === "SELECT")
+      ) {
+        return;
+      }
+      const normalized = normalizeKey(e);
+      if (!normalized) return;
+      const tab = keybindMapRef.current[normalized];
+      if (!tab) return;
+      e.preventDefault();
+      handleTabChangeRef.current(tab);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const activePreset = settings.presets.find(
+    (p) => p.id === settings.activePresetId,
+  );
+
+  function computeTimeLimitMs(): number {
+    if (!settings.timeLimitEnabled) return 0;
+    const unit = settings.timeLimitUnit;
+    const val = settings.timeLimit;
+    switch (unit) {
+      case "s":
+        return val * 1000;
+      case "m":
+        return val * 60_000;
+      case "h":
+        return val * 3_600_000;
+      default:
+        return val * 1000;
+    }
   }
 
   return (
@@ -1043,18 +1400,11 @@ export default function App() {
         tab={tab}
         setTab={handleTabChange}
         running={status.running}
-        paused={status.paused}
-        stopReason={
-          settings.showStopReason &&
-          (tab === "simple" || tab === "advanced" || tab === "zones")
-            ? status.stopReason
-            : null
-        }
-        stopKey={stopKey}
-        warning={status.warning}
         isAlwaysOnTop={settings.alwaysOnTop}
         onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
         onRequestClose={handleWindowClose}
+        stopReason={status.stopReason}
+        statusBarHidden={!settings.statusBarEnabled}
       />
       {updateInfo && (
         <UpdateBanner
@@ -1068,13 +1418,16 @@ export default function App() {
           <SimplePanel settings={settings} update={updateSettings} />
         )}
         {tab === "advanced" && (
-          <AdvancedPanel
+          <AdvancedPanel settings={settings} update={updateSettings} />
+        )}
+        {tab === "click-points" && (
+          <ClickPointsPanel
             settings={settings}
             update={updateSettings}
             showInfo={true}
             running={status.running}
-            activeSequenceIndex={status.activeSequenceIndex}
-            activeSequenceTick={status.activeSequenceTick}
+            activeClickPointIndex={status.activeClickPointIndex}
+            activeClickPointTick={status.activeClickPointTick}
           />
         )}
         {tab === "zones" && (
@@ -1095,13 +1448,36 @@ export default function App() {
             onUpdatePreset={handleUpdatePreset}
             onRenamePreset={handleRenamePreset}
             onDeletePreset={handleDeletePreset}
+            onDuplicatePreset={handleDuplicatePreset}
+            onExportPreset={handleExportPreset}
+            onImportPreset={handleImportPreset}
             onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
             onReset={handleResetSettings}
             updateCheckStatus={updateCheckStatus}
             onCheckForUpdate={handleCheckForUpdate}
+            initialSettingsTab={settingsInitialTab}
+            onInitialTabConsumed={handleInitialTabConsumed}
           />
         )}
       </main>
+      {settings.statusBarEnabled && (
+        <StatusBar
+          activePresetName={activePreset?.name ?? null}
+          version={appInfo.version}
+          stopReason={status.stopReason}
+          warning={status.warning}
+          running={status.running}
+          paused={status.paused}
+          clickCount={status.clickCount}
+          activeClickPointIndex={status.activeClickPointIndex}
+          totalClickPoints={settings.clickPoints.length}
+          clickLimit={settings.clickLimit}
+          clickLimitEnabled={settings.clickLimitEnabled}
+          timeLimitMs={computeTimeLimitMs()}
+          onGoToPresets={handleGoToPresets}
+          onGoToVersionInfo={handleGoToVersionInfo}
+        />
+      )}
     </div>
   );
 }

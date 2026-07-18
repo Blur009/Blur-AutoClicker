@@ -11,6 +11,8 @@
     "core:window:allow-close",
     "core:window:allow-minimize",
     "core:window:allow-center",
+    "core:window:allow-outer-position",
+    "core:window:allow-set-position",
     "core:window:allow-inner-size",
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-size",
@@ -18,6 +20,7 @@
     "core:window:allow-hide",
     "core:window:allow-show",
     "core:window:allow-set-ignore-cursor-events",
+    "core:window:allow-set-icon",
 
     "store:default",
     "store:allow-get",
@@ -33,6 +36,11 @@
     "global-shortcut:allow-is-registered",
 
     "dialog:default",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "dialog:allow-save",
+
+    "fs:default",
+
+    "log:default"
   ]
 }

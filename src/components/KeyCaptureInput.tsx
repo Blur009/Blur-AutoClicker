@@ -155,15 +155,13 @@ export default function KeyCaptureInput({
   const stateClass = getStateClass(listening, hasConflict, !!value);
 
   return (
-    <div
-      className={`hk-wrapper ${stateClass} ${className ?? ""}`}
-      style={style}
-    >
+    <div className={`hk-wrapper ${stateClass}`}>
       <button
         ref={inputRef}
         type="button"
-        className="hk-button"
+        className={`${className ?? ""} hk-button`}
         style={{
+          ...style,
           paddingRight: value && !listening ? "1.25rem" : undefined,
         }}
         onClick={() => {

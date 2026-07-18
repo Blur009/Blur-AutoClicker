@@ -26,18 +26,15 @@ export function applyAccentTheme(accentColor: string, theme: Theme) {
   const rgb = hexToRgb(accentColor);
   const accentAlpha = theme === "light" ? 0.9 : 0.75;
   const strongAlpha = theme === "light" ? 1 : 0.92;
-  const softAlpha = theme === "light" ? 0.2 : 0.15;
+  const softAlpha = theme === "light" ? 0.4 : 0.4;
   const ringAlpha = theme === "light" ? 0.4 : 0.35;
   const glowPrimaryAlpha = theme === "light" ? 0.16 : 0.2;
   const glowSecondaryAlpha = theme === "light" ? 0.08 : 0.12;
 
-  root.style.setProperty("--accent-green", rgba(rgb, accentAlpha));
-  root.style.setProperty("--accent-green-strong", rgba(rgb, strongAlpha));
-  root.style.setProperty("--accent-green-soft", rgba(rgb, softAlpha));
-  root.style.setProperty("--accent-green-ring", rgba(rgb, ringAlpha));
-  root.style.setProperty("--accent-green-glow-1", rgba(rgb, glowPrimaryAlpha));
-  root.style.setProperty(
-    "--accent-green-glow-2",
-    rgba(rgb, glowSecondaryAlpha),
-  );
+  root.style.setProperty("--accent", rgba(rgb, accentAlpha));
+  root.style.setProperty("--accent-strong", rgba(rgb, strongAlpha));
+  root.style.setProperty("--accent-soft", rgba(rgb, softAlpha));
+  root.style.setProperty("--accent-ring", rgba(rgb, ringAlpha));
+  root.style.setProperty("--accent-glow-1", rgba(rgb, glowPrimaryAlpha));
+  root.style.setProperty("--accent-glow-2", rgba(rgb, glowSecondaryAlpha));
 }

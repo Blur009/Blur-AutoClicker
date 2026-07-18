@@ -327,7 +327,7 @@ pub fn list_running_processes() -> Vec<ProcessInfo> {
     result
 }
 
-pub fn check_process_list(config: &ClickerConfig) -> Option<super::ProcessListBehavior> {
+pub fn check_process_list(config: &ClickerConfig) -> Option<()> {
     if !config.process_list_enabled {
         return None;
     }
@@ -342,11 +342,7 @@ pub fn check_process_list(config: &ClickerConfig) -> Option<super::ProcessListBe
         super::ProcessListMode::Blacklist => is_in_list,
     };
     if triggered {
-        let behavior = match matching_entry {
-            Some(entry) => entry.behavior,
-            None => super::ProcessListBehavior::Stop,
-        };
-        Some(behavior)
+        Some(())
     } else {
         None
     }

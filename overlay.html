@@ -6,9 +6,9 @@
     <title>Overlay</title>
     <style>
         @font-face {
-            font-family: 'DMSans';
-            src: url('/fonts/DMSans.ttf') format('truetype');
-            font-weight: 100 900;
+            font-family: 'RobotoFlex';
+            src: url('/fonts/RobotoFlex-VariableFont_wght.ttf') format('truetype');
+            font-weight: 200 800;
             font-style: normal;
         }
 
@@ -18,6 +18,7 @@
             height: 100%;
             overflow: hidden;
             background: transparent !important;
+            font-variant-numeric: tabular-nums;
         }
         .overlay-layer {
             position: absolute;
@@ -42,6 +43,16 @@
             border-color: rgba(255, 196, 0, 0.92);
             border-style: dashed;
         }
+        .zone-pause {
+            background: rgba(0, 180, 255, 0.18);
+            border-color: rgba(0, 180, 255, 0.92);
+            border-style: solid;
+        }
+        .zone-start {
+            background: rgba(34, 197, 94, 0.18);
+            border-color: rgba(34, 197, 94, 0.92);
+            border-style: solid;
+        }
         .zone-disabled {
             background: rgba(128, 128, 128, 0.15);
             border-color: rgba(128, 128, 128, 0.5);
@@ -57,7 +68,7 @@
             height: 100%;
             position: relative;
         }
-        .sequence-dot {
+        .click-points-dot {
             position: absolute;
             width: 10px;
             height: 10px;
@@ -65,6 +76,13 @@
             border: 2px solid rgba(255, 255, 255, 0.86);
             box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.28), 0 6px 18px rgba(0, 0, 0, 0.35);
             pointer-events: none;
+        }
+        .click-points-radius {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px dashed;
+            pointer-events: none;
+            opacity: 0.55;
         }
         .overlay-prompt {
             position: absolute;
@@ -75,7 +93,7 @@
             border: 1px solid rgba(255, 255, 255, 0.14);
             box-shadow: 0 12px 34px rgba(0, 0, 0, 0.36);
             color: rgba(255, 255, 255, 0.92);
-            font: 600 13px/1.32 "DMSans", "Segoe UI", sans-serif;
+            font: 600 13px/1.32 "RobotoFlex", "Segoe UI", sans-serif;
             pointer-events: none;
             opacity: 0;
             transform: translate(18px, 18px);
@@ -95,6 +113,24 @@
             border-color: rgba(34, 197, 94, 0.95);
             border-style: dashed;
         }
+        .zone--labeled {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .zone-label {
+            font-family: "RobotoFlex", sans-serif;
+            font-size: 10rem;
+            font-weight: 800;
+            line-height: 1;
+            user-select: none;
+        }
+        .zone-custom .zone-label { color: rgba(255, 196, 0, 0.55); }
+        .zone-pause .zone-label  { color: rgba(0, 180, 255, 0.55); }
+        .zone-start .zone-label  { color: rgba(34, 197, 94, 0.55); }
+        .zone-disabled .zone-label { color: rgba(128, 128, 128, 0.55); }
+
         @keyframes fadeOut {
             0% { opacity: 1; }
             70% { opacity: 1; }
@@ -103,12 +139,13 @@
         .fade-out {
             animation: fadeOut 5s ease forwards;
         }
+
     </style>
 </head>
 <body>
     <div id="overlay-container">
         <div id="zone-layer" class="overlay-layer"></div>
-        <div id="sequence-layer" class="overlay-layer"></div>
+        <div id="click-points-layer" class="overlay-layer"></div>
         <div id="pick-prompt" class="overlay-prompt">
             Right click to add point.
             <span>Shift + right click to add multiple.</span>
@@ -124,11 +161,13 @@
 
     <script>
         const zoneLayer = document.getElementById('zone-layer');
-        const sequenceLayer = document.getElementById('sequence-layer');
+        const clickPointsLayer = document.getElementById('click-points-layer');
         const pickPrompt = document.getElementById('pick-prompt');
         const stopZonePrompt = document.getElementById('stop-zone-prompt');
         let pickModeActive = false;
         let stopZonePickModeActive = false;
+        let zoneFadeAnim = null;
+        let hasFadedIn = false;
 
         function setupTauriListener() {
             if (!window.__TAURI__ || !window.__TAURI__.event) {
@@ -143,18 +182,21 @@
 
             window.__TAURI__.event.listen('clear-zones', () => {
                 zoneLayer.innerHTML = '';
-                zoneLayer.classList.remove('fade-out');
+                if (zoneFadeAnim) {
+                    zoneFadeAnim.cancel();
+                    zoneFadeAnim = null;
+                }
             });
 
-            window.__TAURI__.event.listen('sequence-points-data', (event) => {
-                renderSequencePoints(event.payload);
+            window.__TAURI__.event.listen('click-points-data', (event) => {
+                renderClickPoints(event.payload);
             });
 
-            window.__TAURI__.event.listen('sequence-pick-mode', (event) => {
+            window.__TAURI__.event.listen('click-pick-mode', (event) => {
                 setPickMode(Boolean(event.payload && event.payload.active));
             });
 
-            window.__TAURI__.event.listen('sequence-pick-cursor', (event) => {
+            window.__TAURI__.event.listen('click-pick-cursor', (event) => {
                 updatePickPrompt(event.payload);
             });
 
@@ -175,13 +217,23 @@
 
         function renderZones(data) {
             zoneLayer.innerHTML = '';
-            zoneLayer.classList.remove('fade-out');
-            void zoneLayer.offsetWidth;
-            if (!stopZonePickModeActive) {
-                zoneLayer.classList.add('fade-out');
+            if (zoneFadeAnim) {
+                if (zoneFadeAnim.playState === 'finished') {
+                    hasFadedIn = false;
+                }
+                zoneFadeAnim.cancel();
+                zoneFadeAnim = null;
             }
 
             if (!data) return;
+
+            if (!stopZonePickModeActive) {
+                zoneFadeAnim = zoneLayer.animate([
+                    { opacity: 1 },
+                    { opacity: 1, offset: 0.5 },
+                    { opacity: 0 }
+                ], { duration: 3000, easing: 'ease', fill: 'forwards' });
+            }
 
             const sw = data.screenWidth;
             const sh = data.screenHeight;
@@ -193,18 +245,27 @@
                 addZone(monitor.x, monitor.y, monitor.width, monitor.height, 'zone-monitor');
             }
 
-            if (data.customStopZoneEnabled && data.customStopZone) {
-                addZone(
-                    data.customStopZone.x,
-                    data.customStopZone.y,
-                    data.customStopZone.width,
-                    data.customStopZone.height,
-                    'zone-custom'
-                );
+            if (Array.isArray(data.stopZones)) {
+                const disabled = data.stopZonesEnabled === false;
+                data.stopZones.forEach((zone, index) => {
+                    let cls = 'zone-custom';
+                    if (zone.action === 'pause') cls = 'zone-pause';
+                    else if (zone.action === 'start') cls = 'zone-start';
+                    if (disabled) cls += ' zone-disabled';
+                    addZone(zone.x, zone.y, zone.width, zone.height, cls, String(index + 1));
+                });
             }
 
             for (const monitor of monitors) {
                 renderMonitorZones(monitor, data);
+            }
+
+            if (!hasFadedIn) {
+                hasFadedIn = true;
+                zoneLayer.animate([
+                    { opacity: 0 },
+                    { opacity: 1 }
+                ], { duration: 250, easing: 'ease' });
             }
         }
 
@@ -271,7 +332,7 @@
             }
         }
 
-        function addZone(x, y, w, h, cls) {
+        function addZone(x, y, w, h, cls, label) {
             const scale = window.devicePixelRatio || 1;
             x = x / scale;
             y = y / scale;
@@ -285,6 +346,16 @@
             div.style.top = y + 'px';
             div.style.width = w + 'px';
             div.style.height = h + 'px';
+            if (label !== undefined) {
+                div.classList.add('zone--labeled');
+                const span = document.createElement('span');
+                span.className = 'zone-label';
+                span.textContent = label;
+                const maxPx = 160;
+                const fitPx = Math.min(w, h) * 0.65 / (1 + Math.max(0, label.length - 1) * 0.2);
+                span.style.fontSize = Math.min(fitPx, maxPx) + 'px';
+                div.appendChild(span);
+            }
             zoneLayer.appendChild(div);
             return div;
         }
@@ -315,31 +386,45 @@
             stopZonePrompt.classList.remove('active');
         }
 
-        function renderSequencePoints(data) {
-            sequenceLayer.innerHTML = '';
-            sequenceLayer.classList.remove('fade-out');
+        function renderClickPoints(data) {
+            clickPointsLayer.innerHTML = '';
+            clickPointsLayer.classList.remove('fade-out');
 
             if (!data || !Array.isArray(data.points)) return;
 
             for (let index = 0; index < data.points.length; index += 1) {
                 const point = data.points[index];
-                addSequenceDot(point, index);
+                addClickPointDot(point, index);
             }
 
             if (!data.persistent && !pickModeActive) {
-                void sequenceLayer.offsetWidth;
-                sequenceLayer.classList.add('fade-out');
+                void clickPointsLayer.offsetWidth;
+                clickPointsLayer.classList.add('fade-out');
             }
         }
 
-        function addSequenceDot(point, index) {
+        function addClickPointDot(point, index) {
             const scale = window.devicePixelRatio || 1;
+            const color = stableDotColor(point, index);
+
+            if (point.radius > 0) {
+                const circle = document.createElement('div');
+                circle.className = 'click-points-radius';
+                const diameter = (point.radius / scale) * 2;
+                circle.style.width = diameter + 'px';
+                circle.style.height = diameter + 'px';
+                circle.style.left = (point.x / scale - point.radius / scale) + 'px';
+                circle.style.top = (point.y / scale - point.radius / scale) + 'px';
+                circle.style.borderColor = color;
+                clickPointsLayer.appendChild(circle);
+            }
+
             const dot = document.createElement('div');
-            dot.className = 'sequence-dot';
+            dot.className = 'click-points-dot';
             dot.style.left = (point.x / scale - 5) + 'px';
             dot.style.top = (point.y / scale - 5) + 'px';
-            dot.style.background = stableDotColor(point, index);
-            sequenceLayer.appendChild(dot);
+            dot.style.background = color;
+            clickPointsLayer.appendChild(dot);
         }
 
         function stableDotColor(point, index) {
@@ -358,7 +443,7 @@
             pickModeActive = active;
             pickPrompt.classList.toggle('active', active);
             if (active) {
-                sequenceLayer.classList.remove('fade-out');
+                clickPointsLayer.classList.remove('fade-out');
             }
         }
 
@@ -366,7 +451,10 @@
             stopZonePickModeActive = active;
             stopZonePrompt.classList.toggle('active', active);
             if (active) {
-                zoneLayer.classList.remove('fade-out');
+                if (zoneFadeAnim) {
+                    zoneFadeAnim.cancel();
+                    zoneFadeAnim = null;
+                }
             } else {
                 clearStopZonePreview();
             }

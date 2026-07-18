@@ -3,30 +3,39 @@ export type MouseButton = "Left" | "Middle" | "Right";
 export type InputType = "mouse" | "keyboard";
 export type KeyboardKeyCase = "lower" | "upper";
 export type ClickMode = "Toggle" | "Hold";
+export type DutyCycleMode = "Click" | "Hold";
 export type TimeLimitUnit = "s" | "m" | "h";
-export type SavedPanel = "simple" | "advanced" | "zones";
+export type SavedPanel = "simple" | "advanced" | "zones" | "click-points";
 export type Theme = "dark" | "light";
+export type IconTheme = "auto" | "dark" | "light";
+export type IconColor = "theme" | "default";
 export type PresetId = string;
 export type RateInputMode = "rate" | "duration";
 export type ProcessListMode = "whitelist" | "blacklist";
-export type ProcessListBehavior = "pause" | "stop";
 
 export interface ProcessListEntry {
   name: string;
-  behavior: ProcessListBehavior;
   enabled: boolean;
 }
-export type AdvancedSequenceLayout = "wide" | "tall";
 
-export interface SequencePoint {
+export interface ClickPoint {
   id: string;
   x: number;
   y: number;
   clicks: number;
+  radius: number;
+}
+
+export interface StopZone {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  action: "stop" | "pause" | "start";
 }
 
 export const DEFAULT_ACCENT_COLOR = "#22c55e";
-export const MAX_PRESETS = 20;
 export const PRESET_NAME_MAX_LENGTH = 40;
 export const DEFAULT_MAX_CLICK_SPEED = 500;
 export const EXTENDED_MAX_CLICK_SPEED = 1000;
@@ -42,6 +51,10 @@ export const MODE_OPTIONS = [
   "Toggle",
   "Hold",
 ] as const satisfies ReadonlyArray<ClickMode>;
+export const DUTY_CYCLE_MODE_OPTIONS = [
+  "Click",
+  "Hold",
+] as const satisfies ReadonlyArray<DutyCycleMode>;
 export const MOUSE_BUTTON_OPTIONS = [
   "Left",
   "Middle",
@@ -83,15 +96,23 @@ type FieldDef<T> = {
       | "behavior"
       | "startup"
       | "appearance"
+      | "keybinds"
       | "presets";
     control: UiControl;
   };
 };
 
-function createSequencePointId(): string {
+function createClickPointId(): string {
   return (
     globalThis.crypto?.randomUUID?.() ??
-    `seq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    `cp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  );
+}
+
+export function createStopZoneId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `sz-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   );
 }
 
@@ -126,6 +147,10 @@ const PRESET_FIELDS = {
     default: "Toggle" as ClickMode,
     ui: { section: "core", control: "select" },
   },
+  dutyCycleMode: {
+    default: "Click" as DutyCycleMode,
+    ui: { section: "core", control: "select" },
+  },
   dutyCycleEnabled: {
     default: true,
     ui: { section: "limits", control: "toggle" },
@@ -135,11 +160,11 @@ const PRESET_FIELDS = {
     limit: { min: 0, max: 100 },
     ui: { section: "limits", control: "number" },
   },
-  speedVariationEnabled: {
+  speedRandomizationEnabled: {
     default: true,
     ui: { section: "limits", control: "toggle" },
   },
-  speedVariation: {
+  speedRandomization: {
     default: 35,
     limit: { min: 0, max: 200 },
     ui: { section: "limits", control: "number" },
@@ -154,7 +179,7 @@ const PRESET_FIELDS = {
   },
   clickLimit: {
     default: 1000,
-    limit: { min: 1, max: 10_000_000 },
+    limit: { min: 1, max: 100_000_000 },
     ui: { section: "limits", control: "number" },
   },
   timeLimitEnabled: {
@@ -218,12 +243,20 @@ const PRESET_FIELDS = {
     limit: { min: 0, max: 10000 },
     ui: { section: "failsafe", control: "number" },
   },
-  sequenceEnabled: {
+  clickPointsEnabled: {
     default: false,
     ui: { section: "core", control: "toggle" },
   },
-  sequencePoints: {
-    default: [] as SequencePoint[],
+  stopZonesEnabled: {
+    default: false,
+    ui: { section: "failsafe", control: "toggle" },
+  },
+  stopWhenComplete: {
+    default: false,
+    ui: { section: "core", control: "toggle" },
+  },
+  clickPoints: {
+    default: [] as ClickPoint[],
     ui: { section: "core", control: "custom" },
   },
   processListEnabled: {
@@ -257,7 +290,7 @@ const SETTINGS_ONLY_FIELDS = {
   },
   durationMinutes: {
     default: 0,
-    limit: { min: 0 },
+    limit: { min: 0, max: 59 },
     ui: { section: "limits", control: "number" },
   },
   durationSeconds: {
@@ -270,29 +303,23 @@ const SETTINGS_ONLY_FIELDS = {
     limit: { min: 0, max: 999 },
     ui: { section: "limits", control: "number" },
   },
-  customStopZoneEnabled: {
-    default: false,
-    ui: { section: "failsafe", control: "toggle" },
-  },
-  customStopZoneX: {
-    default: 0,
-    limit: { min: 0 },
-    ui: { section: "failsafe", control: "number" },
-  },
-  customStopZoneY: {
-    default: 0,
-    limit: { min: 0 },
-    ui: { section: "failsafe", control: "number" },
-  },
-  customStopZoneWidth: {
-    default: 100,
+  savedClickSpeed: {
+    default: 25,
     limit: { min: 1 },
-    ui: { section: "failsafe", control: "number" },
+    ui: { section: "limits", control: "number" },
   },
-  customStopZoneHeight: {
-    default: 100,
-    limit: { min: 1 },
-    ui: { section: "failsafe", control: "number" },
+  savedClickInterval: {
+    default: "s" as ClickInterval,
+    ui: { section: "limits", control: "select" },
+  },
+  savedDutyCycle: {
+    default: 45,
+    limit: { min: 0, max: 100 },
+    ui: { section: "limits", control: "number" },
+  },
+  stopZones: {
+    default: [] as StopZone[],
+    ui: { section: "failsafe", control: "custom" },
   },
   disableScreenshots: {
     default: false,
@@ -330,17 +357,30 @@ const SETTINGS_ONLY_FIELDS = {
     default: false,
     ui: { section: "startup", control: "toggle" },
   },
+  rememberWindowPosition: {
+    default: true,
+    ui: { section: "startup", control: "toggle" },
+  },
+  windowPosition: {
+    default: { x: null, y: null } as { x: number | null; y: number | null },
+  },
   theme: {
     default: "dark" as Theme,
-    ui: { section: "appearance", control: "select" },
-  },
-  advancedSequenceLayout: {
-    default: "wide" as AdvancedSequenceLayout,
     ui: { section: "appearance", control: "select" },
   },
   alwaysOnTop: {
     default: false,
     ui: { section: "behavior", control: "toggle" },
+  },
+  newClickPointClicks: {
+    default: 1,
+    limit: { min: 1, max: 999999 },
+    ui: { section: "behavior", control: "number" },
+  },
+  newClickPointRadius: {
+    default: 0,
+    limit: { min: 0, max: 9999 },
+    ui: { section: "behavior", control: "number" },
   },
   accentColor: {
     default: DEFAULT_ACCENT_COLOR,
@@ -351,6 +391,11 @@ const SETTINGS_ONLY_FIELDS = {
     ui: { section: "appearance", control: "custom" },
   },
   backgroundOpacity: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacity: {
     default: 100,
     limit: { min: 0, max: 100 },
     ui: { section: "appearance", control: "number" },
@@ -372,6 +417,166 @@ const SETTINGS_ONLY_FIELDS = {
   activePresetId: {
     default: null as PresetId | null,
     ui: { section: "presets", control: "custom" },
+  },
+  keybindSimple: {
+    default: "Digit1",
+    ui: { section: "keybinds", control: "key" },
+  },
+  keybindAdvanced: {
+    default: "Digit2",
+    ui: { section: "keybinds", control: "key" },
+  },
+  keybindZones: {
+    default: "Digit3",
+    ui: { section: "keybinds", control: "key" },
+  },
+  keybindClickPoints: {
+    default: "Digit4",
+    ui: { section: "keybinds", control: "key" },
+  },
+  keybindSettings: {
+    default: "Digit5",
+    ui: { section: "keybinds", control: "key" },
+  },
+  perPageAppearance: {
+    default: false,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  backgroundImageSimple: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacitySimple: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacitySimple: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacitySimple: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlurSimple: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
+  backgroundImageAdvanced: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacityAdvanced: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacityAdvanced: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacityAdvanced: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlurAdvanced: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
+  backgroundImageZones: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacityZones: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacityZones: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacityZones: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlurZones: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
+  backgroundImageClickPoints: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacityClickPoints: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacityClickPoints: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacityClickPoints: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlurClickPoints: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
+  backgroundImageSettings: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
+  backgroundOpacitySettings: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  windowOpacitySettings: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelOpacitySettings: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  panelBlurSettings: {
+    default: 0,
+    limit: { min: 0, max: 20 },
+    ui: { section: "appearance", control: "number" },
+  },
+  taskbarIconEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  taskbarIconTheme: {
+    default: "auto" as IconTheme,
+    ui: { section: "appearance", control: "select" },
+  },
+  taskbarIconColor: {
+    default: "theme" as IconColor,
+    ui: { section: "appearance", control: "select" },
+  },
+  statusBarEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
   },
 } satisfies Record<string, FieldDef<unknown>>;
 
@@ -434,6 +639,138 @@ export type Settings = PresetFieldValues &
     version: string;
   };
 
+export const FACTORY_PRESETS: PresetDefinition[] = [
+  {
+    id: "factory-standard",
+    name: "Standard Clicking",
+    createdAt: "2025-01-01T00:00:00.000Z",
+    updatedAt: "2025-01-01T00:00:00.000Z",
+    settings: {
+      clickSpeed: 25,
+      clickInterval: "s",
+      inputType: "mouse",
+      keyboardKey: "",
+      keyboardKeyCase: "lower",
+      mouseButton: "Left",
+      mode: "Toggle",
+      dutyCycleMode: "Click",
+      dutyCycleEnabled: true,
+      dutyCycle: 45,
+      speedRandomizationEnabled: true,
+      speedRandomization: 35,
+      doubleClickEnabled: false,
+      clickLimitEnabled: false,
+      clickLimit: 1000,
+      timeLimitEnabled: false,
+      timeLimit: 60,
+      timeLimitUnit: "s",
+      cornerStopEnabled: true,
+      cornerStopTL: 50,
+      cornerStopTR: 50,
+      cornerStopBL: 50,
+      cornerStopBR: 50,
+      edgeStopEnabled: true,
+      edgeStopTop: 40,
+      edgeStopBottom: 40,
+      edgeStopLeft: 40,
+      edgeStopRight: 40,
+      clickPointsEnabled: false,
+      stopZonesEnabled: false,
+      stopWhenComplete: false,
+      clickPoints: [],
+      processListEnabled: false,
+      processListMode: "whitelist",
+      processListEntries: [],
+    },
+  },
+  {
+    id: "factory-rapid",
+    name: "Rapid Fire",
+    createdAt: "2025-01-01T00:00:00.000Z",
+    updatedAt: "2025-01-01T00:00:00.000Z",
+    settings: {
+      clickSpeed: 100,
+      clickInterval: "s",
+      inputType: "mouse",
+      keyboardKey: "",
+      keyboardKeyCase: "lower",
+      mouseButton: "Left",
+      mode: "Toggle",
+      dutyCycleMode: "Click",
+      dutyCycleEnabled: true,
+      dutyCycle: 20,
+      speedRandomizationEnabled: true,
+      speedRandomization: 15,
+      doubleClickEnabled: false,
+      clickLimitEnabled: true,
+      clickLimit: 5000,
+      timeLimitEnabled: false,
+      timeLimit: 60,
+      timeLimitUnit: "s",
+      cornerStopEnabled: true,
+      cornerStopTL: 50,
+      cornerStopTR: 50,
+      cornerStopBL: 50,
+      cornerStopBR: 50,
+      edgeStopEnabled: true,
+      edgeStopTop: 40,
+      edgeStopBottom: 40,
+      edgeStopLeft: 40,
+      edgeStopRight: 40,
+      clickPointsEnabled: false,
+      stopZonesEnabled: false,
+      stopWhenComplete: false,
+      clickPoints: [],
+      processListEnabled: false,
+      processListMode: "whitelist",
+      processListEntries: [],
+    },
+  },
+  {
+    id: "factory-precision",
+    name: "Precision Mode",
+    createdAt: "2025-01-01T00:00:00.000Z",
+    updatedAt: "2025-01-01T00:00:00.000Z",
+    settings: {
+      clickSpeed: 10,
+      clickInterval: "s",
+      inputType: "mouse",
+      keyboardKey: "",
+      keyboardKeyCase: "lower",
+      mouseButton: "Left",
+      mode: "Toggle",
+      dutyCycleMode: "Click",
+      dutyCycleEnabled: true,
+      dutyCycle: 60,
+      speedRandomizationEnabled: true,
+      speedRandomization: 10,
+      doubleClickEnabled: false,
+      clickLimitEnabled: false,
+      clickLimit: 1000,
+      timeLimitEnabled: false,
+      timeLimit: 60,
+      timeLimitUnit: "s",
+      cornerStopEnabled: true,
+      cornerStopTL: 50,
+      cornerStopTR: 50,
+      cornerStopBL: 50,
+      cornerStopBR: 50,
+      edgeStopEnabled: true,
+      edgeStopTop: 40,
+      edgeStopBottom: 40,
+      edgeStopLeft: 40,
+      edgeStopRight: 40,
+      clickPointsEnabled: false,
+      stopZonesEnabled: false,
+      stopWhenComplete: false,
+      clickPoints: [],
+      processListEnabled: false,
+      processListMode: "whitelist",
+      processListEntries: [],
+    },
+  },
+];
+
 export const PRESET_SNAPSHOT_KEYS = Object.keys(PRESET_FIELDS) as ReadonlyArray<
   keyof PresetSnapshot
 >;
@@ -446,9 +783,8 @@ const FIELD_LIMITS = {
 export const SETTINGS_LIMITS = {
   ...FIELD_LIMITS,
   stopBoundary: PRESET_FIELDS.cornerStopTL.limit,
-  position: SETTINGS_ONLY_FIELDS.customStopZoneX.limit,
-  stopZoneDimension: SETTINGS_ONLY_FIELDS.customStopZoneWidth.limit,
-  sequencePointClicks: { min: 1, max: 100000 },
+  clickPointClicks: { min: 1, max: 999999 },
+  clickPointRadius: { min: 0, max: 9999 },
 };
 
 export const SETTINGS_UI_SCHEMA = [
@@ -465,11 +801,11 @@ export const SETTINGS_UI_SCHEMA = [
   },
   {
     id: "startup",
-    fields: ["minimizeToTray"],
+    fields: ["minimizeToTray", "rememberWindowPosition"],
   },
   {
     id: "appearance",
-    fields: ["theme", "advancedSequenceLayout", "accentColor"],
+    fields: ["theme", "accentColor"],
   },
   {
     id: "presets",
@@ -498,6 +834,12 @@ export function getMaxClickSpeed(
   return extendedClickSpeedLimit
     ? EXTENDED_MAX_CLICK_SPEED
     : DEFAULT_MAX_CLICK_SPEED;
+}
+
+export function getMinIntervalMs(
+  extendedClickSpeedLimit: boolean | null | undefined,
+) {
+  return Math.ceil(1000 / getMaxClickSpeed(extendedClickSpeedLimit));
 }
 
 export function sanitizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -576,18 +918,19 @@ function sanitizeRateInputMode(value: unknown, fallback: RateInputMode) {
 }
 
 function sanitizeSavedPanel(value: unknown, fallback: SavedPanel) {
-  return sanitizeEnum(value, fallback, ["simple", "advanced", "zones"]);
+  if (value === "sequence") {
+    return "click-points" as SavedPanel;
+  }
+  return sanitizeEnum(value, fallback, [
+    "simple",
+    "advanced",
+    "zones",
+    "click-points",
+  ]);
 }
 
 function sanitizeTheme(value: unknown, fallback: Theme) {
   return sanitizeEnum(value, fallback, THEME_OPTIONS);
-}
-
-function sanitizeAdvancedSequenceLayout(
-  value: unknown,
-  fallback: AdvancedSequenceLayout,
-) {
-  return sanitizeEnum(value, fallback, ["wide", "tall"]);
 }
 
 function sanitizeProcessListEntries(value: unknown): ProcessListEntry[] {
@@ -597,7 +940,7 @@ function sanitizeProcessListEntries(value: unknown): ProcessListEntry[] {
       if (typeof item === "string") {
         const name = item.trim().toLowerCase();
         if (!name) return null;
-        return { name, behavior: "stop", enabled: true };
+        return { name, enabled: true };
       }
       if (!item || typeof item !== "object") return null;
       const candidate = item as Partial<ProcessListEntry>;
@@ -606,26 +949,24 @@ function sanitizeProcessListEntries(value: unknown): ProcessListEntry[] {
           ? candidate.name.trim().toLowerCase()
           : "";
       if (!name) return null;
-      const behavior: ProcessListBehavior =
-        candidate.behavior === "pause" ? "pause" : "stop";
       const enabled =
         typeof candidate.enabled === "boolean" ? candidate.enabled : true;
-      return { name, behavior, enabled };
+      return { name, enabled };
     })
     .filter((entry): entry is ProcessListEntry => entry !== null);
 }
 
-function sanitizeSequencePoints(value: unknown): SequencePoint[] {
+function sanitizeClickPoints(value: unknown): ClickPoint[] {
   if (!Array.isArray(value)) return [];
 
   return value
     .map((point) => {
       if (!point || typeof point !== "object") return null;
-      const candidate = point as Partial<SequencePoint>;
+      const candidate = point as Partial<ClickPoint>;
       const id =
         typeof candidate.id === "string" && candidate.id.trim()
           ? candidate.id.trim()
-          : createSequencePointId();
+          : createClickPointId();
       const x =
         typeof candidate.x === "number" && Number.isFinite(candidate.x)
           ? Math.trunc(candidate.x)
@@ -639,6 +980,11 @@ function sanitizeSequencePoints(value: unknown): SequencePoint[] {
         Number.isFinite(candidate.clicks)
           ? Math.trunc(candidate.clicks)
           : 1;
+      const radius =
+        typeof candidate.radius === "number" &&
+        Number.isFinite(candidate.radius)
+          ? Math.trunc(candidate.radius)
+          : 0;
 
       if (x === null || y === null) return null;
 
@@ -649,12 +995,58 @@ function sanitizeSequencePoints(value: unknown): SequencePoint[] {
         clicks: clampNumber(
           clicks,
           1,
-          SETTINGS_LIMITS.sequencePointClicks.min,
-          SETTINGS_LIMITS.sequencePointClicks.max,
+          SETTINGS_LIMITS.clickPointClicks.min,
+          SETTINGS_LIMITS.clickPointClicks.max,
+        ),
+        radius: clampNumber(
+          radius,
+          0,
+          SETTINGS_LIMITS.clickPointRadius.min,
+          SETTINGS_LIMITS.clickPointRadius.max,
         ),
       };
     })
-    .filter((point): point is SequencePoint => point !== null);
+    .filter((point): point is ClickPoint => point !== null);
+}
+
+function sanitizeStopZones(value: unknown): StopZone[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((zone) => {
+      if (!zone || typeof zone !== "object") return null;
+      const candidate = zone as Partial<StopZone>;
+      const id =
+        typeof candidate.id === "string" && candidate.id.trim()
+          ? candidate.id.trim()
+          : createStopZoneId();
+      const x =
+        typeof candidate.x === "number" && Number.isFinite(candidate.x)
+          ? Math.trunc(candidate.x)
+          : 0;
+      const y =
+        typeof candidate.y === "number" && Number.isFinite(candidate.y)
+          ? Math.trunc(candidate.y)
+          : 0;
+      const width =
+        typeof candidate.width === "number" && Number.isFinite(candidate.width)
+          ? Math.max(1, Math.trunc(candidate.width))
+          : 100;
+      const height =
+        typeof candidate.height === "number" &&
+        Number.isFinite(candidate.height)
+          ? Math.max(1, Math.trunc(candidate.height))
+          : 100;
+      const action =
+        candidate.action === "stop" ||
+        candidate.action === "pause" ||
+        candidate.action === "start"
+          ? candidate.action
+          : ("stop" as const);
+
+      return { id, x, y, width, height, action };
+    })
+    .filter((zone): zone is StopZone => zone !== null);
 }
 
 export function createDefaultSettings(version: string): Settings {
@@ -703,7 +1095,27 @@ export function createPresetDefinition(
   };
 }
 
-function sanitizePresetSnapshot(
+export function getPresetSummary(snapshot: PresetSnapshot): string {
+  const parts: string[] = [];
+
+  const speedStr = `${snapshot.clickSpeed}/${snapshot.clickInterval}`;
+  const inputStr =
+    snapshot.inputType === "keyboard" && snapshot.keyboardKey
+      ? `${snapshot.keyboardKey}`
+      : snapshot.mouseButton;
+  parts.push(`${speedStr}  ${inputStr}`);
+
+  if (snapshot.clickLimitEnabled)
+    parts.push(`Limit:${snapshot.clickLimit.toLocaleString()}`);
+  if (snapshot.timeLimitEnabled)
+    parts.push(`Time:${snapshot.timeLimit}${snapshot.timeLimitUnit}`);
+  if (snapshot.clickPoints.length > 0)
+    parts.push(`${snapshot.clickPoints.length} pts`);
+
+  return parts.join(" | ");
+}
+
+export function sanitizePresetSnapshot(
   input: unknown,
   defaults: PresetSnapshot,
 ): PresetSnapshot {
@@ -730,12 +1142,23 @@ function sanitizePresetSnapshot(
     MOUSE_BUTTON_OPTIONS,
   );
   snapshot.mode = sanitizeEnum(saved.mode, defaults.mode, MODE_OPTIONS);
+  snapshot.dutyCycleMode = sanitizeEnum(
+    saved.dutyCycleMode,
+    defaults.dutyCycleMode,
+    DUTY_CYCLE_MODE_OPTIONS,
+  );
   snapshot.timeLimitUnit = sanitizeEnum(
     saved.timeLimitUnit,
     defaults.timeLimitUnit,
     TIME_LIMIT_UNIT_OPTIONS,
   );
-  snapshot.sequencePoints = sanitizeSequencePoints(saved.sequencePoints);
+  snapshot.clickPoints = sanitizeClickPoints(
+    saved.clickPoints ?? (saved.sequencePoints as ClickPoint[] | undefined),
+  );
+  if (snapshot.clickPointsEnabled === undefined) {
+    snapshot.clickPointsEnabled =
+      (saved.sequenceEnabled as boolean | undefined) ?? false;
+  }
   snapshot.processListEntries = sanitizeProcessListEntries(
     saved.processListEntries,
   );
@@ -748,13 +1171,12 @@ function sanitizePresets(
   defaults: Settings,
 ): PresetDefinition[] {
   if (!Array.isArray(input)) {
-    return [];
+    return FACTORY_PRESETS;
   }
 
   const defaultSnapshot = buildPresetSnapshot(defaults);
 
   return input
-    .slice(0, MAX_PRESETS)
     .map((preset, index) => {
       if (!preset || typeof preset !== "object") {
         return null;
@@ -794,7 +1216,7 @@ export function sanitizeSettings(
 ): Settings {
   const defaults = createDefaultSettings(version);
   const saved = (input ?? {}) as Partial<Settings> & {
-    speedVariationMax?: unknown;
+    speedRandomizationMax?: unknown;
     telemetryEnabled?: unknown;
   };
   const savedRecord = saved as Record<string, unknown>;
@@ -802,11 +1224,11 @@ export function sanitizeSettings(
   const presetSettings = sanitizeFields(PRESET_FIELDS, savedRecord);
   const settingsOnly = sanitizeFields(SETTINGS_ONLY_FIELDS, savedRecord);
 
-  const legacySpeedVariation = clampNumber(
-    saved.speedVariationMax,
-    defaults.speedVariation,
-    SETTINGS_LIMITS.speedVariation.min,
-    SETTINGS_LIMITS.speedVariation.max,
+  const legacySpeedRandomization = clampNumber(
+    saved.speedRandomizationMax,
+    defaults.speedRandomization,
+    SETTINGS_LIMITS.speedRandomization.min,
+    SETTINGS_LIMITS.speedRandomization.max,
   );
 
   presetSettings.clickInterval = sanitizeEnum(
@@ -829,21 +1251,39 @@ export function sanitizeSettings(
     MOUSE_BUTTON_OPTIONS,
   );
   presetSettings.mode = sanitizeEnum(saved.mode, defaults.mode, MODE_OPTIONS);
+  presetSettings.dutyCycleMode = sanitizeEnum(
+    saved.dutyCycleMode ?? (saved as Record<string, unknown>).clickDurationMode,
+    defaults.dutyCycleMode,
+    DUTY_CYCLE_MODE_OPTIONS,
+  );
   presetSettings.timeLimitUnit = sanitizeEnum(
     saved.timeLimitUnit,
     defaults.timeLimitUnit,
     TIME_LIMIT_UNIT_OPTIONS,
   );
-  presetSettings.sequencePoints = sanitizeSequencePoints(saved.sequencePoints);
+  presetSettings.clickPoints = sanitizeClickPoints(
+    saved.clickPoints ??
+      (savedRecord.sequencePoints as ClickPoint[] | undefined),
+  );
+  if (presetSettings.clickPointsEnabled === undefined) {
+    presetSettings.clickPointsEnabled =
+      (savedRecord.sequenceEnabled as boolean | undefined) ?? false;
+  }
   presetSettings.processListEntries = sanitizeProcessListEntries(
     saved.processListEntries,
   );
-  presetSettings.speedVariation = clampNumber(
-    saved.speedVariation,
-    legacySpeedVariation,
-    SETTINGS_LIMITS.speedVariation.min,
-    SETTINGS_LIMITS.speedVariation.max,
+  presetSettings.speedRandomization = clampNumber(
+    saved.speedRandomization ??
+      (savedRecord.speedVariation as number | undefined),
+    legacySpeedRandomization,
+    SETTINGS_LIMITS.speedRandomization.min,
+    SETTINGS_LIMITS.speedRandomization.max,
   );
+  if (presetSettings.speedRandomizationEnabled === undefined) {
+    presetSettings.speedRandomizationEnabled =
+      (savedRecord.speedVariationEnabled as boolean | undefined) ??
+      defaults.speedRandomizationEnabled;
+  }
 
   settingsOnly.rateInputMode = sanitizeRateInputMode(
     saved.rateInputMode,
@@ -854,10 +1294,6 @@ export function sanitizeSettings(
     defaults.lastPanel,
   );
   settingsOnly.theme = sanitizeTheme(saved.theme, defaults.theme);
-  settingsOnly.advancedSequenceLayout = sanitizeAdvancedSequenceLayout(
-    saved.advancedSequenceLayout,
-    defaults.advancedSequenceLayout,
-  );
   settingsOnly.alwaysOnTop = sanitizeBoolean(
     saved.alwaysOnTop,
     defaults.alwaysOnTop,
@@ -866,6 +1302,53 @@ export function sanitizeSettings(
     saved.accentColor,
     defaults.accentColor,
   );
+
+  // Sanitize stopZones from raw data (skip sanitizeFields default)
+  const rawStopZones = savedRecord.stopZones;
+  if (Array.isArray(rawStopZones)) {
+    settingsOnly.stopZones = sanitizeStopZones(rawStopZones);
+  }
+
+  const rawWindowPos = savedRecord.windowPosition;
+  if (
+    rawWindowPos &&
+    typeof rawWindowPos === "object" &&
+    "x" in (rawWindowPos as Record<string, unknown>) &&
+    "y" in (rawWindowPos as Record<string, unknown>)
+  ) {
+    const r = rawWindowPos as Record<string, unknown>;
+    settingsOnly.windowPosition = {
+      x: typeof r.x === "number" && Number.isFinite(r.x) ? r.x : null,
+      y: typeof r.y === "number" && Number.isFinite(r.y) ? r.y : null,
+    };
+  }
+
+  // Migration: old customStopZoneEnabled + coords → stopZones[0]
+  if (settingsOnly.stopZones.length === 0) {
+    const oldEnabled = savedRecord.customStopZoneEnabled as boolean | undefined;
+    if (oldEnabled) {
+      const oldX = clampNumber(savedRecord.customStopZoneX, 0, 0);
+      const oldY = clampNumber(savedRecord.customStopZoneY, 0, 0);
+      const oldW = Math.max(
+        1,
+        clampNumber(savedRecord.customStopZoneWidth, 100, 1),
+      );
+      const oldH = Math.max(
+        1,
+        clampNumber(savedRecord.customStopZoneHeight, 100, 1),
+      );
+      settingsOnly.stopZones = [
+        {
+          id: createStopZoneId(),
+          x: oldX,
+          y: oldY,
+          width: oldW,
+          height: oldH,
+          action: "stop",
+        },
+      ];
+    }
+  }
   presetSettings.clickSpeed = clampNumber(
     saved.clickSpeed,
     presetSettings.clickSpeed,
@@ -879,6 +1362,12 @@ export function sanitizeSettings(
     settingsOnly.presets.some((preset) => preset.id === saved.activePresetId)
       ? saved.activePresetId
       : null;
+
+  if (presetSettings.dutyCycleMode === "Hold") {
+    presetSettings.clickSpeed = 1;
+    presetSettings.clickInterval = "d";
+    presetSettings.dutyCycle = 100;
+  }
 
   return {
     version,

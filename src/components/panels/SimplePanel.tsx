@@ -8,15 +8,11 @@ import type { MouseButton, Settings } from "../../store";
 
 import CadenceInput from "../CadenceInput";
 import HotkeyCaptureInput from "../HotkeyCaptureInput";
-import {
-  MODE_OPTIONS,
-  MOUSE_BUTTON_OPTIONS,
-  SETTINGS_LIMITS,
-} from "../../settingsSchema";
+import { MODE_OPTIONS, SETTINGS_LIMITS } from "../../settingsSchema";
 import { isAlphabeticKeyboardKey } from "../../keyboardKeyCase";
 import { conflictsWithAutoPressKey } from "../../hotkeys";
 import KeyCaptureInput from "../KeyCaptureInput";
-import { AdvDropdown } from "./advanced/shared";
+import { AdvDropdown } from "./advanced/sections/shared";
 import "./SimplePanel.css";
 
 interface SimplePanelProps {
@@ -53,7 +49,8 @@ function handleWheelStep(
   event.currentTarget.blur();
   const delta = event.deltaY < 0 ? 1 : -1;
   let step = 1;
-  if (event.shiftKey && event.ctrlKey) step = 10;
+  if (event.shiftKey && event.ctrlKey) step = 100;
+  else if (event.ctrlKey) step = 25;
   else if (event.shiftKey) step = 5;
   apply(clamp(current + delta * step, min, max));
 }
@@ -137,15 +134,6 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
     label: mode === "Toggle" ? "Toggle" : "Hold",
   }));
 
-  const mouseButtonOptions = MOUSE_BUTTON_OPTIONS.map((button) => ({
-    value: button,
-    label: button,
-  }));
-
-  const inputTypeOptions = [
-    { value: "mouse", label: "Mouse" },
-    { value: "keyboard", label: "Key" },
-  ] as const;
   const canToggleKeyboardKeyCase = isAlphabeticKeyboardKey(
     settings.keyboardKey,
   );
@@ -218,35 +206,89 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
 
       <div className="hcontainer simple-row simple-row--bottom">
         <ControlBox className="simple-input-box simple-row-item">
-          <AdvDropdown
-            value={settings.inputType}
-            options={inputTypeOptions}
-            allowWindowOverflow
-            onChange={(value) =>
-              update({ inputType: value as Settings["inputType"] })
-            }
-          />
+          <div className="simple-input-type-group">
+            <button
+              type="button"
+              className={`simple-input-type-btn ${settings.inputType === "mouse" ? "active" : ""}`}
+              onClick={() => update({ inputType: "mouse" })}
+              title="Mouse"
+              aria-label="Mouse"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 2a7 7 0 0 0-7 7v6a7 7 0 0 0 14 0V9a7 7 0 0 0-7-7z" />
+                <path d="M12 2v9" />
+                <circle
+                  cx="12"
+                  cy="14"
+                  r="1"
+                  fill="currentColor"
+                  stroke="none"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={`simple-input-type-btn ${settings.inputType === "keyboard" ? "active" : ""}`}
+              onClick={() => update({ inputType: "keyboard" })}
+              title="Keyboard"
+              aria-label="Keyboard"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="2" y="4" width="20" height="14" rx="2" />
+                <line x1="6" y1="8" x2="6" y2="8" />
+                <line x1="10" y1="8" x2="10" y2="8" />
+                <line x1="14" y1="8" x2="14" y2="8" />
+                <line x1="18" y1="8" x2="18" y2="8" />
+                <line x1="8" y1="12" x2="8" y2="12" />
+                <line x1="12" y1="12" x2="12" y2="12" />
+                <line x1="16" y1="12" x2="16" y2="12" />
+                <line x1="7" y1="16" x2="17" y2="16" />
+              </svg>
+            </button>
+          </div>
           <div className="vertical-devider vertical-devider--stretch" />
           {settings.inputType === "mouse" ? (
-            <AdvDropdown
-              value={settings.mouseButton}
-              options={mouseButtonOptions}
-              allowWindowOverflow
-              onChange={(value) =>
-                update({ mouseButton: value as MouseButton })
-              }
-            />
+            <div className="simple-mouse-btn-group">
+              {(["Left", "Middle", "Right"] as const).map((btn) => (
+                <button
+                  key={btn}
+                  type="button"
+                  className={`simple-mouse-btn ${settings.mouseButton === btn ? "active" : ""}`}
+                  onClick={() => update({ mouseButton: btn as MouseButton })}
+                >
+                  {btn}
+                </button>
+              ))}
+            </div>
           ) : (
             <>
               <KeyCaptureInput
-                className="simple-key-input"
+                className="simple-hotkey-input"
                 value={settings.keyboardKey}
                 onChange={(key) => update({ keyboardKey: key })}
                 keyboardKeyCase={settings.keyboardKeyCase}
                 onMouseButtonCapture={(mouseButton) =>
                   update({ inputType: "mouse", mouseButton })
                 }
-                style={{ width: "90px" }}
+                style={{ width: "90px", flexShrink: 0 }}
                 conflicts={autoPressKeyConflicts}
               />
               <button
@@ -274,7 +316,7 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
 
         <ControlBox className="simple-row-item">
           <NumberField
-            label="Click Duration"
+            label="Duty Cycle"
             value={settings.dutyCycle}
             min={SETTINGS_LIMITS.dutyCycle.min!}
             max={SETTINGS_LIMITS.dutyCycle.max!}
@@ -285,12 +327,12 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
 
         <ControlBox className="simple-row-item">
           <NumberField
-            label="Speed Variation"
-            value={settings.speedVariation}
-            min={SETTINGS_LIMITS.speedVariation.min!}
-            max={SETTINGS_LIMITS.speedVariation.max!}
-            onChange={(next) => update({ speedVariation: next })}
-            width={dynamicChWidth(settings.speedVariation)}
+            label="Speed Randomization"
+            value={settings.speedRandomization}
+            min={SETTINGS_LIMITS.speedRandomization.min!}
+            max={SETTINGS_LIMITS.speedRandomization.max!}
+            onChange={(next) => update({ speedRandomization: next })}
+            width={dynamicChWidth(settings.speedRandomization)}
           />
         </ControlBox>
       </div>
