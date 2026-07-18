@@ -82,113 +82,175 @@ export default function SettingsPanel({
           onClick={() => setActiveTab("general")}
         >
           {/* TODO: replace all settings page icons with better icons that fit the theme more. current icons are temporary stand-ins. */}
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-          </svg>
+          <span className="tab-icon tab-icon-general">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path className="gen-stem" d="M12 16v-5" />
+              <circle
+                className="gen-dot"
+                cx="12"
+                cy="7"
+                r="1.5"
+                fill="currentColor"
+                stroke="none"
+              />
+            </svg>
+          </span>
           General
         </button>
         <button
           className={`sidebar-tab ${activeTab === "behavior" ? "active" : ""}`}
           onClick={() => setActiveTab("behavior")}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zm0-7c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
-          </svg>
+          <span className="tab-icon tab-icon-behavior">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect
+                className="beh-track"
+                x="2"
+                y="6"
+                width="20"
+                height="12"
+                rx="6"
+              />
+              <circle
+                className="beh-knob"
+                cx="16"
+                cy="12"
+                r="3.5"
+                fill="currentColor"
+                stroke="none"
+              />
+            </svg>
+          </span>
           Behavior
         </button>
         <button
           className={`sidebar-tab ${activeTab === "appearance" ? "active" : ""}`}
           onClick={() => setActiveTab("appearance")}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z" />
-          </svg>
+          <span className="tab-icon tab-icon-appearance">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="4.5" />
+              <g className="app-rays">
+                <line x1="12" y1="3" x2="12" y2="1" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="3" y1="12" x2="1" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="17.66" y1="6.34" x2="19.07" y2="4.93" />
+                <line x1="6.34" y1="6.34" x2="4.93" y2="4.93" />
+                <line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
+                <line x1="6.34" y1="17.66" x2="4.93" y2="19.07" />
+              </g>
+            </svg>
+          </span>
           Appearance
         </button>
         <button
           className={`sidebar-tab ${activeTab === "keybinds" ? "active" : ""}`}
           onClick={() => setActiveTab("keybinds")}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z" />
-          </svg>
+          <span className="tab-icon tab-icon-keybinds">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z" />
+            </svg>
+          </span>
           Keybinds
         </button>
         <button
           className={`sidebar-tab ${activeTab === "process-list" ? "active" : ""}`}
           onClick={() => setActiveTab("process-list")}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="gray"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            className="lucide lucide-app-window-mac-icon lucide-app-window-mac"
-          >
-            <rect width="20" height="16" x="2" y="4" rx="2" />
-            <path d="M6 8h.01" />
-            <path d="M10 8h.01" />
-            <path d="M14 8h.01" />
-          </svg>
+          <span className="tab-icon tab-icon-process-list">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect width="20" height="16" x="2" y="4" rx="2" />
+              <path d="M6 8h.01" />
+              <path d="M10 8h.01" />
+              <path d="M14 8h.01" />
+            </svg>
+          </span>
           Process List
         </button>
         <button
           className={`sidebar-tab ${activeTab === "presets" ? "active" : ""}`}
           onClick={() => setActiveTab("presets")}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
-          </svg>
+          <span className="tab-icon tab-icon-presets">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                className="preset-fill"
+                d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"
+              />
+            </svg>
+          </span>
           Presets
         </button>
         <button
           className={`sidebar-tab ${activeTab === "maintenance" ? "active" : ""}`}
           onClick={() => setActiveTab("maintenance")}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
-          </svg>
+          <span className="tab-icon tab-icon-maintenance">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
+            </svg>
+          </span>
           Maintenance
         </button>
         <a

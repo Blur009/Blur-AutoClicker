@@ -109,7 +109,7 @@ const SimpleIcon = memo(function SimpleIcon({ active }: TabIconProps) {
       aria-hidden="true"
     >
       <rect x="7" y="3" width="10" height="18" rx="5" />
-      <path d="M12 7v4" />
+      <path className="simple-bar" d="M12 7v4" />
     </svg>
   );
 });
@@ -127,9 +127,9 @@ const AdvancedIcon = memo(function AdvancedIcon({ active }: TabIconProps) {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3z" />
-      <path d="m3 12.5 9 4.5 9-4.5" />
-      <path d="m3 17.5 9 4.5 9-4.5" />
+      <path className="adv-layer1" d="m12 3 9 4.5-9 4.5-9-4.5L12 3z" />
+      <path className="adv-layer2" d="m3 12.5 9 4.5 9-4.5" />
+      <path className="adv-layer3" d="m3 17.5 9 4.5 9-4.5" />
     </svg>
   );
 });
@@ -167,11 +167,25 @@ const ClickPointsIcon = memo(function ClickPointsIcon({
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M4 6h16" />
-      <path d="M4 12h12" />
-      <path d="M4 18h8" />
-      <circle cx="20" cy="12" r="1.5" fill="currentColor" stroke="none" />
-      <circle cx="16" cy="18" r="1.5" fill="currentColor" stroke="none" />
+      <path className="cp-line1" d="M4 6h16" />
+      <path className="cp-line2" d="M4 12h12" />
+      <path className="cp-line3" d="M4 18h8" />
+      <circle
+        className="cp-dot1"
+        cx="20"
+        cy="12"
+        r="1.5"
+        fill="currentColor"
+        stroke="none"
+      />
+      <circle
+        className="cp-dot2"
+        cx="16"
+        cy="18"
+        r="1.5"
+        fill="currentColor"
+        stroke="none"
+      />
     </svg>
   );
 });
@@ -323,18 +337,21 @@ const TitleBar = memo(function TitleBar({
           }
           label={
             <svg
+              xmlns="http://www.w3.org/2000/svg"
               width="16"
               height="16"
               viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              fill="currentColor"
+              stroke="none"
+              className="lucide lucide-pin-icon lucide-pin"
             >
-              <path d="M8 4h8l-1.4 5.2h-5.2L8 4z" />
-              <path d="M6 9.2h12" />
-              <path d="M12 9.2v10.8" />
+              <path
+                className="pin-body"
+                d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+              />
+              <g className="pin-needle">
+                <path d="M-1 0h2v5H-1z" />
+              </g>
             </svg>
           }
         />
@@ -500,13 +517,33 @@ const TabIconButton = memo(function TabIconButton({
   activeBg: string;
   activeFocusRing: string;
 }) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const handleMouseEnter = () => {
+    if (Math.random() < 0.1) {
+      const el = btnRef.current;
+      if (!el) return;
+      el.classList.remove("tab-icon-btn--animate");
+      void el.offsetWidth;
+      el.classList.add("tab-icon-btn--animate");
+    }
+  };
+
+  const handleAnimationEnd = () => {
+    btnRef.current?.classList.remove("tab-icon-btn--animate");
+  };
+
   return (
     <button
+      ref={btnRef}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={() => onClick(value)}
+      onMouseEnter={handleMouseEnter}
+      onAnimationEnd={handleAnimationEnd}
       className={`tab-icon-btn ${active ? "active" : ""}`}
       aria-label={label}
       title={label}
+      data-tab={value}
       style={
         {
           "--active-color": color,

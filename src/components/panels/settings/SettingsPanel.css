@@ -101,6 +101,151 @@
   background: var(--bg-elevated);
 }
 
+.tab-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* General - info "i" wiggles */
+.sidebar-tab:hover .tab-icon-general .gen-stem {
+  animation: gen-stem 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+.sidebar-tab:hover .tab-icon-general .gen-dot {
+  animation: gen-dot 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+@keyframes gen-stem {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  30% {
+    transform: translateY(-1px);
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes gen-dot {
+  0% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Behavior - knob slides in track */
+.sidebar-tab:hover .tab-icon-behavior .beh-knob {
+  animation: beh-knob 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+@keyframes beh-knob {
+  0% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(-8px);
+  }
+  70% {
+    transform: translateX(1px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* Appearance - rays rotate */
+.sidebar-tab:hover .tab-icon-appearance .app-rays {
+  animation: app-rays 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+  transform-origin: 12px 12px;
+}
+@keyframes app-rays {
+  0% {
+    transform: rotate(0deg);
+  }
+  40% {
+    transform: rotate(25deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+/* Keybinds - gentle bounce */
+.sidebar-tab:hover .tab-icon-keybinds svg {
+  animation: anim-keybinds 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+@keyframes anim-keybinds {
+  0% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(1.5px);
+  }
+  70% {
+    transform: translateY(-0.5px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Process List - gentle squish */
+.sidebar-tab:hover .tab-icon-process-list svg {
+  animation: anim-process-list 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 1
+    forwards;
+}
+@keyframes anim-process-list {
+  0% {
+    transform: scaleY(1);
+  }
+  40% {
+    transform: scaleY(0.88);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+/* Presets - fill wipes from top to bottom, then fades back in */
+.sidebar-tab:hover .tab-icon-presets .preset-fill {
+  animation: preset-fill-fade 0.7s ease 1 forwards;
+}
+@keyframes preset-fill-fade {
+  0% {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+  45% {
+    clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+  }
+  55% {
+    clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+  }
+  100% {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+}
+
+/* Maintenance - gentle wiggle */
+.sidebar-tab:hover .tab-icon-maintenance svg {
+  animation: anim-maintenance 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+@keyframes anim-maintenance {
+  0% {
+    transform: rotate(0deg);
+  }
+  40% {
+    transform: rotate(15deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
 .settings-panel {
   --adv-control-height: 32px;
   position: relative;

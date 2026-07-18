@@ -21,6 +21,7 @@
 - Overhauled Custom Stop Zones.
 - Zones overlay now shows a different color for disabled state of zones
 - Replaced On/Off toggles with switches in the settings panel and gave them an animation cuz im fancy like that.
+- Added animations to some ui elements and icons
 ## Fixed
 - Fixed alt menu opening when the autoclicker is launched while tabbed into another app.
 - Fixed simple tab button in the title bar showing the wrong background color when a custom accent color is selected.

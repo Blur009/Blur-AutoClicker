@@ -125,6 +125,123 @@
   display: block;
 }
 
+.tab-icon-btn--animate svg {
+  pointer-events: none;
+}
+
+/* Simple - inner bar slides to the right edge */
+.tab-icon-btn--animate[data-tab="simple"] .simple-bar {
+  animation: nav-simple-bar 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+@keyframes nav-simple-bar {
+  0% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(2.5px);
+  }
+  70% {
+    transform: translateX(-0.5px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* Advanced - layers stagger apart */
+.tab-icon-btn--animate[data-tab="advanced"] .adv-layer1 {
+  animation: nav-adv-l1 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+.tab-icon-btn--animate[data-tab="advanced"] .adv-layer2 {
+  animation: nav-adv-l2 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+.tab-icon-btn--animate[data-tab="advanced"] .adv-layer3 {
+  animation: nav-adv-l3 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+@keyframes nav-adv-l1 {
+  0% {
+    transform: translate(0, 0);
+  }
+  40% {
+    transform: translate(2px, -1.5px);
+  }
+  70% {
+    transform: translate(-0.5px, 0.5px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@keyframes nav-adv-l2 {
+  0% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(-2px);
+  }
+  70% {
+    transform: translateX(0.5px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+@keyframes nav-adv-l3 {
+  0% {
+    transform: translate(0, 0);
+  }
+  40% {
+    transform: translate(2px, 1.5px);
+  }
+  70% {
+    transform: translate(-0.5px, -0.5px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* Zones - small size bounce */
+.tab-icon-btn--animate[data-tab="zones"] svg {
+  animation: nav-zones-bounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+@keyframes nav-zones-bounce {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.15);
+  }
+  70% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Click Points - lines wave, dots bounce */
+.tab-icon-btn--animate[data-tab="click-points"] .cp-dot1 {
+  animation: nav-cp-dot 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+}
+.tab-icon-btn--animate[data-tab="click-points"] .cp-dot2 {
+  animation: nav-cp-dot 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.12s 1 forwards;
+}
+@keyframes nav-cp-dot {
+  0% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-3px);
+  }
+  70% {
+    transform: translateY(1px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
 .window-btn {
   /* Layout */
   width: 2rem;
@@ -162,6 +279,23 @@
 
 .window-btn.active:hover {
   background: var(--accent-soft);
+}
+
+.pin-body {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.window-btn.active .pin-body {
+  transform: translateY(1px);
+}
+
+.pin-needle {
+  transform: translate(12px, 17px) scaleY(0);
+  transition: transform 0.35s cubic-bezier(0.34, 1.8, 0.64, 1);
+}
+
+.window-btn.active .pin-needle {
+  transform: translate(12px, 17px) scaleY(1);
 }
 
 /* -- Title Horizontal Reveal -- */
