@@ -1,6 +1,6 @@
 [package]
 name = "BlurAutoClicker"
-version = "3.8.3"
+version = "3.9.0"
 description = "BlurAutoClicker - accuracy and performance focused auto clicker for Windows."
 authors = ["Blur009"]
 license = "GPL-3.0"
