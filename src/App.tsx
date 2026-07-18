@@ -205,9 +205,7 @@ export default function App() {
   const resizeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toggleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const accentColorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+
   const mountedRef = useRef(false);
 
   const setUiSettings = (nextSettings: Settings) => {
@@ -769,6 +767,18 @@ export default function App() {
 
           setTab(hydratedSettings.lastPanel);
           setSettings(hydratedSettings);
+          {
+            const theme = hydratedSettings.theme ?? "dark";
+            document.documentElement.dataset.theme = theme;
+            applyAccentTheme(hydratedSettings.accentColor, theme);
+            invoke("set_accent_color", {
+              color: hydratedSettings.accentColor,
+              theme,
+              iconEnabled: hydratedSettings.taskbarIconEnabled,
+              iconTheme: hydratedSettings.taskbarIconTheme,
+              iconColor: hydratedSettings.taskbarIconColor,
+            });
+          }
           setAppInfo(loadedAppInfo);
           setStatus(loadedStatus);
           setSettingsLoaded(true);
@@ -1079,24 +1089,13 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     applyAccentTheme(settings.accentColor, theme);
 
-    if (accentColorTimerRef.current) {
-      clearTimeout(accentColorTimerRef.current);
-    }
-    accentColorTimerRef.current = setTimeout(() => {
-      invoke("set_accent_color", {
-        color: settings.accentColor,
-        theme,
-        iconEnabled: settings.taskbarIconEnabled,
-        iconTheme: settings.taskbarIconTheme,
-        iconColor: settings.taskbarIconColor,
-      });
-    }, 100);
-
-    return () => {
-      if (accentColorTimerRef.current) {
-        clearTimeout(accentColorTimerRef.current);
-      }
-    };
+    invoke("set_accent_color", {
+      color: settings.accentColor,
+      theme,
+      iconEnabled: settings.taskbarIconEnabled,
+      iconTheme: settings.taskbarIconTheme,
+      iconColor: settings.taskbarIconColor,
+    });
   }, [
     settings.accentColor,
     settings.theme,

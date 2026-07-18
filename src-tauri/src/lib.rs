@@ -132,7 +132,7 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
-    TrayIconBuilder::new()
+    TrayIconBuilder::with_id("main")
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
         .tooltip("BlurAutoClicker")
@@ -143,6 +143,7 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
                     #[cfg(target_os = "windows")]
                     apply_ws_ex_noactivate(&window, false);
                     let _ = window.show();
+                    crate::engine::worker::set_app_icons(app);
                     let _ = window.set_focus();
                 }
             }
@@ -170,6 +171,7 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
                     #[cfg(target_os = "windows")]
                     apply_ws_ex_noactivate(&window, false);
                     let _ = window.show();
+                    crate::engine::worker::set_app_icons(app);
                     let _ = window.set_focus();
                 }
             }

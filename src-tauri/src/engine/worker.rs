@@ -82,7 +82,7 @@ fn resolve_icon_theme(icon_state: &IconState) -> String {
     }
 }
 
-fn set_app_icons(app: &AppHandle) {
+pub fn set_app_icons(app: &AppHandle) {
     let state = app.state::<ClickerState>();
     let active = state.running.load(Ordering::SeqCst);
     let icon_state = state.icon_state.lock().unwrap_or_else(poisoned_inner);
@@ -121,7 +121,6 @@ fn set_app_icons(app: &AppHandle) {
             ICON_DEACTIVATED_LIGHT
         }
     };
-    drop(icon_state);
 
     let Ok(img) = Image::from_bytes(bytes) else {
         return;
@@ -146,6 +145,7 @@ pub fn set_icon_theme_inner(
     let state = app.state::<ClickerState>();
 
     let use_tint = icon_enabled && icon_color == "theme";
+
     let (dark, light) = if use_tint {
         (
             tint_icon(ICON_ACTIVATED_DARK, MASK_PNG_BYTES, hex_color),
