@@ -4,6 +4,16 @@ use crate::ClickerSettings;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64};
 use std::sync::{Arc, Mutex};
 
+pub struct IconState {
+    pub accent_color: String,
+    pub theme: String,
+    pub icon_enabled: bool,
+    pub icon_theme: String,
+    pub icon_color: String,
+    pub active_icon_dark: Option<Vec<u8>>,
+    pub active_icon_light: Option<Vec<u8>>,
+}
+
 pub struct ClickerState {
     pub running: Arc<AtomicBool>,
     pub run_generation: AtomicU64,
@@ -23,6 +33,7 @@ pub struct ClickerState {
     pub paused_by_zone: AtomicBool,
     pub zone_started_clicker: AtomicBool,
     pub warning: Mutex<Option<String>>,
+    pub icon_state: Mutex<IconState>,
 }
 
 #[derive(Clone, serde::Serialize)]

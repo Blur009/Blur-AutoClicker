@@ -15,8 +15,8 @@ mod ui_commands;
 mod updates;
 mod window_lifecycle;
 
-pub use crate::app_state::ClickerState;
 pub use crate::app_state::ClickerStatusPayload;
+pub use crate::app_state::{ClickerState, IconState};
 use crate::engine::worker::emit_status;
 use crate::error::poisoned_inner;
 use crate::hotkeys::register_hotkey_inner;
@@ -327,6 +327,15 @@ fn create_clicker_state() -> ClickerState {
         paused_by_zone: AtomicBool::new(false),
         zone_started_clicker: AtomicBool::new(false),
         warning: Mutex::new(None),
+        icon_state: Mutex::new(IconState {
+            accent_color: String::from("#22c55e"),
+            theme: String::from("dark"),
+            icon_enabled: true,
+            icon_theme: String::from("auto"),
+            icon_color: String::from("theme"),
+            active_icon_dark: None,
+            active_icon_light: None,
+        }),
     }
 }
 
@@ -369,6 +378,9 @@ pub fn run() {
                 log::warn!("[Crashpad] Failed to initialize: {e}");
             }
             setup_tray(&handle)?;
+            crate::engine::worker::set_icon_theme_inner(
+                &handle, "#22c55e", "dark", true, "auto", "theme",
+            );
             spawn_overlay_auto_hide(&handle);
             spawn_start_zone_monitor(&handle);
             window_lifecycle::start_periodic_trimming(30);
@@ -408,6 +420,7 @@ pub fn run() {
             ui_commands::get_diagnostics_info,
             ui_commands::open_diagnostics_folder,
             ui_commands::export_diagnostics_bundle,
+            ui_commands::set_accent_color,
             ui_commands::debug_trigger_panic,
             ui_commands::debug_trigger_crash,
         ])

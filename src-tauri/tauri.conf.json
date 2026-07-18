@@ -55,7 +55,7 @@
       "longDescription": "Performance-focused auto clicker with global hotkeys, optional overlay, and advanced timing. Licensed under GPLv3.",
       "homepage": "https://github.com/Blur009/Blur-AutoClicker",
       "icon": [
-        "icons/icon.ico"
+        "icons/icon-deactivated-dark.ico"
       ],
       "windows": {
         "webviewInstallMode": {
@@ -73,7 +73,7 @@
     "targets": "nsis",
     "createUpdaterArtifacts": true,
     "icon": [
-      "icons/icon.ico"
+      "icons/icon-deactivated-dark.ico"
     ],
     "windows": {
       "webviewInstallMode": {

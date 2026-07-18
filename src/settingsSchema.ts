@@ -7,6 +7,8 @@ export type DutyCycleMode = "Click" | "Hold";
 export type TimeLimitUnit = "s" | "m" | "h";
 export type SavedPanel = "simple" | "advanced" | "zones" | "click-points";
 export type Theme = "dark" | "light";
+export type IconTheme = "auto" | "dark" | "light";
+export type IconColor = "theme" | "default";
 export type PresetId = string;
 export type RateInputMode = "rate" | "duration";
 export type ProcessListMode = "whitelist" | "blacklist";
@@ -553,6 +555,18 @@ const SETTINGS_ONLY_FIELDS = {
     default: 0,
     limit: { min: 0, max: 20 },
     ui: { section: "appearance", control: "number" },
+  },
+  taskbarIconEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  taskbarIconTheme: {
+    default: "auto" as IconTheme,
+    ui: { section: "appearance", control: "select" },
+  },
+  taskbarIconColor: {
+    default: "theme" as IconColor,
+    ui: { section: "appearance", control: "select" },
   },
 } satisfies Record<string, FieldDef<unknown>>;
 

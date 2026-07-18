@@ -18,6 +18,7 @@
     "core:window:allow-hide",
     "core:window:allow-show",
     "core:window:allow-set-ignore-cursor-events",
+    "core:window:allow-set-icon",
 
     "store:default",
     "store:allow-get",

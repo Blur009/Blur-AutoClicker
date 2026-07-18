@@ -1,6 +1,7 @@
 import { error } from "@tauri-apps/plugin-log";
 import { open } from "@tauri-apps/plugin-dialog";
 import { DEFAULT_ACCENT_COLOR } from "../../../../settingsSchema";
+import type { IconColor, IconTheme } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
 import { SettingsCard } from "./shared";
 
@@ -286,6 +287,75 @@ export default function AppearanceSection({ settings, update }: Props) {
           </section>
         ))
       )}
+
+      <SettingsCard
+        title="Taskbar Icon"
+        description="Control how the taskbar and tray icon looks."
+      >
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Active Icon</span>
+            <span className="settings-sublabel">
+              Show different icon when clicker is active.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.taskbarIconEnabled ? "on" : "off"}`}
+              onClick={() =>
+                update({ taskbarIconEnabled: !settings.taskbarIconEnabled })
+              }
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Icon Theme</span>
+            <span className="settings-sublabel">
+              Which themed icons to use. Auto follows app theme.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {(["auto", "dark", "light"] as IconTheme[]).map((opt) => (
+              <button
+                key={opt}
+                className={`settings-seg-btn ${settings.taskbarIconTheme === opt ? "active" : ""}`}
+                onClick={() => update({ taskbarIconTheme: opt })}
+              >
+                {opt === "auto" ? "Auto" : opt === "dark" ? "Dark" : "Light"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div
+          className={`settings-row ${!settings.taskbarIconEnabled ? "settings-row--disabled" : ""}`}
+        >
+          <div className="settings-label-group">
+            <span className="settings-label">Icon Color</span>
+            <span className="settings-sublabel">
+              Use accent color or default icon colors.
+            </span>
+          </div>
+          <div className="settings-seg-group">
+            {(["theme", "default"] as IconColor[]).map((opt) => (
+              <button
+                key={opt}
+                className={`settings-seg-btn ${settings.taskbarIconColor === opt ? "active" : ""}`}
+                onClick={() =>
+                  settings.taskbarIconEnabled &&
+                  update({ taskbarIconColor: opt })
+                }
+              >
+                {opt === "theme" ? "Theme" : "Default"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </SettingsCard>
     </>
   );
 }

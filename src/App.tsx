@@ -201,6 +201,9 @@ export default function App() {
   const resizeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toggleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const accentColorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const mountedRef = useRef(false);
 
   const setUiSettings = (nextSettings: Settings) => {
@@ -927,7 +930,32 @@ export default function App() {
     const theme = settings.theme ?? "dark";
     document.documentElement.dataset.theme = theme;
     applyAccentTheme(settings.accentColor, theme);
-  }, [settings.accentColor, settings.theme]);
+
+    if (accentColorTimerRef.current) {
+      clearTimeout(accentColorTimerRef.current);
+    }
+    accentColorTimerRef.current = setTimeout(() => {
+      invoke("set_accent_color", {
+        color: settings.accentColor,
+        theme,
+        iconEnabled: settings.taskbarIconEnabled,
+        iconTheme: settings.taskbarIconTheme,
+        iconColor: settings.taskbarIconColor,
+      });
+    }, 100);
+
+    return () => {
+      if (accentColorTimerRef.current) {
+        clearTimeout(accentColorTimerRef.current);
+      }
+    };
+  }, [
+    settings.accentColor,
+    settings.theme,
+    settings.taskbarIconEnabled,
+    settings.taskbarIconTheme,
+    settings.taskbarIconColor,
+  ]);
 
   useEffect(() => {
     document.documentElement.lang = "en";

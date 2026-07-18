@@ -326,6 +326,26 @@ pub fn export_diagnostics_bundle() -> AppResult<String> {
 }
 
 #[tauri::command]
+pub fn set_accent_color(
+    app: AppHandle,
+    color: String,
+    theme: String,
+    icon_enabled: bool,
+    icon_theme: String,
+    icon_color: String,
+) -> AppResult<()> {
+    crate::engine::worker::set_icon_theme_inner(
+        &app,
+        &color,
+        &theme,
+        icon_enabled,
+        &icon_theme,
+        &icon_color,
+    );
+    Ok(())
+}
+
+#[tauri::command]
 pub fn debug_trigger_panic() -> AppResult<()> {
     #[cfg(debug_assertions)]
     {

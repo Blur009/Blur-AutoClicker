@@ -8,6 +8,7 @@
 - Added 'Stop when Complete' toggle to Sequence clicking (which has been re-named to Click Points).
 - Added the ability to have multiple custom stop zones.
 - Added a radius to the click points that randomizes the click position within that radius.
+- Added Task-bar icon customization in the appearance settings. The Icon now follows the theme color, and accent color on activation. You can toggle all of these options in the settings.
 ## Changed
 - Overhauled Advanced panel.
 - Settings panel now has a side menu for easier navigation and organization of settings.
