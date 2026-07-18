@@ -358,6 +358,13 @@ const SETTINGS_ONLY_FIELDS = {
     default: false,
     ui: { section: "startup", control: "toggle" },
   },
+  rememberWindowPosition: {
+    default: true,
+    ui: { section: "startup", control: "toggle" },
+  },
+  windowPosition: {
+    default: { x: null, y: null } as { x: number | null; y: number | null },
+  },
   theme: {
     default: "dark" as Theme,
     ui: { section: "appearance", control: "select" },
@@ -659,7 +666,7 @@ export const SETTINGS_UI_SCHEMA = [
   },
   {
     id: "startup",
-    fields: ["minimizeToTray"],
+    fields: ["minimizeToTray", "rememberWindowPosition"],
   },
   {
     id: "appearance",
@@ -1146,6 +1153,20 @@ export function sanitizeSettings(
   const rawStopZones = savedRecord.stopZones;
   if (Array.isArray(rawStopZones)) {
     settingsOnly.stopZones = sanitizeStopZones(rawStopZones);
+  }
+
+  const rawWindowPos = savedRecord.windowPosition;
+  if (
+    rawWindowPos &&
+    typeof rawWindowPos === "object" &&
+    "x" in (rawWindowPos as Record<string, unknown>) &&
+    "y" in (rawWindowPos as Record<string, unknown>)
+  ) {
+    const r = rawWindowPos as Record<string, unknown>;
+    settingsOnly.windowPosition = {
+      x: typeof r.x === "number" && Number.isFinite(r.x) ? r.x : null,
+      y: typeof r.y === "number" && Number.isFinite(r.y) ? r.y : null,
+    };
   }
 
   // Migration: old customStopZoneEnabled + coords → stopZones[0]

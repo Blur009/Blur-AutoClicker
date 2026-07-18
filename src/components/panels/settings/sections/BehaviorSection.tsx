@@ -254,6 +254,27 @@ export default function BehaviorSection({
 
         <div className="settings-row">
           <div className="settings-label-group">
+            <span className="settings-label">Remember Window Position</span>
+            <span className="settings-sublabel">
+              Open the window at its last position on startup.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.rememberWindowPosition ? "on" : "off"}`}
+              onClick={() =>
+                update({
+                  rememberWindowPosition: !settings.rememberWindowPosition,
+                })
+              }
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
             <span className="settings-label">Run on Startup</span>
             <span className="settings-sublabel">
               Start clicking when the app opens.

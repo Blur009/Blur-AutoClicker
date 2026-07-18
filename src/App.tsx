@@ -5,6 +5,7 @@ import {
   currentMonitor,
   getCurrentWindow,
   LogicalSize,
+  PhysicalPosition,
 } from "@tauri-apps/api/window";
 import {
   lazy,
@@ -197,6 +198,7 @@ export default function App() {
   const committedSettingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const lastValidHotkeyRef = useRef(DEFAULT_SETTINGS.hotkey);
   const launchWindowPlacementDone = useRef(false);
+  const pendingShowWindowRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resizeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toggleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -361,10 +363,30 @@ export default function App() {
   );
 
   const applyStartupWindowPlacement = async () => {
-    await getCurrentWindow().center();
+    const pos = committedSettingsRef.current.windowPosition;
+    if (
+      committedSettingsRef.current.rememberWindowPosition &&
+      pos.x !== null &&
+      pos.y !== null
+    ) {
+      await getCurrentWindow().setPosition(new PhysicalPosition(pos.x, pos.y));
+    } else {
+      await getCurrentWindow().center();
+    }
   };
 
   const handleWindowClose = async () => {
+    if (committedSettingsRef.current.rememberWindowPosition) {
+      const pos = await getCurrentWindow().outerPosition();
+      const next = sanitizeSettings(
+        {
+          ...committedSettingsRef.current,
+          windowPosition: { x: pos.x, y: pos.y },
+        },
+        APP_VERSION,
+      );
+      await saveSettings(next);
+    }
     if (uiSettingsRef.current.minimizeToTray) {
       await invoke("hide_main_window");
     } else {
@@ -640,9 +662,7 @@ export default function App() {
             await saveSettings(hydratedSettings);
           }
 
-          if (!autostartLaunch) {
-            await getCurrentWindow().show();
-          }
+          pendingShowWindowRef.current = !autostartLaunch;
           emit("frontend-ready", {}).catch((err) =>
             error(
               JSON.stringify({
@@ -657,13 +677,7 @@ export default function App() {
         error(JSON.stringify({ source: "App.boot", error: String(err) }));
         if (!mounted) return;
         setSettingsLoaded(true);
-        getCurrentWindow()
-          .show()
-          .catch((err) =>
-            error(
-              JSON.stringify({ source: "App.bootShow", error: String(err) }),
-            ),
-          );
+        pendingShowWindowRef.current = true;
         emit("frontend-ready", {}).catch((err) =>
           error(JSON.stringify({ source: "App.bootEmit", error: String(err) })),
         );
@@ -768,6 +782,10 @@ export default function App() {
           await wait(30);
           if (cancelled) return;
           await applyStartupWindowPlacement();
+          if (pendingShowWindowRef.current) {
+            await appWindow.show();
+            pendingShowWindowRef.current = false;
+          }
           launchWindowPlacementDone.current = true;
           return;
         }

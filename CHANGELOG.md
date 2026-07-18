@@ -9,6 +9,7 @@
 - Added the ability to have multiple custom stop zones.
 - Added a radius to the click points that randomizes the click position within that radius.
 - Added Task-bar icon customization in the appearance settings. The Icon now follows the theme color, and accent color on activation. You can toggle all of these options in the settings.
+- Added Remember window position toggle (Settings → Behaviour → Startup) On by default.
 ## Changed
 - Overhauled Advanced panel.
 - Settings panel now has a side menu for easier navigation and organization of settings.
@@ -27,6 +28,7 @@
 - Fixed simple tab button in the title bar showing the wrong background color when a custom accent color is selected.
 - Fixed click points picker overlay persisting when the click points are toggled off while the overlay is open.
 - Fixed click speed not being reached at high CPS. Now it turns out that i fixed it somehow on accident, but im just going to say that i fixed it on purpose because i am a genius and i am very smart and very good at programming.
+- Window position and size appearing in the wrong location on launch for about 1 second, should now just appear normally.
 
 # v3.8.3 - 28.06.2026 (d.m.y)
 ## Changed
