@@ -7,11 +7,6 @@ import { NumInput } from "../../advanced/sections/shared";
 import ConfirmDialog from "../../../ConfirmDialog";
 import { SettingsCard } from "./shared";
 
-const onOffOptions = [
-  { value: false, label: "Off" },
-  { value: true, label: "On" },
-];
-
 interface Props {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
@@ -71,16 +66,13 @@ export default function BehaviorSection({
               Keep the window above others.
             </span>
           </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.alwaysOnTop === option.value ? "active" : ""}`}
-                onClick={() => handleAlwaysOnTopChange(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.alwaysOnTop ? "on" : "off"}`}
+              onClick={() => handleAlwaysOnTopChange(!settings.alwaysOnTop)}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
           </div>
         </div>
 
@@ -91,16 +83,15 @@ export default function BehaviorSection({
               Show the stop zone boundaries.
             </span>
           </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.showStopOverlay === option.value ? "active" : ""}`}
-                onClick={() => update({ showStopOverlay: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.showStopOverlay ? "on" : "off"}`}
+              onClick={() =>
+                update({ showStopOverlay: !settings.showStopOverlay })
+              }
+            >
+              <span className="settings-toggle-knob" />
+            </button>
           </div>
         </div>
 
@@ -111,16 +102,15 @@ export default function BehaviorSection({
               Show a notification when the auto clicker stops.
             </span>
           </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.showStopReason === option.value ? "active" : ""}`}
-                onClick={() => update({ showStopReason: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.showStopReason ? "on" : "off"}`}
+              onClick={() =>
+                update({ showStopReason: !settings.showStopReason })
+              }
+            >
+              <span className="settings-toggle-knob" />
+            </button>
           </div>
         </div>
 
@@ -131,16 +121,17 @@ export default function BehaviorSection({
               Require exact modifier keys for hotkeys.
             </span>
           </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.strictHotkeyModifiers === option.value ? "active" : ""}`}
-                onClick={() => update({ strictHotkeyModifiers: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.strictHotkeyModifiers ? "on" : "off"}`}
+              onClick={() =>
+                update({
+                  strictHotkeyModifiers: !settings.strictHotkeyModifiers,
+                })
+              }
+            >
+              <span className="settings-toggle-knob" />
+            </button>
           </div>
         </div>
 
@@ -151,18 +142,17 @@ export default function BehaviorSection({
               Stop clicking when switching to another window.
             </span>
           </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.taskSwitcherStopEnabled === option.value ? "active" : ""}`}
-                onClick={() =>
-                  update({ taskSwitcherStopEnabled: option.value })
-                }
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.taskSwitcherStopEnabled ? "on" : "off"}`}
+              onClick={() =>
+                update({
+                  taskSwitcherStopEnabled: !settings.taskSwitcherStopEnabled,
+                })
+              }
+            >
+              <span className="settings-toggle-knob" />
+            </button>
           </div>
         </div>
 
@@ -173,18 +163,17 @@ export default function BehaviorSection({
               Allow click speeds up to 1000 CPS (may affect performance).
             </span>
           </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.extendedClickSpeedLimit === option.value ? "active" : ""}`}
-                onClick={() =>
-                  handleExtendedClickSpeedLimitChange(option.value)
-                }
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.extendedClickSpeedLimit ? "on" : "off"}`}
+              onClick={() =>
+                handleExtendedClickSpeedLimitChange(
+                  !settings.extendedClickSpeedLimit,
+                )
+              }
+            >
+              <span className="settings-toggle-knob" />
+            </button>
           </div>
         </div>
       </SettingsCard>
@@ -251,16 +240,15 @@ export default function BehaviorSection({
               Minimize to the system tray instead of the taskbar.
             </span>
           </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${settings.minimizeToTray === option.value ? "active" : ""}`}
-                onClick={() => update({ minimizeToTray: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.minimizeToTray ? "on" : "off"}`}
+              onClick={() =>
+                update({ minimizeToTray: !settings.minimizeToTray })
+              }
+            >
+              <span className="settings-toggle-knob" />
+            </button>
           </div>
         </div>
 
@@ -271,28 +259,26 @@ export default function BehaviorSection({
               Start clicking when the app opens.
             </span>
           </div>
-          <div className="settings-seg-group">
-            {onOffOptions.map((option) => (
-              <button
-                key={String(option.value)}
-                className={`settings-seg-btn ${autostartEnabled === option.value ? "active" : ""}`}
-                disabled={autostartEnabled === null}
-                onClick={() => {
-                  invoke("set_autostart_enabled", { enabled: option.value })
-                    .then(() => setAutostartEnabled(option.value))
-                    .catch((err) =>
-                      error(
-                        JSON.stringify({
-                          source: "SettingsPanel.setAutostart",
-                          error: String(err),
-                        }),
-                      ),
-                    );
-                }}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${autostartEnabled ? "on" : "off"}`}
+              disabled={autostartEnabled === null}
+              onClick={() => {
+                const newValue = !autostartEnabled;
+                invoke("set_autostart_enabled", { enabled: newValue })
+                  .then(() => setAutostartEnabled(newValue))
+                  .catch((err) =>
+                    error(
+                      JSON.stringify({
+                        source: "SettingsPanel.setAutostart",
+                        error: String(err),
+                      }),
+                    ),
+                  );
+              }}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
           </div>
         </div>
       </SettingsCard>

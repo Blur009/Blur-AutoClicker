@@ -1068,7 +1068,8 @@
   border-radius: 0.6875rem;
   cursor: pointer;
   padding: 0;
-  transition: background 0.2s ease;
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
 .settings-toggle.on {
@@ -1079,6 +1080,11 @@
   background: var(--text-dim);
 }
 
+.settings-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .settings-toggle-knob {
   position: absolute;
   top: 0.1875rem;
@@ -1087,11 +1093,22 @@
   height: 1rem;
   background: #fff;
   border-radius: 50%;
-  transition: transform 0.2s ease;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .settings-toggle.on .settings-toggle-knob {
   transform: translateX(1.125rem);
+}
+
+.settings-toggle.on:active .settings-toggle-knob {
+  transform: translateX(1.125rem) scaleX(1.2);
+}
+
+.settings-toggle.off:active .settings-toggle-knob {
+  transform: scaleX(1.2);
 }
 
 .settings-row--disabled {

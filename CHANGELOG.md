@@ -16,14 +16,16 @@
 - Lowered maximum double click CPS from 50 to 10.
 - Click limit maximum increased from 10mil to 100mil.
 - Changed scroll behaviour for number inputs to be: shift = 5, ctrl = 25, shift + ctrl = 100.
-- Made settings icon 1px bigger :). 
+- Made settings icon 1px bigger because size matters and the settings icon was feeling very insecure about its 1 pixel size disadvantage. I hope it feels better now. 
 - Moved Process (white/black)list to the settings.
 - Overhauled Custom Stop Zones.
 - Zones overlay now shows a different color for disabled state of zones
+- Replaced On/Off toggles with switches in the settings panel and gave them an animation cuz im fancy like that.
 ## Fixed
 - Fixed alt menu opening when the autoclicker is launched while tabbed into another app.
 - Fixed simple tab button in the title bar showing the wrong background color when a custom accent color is selected.
 - Fixed click points picker overlay persisting when the click points are toggled off while the overlay is open.
+- Fixed click speed not being reached at high CPS. Now it turns out that i fixed it somehow on accident, but im just going to say that i fixed it on purpose because i am a genius and i am very smart and very good at programming.
 
 # v3.8.3 - 28.06.2026 (d.m.y)
 ## Changed

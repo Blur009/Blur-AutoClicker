@@ -106,19 +106,15 @@ export default function ProcessListSection({ settings, update }: Props) {
             Stop clicking based on the active application.
           </span>
         </div>
-        <div className="settings-seg-group">
-          {[
-            { value: false, label: "Off" },
-            { value: true, label: "On" },
-          ].map((option) => (
-            <button
-              key={String(option.value)}
-              className={`settings-seg-btn ${settings.processListEnabled === option.value ? "active" : ""}`}
-              onClick={() => update({ processListEnabled: option.value })}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="settings-toggle-wrapper">
+          <button
+            className={`settings-toggle ${settings.processListEnabled ? "on" : "off"}`}
+            onClick={() =>
+              update({ processListEnabled: !settings.processListEnabled })
+            }
+          >
+            <span className="settings-toggle-knob" />
+          </button>
         </div>
       </div>
 
