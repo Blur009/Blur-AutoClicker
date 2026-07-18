@@ -298,6 +298,22 @@
   transform: translate(12px, 17px) scaleY(1);
 }
 
+.titlebar-preset-badge {
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-md);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+  pointer-events: none;
+  border: 1px solid var(--accent-ring);
+}
+
 /* -- Title Horizontal Reveal -- */
 
 .title-flipper {

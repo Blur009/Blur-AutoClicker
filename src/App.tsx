@@ -24,13 +24,17 @@ import {
 } from "./hotkeys";
 
 import {
+  applyPresetSnapshot,
   buildPresetSnapshot,
   createPresetDefinition,
-  MAX_PRESETS,
+  sanitizePresetSnapshot,
   sanitizeSettings,
   sanitizePresetName,
+  type PresetDefinition,
   type PresetId,
 } from "./settingsSchema";
+import { save, open } from "@tauri-apps/plugin-dialog";
+import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import {
   APP_VERSION,
   DEFAULT_SETTINGS,
@@ -61,9 +65,6 @@ export type Tab = "simple" | "advanced" | "zones" | "settings" | "click-points";
 
 const BACKEND_SETTINGS_SCHEMA_VERSION = 10;
 const MAX_DROPDOWN_OVERFLOW_BOTTOM = 220;
-const OPERATIONAL_SETTING_KEYS = new Set<string>(
-  Object.keys(buildPresetSnapshot(DEFAULT_SETTINGS)),
-);
 
 type DropdownOverflowDetail = {
   active: boolean;
@@ -121,10 +122,6 @@ const DEFAULT_APP_INFO: AppInfo = {
   version: APP_VERSION,
   updateStatus: "Update checks are disabled in development",
   screenshotProtectionSupported: false,
-};
-
-type UpdateSettingsOptions = {
-  preserveActivePreset?: boolean;
 };
 
 async function syncSettingsToBackend(settings: Settings) {
@@ -319,29 +316,16 @@ export default function App() {
   });
 
   const updateSettings = useCallback(
-    (patch: Partial<Settings>, options: UpdateSettingsOptions = {}) => {
+    (patch: Partial<Settings>) => {
       const { hotkey, ...rest } = patch;
-      const shouldClearActivePreset =
-        !options.preserveActivePreset &&
-        (hotkey !== undefined ||
-          Object.keys(rest).some((key) => OPERATIONAL_SETTING_KEYS.has(key)));
 
-      const restPatch: Partial<Settings> = { ...rest };
-      if (
-        shouldClearActivePreset &&
-        patch.activePresetId === undefined &&
-        committedSettingsRef.current.activePresetId !== null
-      ) {
-        restPatch.activePresetId = null;
-      }
-
-      if (Object.keys(restPatch).length > 0) {
+      if (Object.keys(rest).length > 0) {
         const nextUiSettings = sanitizeSettings(
-          { ...uiSettingsRef.current, ...restPatch },
+          { ...uiSettingsRef.current, ...rest },
           APP_VERSION,
         );
         const nextCommittedSettings = sanitizeSettings(
-          { ...committedSettingsRef.current, ...restPatch },
+          { ...committedSettingsRef.current, ...rest },
           APP_VERSION,
         );
 
@@ -399,12 +383,9 @@ export default function App() {
 
     try {
       await getCurrentWindow().setAlwaysOnTop(nextValue);
-      updateSettings(
-        {
-          alwaysOnTop: nextValue,
-        },
-        { preserveActivePreset: true },
-      );
+      updateSettings({
+        alwaysOnTop: nextValue,
+      });
     } catch (err) {
       error(JSON.stringify({ source: "App.alwaysOnTop", error: String(err) }));
     }
@@ -412,10 +393,6 @@ export default function App() {
 
   const handleSavePreset = (name: string) => {
     if (status.running) {
-      return false;
-    }
-
-    if (committedSettingsRef.current.presets.length >= MAX_PRESETS) {
       return false;
     }
 
@@ -452,13 +429,10 @@ export default function App() {
       return false;
     }
 
-    updateSettings(
-      {
-        ...preset.settings,
-        activePresetId: presetId,
-      },
-      { preserveActivePreset: true },
-    );
+    updateSettings({
+      ...preset.settings,
+      activePresetId: presetId,
+    });
     return true;
   };
 
@@ -573,6 +547,152 @@ export default function App() {
 
     persistCommittedSettings(nextCommittedSettings, nextUiSettings);
     return true;
+  };
+
+  const handleDuplicatePreset = (presetId: PresetId) => {
+    if (status.running) {
+      return false;
+    }
+
+    const source = committedSettingsRef.current.presets.find(
+      (p) => p.id === presetId,
+    );
+    if (!source) {
+      return false;
+    }
+
+    const baseName = source.name.replace(/\s*\(\d+\)$/, "");
+    let newName = `${baseName} (2)`;
+    let counter = 2;
+    while (
+      committedSettingsRef.current.presets.some((p) => p.name === newName)
+    ) {
+      counter++;
+      newName = `${baseName} (${counter})`;
+    }
+
+    const preset = createPresetDefinition(
+      newName,
+      applyPresetSnapshot(committedSettingsRef.current, source.settings),
+    );
+    if (!preset.name) {
+      return false;
+    }
+
+    const nextPresets = [...committedSettingsRef.current.presets, preset];
+    const nextCommittedSettings = {
+      ...committedSettingsRef.current,
+      presets: nextPresets,
+    };
+    const nextUiSettings = {
+      ...uiSettingsRef.current,
+      presets: nextPresets,
+    };
+
+    persistCommittedSettings(nextCommittedSettings, nextUiSettings);
+    return true;
+  };
+
+  const handleExportPreset = async (presetId: PresetId) => {
+    const preset = committedSettingsRef.current.presets.find(
+      (p) => p.id === presetId,
+    );
+    if (!preset) {
+      return false;
+    }
+
+    try {
+      const filePath = await save({
+        defaultPath: `${preset.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`,
+        filters: [{ name: "Preset JSON", extensions: ["json"] }],
+      });
+      if (!filePath) {
+        return false;
+      }
+
+      const data = JSON.stringify(
+        { type: "blur-autoclicker-preset", version: 1, preset },
+        null,
+        2,
+      );
+      await writeTextFile(filePath, data);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleImportPreset = async () => {
+    try {
+      const filePath = await open({
+        multiple: false,
+        filters: [{ name: "Preset JSON", extensions: ["json"] }],
+      });
+      if (!filePath) {
+        return null;
+      }
+
+      const content = await readTextFile(filePath as string);
+      const parsed = JSON.parse(content) as {
+        type?: string;
+        version?: number;
+        preset?: PresetDefinition;
+      };
+
+      if (parsed.type !== "blur-autoclicker-preset" || !parsed.preset) {
+        return null;
+      }
+
+      const importName = sanitizePresetName(parsed.preset.name);
+      if (!importName) {
+        return null;
+      }
+
+      let finalName = importName;
+      let counter = 1;
+      while (
+        committedSettingsRef.current.presets.some((p) => p.name === finalName)
+      ) {
+        counter++;
+        finalName = `${importName} (${counter})`;
+      }
+
+      const now = new Date().toISOString();
+      const id =
+        globalThis.crypto?.randomUUID?.() ??
+        `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      const defaultSnapshot = buildPresetSnapshot(
+        committedSettingsRef.current,
+      );
+      const sanitizedSettings = sanitizePresetSnapshot(
+        parsed.preset.settings,
+        defaultSnapshot,
+      );
+
+      const preset: PresetDefinition = {
+        id,
+        name: finalName,
+        createdAt: now,
+        updatedAt: now,
+        settings: sanitizedSettings,
+      };
+
+      const nextPresets = [...committedSettingsRef.current.presets, preset];
+      const nextCommittedSettings = {
+        ...committedSettingsRef.current,
+        presets: nextPresets,
+      };
+      const nextUiSettings = {
+        ...uiSettingsRef.current,
+        presets: nextPresets,
+      };
+
+      persistCommittedSettings(nextCommittedSettings, nextUiSettings);
+      return true;
+    } catch {
+      return null;
+    }
   };
 
   useEffect(() => {
@@ -1230,6 +1350,10 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const activePreset = settings.presets.find(
+    (p) => p.id === settings.activePresetId,
+  );
+
   return (
     <div className="app-root" data-tab={tab}>
       <TitleBar
@@ -1251,6 +1375,7 @@ export default function App() {
         isAlwaysOnTop={settings.alwaysOnTop}
         onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
         onRequestClose={handleWindowClose}
+        activePresetName={activePreset?.name ?? null}
       />
       {updateInfo && (
         <UpdateBanner
@@ -1294,6 +1419,9 @@ export default function App() {
             onUpdatePreset={handleUpdatePreset}
             onRenamePreset={handleRenamePreset}
             onDeletePreset={handleDeletePreset}
+            onDuplicatePreset={handleDuplicatePreset}
+            onExportPreset={handleExportPreset}
+            onImportPreset={handleImportPreset}
             onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
             onReset={handleResetSettings}
             updateCheckStatus={updateCheckStatus}

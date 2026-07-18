@@ -36,7 +36,6 @@ export interface StopZone {
 }
 
 export const DEFAULT_ACCENT_COLOR = "#22c55e";
-export const MAX_PRESETS = 20;
 export const PRESET_NAME_MAX_LENGTH = 40;
 export const DEFAULT_MAX_CLICK_SPEED = 500;
 export const EXTENDED_MAX_CLICK_SPEED = 1000;
@@ -636,6 +635,138 @@ export type Settings = PresetFieldValues &
     version: string;
   };
 
+export const FACTORY_PRESETS: PresetDefinition[] = [
+  {
+    id: "factory-standard",
+    name: "Standard Clicking",
+    createdAt: "2025-01-01T00:00:00.000Z",
+    updatedAt: "2025-01-01T00:00:00.000Z",
+    settings: {
+      clickSpeed: 25,
+      clickInterval: "s",
+      inputType: "mouse",
+      keyboardKey: "",
+      keyboardKeyCase: "lower",
+      mouseButton: "Left",
+      mode: "Toggle",
+      dutyCycleMode: "Click",
+      dutyCycleEnabled: true,
+      dutyCycle: 45,
+      speedRandomizationEnabled: true,
+      speedRandomization: 35,
+      doubleClickEnabled: false,
+      clickLimitEnabled: false,
+      clickLimit: 1000,
+      timeLimitEnabled: false,
+      timeLimit: 60,
+      timeLimitUnit: "s",
+      cornerStopEnabled: true,
+      cornerStopTL: 50,
+      cornerStopTR: 50,
+      cornerStopBL: 50,
+      cornerStopBR: 50,
+      edgeStopEnabled: true,
+      edgeStopTop: 40,
+      edgeStopBottom: 40,
+      edgeStopLeft: 40,
+      edgeStopRight: 40,
+      clickPointsEnabled: false,
+      stopZonesEnabled: false,
+      stopWhenComplete: false,
+      clickPoints: [],
+      processListEnabled: false,
+      processListMode: "whitelist",
+      processListEntries: [],
+    },
+  },
+  {
+    id: "factory-rapid",
+    name: "Rapid Fire",
+    createdAt: "2025-01-01T00:00:00.000Z",
+    updatedAt: "2025-01-01T00:00:00.000Z",
+    settings: {
+      clickSpeed: 100,
+      clickInterval: "s",
+      inputType: "mouse",
+      keyboardKey: "",
+      keyboardKeyCase: "lower",
+      mouseButton: "Left",
+      mode: "Toggle",
+      dutyCycleMode: "Click",
+      dutyCycleEnabled: true,
+      dutyCycle: 20,
+      speedRandomizationEnabled: true,
+      speedRandomization: 15,
+      doubleClickEnabled: false,
+      clickLimitEnabled: true,
+      clickLimit: 5000,
+      timeLimitEnabled: false,
+      timeLimit: 60,
+      timeLimitUnit: "s",
+      cornerStopEnabled: true,
+      cornerStopTL: 50,
+      cornerStopTR: 50,
+      cornerStopBL: 50,
+      cornerStopBR: 50,
+      edgeStopEnabled: true,
+      edgeStopTop: 40,
+      edgeStopBottom: 40,
+      edgeStopLeft: 40,
+      edgeStopRight: 40,
+      clickPointsEnabled: false,
+      stopZonesEnabled: false,
+      stopWhenComplete: false,
+      clickPoints: [],
+      processListEnabled: false,
+      processListMode: "whitelist",
+      processListEntries: [],
+    },
+  },
+  {
+    id: "factory-precision",
+    name: "Precision Mode",
+    createdAt: "2025-01-01T00:00:00.000Z",
+    updatedAt: "2025-01-01T00:00:00.000Z",
+    settings: {
+      clickSpeed: 10,
+      clickInterval: "s",
+      inputType: "mouse",
+      keyboardKey: "",
+      keyboardKeyCase: "lower",
+      mouseButton: "Left",
+      mode: "Toggle",
+      dutyCycleMode: "Click",
+      dutyCycleEnabled: true,
+      dutyCycle: 60,
+      speedRandomizationEnabled: true,
+      speedRandomization: 10,
+      doubleClickEnabled: false,
+      clickLimitEnabled: false,
+      clickLimit: 1000,
+      timeLimitEnabled: false,
+      timeLimit: 60,
+      timeLimitUnit: "s",
+      cornerStopEnabled: true,
+      cornerStopTL: 50,
+      cornerStopTR: 50,
+      cornerStopBL: 50,
+      cornerStopBR: 50,
+      edgeStopEnabled: true,
+      edgeStopTop: 40,
+      edgeStopBottom: 40,
+      edgeStopLeft: 40,
+      edgeStopRight: 40,
+      clickPointsEnabled: false,
+      stopZonesEnabled: false,
+      stopWhenComplete: false,
+      clickPoints: [],
+      processListEnabled: false,
+      processListMode: "whitelist",
+      processListEntries: [],
+    },
+  },
+];
+
 export const PRESET_SNAPSHOT_KEYS = Object.keys(PRESET_FIELDS) as ReadonlyArray<
   keyof PresetSnapshot
 >;
@@ -960,7 +1091,27 @@ export function createPresetDefinition(
   };
 }
 
-function sanitizePresetSnapshot(
+export function getPresetSummary(snapshot: PresetSnapshot): string {
+  const parts: string[] = [];
+
+  const speedStr = `${snapshot.clickSpeed}/${snapshot.clickInterval}`;
+  const inputStr =
+    snapshot.inputType === "keyboard" && snapshot.keyboardKey
+      ? `${snapshot.keyboardKey}`
+      : snapshot.mouseButton;
+  parts.push(`${speedStr}  ${inputStr}`);
+
+  if (snapshot.clickLimitEnabled)
+    parts.push(`Limit:${snapshot.clickLimit.toLocaleString()}`);
+  if (snapshot.timeLimitEnabled)
+    parts.push(`Time:${snapshot.timeLimit}${snapshot.timeLimitUnit}`);
+  if (snapshot.clickPoints.length > 0)
+    parts.push(`${snapshot.clickPoints.length} pts`);
+
+  return parts.join(" | ");
+}
+
+export function sanitizePresetSnapshot(
   input: unknown,
   defaults: PresetSnapshot,
 ): PresetSnapshot {
@@ -1016,13 +1167,12 @@ function sanitizePresets(
   defaults: Settings,
 ): PresetDefinition[] {
   if (!Array.isArray(input)) {
-    return [];
+    return FACTORY_PRESETS;
   }
 
   const defaultSnapshot = buildPresetSnapshot(defaults);
 
   return input
-    .slice(0, MAX_PRESETS)
     .map((preset, index) => {
       if (!preset || typeof preset !== "object") {
         return null;

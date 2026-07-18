@@ -742,6 +742,44 @@
   align-items: flex-start;
 }
 
+.preset-summary {
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+  margin-top: 0.125rem;
+}
+
+.preset-badge--modified {
+  background: transparent;
+  border: 1px solid var(--accent-yellow, #febc2e);
+  color: var(--accent-yellow, #febc2e);
+}
+
+.preset-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.preset-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.8125rem;
+}
+
+.preset-count {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.preset-rename-error {
+  font-size: 0.6875rem;
+  color: var(--accent-red);
+  margin-top: 0.375rem;
+}
+
 /* -- Social Links -- */
 
 .social-links {

@@ -30,6 +30,7 @@ interface Props {
   onToggleAlwaysOnTop: () => Promise<void>;
   onRequestClose: () => Promise<void>;
   warning?: string | null;
+  activePresetName?: string | null;
 }
 
 type NavTab = Exclude<Tab, "settings">;
@@ -236,6 +237,7 @@ const TitleBar = memo(function TitleBar({
   onToggleAlwaysOnTop,
   onRequestClose,
   warning,
+  activePresetName,
 }: Props) {
   const setTabRef = useRef(setTab);
   useEffect(() => {
@@ -305,6 +307,9 @@ const TitleBar = memo(function TitleBar({
             );
           })}
         </div>
+        {activePresetName && (
+          <span className="titlebar-preset-badge">{activePresetName}</span>
+        )}
       </div>
 
       <div className="title-wrapper">

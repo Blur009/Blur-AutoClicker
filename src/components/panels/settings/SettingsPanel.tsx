@@ -30,6 +30,9 @@ interface Props {
   onUpdatePreset: (presetId: PresetId) => boolean;
   onRenamePreset: (presetId: PresetId, name: string) => boolean;
   onDeletePreset: (presetId: PresetId) => boolean;
+  onDuplicatePreset: (presetId: PresetId) => boolean;
+  onExportPreset: (presetId: PresetId) => Promise<boolean>;
+  onImportPreset: () => Promise<boolean | null>;
   onToggleAlwaysOnTop: () => Promise<void>;
   onReset: () => Promise<void>;
   updateCheckStatus:
@@ -51,6 +54,9 @@ export default function SettingsPanel({
   onUpdatePreset,
   onRenamePreset,
   onDeletePreset,
+  onDuplicatePreset,
+  onExportPreset,
+  onImportPreset,
   onToggleAlwaysOnTop,
   onReset,
   updateCheckStatus,
@@ -304,6 +310,9 @@ export default function SettingsPanel({
             onUpdatePreset={onUpdatePreset}
             onRenamePreset={onRenamePreset}
             onDeletePreset={onDeletePreset}
+            onDuplicatePreset={onDuplicatePreset}
+            onExportPreset={onExportPreset}
+            onImportPreset={onImportPreset}
           />
         )}
         {activeTab === "maintenance" && (
