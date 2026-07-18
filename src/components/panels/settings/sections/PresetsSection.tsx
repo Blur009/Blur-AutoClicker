@@ -226,10 +226,9 @@ export default function PresetsSection({
   const activeEditingPresetId = running ? null : editingPresetId;
   const activeConfirmingDeleteId = running ? null : confirmingDeleteId;
 
-  const activePreset =
-    settings.activePresetId
-      ? settings.presets.find((p) => p.id === settings.activePresetId) ?? null
-      : null;
+  const activePreset = settings.activePresetId
+    ? (settings.presets.find((p) => p.id === settings.activePresetId) ?? null)
+    : null;
 
   const currentSnapshot = buildPresetSnapshot(settings);
   const isActiveModified =
@@ -412,8 +411,7 @@ export default function PresetsSection({
                   preset={preset}
                   isActive={settings.activePresetId === preset.id}
                   isModified={
-                    settings.activePresetId === preset.id &&
-                    isActiveModified
+                    settings.activePresetId === preset.id && isActiveModified
                   }
                   isEditing={activeEditingPresetId === preset.id}
                   isConfirmingDelete={activeConfirmingDeleteId === preset.id}

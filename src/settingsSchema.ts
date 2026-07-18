@@ -574,6 +574,10 @@ const SETTINGS_ONLY_FIELDS = {
     default: "theme" as IconColor,
     ui: { section: "appearance", control: "select" },
   },
+  statusBarEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
 } satisfies Record<string, FieldDef<unknown>>;
 
 export const SETTINGS_FIELD_DEFS = {

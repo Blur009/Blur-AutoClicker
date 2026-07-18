@@ -3,7 +3,7 @@
   align-items: center;
   justify-content: space-between;
   height: 2.5rem;
-  padding-inline: 1rem;
+  padding-inline: 0.75rem;
   width: 100%;
   box-sizing: border-box;
   background: var(--bg-surface);
@@ -12,11 +12,17 @@
   z-index: 10;
   flex-shrink: 0;
   backdrop-filter: blur(var(--bg-panel-blur, 0px));
+  transition: border-color 0.3s ease;
 }
 
 .window-title-background[data-tab="settings"] {
   border-bottom: none;
   height: calc(2.5rem - 2px);
+}
+
+.window-title-background[data-running="true"] {
+  border-bottom-color: var(--accent-strong);
+  box-shadow: inset 0 -1px 0 0 var(--accent-glow-1);
 }
 
 .title-wrapper {
@@ -43,6 +49,33 @@
   text-shadow:
     0 0 10px var(--accent-glow-1),
     0 0 18px var(--accent-glow-2);
+}
+
+/* -- Title Horizontal Reveal -- */
+
+.title-flipper {
+  display: inline-block;
+  transform-origin: center center;
+}
+
+.title-flipper.squish-in {
+  animation: squishIn 0.25s ease-out both;
+}
+
+@keyframes squishIn {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.window-title.is-reason {
+  color: var(--accent-yellow);
+  text-shadow: 0 0 0.5rem rgba(254, 188, 46, 0.15);
 }
 
 .settings-button {
@@ -243,20 +276,15 @@
 }
 
 .window-btn {
-  /* Layout */
   width: 2rem;
   height: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  /* Reset */
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
-
-  /* Visuals */
   color: var(--text-dim);
   transition: all 0.15s ease;
   -webkit-app-region: no-drag;
@@ -274,7 +302,6 @@
 
 .window-btn.active {
   color: var(--accent-strong);
-  /* background: rgba(255, 255, 255, 0.08); */
 }
 
 .window-btn.active:hover {
@@ -296,47 +323,4 @@
 
 .window-btn.active .pin-needle {
   transform: translate(12px, 17px) scaleY(1);
-}
-
-.titlebar-preset-badge {
-  font-size: 0.6875rem;
-  font-weight: var(--font-weight-md);
-  color: var(--accent-strong);
-  background: var(--accent-soft);
-  padding: 0.125rem 0.5rem;
-  border-radius: var(--radius-md);
-  white-space: nowrap;
-  max-width: 8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.4;
-  pointer-events: none;
-  border: 1px solid var(--accent-ring);
-}
-
-/* -- Title Horizontal Reveal -- */
-
-.title-flipper {
-  display: inline-block;
-  transform-origin: center center;
-}
-
-.title-flipper.squish-in {
-  animation: squishIn 0.25s ease-out both;
-}
-
-@keyframes squishIn {
-  0% {
-    transform: scaleX(0);
-    opacity: 0;
-  }
-  100% {
-    transform: scaleX(1);
-    opacity: 1;
-  }
-}
-
-.window-title.is-reason {
-  color: var(--accent-yellow);
-  text-shadow: 0 0 0.5rem rgba(254, 188, 46, 0.15);
 }

@@ -356,6 +356,30 @@ export default function AppearanceSection({ settings, update }: Props) {
           </div>
         </div>
       </SettingsCard>
+
+      <SettingsCard
+        title="Status Bar"
+        description="Show the status bar at the bottom of the window."
+      >
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Footer</span>
+            <span className="settings-sublabel">
+              Shows active preset, version, and stop reasons.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.statusBarEnabled ? "on" : "off"}`}
+              onClick={() =>
+                update({ statusBarEnabled: !settings.statusBarEnabled })
+              }
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+      </SettingsCard>
     </>
   );
 }

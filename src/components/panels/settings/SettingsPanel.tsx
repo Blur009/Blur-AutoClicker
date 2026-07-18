@@ -42,6 +42,8 @@ interface Props {
     | "unavailable"
     | "error";
   onCheckForUpdate: () => void;
+  initialSettingsTab?: string;
+  onInitialTabConsumed?: () => void;
 }
 
 export default function SettingsPanel({
@@ -61,10 +63,27 @@ export default function SettingsPanel({
   onReset,
   updateCheckStatus,
   onCheckForUpdate,
+  initialSettingsTab,
+  onInitialTabConsumed,
 }: Props) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [atBottom, setAtBottom] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
+  const prevInitialTabRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (
+      initialSettingsTab &&
+      initialSettingsTab !== prevInitialTabRef.current
+    ) {
+      prevInitialTabRef.current = initialSettingsTab;
+      onInitialTabConsumed?.();
+      const tab = initialSettingsTab as SettingsTab;
+      requestAnimationFrame(() => {
+        setActiveTab(tab);
+      });
+    }
+  }, [initialSettingsTab, onInitialTabConsumed]);
 
   const handleScroll = () => {
     const panel = panelRef.current;

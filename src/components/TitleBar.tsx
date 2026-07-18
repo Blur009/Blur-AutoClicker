@@ -23,14 +23,11 @@ interface Props {
   tab: Tab;
   setTab: (t: Tab) => void;
   running: boolean;
-  paused: boolean;
-  stopReason?: string | null;
-  stopKey: number;
   isAlwaysOnTop: boolean;
   onToggleAlwaysOnTop: () => Promise<void>;
   onRequestClose: () => Promise<void>;
-  warning?: string | null;
-  activePresetName?: string | null;
+  stopReason: string | null;
+  statusBarHidden: boolean;
 }
 
 type NavTab = Exclude<Tab, "settings">;
@@ -61,19 +58,19 @@ const DEFAULT_TITLE_STATE: TitleViewState = {
 };
 
 const STOP_REASON_TEXTS: Record<string, string> = {
-  "Stopped from UI": "Stopped from UI",
-  "Stopped from toggle": "Stopped from toggle",
-  "Stopped from hotkey": "Stopped from hotkey",
-  "Stopped from hold hotkey": "Stopped from hold hotkey",
+  "Stopped from UI": "Stopped",
+  "Stopped from toggle": "Stopped",
+  "Stopped from hotkey": "Stopped",
+  "Stopped from hold hotkey": "Stopped",
   Stopped: "Stopped",
-  "Top-left corner failsafe": "Top-left corner failsafe",
-  "Top-right corner failsafe": "Top-right corner failsafe",
-  "Bottom-left corner failsafe": "Bottom-left corner failsafe",
-  "Bottom-right corner failsafe": "Bottom-right corner failsafe",
-  "Top edge failsafe": "Top edge failsafe",
-  "Right edge failsafe": "Right edge failsafe",
-  "Bottom edge failsafe": "Bottom edge failsafe",
-  "Left edge failsafe": "Left edge failsafe",
+  "Top-left corner failsafe": "Corner failsafe",
+  "Top-right corner failsafe": "Corner failsafe",
+  "Bottom-left corner failsafe": "Corner failsafe",
+  "Bottom-right corner failsafe": "Corner failsafe",
+  "Top edge failsafe": "Edge failsafe",
+  "Right edge failsafe": "Edge failsafe",
+  "Bottom edge failsafe": "Edge failsafe",
+  "Left edge failsafe": "Edge failsafe",
   "Blocked by Alt+Tab": "Blocked by Alt+Tab",
   "Blocked by process list": "Blocked by process list",
 };
@@ -84,14 +81,10 @@ function translateStopReason(stopReason: string | null | undefined): string {
   if (staticText) return staticText;
 
   const clickLimit = stopReason.match(/^Click limit reached \((.+)\)$/);
-  if (clickLimit) {
-    return `Click limit reached (${clickLimit[1]})`;
-  }
+  if (clickLimit) return "Click limit reached";
 
   const timeLimit = stopReason.match(/^Time limit reached \((.+)\)$/);
-  if (timeLimit) {
-    return `Time limit reached (${timeLimit[1]})`;
-  }
+  if (timeLimit) return "Time limit reached";
 
   return stopReason;
 }
@@ -230,14 +223,11 @@ const TitleBar = memo(function TitleBar({
   tab,
   setTab,
   running,
-  paused,
-  stopReason,
-  stopKey,
   isAlwaysOnTop,
   onToggleAlwaysOnTop,
   onRequestClose,
-  warning,
-  activePresetName,
+  stopReason,
+  statusBarHidden,
 }: Props) {
   const setTabRef = useRef(setTab);
   useEffect(() => {
@@ -307,18 +297,13 @@ const TitleBar = memo(function TitleBar({
             );
           })}
         </div>
-        {activePresetName && (
-          <span className="titlebar-preset-badge">{activePresetName}</span>
-        )}
       </div>
 
       <div className="title-wrapper">
         <AnimatedTitle
-          running={running}
-          paused={paused}
+          statusBarHidden={statusBarHidden}
           stopReason={stopReason}
-          stopKey={stopKey}
-          warning={warning}
+          running={running}
         />
       </div>
 
@@ -393,12 +378,14 @@ const TitleBar = memo(function TitleBar({
 });
 
 function AnimatedTitle({
-  running,
-  paused,
+  statusBarHidden,
   stopReason,
-  stopKey,
-  warning,
-}: Pick<Props, "running" | "paused" | "stopReason" | "stopKey" | "warning">) {
+  running,
+}: {
+  statusBarHidden: boolean;
+  stopReason: string | null;
+  running: boolean;
+}) {
   const [titleState, setTitleState] = useState(DEFAULT_TITLE_STATE);
   const frameIdsRef = useRef<number[]>([]);
   const timeoutIdsRef = useRef<number[]>([]);
@@ -424,19 +411,7 @@ function AnimatedTitle({
   useEffect(() => {
     clearScheduledWork();
 
-    if (warning) {
-      lastShownStopReasonRef.current = null;
-      queueFrame(() => {
-        setTitleState({
-          text: `⚠ ${warning}`,
-          isReason: true,
-          flipClass: "",
-        });
-      });
-      return clearScheduledWork;
-    }
-
-    if (running && !paused && !stopReason) {
+    if (!statusBarHidden || !stopReason) {
       lastShownStopReasonRef.current = null;
       queueFrame(() => {
         setTitleState(DEFAULT_TITLE_STATE);
@@ -444,21 +419,7 @@ function AnimatedTitle({
       return clearScheduledWork;
     }
 
-    if (paused) {
-      lastShownStopReasonRef.current = null;
-      queueFrame(() => {
-        setTitleState({
-          text: stopReason
-            ? `Paused: ${translateStopReason(stopReason)}`
-            : "Paused",
-          isReason: true,
-          flipClass: "",
-        });
-      });
-      return clearScheduledWork;
-    }
-
-    if (!stopReason) {
+    if (running) {
       lastShownStopReasonRef.current = null;
       queueFrame(() => {
         setTitleState(DEFAULT_TITLE_STATE);
@@ -492,7 +453,7 @@ function AnimatedTitle({
     }, 5000);
 
     return clearScheduledWork;
-  }, [running, stopKey, warning, paused, stopReason]);
+  }, [statusBarHidden, stopReason, running]);
 
   return (
     <span

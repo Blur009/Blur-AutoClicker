@@ -1,0 +1,119 @@
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 1.625rem;
+  padding-inline: 0.75rem;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  gap: 1rem;
+}
+
+.status-bar[data-running="true"] {
+  border-top-color: var(--accent-ring);
+}
+
+.status-bar-left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.status-bar-preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: var(--font-family-base);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-md);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-ring);
+  border-radius: var(--radius-sm);
+  padding: 0.0625rem 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.status-bar-preset-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-strong);
+}
+
+.status-bar-preset-btn svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.status-bar-hint-btn {
+  font-family: var(--font-family-base);
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s ease;
+}
+
+.status-bar-hint-btn:hover {
+  color: var(--text-primary);
+}
+
+.status-bar-center {
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-md);
+  color: var(--text-muted);
+  text-align: center;
+  flex: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-bar-center--empty {
+  visibility: hidden;
+}
+
+.status-bar-center--warning {
+  color: var(--accent-yellow);
+}
+
+.status-bar-right {
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  flex: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.status-bar-version-btn {
+  font-family: var(--font-family-base);
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.status-bar-version-btn:hover {
+  color: var(--accent-strong);
+}

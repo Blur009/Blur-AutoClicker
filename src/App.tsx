@@ -61,10 +61,12 @@ const ClickPointsPanel = lazy(
   () => import("./components/panels/click-points/ClickPointsPanel"),
 );
 const TitleBar = lazy(() => import("./components/TitleBar"));
+const StatusBar = lazy(() => import("./components/StatusBar"));
 export type Tab = "simple" | "advanced" | "zones" | "settings" | "click-points";
 
 const BACKEND_SETTINGS_SCHEMA_VERSION = 10;
 const MAX_DROPDOWN_OVERFLOW_BOTTOM = 220;
+const STATUS_BAR_HEIGHT = 26;
 
 type DropdownOverflowDetail = {
   active: boolean;
@@ -188,6 +190,9 @@ export default function App() {
     "idle" | "checking" | "available" | "unavailable" | "error"
   >("idle");
   const [dropdownOverflowBottom, setDropdownOverflowBottom] = useState(0);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<
+    string | undefined
+  >();
 
   const hotkeyTimer = useRef<number | null>(null);
   const hotkeyRequestIdRef = useRef(0);
@@ -315,36 +320,33 @@ export default function App() {
     queueHotkeyRegistrationRef.current = queueHotkeyRegistration;
   });
 
-  const updateSettings = useCallback(
-    (patch: Partial<Settings>) => {
-      const { hotkey, ...rest } = patch;
+  const updateSettings = useCallback((patch: Partial<Settings>) => {
+    const { hotkey, ...rest } = patch;
 
-      if (Object.keys(rest).length > 0) {
-        const nextUiSettings = sanitizeSettings(
-          { ...uiSettingsRef.current, ...rest },
-          APP_VERSION,
-        );
-        const nextCommittedSettings = sanitizeSettings(
-          { ...committedSettingsRef.current, ...rest },
-          APP_VERSION,
-        );
+    if (Object.keys(rest).length > 0) {
+      const nextUiSettings = sanitizeSettings(
+        { ...uiSettingsRef.current, ...rest },
+        APP_VERSION,
+      );
+      const nextCommittedSettings = sanitizeSettings(
+        { ...committedSettingsRef.current, ...rest },
+        APP_VERSION,
+      );
 
-        persistCommittedSettingsRef.current(
-          nextCommittedSettings,
-          nextUiSettings,
-        );
-      }
+      persistCommittedSettingsRef.current(
+        nextCommittedSettings,
+        nextUiSettings,
+      );
+    }
 
-      if (hotkey !== undefined) {
-        setUiSettingsRef.current({
-          ...uiSettingsRef.current,
-          hotkey,
-        });
-        queueHotkeyRegistrationRef.current(hotkey);
-      }
-    },
-    [],
-  );
+    if (hotkey !== undefined) {
+      setUiSettingsRef.current({
+        ...uiSettingsRef.current,
+        hotkey,
+      });
+      queueHotkeyRegistrationRef.current(hotkey);
+    }
+  }, []);
 
   const applyStartupWindowPlacement = async () => {
     const pos = committedSettingsRef.current.windowPosition;
@@ -662,9 +664,7 @@ export default function App() {
         globalThis.crypto?.randomUUID?.() ??
         `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-      const defaultSnapshot = buildPresetSnapshot(
-        committedSettingsRef.current,
-      );
+      const defaultSnapshot = buildPresetSnapshot(committedSettingsRef.current);
       const sanitizedSettings = sanitizePresetSnapshot(
         parsed.preset.settings,
         defaultSnapshot,
@@ -887,7 +887,11 @@ export default function App() {
           preferredSize,
           textScale,
         );
-        const windowHeight = height + dropdownOverflowBottom;
+        const statusBarOffset = settings.statusBarEnabled
+          ? STATUS_BAR_HEIGHT
+          : 0;
+        const appHeight = height + statusBarOffset;
+        const windowHeight = appHeight + dropdownOverflowBottom;
 
         const appWindow = getCurrentWindow();
 
@@ -897,7 +901,7 @@ export default function App() {
 
           if (cancelled) return;
           root.style.width = `${width}px`;
-          root.style.height = `${height}px`;
+          root.style.height = `${appHeight}px`;
 
           await wait(30);
           if (cancelled) return;
@@ -926,7 +930,7 @@ export default function App() {
 
           if (cancelled) return;
           root.style.width = `${width}px`;
-          root.style.height = `${height}px`;
+          root.style.height = `${appHeight}px`;
 
           const changedProps: string[] = [];
           if (width !== currentW) changedProps.push("width");
@@ -988,7 +992,7 @@ export default function App() {
           void root.offsetHeight;
 
           root.style.width = `${width}px`;
-          root.style.height = `${height}px`;
+          root.style.height = `${appHeight}px`;
         }
       } catch (err) {
         if (!cancelled) {
@@ -1009,7 +1013,13 @@ export default function App() {
         resizeTimeout.current = null;
       }
     };
-  }, [tab, updateInfo, dropdownOverflowBottom, settingsLoaded]);
+  }, [
+    tab,
+    updateInfo,
+    dropdownOverflowBottom,
+    settingsLoaded,
+    settings.statusBarEnabled,
+  ]);
 
   useEffect(() => {
     if (import.meta.env.DEV) return;
@@ -1282,15 +1292,19 @@ export default function App() {
     }
   };
 
-  const [stopKey, setStopKey] = useState(0);
-  const prevStopReasonRef = useRef(status.stopReason);
+  const handleGoToPresets = useCallback(() => {
+    setSettingsInitialTab("presets");
+    setTab("settings");
+  }, []);
 
-  useEffect(() => {
-    if (status.stopReason && status.stopReason !== prevStopReasonRef.current) {
-      prevStopReasonRef.current = status.stopReason;
-      setStopKey((k) => k + 1);
-    }
-  }, [status.stopReason]);
+  const handleGoToVersionInfo = useCallback(() => {
+    setSettingsInitialTab("general");
+    setTab("settings");
+  }, []);
+
+  const handleInitialTabConsumed = useCallback(() => {
+    setSettingsInitialTab(undefined);
+  }, []);
 
   const handleTabChangeRef = useRef(handleTabChange);
   handleTabChangeRef.current = handleTabChange;
@@ -1354,28 +1368,33 @@ export default function App() {
     (p) => p.id === settings.activePresetId,
   );
 
+  function computeTimeLimitMs(): number {
+    if (!settings.timeLimitEnabled) return 0;
+    const unit = settings.timeLimitUnit;
+    const val = settings.timeLimit;
+    switch (unit) {
+      case "s":
+        return val * 1000;
+      case "m":
+        return val * 60_000;
+      case "h":
+        return val * 3_600_000;
+      default:
+        return val * 1000;
+    }
+  }
+
   return (
     <div className="app-root" data-tab={tab}>
       <TitleBar
         tab={tab}
         setTab={handleTabChange}
         running={status.running}
-        paused={status.paused}
-        stopReason={
-          settings.showStopReason &&
-          (tab === "simple" ||
-            tab === "advanced" ||
-            tab === "zones" ||
-            tab === "click-points")
-            ? status.stopReason
-            : null
-        }
-        stopKey={stopKey}
-        warning={status.warning}
         isAlwaysOnTop={settings.alwaysOnTop}
         onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
         onRequestClose={handleWindowClose}
-        activePresetName={activePreset?.name ?? null}
+        stopReason={status.stopReason}
+        statusBarHidden={!settings.statusBarEnabled}
       />
       {updateInfo && (
         <UpdateBanner
@@ -1426,9 +1445,29 @@ export default function App() {
             onReset={handleResetSettings}
             updateCheckStatus={updateCheckStatus}
             onCheckForUpdate={handleCheckForUpdate}
+            initialSettingsTab={settingsInitialTab}
+            onInitialTabConsumed={handleInitialTabConsumed}
           />
         )}
       </main>
+      {settings.statusBarEnabled && (
+        <StatusBar
+          activePresetName={activePreset?.name ?? null}
+          version={appInfo.version}
+          stopReason={status.stopReason}
+          warning={status.warning}
+          running={status.running}
+          paused={status.paused}
+          clickCount={status.clickCount}
+          activeClickPointIndex={status.activeClickPointIndex}
+          totalClickPoints={settings.clickPoints.length}
+          clickLimit={settings.clickLimit}
+          clickLimitEnabled={settings.clickLimitEnabled}
+          timeLimitMs={computeTimeLimitMs()}
+          onGoToPresets={handleGoToPresets}
+          onGoToVersionInfo={handleGoToVersionInfo}
+        />
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@
 - Added a radius to the click points that randomizes the click position within that radius.
 - Added Task-bar icon customization in the appearance settings. The Icon now follows the theme color, and accent color on activation. You can toggle all of these options in the settings.
 - Added Remember window position toggle (Settings → Behaviour → Startup) On by default.
+- Added Status bar at the bottom of the window to show the current status of the clicker, and the reason for stopping if it is stopped.
 ## Changed
 - Overhauled Advanced panel.
 - Settings panel now has a side menu for easier navigation and organization of settings.
