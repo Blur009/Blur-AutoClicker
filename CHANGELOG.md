@@ -1,3 +1,7 @@
+# v3.9.1 - 21.07.2026 (d.m.y)
+## Fixed
+- Fixed Presets not saving the clicker activation hotkey.
+
 # v3.9.0 - 18.07.2026 (d.m.y)
 ## New
 - Added Hold mode in duty cycle since people couldn't figure out that 100% is the same as Holding down the mouse continuously.
