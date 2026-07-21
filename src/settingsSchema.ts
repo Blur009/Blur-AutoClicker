@@ -147,6 +147,10 @@ const PRESET_FIELDS = {
     default: "Toggle" as ClickMode,
     ui: { section: "core", control: "select" },
   },
+  hotkey: {
+    default: "ctrl+y",
+    ui: { section: "core", control: "hotkey" },
+  },
   dutyCycleMode: {
     default: "Click" as DutyCycleMode,
     ui: { section: "core", control: "select" },
@@ -275,10 +279,6 @@ const PRESET_FIELDS = {
 
 //All Other settings that do not need to be saved by presets go here.
 const SETTINGS_ONLY_FIELDS = {
-  hotkey: {
-    default: "ctrl+y",
-    ui: { section: "core", control: "hotkey" },
-  },
   rateInputMode: {
     default: "rate" as RateInputMode,
     ui: { section: "core", control: "select" },
@@ -653,6 +653,7 @@ export const FACTORY_PRESETS: PresetDefinition[] = [
       keyboardKeyCase: "lower",
       mouseButton: "Left",
       mode: "Toggle",
+      hotkey: "ctrl+y",
       dutyCycleMode: "Click",
       dutyCycleEnabled: true,
       dutyCycle: 45,
@@ -696,6 +697,7 @@ export const FACTORY_PRESETS: PresetDefinition[] = [
       keyboardKeyCase: "lower",
       mouseButton: "Left",
       mode: "Toggle",
+      hotkey: "ctrl+y",
       dutyCycleMode: "Click",
       dutyCycleEnabled: true,
       dutyCycle: 20,
@@ -739,6 +741,7 @@ export const FACTORY_PRESETS: PresetDefinition[] = [
       keyboardKeyCase: "lower",
       mouseButton: "Left",
       mode: "Toggle",
+      hotkey: "ctrl+y",
       dutyCycleMode: "Click",
       dutyCycleEnabled: true,
       dutyCycle: 60,
