@@ -120,8 +120,8 @@ pub fn send_key_presses(
     }
 
     let use_shift = should_hold_shift_for_case(vk, uppercase);
-    let is_active = || control.is_active();
-    let mut sleep_for = |duration| sleep_interruptible(duration, control);
+    let is_active = || control.is_active() && !should_abort();
+    let mut sleep_for = |duration| sleep_interruptible(duration, control, should_abort);
 
     for _ in 0..count {
         if should_abort() {
