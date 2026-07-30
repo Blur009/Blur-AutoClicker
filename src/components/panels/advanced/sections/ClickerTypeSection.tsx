@@ -48,6 +48,7 @@ export default function ClickerTypeSection({ settings, update }: Props) {
       settings.hotkey,
       settings.keyboardKey,
       keyboardKeyCaseIsUpper,
+      settings.mode,
     );
   const autoPressKeyConflicts = hasConflict ? ["Hotkey"] : [];
 

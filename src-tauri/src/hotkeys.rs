@@ -118,6 +118,10 @@ pub fn parse_hotkey_binding(hotkey: &str) -> AppResult<HotkeyBinding> {
 pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> AppResult<(i32, String)> {
     let lower = token.trim().to_ascii_lowercase();
 
+    if let Some(binding) = parse_physical_code_token(&lower) {
+        return Ok(binding);
+    }
+
     if let Some(binding) = parse_named_key_token(&lower) {
         return Ok(binding);
     }
@@ -156,6 +160,13 @@ pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> AppResult<(i
         }
     }
 
+    // Layout-specific single characters (§, ö, ä, ü, ç, ...) reach here when the
+    // capture only produced a printable key with no usable code. Ask the active
+    // layout which VK produces that character.
+    if let Some(vk) = vk_from_layout_char(&lower) {
+        return Ok((vk, lower));
+    }
+
     Err(AppError::Hotkey(format!(
         "Couldn't recognize '{token}' as a valid key in '{original_hotkey}'"
     )))
@@ -187,6 +198,14 @@ static HOOKS_ACTIVE: AtomicBool = AtomicBool::new(false);
 fn physical_key_state() -> &'static [AtomicBool; 256] {
     PHYSICAL_KEY_STATE
         .get_or_init(|| Box::leak(Box::new(std::array::from_fn(|_| AtomicBool::new(false)))))
+}
+
+/// True once the low-level keyboard/mouse hooks are installed. While they are,
+/// hotkey state comes from real hardware events only (injected input carries
+/// `AUTOCLICKER_EXTRA_INFO` and is skipped), so the clicker cannot retrigger
+/// its own hotkey.
+pub fn hooks_active() -> bool {
+    HOOKS_ACTIVE.load(Ordering::Relaxed)
 }
 
 fn is_physical_vk_down(vk: i32) -> bool {
@@ -555,6 +574,54 @@ fn binding(vk: i32, token: &str) -> (i32, String) {
     (vk, token.to_string())
 }
 
+/// Physical (scancode-addressed) keys whose VK differs per keyboard layout.
+/// Returns `(set-1 scancode, US-layout fallback VK, canonical token)`.
+fn physical_code_scancode(token: &str) -> Option<(u32, i32, &'static str)> {
+    match token {
+        "backquote" | "grave" | "section" => Some((0x29, VK_OEM_3 as i32, "Backquote")),
+        "minus" => Some((0x0C, VK_OEM_MINUS as i32, "Minus")),
+        "equal" => Some((0x0D, VK_OEM_PLUS as i32, "Equal")),
+        "bracketleft" => Some((0x1A, VK_OEM_4 as i32, "BracketLeft")),
+        "bracketright" => Some((0x1B, VK_OEM_6 as i32, "BracketRight")),
+        "backslash" => Some((0x2B, VK_OEM_5 as i32, "Backslash")),
+        "semicolon" => Some((0x27, VK_OEM_1 as i32, "Semicolon")),
+        "quote" => Some((0x28, VK_OEM_7 as i32, "Quote")),
+        "comma" => Some((0x33, VK_OEM_COMMA as i32, "Comma")),
+        "period" => Some((0x34, VK_OEM_PERIOD as i32, "Period")),
+        "slash" => Some((0x35, VK_OEM_2 as i32, "Slash")),
+        "intlro" => Some((0x73, VK_OEM_102 as i32, "IntlRo")),
+        "intlyen" => Some((0x7D, VK_OEM_5 as i32, "IntlYen")),
+        _ => None,
+    }
+}
+
+fn parse_physical_code_token(token: &str) -> Option<(i32, String)> {
+    let (scancode, fallback_vk, canonical) = physical_code_scancode(token)?;
+    let mapped = unsafe { MapVirtualKeyW(scancode, MAPVK_VSC_TO_VK_EX) } as i32;
+    let vk = if mapped == 0 { fallback_vk } else { mapped };
+    Some(binding(vk, canonical))
+}
+
+fn vk_from_layout_char(token: &str) -> Option<i32> {
+    let mut chars = token.chars();
+    let ch = chars.next()?;
+    if chars.next().is_some() {
+        return None;
+    }
+
+    let scan = unsafe { VkKeyScanW(ch as u16) };
+    if scan == -1 {
+        return None;
+    }
+
+    let vk = (scan & 0xFF) as i32;
+    if vk > 0 {
+        Some(vk)
+    } else {
+        None
+    }
+}
+
 fn parse_named_key_token(token: &str) -> Option<(i32, String)> {
     match token {
         "<" | ">" | "intlbackslash" | "oem102" | "nonusbackslash" => {
@@ -675,7 +742,37 @@ fn parse_function_key_token(token: &str) -> Option<(i32, String)> {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_hotkey_binding, modifiers_match, parse_hotkey_binding};
+    use super::{
+        format_hotkey_binding, modifiers_match, parse_hotkey_binding, vk_from_layout_char,
+    };
+
+    #[test]
+    fn physical_code_tokens_round_trip() {
+        for token in [
+            "Backquote",
+            "Minus",
+            "Equal",
+            "BracketLeft",
+            "BracketRight",
+            "Backslash",
+            "Semicolon",
+            "Quote",
+            "Comma",
+            "Period",
+            "Slash",
+        ] {
+            let binding = parse_hotkey_binding(token).expect("code token should parse");
+            assert_eq!(binding.key_token, token);
+            assert!(binding.main_vk > 0, "{token} resolved to no VK");
+            assert_eq!(format_hotkey_binding(&binding), token);
+        }
+    }
+
+    #[test]
+    fn layout_chars_resolve_to_vk() {
+        assert_eq!(vk_from_layout_char("a"), Some(0x41));
+        assert_eq!(vk_from_layout_char("ab"), None);
+    }
 
     #[test]
     fn numpad_tokens_round_trip() {
