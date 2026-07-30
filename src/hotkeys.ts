@@ -60,6 +60,34 @@ const SHIFTED_SYMBOL_BASE_MAP: Record<string, string> = {
   ">": "<",
 };
 
+// Punctuation/OEM keys whose produced character depends on the keyboard layout
+// (e.g. Backquote is "`" on US but "§" on FI/SE). Stored by physical code so the
+// binding follows the key, not the character; the backend resolves the VK via
+// the active layout. Values are the US-layout fallback label.
+const PHYSICAL_CODE_FALLBACK_LABELS: Record<string, string> = {
+  Backquote: "`",
+  Minus: "-",
+  Equal: "=",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Backslash: "\\",
+  Semicolon: ";",
+  Quote: "'",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  IntlBackslash: "<",
+  IntlRo: "\\",
+  IntlYen: "\\",
+};
+
+const PHYSICAL_CODE_BY_LOWER: Record<string, string> = Object.fromEntries(
+  Object.keys(PHYSICAL_CODE_FALLBACK_LABELS).map((code) => [
+    code.toLowerCase(),
+    code,
+  ]),
+);
+
 const NUMPAD_CODE_MAP: Record<string, string> = {
   Numpad0: "numpad0",
   Numpad1: "numpad1",
@@ -363,8 +391,8 @@ function mainKeyFromCode(
   key: string,
   location?: number,
 ): string | null {
-  if (code === "IntlBackslash") {
-    return "IntlBackslash";
+  if (PHYSICAL_CODE_FALLBACK_LABELS[code]) {
+    return code;
   }
 
   if (/^Key[A-Z]$/.test(code)) {
@@ -426,8 +454,12 @@ function displayTokenFromStoredValue(
   const trimmed = token.trim();
   if (!trimmed) return trimmed;
 
-  if (trimmed === "IntlBackslash") {
-    return layoutMap?.get("IntlBackslash") ?? "<";
+  const physicalCode = PHYSICAL_CODE_BY_LOWER[trimmed.toLowerCase()];
+  if (physicalCode) {
+    return (
+      layoutMap?.get(physicalCode) ??
+      PHYSICAL_CODE_FALLBACK_LABELS[physicalCode]
+    );
   }
 
   if (/^Key[A-Z]$/.test(trimmed)) {
@@ -511,8 +543,9 @@ function normalizeStoredMainKey(
   const trimmed = token.trim();
   if (!trimmed) return trimmed;
 
-  if (trimmed === "IntlBackslash") {
-    return "IntlBackslash";
+  const physicalCode = PHYSICAL_CODE_BY_LOWER[trimmed.toLowerCase()];
+  if (physicalCode) {
+    return physicalCode;
   }
 
   if (/^Key[A-Z]$/.test(trimmed)) {
@@ -693,8 +726,12 @@ export function conflictsWithAutoPressKey(
   hotkey: string,
   keyboardKey: string,
   keyboardKeyCaseIsUpper: boolean,
+  mode?: string,
 ): boolean {
   if (!hotkey || !keyboardKey) return false;
+  // Hold mode intentionally supports "hold a key to spam that same key": the
+  // backend tracks the hotkey from hardware events only, so there is no loop.
+  if (mode === "Hold") return false;
   const mainKey = hotkeyMainKey(hotkey);
   const modifiers = hotkeyModifiers(hotkey);
   const kbKey = keyboardKey.toLowerCase();

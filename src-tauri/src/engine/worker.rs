@@ -276,8 +276,15 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
     let settings = state.settings.lock().unwrap_or_else(poisoned_inner).clone();
     let config = build_config(&settings)?;
 
-    // Prevent feedback loop: keyboard key must not match a modifier-free hotkey
-    if config.input_type == crate::engine::InputType::Keyboard && config.key_code > 0 {
+    // Prevent feedback loop: keyboard key must not match a modifier-free hotkey.
+    // Hold mode is exempt while the low-level hooks run: press state then comes
+    // from hardware events only, so auto-pressing the held key cannot retrigger
+    // or self-cancel the hotkey (e.g. hold § to spam § into a game macro).
+    let allow_same_key = settings.mode == "Hold" && crate::hotkeys::hooks_active();
+    if !allow_same_key
+        && config.input_type == crate::engine::InputType::Keyboard
+        && config.key_code > 0
+    {
         let hotkey_binding = state
             .registered_hotkey
             .lock()
@@ -697,8 +704,18 @@ impl ClickerContext {
             config.duty
         };
         let cycle_ms = (config.interval_secs * 1000.0).max(1.0) as u32;
-        let hold_ms =
+        let mut hold_ms =
             ((config.interval_secs * duty.max(0.0) / 100.0 * 1000.0) as u32).min(cycle_ms);
+
+        // Games sample the keyboard once per frame, so a key that goes down and
+        // up within the same frame is never observed. With the duty cycle off the
+        // hold is 0 ms, which desktop apps still register but games drop. Give
+        // slow keyboard cadences a floor above one 60 Hz frame; fast cadences keep
+        // hold 0 so the batched SendInput fast path stays available.
+        const MIN_GAME_VISIBLE_HOLD_MS: u32 = 20;
+        if is_keyboard && hold_ms == 0 && cycle_ms >= 50 {
+            hold_ms = MIN_GAME_VISIBLE_HOLD_MS.min(cycle_ms / 2);
+        }
 
         Self {
             is_keyboard,

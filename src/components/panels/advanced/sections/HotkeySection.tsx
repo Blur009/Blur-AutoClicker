@@ -20,6 +20,7 @@ export default function HotkeySection({ settings, update }: Props) {
       settings.hotkey,
       settings.keyboardKey,
       settings.keyboardKeyCase === "upper",
+      settings.mode,
     );
   const hotkeyConflicts = hasConflict ? ["Auto-press key"] : [];
 

@@ -1,3 +1,11 @@
+# Unreleased
+## Changed
+- Punctuation/OEM keys (the key left of 1, `-`, `=`, `[`, `]`, `\`, `;`, `'`, `,`, `.`, `/`) are now stored by their physical position instead of the character they type, and resolved through the active keyboard layout. Non-US layouts get the key they actually pressed.
+- Hold mode now allows the hotkey and the auto-press key to be the same key, so you can hold a key to spam that same key. Toggle mode still blocks it since that really would feed back on itself.
+- Keyboard auto-press now holds the key for at least 20ms when the duty cycle is off (only for intervals of 50ms or longer). Games sample the keyboard once per frame and silently ignored the old instant press.
+## Fixed
+- Fixed keys that produce a non-ASCII character (§, ö, ä, ü, ç, ...) being rejected as both a hotkey and an auto-press key.
+
 # v3.9.1 - 21.07.2026 (d.m.y)
 ## Fixed
 - Fixed Presets not saving the clicker activation hotkey.

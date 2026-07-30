@@ -152,6 +152,7 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
       settings.hotkey,
       settings.keyboardKey,
       keyboardKeyCaseIsUpper,
+      settings.mode,
     );
   const hotkeyConflicts = hasConflict ? ["Auto-press key"] : [];
   const autoPressKeyConflicts = hasConflict ? ["Hotkey"] : [];
