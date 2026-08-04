@@ -93,7 +93,7 @@ Most auto clickers aren't accurate at high speeds. Set it to 50 CPS and you migh
 - [`PORTABLE-KO.md`](PORTABLE-KO.md): 포터블판 실행 및 주의사항
 - [`CHANGELOG.ko.md`](CHANGELOG.ko.md): 한국어 번역 변경 기록
 - [원본 프로젝트](https://github.com/Blur009/Blur-AutoClicker)
-- [한국어 번역 Pull Request #269](https://github.com/Blur009/Blur-AutoClicker/pull/269)
+- [한국어 번역 Pull Request #270](https://github.com/Blur009/Blur-AutoClicker/pull/270)
 
 한국어 표현이나 빠진 화면을 발견하면 원본 저장소의 Issue 또는 Pull Request로 알려 주세요. 이번 번역 변경은 원본 저장소의 `main` 반영을 목표로 제안되어 있습니다.
 
