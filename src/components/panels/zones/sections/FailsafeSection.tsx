@@ -41,7 +41,7 @@ export default function FailsafeSection({ settings, update }: Props) {
               gap: "0.5rem",
             }}
           >
-            <span className="adv-card-title">Corner Stop</span>
+            <span className="adv-card-title">모서리 중지</span>
           </div>
           <ToggleBtn
             value={settings.cornerStopEnabled}
@@ -50,12 +50,12 @@ export default function FailsafeSection({ settings, update }: Props) {
         </div>
         <CardDivider />
         <div className="adv-card-desc">
-          Stops the clicker when your cursor enters a screen corner. Keep this
-          enabled as a safety net.
+          커서가 화면 모서리에 들어가면 클릭을 중지합니다. 안전을 위해 켜 두는
+          것을 권장합니다.
         </div>
         <Disableable
           enabled={settings.cornerStopEnabled}
-          disabledReason="Enable Corner Stop to edit the corner failsafe hitboxes."
+          disabledReason="모서리 중지를 켜야 모서리 안전장치 영역을 편집할 수 있습니다."
         >
           <div className="adv-row" style={{ gap: 8 }}>
             <div className="adv-corner-grid">
@@ -91,7 +91,7 @@ export default function FailsafeSection({ settings, update }: Props) {
               gap: "0.5rem",
             }}
           >
-            <span className="adv-card-title">Edge Stop</span>
+            <span className="adv-card-title">가장자리 중지</span>
           </div>
           <ToggleBtn
             value={settings.edgeStopEnabled}
@@ -100,12 +100,12 @@ export default function FailsafeSection({ settings, update }: Props) {
         </div>
         <CardDivider />
         <div className="adv-card-desc">
-          Stops the clicker when your cursor reaches a screen edge. Keep this
-          enabled as a safety net.
+          커서가 화면 가장자리에 닿으면 클릭을 중지합니다. 안전을 위해 켜 두는
+          것을 권장합니다.
         </div>
         <Disableable
           enabled={settings.edgeStopEnabled}
-          disabledReason="Enable Edge Stop to edit the edge failsafe hitboxes."
+          disabledReason="가장자리 중지를 켜야 가장자리 안전장치 영역을 편집할 수 있습니다."
         >
           <div className="adv-row" style={{ gap: 8 }}>
             <div className="adv-corner-grid">

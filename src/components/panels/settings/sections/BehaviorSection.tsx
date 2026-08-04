@@ -56,14 +56,14 @@ export default function BehaviorSection({
   return (
     <>
       <SettingsCard
-        title="Behavior"
-        description="Change how the auto clicker runs."
+        title="동작"
+        description="자동 클릭기의 동작 방식을 변경합니다."
       >
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Always on Top</span>
+            <span className="settings-label">항상 위에 표시</span>
             <span className="settings-sublabel">
-              Keep the window above others.
+              다른 창보다 위에 창을 유지합니다.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -78,9 +78,9 @@ export default function BehaviorSection({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Stop Hitbox Overlay</span>
+            <span className="settings-label">중지 영역 오버레이</span>
             <span className="settings-sublabel">
-              Show the stop zone boundaries.
+              중지 영역의 경계를 표시합니다.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -97,9 +97,9 @@ export default function BehaviorSection({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Stop Reason Alert</span>
+            <span className="settings-label">중지 사유 알림</span>
             <span className="settings-sublabel">
-              Show a notification when the auto clicker stops.
+              자동 클릭기가 중지되면 알림을 표시합니다.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -116,9 +116,9 @@ export default function BehaviorSection({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Strict Hotkey Modifiers</span>
+            <span className="settings-label">단축키 보조키 엄격 적용</span>
             <span className="settings-sublabel">
-              Require exact modifier keys for hotkeys.
+              단축키에 지정한 보조키를 정확히 요구합니다.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -137,9 +137,9 @@ export default function BehaviorSection({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Stop on Alt+Tab</span>
+            <span className="settings-label">Alt+Tab 시 중지</span>
             <span className="settings-sublabel">
-              Stop clicking when switching to another window.
+              다른 창으로 전환하면 클릭을 중지합니다.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -158,9 +158,9 @@ export default function BehaviorSection({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Extended Click Speed Limit</span>
+            <span className="settings-label">확장 클릭 속도 제한</span>
             <span className="settings-sublabel">
-              Allow click speeds up to 1000 CPS (may affect performance).
+              최대 1000 CPS의 클릭 속도를 허용합니다(성능에 영향을 줄 수 있음).
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -179,14 +179,14 @@ export default function BehaviorSection({
       </SettingsCard>
 
       <SettingsCard
-        title="Click Points Defaults"
-        description="Default values for newly picked click points."
+        title="클릭 지점 기본값"
+        description="새로 선택하는 클릭 지점에 사용할 기본값입니다."
       >
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Default Clicks</span>
+            <span className="settings-label">기본 클릭 횟수</span>
             <span className="settings-sublabel">
-              Clicks per point for new entries.
+              새 지점마다 수행할 클릭 횟수입니다.
             </span>
           </div>
           <div className="adv-numbox-sm" style={{ gap: "0.25rem" }}>
@@ -194,7 +194,7 @@ export default function BehaviorSection({
               className="adv-unit"
               style={{ minWidth: "0.75rem", textAlign: "left" }}
             >
-              clicks
+              클릭
             </span>
             <NumInput
               hoverWheel={false}
@@ -208,9 +208,9 @@ export default function BehaviorSection({
         </div>
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Default Radius</span>
+            <span className="settings-label">기본 반경</span>
             <span className="settings-sublabel">
-              Randomization radius for new entries.
+              새 지점의 클릭 위치를 무작위화할 반경입니다.
             </span>
           </div>
           <div className="adv-numbox-sm" style={{ gap: "0.25rem" }}>
@@ -232,12 +232,12 @@ export default function BehaviorSection({
         </div>
       </SettingsCard>
 
-      <SettingsCard title="Startup" description="Behavior when the app opens.">
+      <SettingsCard title="시작" description="앱이 열릴 때의 동작입니다.">
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Minimize to Tray</span>
+            <span className="settings-label">트레이로 최소화</span>
             <span className="settings-sublabel">
-              Minimize to the system tray instead of the taskbar.
+              작업 표시줄 대신 시스템 트레이로 최소화합니다.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -254,9 +254,9 @@ export default function BehaviorSection({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Remember Window Position</span>
+            <span className="settings-label">창 위치 기억</span>
             <span className="settings-sublabel">
-              Open the window at its last position on startup.
+              시작할 때 마지막 창 위치에서 엽니다.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -275,9 +275,9 @@ export default function BehaviorSection({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Run on Startup</span>
+            <span className="settings-label">시작 시 실행</span>
             <span className="settings-sublabel">
-              Start clicking when the app opens.
+              앱이 열릴 때 클릭을 시작합니다.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -306,9 +306,9 @@ export default function BehaviorSection({
 
       <ConfirmDialog
         open={pendingAction === "extended-click-speed-limit"}
-        title="Enable extended click speed limit?"
-        message="This will allow click speeds beyond the default limit. This may affect performance."
-        confirmLabel="Enable"
+        title="확장 클릭 속도 제한을 켤까요?"
+        message="기본 제한을 초과하는 클릭 속도를 허용합니다. 성능에 영향을 줄 수 있습니다."
+        confirmLabel="켜기"
         onConfirm={handleConfirmExtendedClickSpeedLimit}
         onCancel={() => setPendingAction(null)}
       />

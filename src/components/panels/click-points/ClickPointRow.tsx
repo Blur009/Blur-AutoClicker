@@ -56,7 +56,7 @@ export default function ClickPointRow({
         <button
           type="button"
           className="adv-click-points-drag-handle"
-          aria-label="Up / Down"
+          aria-label="위/아래로 이동"
           onPointerDown={(event) => {
             event.preventDefault();
             const handle = event.currentTarget;
@@ -129,7 +129,7 @@ export default function ClickPointRow({
           className="adv-unit"
           style={{ minWidth: "0.75rem", textAlign: "left" }}
         >
-          clicks
+          클릭
         </span>
         <NumInput
           hoverWheel={false}
@@ -148,7 +148,7 @@ export default function ClickPointRow({
           className="adv-unit"
           style={{ minWidth: "0.375rem", textAlign: "center" }}
         >
-          r
+          반경
         </span>
         <NumInput
           hoverWheel={false}
@@ -164,8 +164,8 @@ export default function ClickPointRow({
           type="button"
           className="adv-click-points-delete"
           onClick={() => onDelete(index)}
-          aria-label="Delete"
-          title="Delete"
+          aria-label="삭제"
+          title="삭제"
         >
           <svg
             width="16"

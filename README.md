@@ -15,6 +15,8 @@
   <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/public/V3.0.0_UI.png" width="600"/>
 
   <p align="center"><em>An auto clicker that actually clicks at the speed you set.</em></p>
+
+  <p align="center"><a href="README.ko.md">🇰🇷 한국어 번역판 안내</a></p>
   
   <a href="https://ko-fi.com/blur009">
     <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Donate on Ko-fi" width="350">

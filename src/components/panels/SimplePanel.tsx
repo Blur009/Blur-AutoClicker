@@ -131,8 +131,13 @@ function NumberField({
 function SimplePanel({ settings, update }: SimplePanelProps) {
   const clickModeOptions = MODE_OPTIONS.map((mode) => ({
     value: mode,
-    label: mode === "Toggle" ? "Toggle" : "Hold",
+    label: mode === "Toggle" ? "전환" : "누르기",
   }));
+  const mouseButtonLabels: Record<MouseButton, string> = {
+    Left: "왼쪽",
+    Middle: "가운데",
+    Right: "오른쪽",
+  };
 
   const canToggleKeyboardKeyCase = isAlphabeticKeyboardKey(
     settings.keyboardKey,
@@ -153,8 +158,8 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
       settings.keyboardKey,
       keyboardKeyCaseIsUpper,
     );
-  const hotkeyConflicts = hasConflict ? ["Auto-press key"] : [];
-  const autoPressKeyConflicts = hasConflict ? ["Hotkey"] : [];
+  const hotkeyConflicts = hasConflict ? ["자동 입력 키"] : [];
+  const autoPressKeyConflicts = hasConflict ? ["단축키"] : [];
 
   return (
     <div className="vcontainer simple-panel">
@@ -211,8 +216,8 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
               type="button"
               className={`simple-input-type-btn ${settings.inputType === "mouse" ? "active" : ""}`}
               onClick={() => update({ inputType: "mouse" })}
-              title="Mouse"
-              aria-label="Mouse"
+              title="마우스"
+              aria-label="마우스"
             >
               <svg
                 width="16"
@@ -239,8 +244,8 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
               type="button"
               className={`simple-input-type-btn ${settings.inputType === "keyboard" ? "active" : ""}`}
               onClick={() => update({ inputType: "keyboard" })}
-              title="Keyboard"
-              aria-label="Keyboard"
+              title="키보드"
+              aria-label="키보드"
             >
               <svg
                 width="16"
@@ -274,7 +279,7 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
                   className={`simple-mouse-btn ${settings.mouseButton === btn ? "active" : ""}`}
                   onClick={() => update({ mouseButton: btn as MouseButton })}
                 >
-                  {btn}
+                  {mouseButtonLabels[btn]}
                 </button>
               ))}
             </div>
@@ -300,11 +305,11 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
                 }`}
                 aria-label={
                   keyboardKeyCaseIsUpper
-                    ? "Send letters as uppercase"
-                    : "Send letters as lowercase"
+                    ? "문자를 대문자로 전송"
+                    : "문자를 소문자로 전송"
                 }
                 aria-pressed={keyboardKeyCaseIsUpper}
-                title="Toggle keyboard key case"
+                title="키보드 키 대소문자 전환"
                 disabled={!canToggleKeyboardKeyCase}
                 onClick={toggleKeyboardKeyCase}
               >
@@ -316,7 +321,7 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
 
         <ControlBox className="simple-row-item">
           <NumberField
-            label="Duty Cycle"
+            label="클릭 유지 비율"
             value={settings.dutyCycle}
             min={SETTINGS_LIMITS.dutyCycle.min!}
             max={SETTINGS_LIMITS.dutyCycle.max!}
@@ -327,7 +332,7 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
 
         <ControlBox className="simple-row-item">
           <NumberField
-            label="Speed Randomization"
+            label="속도 무작위화"
             value={settings.speedRandomization}
             min={SETTINGS_LIMITS.speedRandomization.min!}
             max={SETTINGS_LIMITS.speedRandomization.max!}

@@ -9,15 +9,15 @@ import type { CadenceDurationFields } from "../cadence";
 import type { RateInputMode, Settings } from "../store";
 
 export const INTERVAL_OPTIONS = [
-  { value: "s", label: "Second" },
-  { value: "m", label: "Minute" },
-  { value: "h", label: "Hour" },
-  { value: "d", label: "Day" },
+  { value: "s", label: "초" },
+  { value: "m", label: "분" },
+  { value: "h", label: "시간" },
+  { value: "d", label: "일" },
 ] as const;
 
 export const SIMPLE_RATE_INPUT_MODE_OPTIONS = [
-  { value: "rate", label: "Rate" },
-  { value: "duration", label: "Interval" },
+  { value: "rate", label: "속도" },
+  { value: "duration", label: "간격" },
 ] as const;
 
 export function parseIntegerRaw(raw: string) {

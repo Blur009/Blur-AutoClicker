@@ -703,13 +703,17 @@
   flex-direction: column;
   gap: 0.5rem;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 12rem;
+  min-width: min(12rem, 100%);
 }
 
 .preset-name {
+  display: block;
   font-size: 0.9375rem;
   font-weight: var(--font-weight-md);
   color: var(--text-primary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .preset-badges {
@@ -740,6 +744,15 @@
   gap: 0.5rem;
   flex-wrap: wrap;
   align-items: flex-start;
+  justify-content: flex-start;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 auto;
+}
+
+.preset-actions > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .preset-summary {

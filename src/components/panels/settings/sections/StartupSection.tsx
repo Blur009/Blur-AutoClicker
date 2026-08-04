@@ -5,8 +5,8 @@ import type { Settings } from "../../../../store";
 import { SettingsCard } from "./shared";
 
 const onOffOptions = [
-  { value: false, label: "Off" },
-  { value: true, label: "On" },
+  { value: false, label: "끔" },
+  { value: true, label: "켬" },
 ];
 
 interface Props {
@@ -26,12 +26,12 @@ export default function StartupSection({ settings, update }: Props) {
   }, []);
 
   return (
-    <SettingsCard title="Startup" description="Behavior when the app opens.">
+    <SettingsCard title="시작" description="앱이 열릴 때의 동작입니다.">
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Minimize to Tray</span>
+          <span className="settings-label">트레이로 최소화</span>
           <span className="settings-sublabel">
-            Minimize to the system tray instead of the taskbar.
+            작업 표시줄 대신 시스템 트레이로 최소화합니다.
           </span>
         </div>
         <div className="settings-seg-group">
@@ -49,9 +49,9 @@ export default function StartupSection({ settings, update }: Props) {
 
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Run on Startup</span>
+          <span className="settings-label">시작 시 실행</span>
           <span className="settings-sublabel">
-            Start clicking when the app opens.
+            앱이 열릴 때 클릭을 시작합니다.
           </span>
         </div>
         <div className="settings-seg-group">

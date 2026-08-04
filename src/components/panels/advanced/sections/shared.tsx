@@ -45,14 +45,14 @@ const ToggleBtn = memo(
           onClick={() => !disabled && onChange(false)}
           disabled={disabled}
         >
-          Off
+          끔
         </button>
         <button
           className={`adv-toggle-btn adv-toggle-on ${value ? "active" : ""} ${disabled ? "adv-disabled" : ""}`}
           onClick={() => !disabled && onChange(true)}
           disabled={disabled}
         >
-          On
+          켬
         </button>
       </div>
     );
@@ -87,7 +87,7 @@ export function Disableable({
       <div className={enabled ? "" : "adv-disabled-content"}>{children}</div>
       {!enabled && (
         <div className="adv-disabled-overlay">
-          <span className="adv-disabled-label">Disabled</span>
+          <span className="adv-disabled-label">사용 안 함</span>
         </div>
       )}
     </div>

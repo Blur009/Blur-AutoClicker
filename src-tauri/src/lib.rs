@@ -75,11 +75,11 @@ fn setup_panic_hook() {
         unsafe {
             use windows_sys::Win32::UI::WindowsAndMessaging::MessageBoxW;
             use windows_sys::Win32::UI::WindowsAndMessaging::MB_ICONERROR;
-            let wide: Vec<u16> = "BlurAutoClicker encountered a fatal error and needs to close.\nPlease check the log for details.\n\n"
+            let wide: Vec<u16> = "BlurAutoClicker에서 치명적인 오류가 발생하여 종료해야 합니다.\n자세한 내용은 로그를 확인하세요.\n\n"
                 .encode_utf16()
                 .chain(std::iter::once(0))
                 .collect();
-            let title: Vec<u16> = "BlurAutoClicker - Fatal Error"
+            let title: Vec<u16> = "BlurAutoClicker - 치명적 오류"
                 .encode_utf16()
                 .chain(std::iter::once(0))
                 .collect();
@@ -128,8 +128,8 @@ fn setup_logging(app: &AppHandle) {
 }
 
 fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
-    let show_item = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let show_item = MenuItem::with_id(app, "show", "표시", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "종료", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
     TrayIconBuilder::with_id("main")

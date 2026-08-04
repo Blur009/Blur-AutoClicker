@@ -8,25 +8,25 @@ interface Props {
 }
 
 const PAGES = [
-  { key: "keybindSimple" as const, label: "Simple" },
-  { key: "keybindAdvanced" as const, label: "Advanced" },
-  { key: "keybindZones" as const, label: "Zones" },
-  { key: "keybindClickPoints" as const, label: "Click Points" },
-  { key: "keybindSettings" as const, label: "Settings" },
+  { key: "keybindSimple" as const, label: "간단" },
+  { key: "keybindAdvanced" as const, label: "고급" },
+  { key: "keybindZones" as const, label: "영역" },
+  { key: "keybindClickPoints" as const, label: "클릭 지점" },
+  { key: "keybindSettings" as const, label: "설정" },
 ];
 
 export default function KeybindsSection({ settings, update }: Props) {
   return (
     <SettingsCard
-      title="Keybinds"
-      description="Set a keyboard shortcut for each page. Press the key you want to bind."
+      title="페이지 단축키"
+      description="각 페이지의 키보드 바로 가기를 설정합니다. 지정할 키를 누르세요."
     >
       {PAGES.map((page) => (
         <div className="settings-row" key={page.key}>
           <div className="settings-label-group">
             <span className="settings-label">{page.label}</span>
             <span className="settings-sublabel">
-              Switch to the {page.label} page.
+              {page.label} 페이지로 전환합니다.
             </span>
           </div>
           <KeyCaptureInput

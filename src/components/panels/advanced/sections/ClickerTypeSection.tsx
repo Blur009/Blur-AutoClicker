@@ -26,9 +26,14 @@ interface Props {
 
 export default function ClickerTypeSection({ settings, update }: Props) {
   const inputTypeOptions = [
-    { value: "mouse", label: "Mouse" },
-    { value: "keyboard", label: "Keyboard" },
+    { value: "mouse", label: "마우스" },
+    { value: "keyboard", label: "키보드" },
   ] as const;
+  const mouseButtonLabels: Record<MouseButton, string> = {
+    Left: "왼쪽",
+    Middle: "가운데",
+    Right: "오른쪽",
+  };
 
   const canToggleKeyboardKeyCase = isAlphabeticKeyboardKey(
     settings.keyboardKey,
@@ -63,7 +68,7 @@ export default function ClickerTypeSection({ settings, update }: Props) {
 
   const doubleClickDisabled = !isDoubleClickSupported(settings);
   const doubleClickDisabledReason = doubleClickDisabled
-    ? `Double Click is unavailable at ${formatClicksPerSecond(currentClicksPerSecond)} clicks/sec. Lower the click speed below 10 clicks/sec to turn it on.`
+    ? `현재 속도 ${formatClicksPerSecond(currentClicksPerSecond)}클릭/초에서는 더블 클릭을 사용할 수 없습니다. 클릭 속도를 10클릭/초 미만으로 낮추면 켤 수 있습니다.`
     : undefined;
 
   return (
@@ -91,7 +96,7 @@ export default function ClickerTypeSection({ settings, update }: Props) {
               <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />
             </svg>
           </span>
-          <span className="adv-card-title">Clicker Type</span>
+          <span className="adv-card-title">입력 방식</span>
         </div>
         <div className="adv-seg-group adv-input-type-group">
           {inputTypeOptions.map((inputTypeOption) => (
@@ -114,7 +119,7 @@ export default function ClickerTypeSection({ settings, update }: Props) {
       </div>
       <CardDivider />
       <div className="adv-card-desc">
-        Select the mouse button or keyboard key the autoclicker clicks.
+        자동 클릭기가 사용할 마우스 버튼 또는 키보드 키를 선택합니다.
       </div>
       <div
         className="adv-row adv-target-row"
@@ -130,7 +135,7 @@ export default function ClickerTypeSection({ settings, update }: Props) {
                 marginRight: "auto",
               }}
             >
-              <span className="adv-label">Double Click</span>
+              <span className="adv-label">더블 클릭</span>
               <ToggleBtn
                 value={settings.doubleClickEnabled}
                 onChange={(v) => update({ doubleClickEnabled: v })}
@@ -148,7 +153,7 @@ export default function ClickerTypeSection({ settings, update }: Props) {
                     update({ mouseButton: mouseButtonOption as MouseButton })
                   }
                 >
-                  {mouseButtonOption}
+                  {mouseButtonLabels[mouseButtonOption as MouseButton]}
                 </button>
               ))}
             </div>
@@ -163,7 +168,7 @@ export default function ClickerTypeSection({ settings, update }: Props) {
                 marginRight: "auto",
               }}
             >
-              <span className="adv-label">Double Click</span>
+              <span className="adv-label">더블 클릭</span>
               <ToggleBtn
                 value={settings.doubleClickEnabled}
                 onChange={(v) => update({ doubleClickEnabled: v })}
@@ -192,11 +197,11 @@ export default function ClickerTypeSection({ settings, update }: Props) {
                 }`}
                 aria-label={
                   keyboardKeyCaseIsUpper
-                    ? "Send letters as uppercase"
-                    : "Send letters as lowercase"
+                    ? "문자를 대문자로 전송"
+                    : "문자를 소문자로 전송"
                 }
                 aria-pressed={keyboardKeyCaseIsUpper}
-                title="Toggle keyboard key case"
+                title="키보드 키 대소문자 전환"
                 disabled={!canToggleKeyboardKeyCase}
                 onClick={toggleKeyboardKeyCase}
               >

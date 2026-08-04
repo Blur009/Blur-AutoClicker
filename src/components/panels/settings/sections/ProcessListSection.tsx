@@ -46,7 +46,6 @@ export default function ProcessListSection({ settings, update }: Props) {
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
     void (async () => {
       try {
         const procs = await invoke<ProcessInfo[]>("list_processes");
@@ -96,14 +95,14 @@ export default function ProcessListSection({ settings, update }: Props) {
 
   return (
     <SettingsCard
-      title="Process List"
-      description="Stop clicking when specific applications are in focus."
+      title="프로세스 목록"
+      description="특정 앱이 활성화되어 있을 때 클릭을 중지합니다."
     >
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Enable</span>
+          <span className="settings-label">사용</span>
           <span className="settings-sublabel">
-            Stop clicking based on the active application.
+            활성 앱을 기준으로 클릭을 중지합니다.
           </span>
         </div>
         <div className="settings-toggle-wrapper">
@@ -120,9 +119,9 @@ export default function ProcessListSection({ settings, update }: Props) {
 
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Mode</span>
+          <span className="settings-label">방식</span>
           <span className="settings-sublabel">
-            Whitelist only allows checked apps. Blacklist blocks them.
+            허용 목록은 선택한 앱에서만 클릭을 허용하고, 차단 목록은 선택한 앱을 차단합니다.
           </span>
         </div>
         <div className="settings-seg-group">
@@ -131,14 +130,14 @@ export default function ProcessListSection({ settings, update }: Props) {
             className={`settings-seg-btn ${settings.processListMode === "whitelist" ? "active" : ""}`}
             onClick={() => update({ processListMode: "whitelist" })}
           >
-            Whitelist
+            허용 목록
           </button>
           <button
             type="button"
             className={`settings-seg-btn ${settings.processListMode === "blacklist" ? "active" : ""}`}
             onClick={() => update({ processListMode: "blacklist" })}
           >
-            Blacklist
+            차단 목록
           </button>
         </div>
       </div>
@@ -147,13 +146,13 @@ export default function ProcessListSection({ settings, update }: Props) {
 
       <Disableable
         enabled={settings.processListEnabled}
-        disabledReason="Enable Process List to manage application rules."
+        disabledReason="프로세스 목록을 켜야 앱 규칙을 관리할 수 있습니다."
       >
         {settings.processListMode === "whitelist" &&
         settings.processListEntries.length === 0 ? (
           <div className="settings-whitelist-warning">
-            Whitelist mode is active with no applications selected. Clicking
-            will be blocked everywhere.
+              허용 목록 모드에 선택된 앱이 없습니다. 모든 곳에서 클릭이
+              차단됩니다.
           </div>
         ) : null}
 
@@ -161,7 +160,7 @@ export default function ProcessListSection({ settings, update }: Props) {
           <input
             type="text"
             className="settings-proc-search"
-            placeholder={`search in ${processes.length} applications`}
+            placeholder={`앱 ${processes.length}개에서 검색`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -182,10 +181,10 @@ export default function ProcessListSection({ settings, update }: Props) {
             onScroll={handleListScroll}
           >
             {loading ? (
-              <div className="adv-click-points-empty">Refreshing...</div>
+              <div className="adv-click-points-empty">새로 고치는 중...</div>
             ) : processes.length === 0 ? (
               <div className="adv-click-points-empty">
-                No processes found. Click Refresh.
+                프로세스를 찾을 수 없습니다. 새로 고쳐 보세요.
               </div>
             ) : searchQuery.length >= 1 &&
               checkedProcesses.length === 0 &&
@@ -194,7 +193,7 @@ export default function ProcessListSection({ settings, update }: Props) {
                 className="adv-click-points-empty"
                 style={{ textAlign: "center", padding: "1rem" }}
               >
-                no process named &quot;{searchQuery}&quot;
+                &quot;{searchQuery}&quot; 이름의 프로세스가 없습니다.
               </div>
             ) : (
               <>

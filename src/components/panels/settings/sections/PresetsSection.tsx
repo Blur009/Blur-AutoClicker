@@ -78,15 +78,15 @@ function PresetRow({
           )}
           <div className="preset-badges">
             {isActive && !isModified && (
-              <span className="preset-badge preset-badge--active">Active</span>
+              <span className="preset-badge preset-badge--active">활성</span>
             )}
             {isActive && isModified && (
               <span className="preset-badge preset-badge--modified">
-                Modified
+                수정됨
               </span>
             )}
             <span className="preset-badge">
-              {new Date(preset.updatedAt).toLocaleDateString()}
+              {new Date(preset.updatedAt).toLocaleDateString("ko-KR")}
             </span>
           </div>
           <div className="preset-summary">
@@ -101,10 +101,10 @@ function PresetRow({
                 onClick={onCommitRename}
                 disabled={running}
               >
-                Save
+                저장
               </button>
               <button className="settings-btn-quiet" onClick={onCancelRename}>
-                Cancel
+                취소
               </button>
             </>
           ) : isConfirmingDelete ? (
@@ -114,10 +114,10 @@ function PresetRow({
                 onClick={onConfirmDelete}
                 disabled={running}
               >
-                Confirm?
+                확인?
               </button>
               <button className="settings-btn-quiet" onClick={onCancelDelete}>
-                Cancel
+                취소
               </button>
             </>
           ) : (
@@ -127,40 +127,40 @@ function PresetRow({
                 onClick={onApply}
                 disabled={running}
               >
-                Apply
+                적용
               </button>
               <button
                 className="settings-btn-secondary"
                 onClick={onUpdatePreset}
                 disabled={running}
               >
-                Update
+                업데이트
               </button>
               <button
                 className="settings-btn-secondary"
                 onClick={onStartRename}
                 disabled={running}
               >
-                Rename
+                이름 변경
               </button>
               <button
                 className="settings-btn-secondary"
                 onClick={onDuplicate}
                 disabled={running}
               >
-                Duplicate
+                복제
               </button>
               <button
                 className="settings-btn-danger settings-btn-danger--compact"
                 onClick={onRequestDelete}
                 disabled={running}
               >
-                Delete
+                삭제
               </button>
               <button
                 className="settings-btn-quiet"
                 onClick={onExport}
-                title="Export preset"
+                title="프리셋 내보내기"
               >
                 <svg
                   width="14"
@@ -284,7 +284,7 @@ export default function PresetsSection({
 
     const trimmed = renameDraft.trim();
     if (!trimmed) {
-      setRenameError("Name cannot be empty");
+      setRenameError("이름을 입력해야 합니다.");
       return;
     }
 
@@ -294,7 +294,7 @@ export default function PresetsSection({
         p.name.toLowerCase() === trimmed.toLowerCase(),
     );
     if (duplicate) {
-      setRenameError("A preset with this name already exists");
+      setRenameError("같은 이름의 프리셋이 이미 있습니다.");
       return;
     }
 
@@ -329,18 +329,18 @@ export default function PresetsSection({
   };
 
   return (
-    <SettingsCard title="Presets" description="Save and load presets.">
+    <SettingsCard title="프리셋" description="프리셋을 저장하고 불러옵니다.">
       <div className="settings-row settings-row--stacked">
         <div className="settings-label-group">
-          <span className="settings-label">Presets</span>
+          <span className="settings-label">프리셋</span>
           <span className="settings-sublabel">
-            Save and restore to quickly switch configurations.
+            설정을 저장하고 복원해 빠르게 전환합니다.
           </span>
         </div>
         <div className="preset-compose">
           <input
             className="preset-name-input"
-            placeholder="Preset name"
+            placeholder="프리셋 이름"
             value={newPresetName}
             maxLength={PRESET_NAME_MAX_LENGTH}
             onChange={(event) => setNewPresetName(event.target.value)}
@@ -363,7 +363,7 @@ export default function PresetsSection({
             onClick={handleSavePreset}
             disabled={running || newPresetName.trim().length === 0}
           >
-            Save
+            저장
           </button>
         </div>
         <div className="preset-toolbar">
@@ -386,17 +386,16 @@ export default function PresetsSection({
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            Import
+            가져오기
           </button>
           {settings.presets.length > 0 && (
             <span className="preset-count">
-              {settings.presets.length} preset
-              {settings.presets.length !== 1 ? "s" : ""}
+              프리셋 {settings.presets.length}개
             </span>
           )}
         </div>
         {running && (
-          <span className="settings-note">Disabled while clicking</span>
+          <span className="settings-note">클릭 중에는 사용할 수 없습니다.</span>
         )}
         {settings.presets.length > 0 ? (
           <div className="preset-list-shell">
@@ -454,7 +453,7 @@ export default function PresetsSection({
             />
           </div>
         ) : (
-          <div className="stats-empty">No saved presets.</div>
+          <div className="stats-empty">저장된 프리셋이 없습니다.</div>
         )}
       </div>
     </SettingsCard>

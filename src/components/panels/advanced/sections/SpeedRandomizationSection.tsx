@@ -57,7 +57,7 @@ export default function SpeedRandomizationSection({ settings, update }: Props) {
               />
             </svg>
           </span>
-          <span className="adv-card-title">Speed Randomization</span>
+          <span className="adv-card-title">속도 무작위화</span>
         </div>
         <ToggleBtn
           value={settings.speedRandomizationEnabled}
@@ -67,10 +67,10 @@ export default function SpeedRandomizationSection({ settings, update }: Props) {
       <CardDivider />
       <Disableable
         enabled={settings.speedRandomizationEnabled}
-        disabledReason="Enable Speed Randomization to edit how much the app randomizes your click timing."
+        disabledReason="속도 무작위화를 켜면 클릭 타이밍의 무작위화 정도를 편집할 수 있습니다."
       >
         <div className="adv-card-desc">
-          Randomizes your click speed by the given percentage.
+          지정한 비율만큼 클릭 속도를 무작위로 변경합니다.
         </div>
         <div className="adv-row" style={{ gap: 8, justifyContent: "flex-end" }}>
           <div className="adv-numbox-sm">

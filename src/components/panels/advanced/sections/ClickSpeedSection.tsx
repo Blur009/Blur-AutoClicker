@@ -40,14 +40,14 @@ export default function ClickSpeedSection({ settings, update }: Props) {
       const intervalMs =
         getIntervalMilliseconds(settings.clickInterval) / settings.clickSpeed;
       if (!Number.isFinite(intervalMs) || intervalMs <= 0) return null;
-      return `${formatIntervalMs(intervalMs)} Interval`;
+    return `${formatIntervalMs(intervalMs)} 간격`;
     }
     const converted = convertDurationToRate(settings);
     if (!converted) return null;
     const unitLabel =
       INTERVAL_OPTIONS.find((o) => o.value === converted.clickInterval)
-        ?.label || "Second";
-    return `${converted.clickSpeed} clicks per ${unitLabel.toLowerCase()}`;
+        ?.label || "초";
+    return `${converted.clickSpeed} 클릭/${unitLabel}`;
   })();
 
   return (
@@ -71,7 +71,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
               <path d="M7 2v11h3v9l7-12h-4l4-8z" />
             </svg>
           </span>
-          <span className="adv-card-title">Click Speed</span>
+          <span className="adv-card-title">클릭 속도</span>
         </div>
         <div className="adv-seg-group">
           {SIMPLE_RATE_INPUT_MODE_OPTIONS.map(({ value, label }) => (
@@ -88,11 +88,11 @@ export default function ClickSpeedSection({ settings, update }: Props) {
       </div>
       <Disableable
         enabled={settings.dutyCycleMode !== "Hold"}
-        disabledReason="Click speed is disabled in Hold mode"
+        disabledReason="누르기 모드에서는 클릭 속도를 사용할 수 없습니다."
       >
         <CardDivider />
         <div className="adv-card-desc">
-          Changes how fast the autoclicker clicks.
+          자동 클릭기의 클릭 속도를 조절합니다.
         </div>
         <div className="adv-cadence-block">
           <div className="adv-row adv-cadence-main-row">
@@ -141,7 +141,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                     />
                   </div>
                   <div className="adv-vdivider" />
-                  <span className="adv-unf">Clicks Per</span>
+                  <span className="adv-unf">클릭/</span>
                   <div className="adv-vdivider" />
                   <div className="adv-foc adv-foc-grow">
                     <AdvDropdown
@@ -189,7 +189,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                         )
                       }
                     />
-                    <span className="adv-unit">h</span>
+                    <span className="adv-unit">시간</span>
                   </div>
                   <div className="adv-vdivider" />
                   <div className="adv-foc">
@@ -226,7 +226,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                         )
                       }
                     />
-                    <span className="adv-unit">m</span>
+                    <span className="adv-unit">분</span>
                   </div>
                   <div className="adv-vdivider" />
                   <div className="adv-foc">
@@ -263,7 +263,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                         )
                       }
                     />
-                    <span className="adv-unit">s</span>
+                    <span className="adv-unit">초</span>
                   </div>
                   <div className="adv-vdivider" />
                   <div className="adv-foc">

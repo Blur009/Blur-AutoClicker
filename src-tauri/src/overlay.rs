@@ -44,7 +44,7 @@ pub fn init_overlay(app: &AppHandle) -> AppResult<()> {
                 "overlay",
                 tauri::WebviewUrl::App("overlay.html".into()),
             )
-            .title("Overlay")
+            .title("오버레이")
             .transparent(true)
             .decorations(false)
             .always_on_top(true)

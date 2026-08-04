@@ -50,45 +50,45 @@ export default function MaintenanceSection({ onReset }: Props) {
   return (
     <>
       <SettingsCard
-        title="Reset"
-        description="Reset all settings or usage data."
+        title="초기화"
+        description="모든 설정 또는 사용량 데이터를 초기화합니다."
       >
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Reset All Settings</span>
+            <span className="settings-label">모든 설정 초기화</span>
             <span className="settings-sublabel">
-              Reset all settings to their defaults.
+              모든 설정을 기본값으로 되돌립니다.
             </span>
           </div>
           <button
             className="settings-btn-danger"
             onClick={() => setPendingAction("reset-settings")}
           >
-            Reset
+            초기화
           </button>
         </div>
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Reset Usage Data</span>
+            <span className="settings-label">사용량 데이터 초기화</span>
             <span className="settings-sublabel">
-              Clear all session statistics and usage history.
+              모든 세션 통계와 사용 기록을 삭제합니다.
             </span>
           </div>
           <button
             className="settings-btn-danger"
             onClick={() => setPendingAction("reset-usage")}
           >
-            Reset
+            초기화
           </button>
         </div>
       </SettingsCard>
 
-      <SettingsCard title="Diagnostics" description="Your logs & crash reports">
+      <SettingsCard title="진단" description="로그 및 충돌 보고서입니다.">
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Diagnostics</span>
+            <span className="settings-label">진단</span>
             <span className="settings-sublabel">
-              View or export your diagnostics.
+              진단 정보를 확인하거나 내보냅니다.
             </span>
           </div>
           <div className="settings-row-actions">
@@ -107,7 +107,7 @@ export default function MaintenanceSection({ onReset }: Props) {
                 }
               }}
             >
-              Open Folder
+              폴더 열기
             </button>
             <button
               className="settings-btn-secondary"
@@ -119,9 +119,9 @@ export default function MaintenanceSection({ onReset }: Props) {
                   const path: string = await invoke(
                     "export_diagnostics_bundle",
                   );
-                  setDiagnosticsStatus(`Exported to ${path}`);
+                  setDiagnosticsStatus(`다음 경로로 내보냈습니다: ${path}`);
                 } catch (err) {
-                  setDiagnosticsStatus("Export failed");
+                  setDiagnosticsStatus("내보내기에 실패했습니다.");
                   error(
                     JSON.stringify({
                       source: "SettingsPanel.exportDiagnostics",
@@ -133,7 +133,7 @@ export default function MaintenanceSection({ onReset }: Props) {
                 }
               }}
             >
-              {exporting ? "Exporting..." : "Export"}
+              {exporting ? "내보내는 중..." : "내보내기"}
             </button>
           </div>
         </div>
@@ -144,18 +144,18 @@ export default function MaintenanceSection({ onReset }: Props) {
 
       <ConfirmDialog
         open={pendingAction === "reset-settings"}
-        title="Reset all settings"
-        message="This will reset all settings to their default values. This action cannot be undone."
-        confirmLabel="Reset"
+        title="모든 설정을 초기화할까요?"
+        message="모든 설정을 기본값으로 되돌립니다. 이 작업은 취소할 수 없습니다."
+        confirmLabel="초기화"
         busy={busy}
         onConfirm={handleConfirmResetSettings}
         onCancel={() => setPendingAction(null)}
       />
       <ConfirmDialog
         open={pendingAction === "reset-usage"}
-        title="Reset usage data"
-        message="This will clear all session statistics and usage history. This action cannot be undone."
-        confirmLabel="Reset"
+        title="사용량 데이터를 초기화할까요?"
+        message="모든 세션 통계와 사용 기록을 삭제합니다. 이 작업은 취소할 수 없습니다."
+        confirmLabel="초기화"
         busy={busy}
         onConfirm={handleConfirmResetUsage}
         onCancel={() => setPendingAction(null)}

@@ -109,7 +109,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
             value={draftCps ?? settings.clickSpeed}
             min={1}
             max={maxClickSpeed}
-            aria-label="Clicks Per"
+            aria-label="초당 클릭 수"
             onChange={(event) => {
               const raw = event.target.value;
               if (raw === "") {
@@ -142,7 +142,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
             }
           />
           <div className="vertical-devider vertical-devider--stretch" />
-          <span className="simple-control-label">Clicks Per</span>
+          <span className="simple-control-label">클릭/</span>
           <div className="vertical-devider vertical-devider--stretch" />
           <AdvDropdown
             value={settings.clickInterval}
@@ -195,7 +195,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
                 width: dynamicChWidth(settings.durationHours, 1, 3),
                 minWidth: "1ch",
               }}
-              unit="h"
+              unit="시간"
             />
             <DurationField
               className="simple-duration-chip"
@@ -229,7 +229,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
                 width: dynamicChWidth(settings.durationMinutes, 1, 2),
                 minWidth: "1ch",
               }}
-              unit="m"
+              unit="분"
             />
             <DurationField
               className="simple-duration-chip"
@@ -263,7 +263,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
                 width: dynamicChWidth(settings.durationSeconds, 1, 2),
                 minWidth: "1ch",
               }}
-              unit="s"
+              unit="초"
             />
             <DurationField
               className="simple-duration-chip"
@@ -301,7 +301,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
             />
           </div>
           <div className="vertical-devider vertical-devider--stretch" />
-          <span className="simple-control-label">Per Click</span>
+          <span className="simple-control-label">클릭 간격</span>
           <div className="vertical-devider vertical-devider--stretch" />
           <AdvDropdown
             value={settings.rateInputMode}

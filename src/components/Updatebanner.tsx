@@ -23,37 +23,37 @@ export default function UpdateBanner({
   const handleUpdate = async () => {
     try {
       setStage("installing");
-      setStatusText("Preparing update...");
+      setStatusText("업데이트 준비 중...");
 
       const update = await check();
       if (!update) {
         setStage("ready");
-        setStatusText("Update is no longer available.");
+        setStatusText("업데이트를 더 이상 사용할 수 없습니다.");
         return;
       }
 
       await update.downloadAndInstall((event) => {
         switch (event.event) {
           case "Started":
-            setStatusText("Downloading update...");
+            setStatusText("업데이트 다운로드 중...");
             break;
           case "Progress":
-            setStatusText("Installing update...");
+            setStatusText("업데이트 설치 중...");
             break;
           case "Finished":
-            setStatusText("Update installed. Restart to apply it.");
+            setStatusText("업데이트 설치 완료. 적용하려면 다시 시작하세요.");
             break;
         }
       });
 
       setStage("restart-required");
-      setStatusText("Update installed. Restart to apply it.");
+      setStatusText("업데이트 설치 완료. 적용하려면 다시 시작하세요.");
     } catch (err) {
       error(
         JSON.stringify({ source: "Updatebanner.install", error: String(err) }),
       );
       setStage("error");
-      setStatusText("Update install failed.");
+      setStatusText("업데이트 설치에 실패했습니다.");
     }
   };
 
@@ -65,23 +65,23 @@ export default function UpdateBanner({
         JSON.stringify({ source: "Updatebanner.relaunch", error: String(err) }),
       );
       setStage("error");
-      setStatusText("Restart failed. Please reopen the app manually.");
+      setStatusText("다시 시작하지 못했습니다. 앱을 수동으로 다시 열어 주세요.");
     }
   };
 
   const installDisabledReason =
     stage === "installing"
-      ? statusText === "Installing update..."
-        ? "The update is already installing. Wait for it to finish before trying again."
-        : statusText === "Downloading update..."
-          ? "The update is already downloading. Wait for the current install to finish."
-          : "The update is already being prepared. Wait for it to finish before trying again."
+      ? statusText === "업데이트 설치 중..."
+        ? "업데이트를 설치하고 있습니다. 완료될 때까지 기다려 주세요."
+        : statusText === "업데이트 다운로드 중..."
+          ? "업데이트를 다운로드하고 있습니다. 현재 설치가 끝날 때까지 기다려 주세요."
+          : "업데이트를 준비하고 있습니다. 완료될 때까지 기다려 주세요."
       : undefined;
 
   return (
     <div className="update-banner">
       <span className="update-banner-text-old-version">v{currentVersion}</span>
-      <span className="update-banner-text">to</span>
+      <span className="update-banner-text">→</span>
       {/* does not need v for version, gets it from gitHub ↓  */}
       <span className="update-banner-text-new-version">{latestVersion}</span>
       {statusText && (
@@ -91,7 +91,7 @@ export default function UpdateBanner({
       )}
       {stage === "restart-required" ? (
         <button className="update-banner-btn" onClick={handleRestart}>
-          Restart to Apply Update
+          다시 시작하여 업데이트 적용
         </button>
       ) : (
         <UnavailableReason reason={installDisabledReason}>
@@ -100,7 +100,7 @@ export default function UpdateBanner({
             onClick={handleUpdate}
             disabled={stage === "installing"}
           >
-            {stage === "installing" ? "Installing..." : "Download and Install"}
+            {stage === "installing" ? "설치 중..." : "다운로드 및 설치"}
           </button>
         </UnavailableReason>
       )}

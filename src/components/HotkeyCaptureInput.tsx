@@ -247,7 +247,7 @@ const HotkeyCaptureInput = forwardRef<HotkeyCaptureInputHandle, Props>(
     }, [listening]);
 
     const displayText = useMemo(() => {
-      if (listening) return "Press keys\u2026";
+      if (listening) return "키를 누르세요…";
 
       return value
         ? formatHotkeyForDisplay(value, layoutMap, defaultHotkeyLabels)
@@ -260,11 +260,11 @@ const HotkeyCaptureInput = forwardRef<HotkeyCaptureInputHandle, Props>(
     const tooltipText = listening
       ? undefined
       : hasConflict
-        ? `Already bound to: ${conflicts!.join(", ")}`
+        ? `이미 다음에 할당됨: ${conflicts!.join(", ")}`
         : reserved
-          ? "This hotkey may conflict with system shortcuts"
+          ? "이 단축키는 시스템 바로 가기와 충돌할 수 있습니다."
           : value
-            ? "Hotkey works even when Blur is minimized"
+            ? "Blur가 최소화되어도 단축키가 작동합니다."
             : undefined;
 
     return (
@@ -308,7 +308,7 @@ const HotkeyCaptureInput = forwardRef<HotkeyCaptureInputHandle, Props>(
               e.stopPropagation();
               onChange("");
             }}
-            title="Clear hotkey"
+            title="단축키 지우기"
           >
             ×
           </button>

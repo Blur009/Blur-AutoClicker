@@ -9,7 +9,7 @@ export interface ChangelogEntry {
   sections: ChangelogSection[];
 }
 
-import raw from "../CHANGELOG.md?raw";
+import raw from "../CHANGELOG.ko.md?raw";
 
 function parseChangelog(raw: string): ChangelogEntry[] {
   const entries: ChangelogEntry[] = [];

@@ -27,9 +27,9 @@ describe("ErrorBoundary", () => {
         <BrokenComponent />
       </ErrorBoundary>,
     );
-    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.getByText("문제가 발생했습니다")).toBeInTheDocument();
     expect(screen.getByText("Kaboom")).toBeInTheDocument();
-    expect(screen.getByText("Try again")).toBeInTheDocument();
+    expect(screen.getByText("다시 시도")).toBeInTheDocument();
   });
 
   it("resets and re-renders children after Try again is clicked", () => {
@@ -45,10 +45,10 @@ describe("ErrorBoundary", () => {
       </ErrorBoundary>,
     );
 
-    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.getByText("문제가 발생했습니다")).toBeInTheDocument();
 
     shouldThrow = false;
-    fireEvent.click(screen.getByText("Try again"));
+    fireEvent.click(screen.getByText("다시 시도"));
 
     expect(screen.getByText("Recovered")).toBeInTheDocument();
   });
@@ -75,12 +75,12 @@ describe("ErrorBoundary", () => {
       </ErrorBoundary>,
     );
 
-    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.getByText("문제가 발생했습니다")).toBeInTheDocument();
     expect(increment).toBeGreaterThanOrEqual(1);
 
-    fireEvent.click(screen.getByText("Try again"));
+    fireEvent.click(screen.getByText("다시 시도"));
 
-    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.getByText("문제가 발생했습니다")).toBeInTheDocument();
     expect(increment).toBeGreaterThanOrEqual(2);
   });
 });

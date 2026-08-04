@@ -50,7 +50,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             color: "var(--text-primary)",
           }}
         >
-          <h2>Something went wrong</h2>
+          <h2>문제가 발생했습니다</h2>
           <p
             style={{
               color: "var(--text-dim)",
@@ -75,7 +75,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                 font: "inherit",
               }}
             >
-              Try again
+              다시 시도
             </button>
             <button
               onClick={this.handleQuit}
@@ -89,7 +89,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                 font: "inherit",
               }}
             >
-              Quit
+              종료
             </button>
           </div>
         </div>

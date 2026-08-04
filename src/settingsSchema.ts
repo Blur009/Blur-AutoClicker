@@ -41,10 +41,10 @@ export const DEFAULT_MAX_CLICK_SPEED = 500;
 export const EXTENDED_MAX_CLICK_SPEED = 1000;
 
 export const CLICK_INTERVAL_OPTIONS = [
-  { value: "s", label: "Second" },
-  { value: "m", label: "Minute" },
-  { value: "h", label: "Hour" },
-  { value: "d", label: "Day" },
+  { value: "s", label: "초" },
+  { value: "m", label: "분" },
+  { value: "h", label: "시간" },
+  { value: "d", label: "일" },
 ] as const satisfies ReadonlyArray<{ value: ClickInterval; label: string }>;
 
 export const MODE_OPTIONS = [
@@ -642,7 +642,7 @@ export type Settings = PresetFieldValues &
 export const FACTORY_PRESETS: PresetDefinition[] = [
   {
     id: "factory-standard",
-    name: "Standard Clicking",
+    name: "표준 클릭",
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2025-01-01T00:00:00.000Z",
     settings: {
@@ -686,7 +686,7 @@ export const FACTORY_PRESETS: PresetDefinition[] = [
   },
   {
     id: "factory-rapid",
-    name: "Rapid Fire",
+    name: "연속 클릭",
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2025-01-01T00:00:00.000Z",
     settings: {
@@ -730,7 +730,7 @@ export const FACTORY_PRESETS: PresetDefinition[] = [
   },
   {
     id: "factory-precision",
-    name: "Precision Mode",
+    name: "정밀 모드",
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2025-01-01T00:00:00.000Z",
     settings: {
@@ -864,6 +864,16 @@ export function sanitizePresetName(value: unknown): string {
   }
 
   return value.trim().slice(0, PRESET_NAME_MAX_LENGTH);
+}
+
+const LEGACY_PRESET_NAME_TRANSLATIONS: Record<string, string> = {
+  "standard clicking": "표준 클릭",
+  "rapid fire": "연속 클릭",
+  "precision mode": "정밀 모드",
+};
+
+function translateLegacyPresetName(name: string): string {
+  return LEGACY_PRESET_NAME_TRANSLATIONS[name.toLowerCase()] ?? name;
 }
 
 function sanitizeEnum<T extends string>(
@@ -1101,19 +1111,32 @@ export function createPresetDefinition(
 export function getPresetSummary(snapshot: PresetSnapshot): string {
   const parts: string[] = [];
 
-  const speedStr = `${snapshot.clickSpeed}/${snapshot.clickInterval}`;
+  const intervalLabels: Record<ClickInterval, string> = {
+    s: "초",
+    m: "분",
+    h: "시간",
+    d: "일",
+  };
+  const mouseButtonLabels: Record<MouseButton, string> = {
+    Left: "마우스 왼쪽",
+    Middle: "마우스 가운데",
+    Right: "마우스 오른쪽",
+  };
+  const speedStr = `${snapshot.clickSpeed}/${intervalLabels[snapshot.clickInterval]}`;
   const inputStr =
     snapshot.inputType === "keyboard" && snapshot.keyboardKey
       ? `${snapshot.keyboardKey}`
-      : snapshot.mouseButton;
+      : mouseButtonLabels[snapshot.mouseButton];
   parts.push(`${speedStr}  ${inputStr}`);
 
   if (snapshot.clickLimitEnabled)
-    parts.push(`Limit:${snapshot.clickLimit.toLocaleString()}`);
+    parts.push(`제한:${snapshot.clickLimit.toLocaleString()}`);
   if (snapshot.timeLimitEnabled)
-    parts.push(`Time:${snapshot.timeLimit}${snapshot.timeLimitUnit}`);
+    parts.push(
+      `시간:${snapshot.timeLimit}${snapshot.timeLimitUnit === "s" ? "초" : snapshot.timeLimitUnit === "m" ? "분" : "시간"}`,
+    );
   if (snapshot.clickPoints.length > 0)
-    parts.push(`${snapshot.clickPoints.length} pts`);
+    parts.push(`${snapshot.clickPoints.length}개 지점`);
 
   return parts.join(" | ");
 }
@@ -1186,7 +1209,11 @@ function sanitizePresets(
       }
 
       const saved = preset as Partial<PresetDefinition>;
-      const name = sanitizePresetName(saved.name);
+      const id =
+        typeof saved.id === "string" && saved.id.trim()
+          ? saved.id.trim()
+          : createFallbackPresetId(index);
+      const name = translateLegacyPresetName(sanitizePresetName(saved.name));
       if (!name) {
         return null;
       }
@@ -1194,10 +1221,7 @@ function sanitizePresets(
       const now = new Date().toISOString();
 
       return {
-        id:
-          typeof saved.id === "string" && saved.id.trim()
-            ? saved.id.trim()
-            : createFallbackPresetId(index),
+        id,
         name,
         createdAt:
           typeof saved.createdAt === "string" && saved.createdAt

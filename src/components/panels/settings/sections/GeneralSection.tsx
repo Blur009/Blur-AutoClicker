@@ -14,22 +14,22 @@ interface CumulativeStats {
 }
 
 function formatTime(totalSeconds: number, language: string): string {
-  if (totalSeconds < 0.01) return "0s";
+  if (totalSeconds < 0.01) return "0초";
   if (totalSeconds < 60) {
-    return `${Math.floor(totalSeconds).toLocaleString(language)}s`;
+    return `${Math.floor(totalSeconds).toLocaleString(language)}초`;
   }
   if (totalSeconds < 3600) {
     const m = Math.floor(totalSeconds / 60);
     const s = Math.floor(totalSeconds % 60);
     return s > 0
-      ? `${m.toLocaleString(language)}m ${s.toLocaleString(language)}s`
-      : `${m.toLocaleString(language)}m`;
+      ? `${m.toLocaleString(language)}분 ${s.toLocaleString(language)}초`
+      : `${m.toLocaleString(language)}분`;
   }
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   return m > 0
-    ? `${h.toLocaleString(language)}h ${m.toLocaleString(language)}m`
-    : `${h.toLocaleString(language)}h`;
+    ? `${h.toLocaleString(language)}시간 ${m.toLocaleString(language)}분`
+    : `${h.toLocaleString(language)}시간`;
 }
 
 function formatNumber(n: number, language: string): string {
@@ -66,7 +66,7 @@ export default function GeneralSection({
 }: Props) {
   const [stats, setStats] = useState<CumulativeStats | null>(null);
   const [showChangelog, setShowChangelog] = useState(false);
-  const language = "en";
+  const language = "ko-KR";
 
   useEffect(() => {
     invoke<CumulativeStats>("get_stats")
@@ -77,18 +77,18 @@ export default function GeneralSection({
   const hasStats = stats !== null && stats.totalSessions > 0;
 
   const updateButtonLabel = {
-    idle: "Check for Update",
-    checking: "Checking...",
-    available: "Update found!",
-    unavailable: "No update found",
-    error: "Check failed",
+    idle: "업데이트 확인",
+    checking: "확인 중...",
+    available: "업데이트 있음!",
+    unavailable: "최신 상태",
+    error: "확인 실패",
   }[updateCheckStatus];
 
   return (
     <>
-      <SettingsCard title="About" description="Version and project links.">
+      <SettingsCard title="정보" description="버전 및 프로젝트 링크입니다.">
         <div className="social-links">
-          <span className="settings-label">Support Me</span>
+          <span className="settings-label">개발자 후원</span>
           <div className="social-icons">
             <a
               className="social-icon social-icon--kofi"
@@ -103,7 +103,7 @@ export default function GeneralSection({
                 height="28"
                 style={{ border: 0, height: "28px" }}
                 src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
-                alt="Buy Me a Coffee at ko-fi.com"
+                alt="ko-fi에서 커피 한 잔 후원하기"
               />
             </a>
             <a
@@ -164,7 +164,7 @@ export default function GeneralSection({
         </div>
         <div className="settings-row">
           <div className="settings-label-group settings-label-group--inline">
-            <span className="settings-label">Version</span>
+            <span className="settings-label">버전</span>
             <span className="settings-value">v{appInfo.version}</span>
           </div>
           <div className="settings-row-actions">
@@ -187,7 +187,7 @@ export default function GeneralSection({
                   strokeLinejoin="round"
                 />
               </svg>
-              {showChangelog ? "Hide Changes" : "Show Changes"}
+              {showChangelog ? "변경 내역 숨기기" : "변경 내역 보기"}
             </button>
             <button
               className="settings-btn-secondary check-update-btn"
@@ -202,38 +202,38 @@ export default function GeneralSection({
       </SettingsCard>
 
       <SettingsCard
-        title="Usage"
-        description="Clicking statistics for all sessions (only stored locally)."
+        title="사용량"
+        description="모든 세션의 클릭 통계입니다(로컬에만 저장됨)."
       >
         {hasStats ? (
           <div className="stats-grid">
             <div className="stats-cell">
-              <span className="stats-cell-label">Total Clicks</span>
+              <span className="stats-cell-label">총 클릭 수</span>
               <span className="stats-cell-value">
                 {formatNumber(stats.totalClicks, language)}
               </span>
             </div>
             <div className="stats-cell">
-              <span className="stats-cell-label">Total Clicking Time</span>
+              <span className="stats-cell-label">총 클릭 시간</span>
               <span className="stats-cell-value">
                 {formatTime(stats.totalTimeSecs, language)}
               </span>
             </div>
             <div className="stats-cell">
-              <span className="stats-cell-label">Average CPU Usage</span>
+              <span className="stats-cell-label">평균 CPU 사용량</span>
               <span className="stats-cell-value">
-                {formatCpu(stats.avgCpu, language, "N/A")}
+                {formatCpu(stats.avgCpu, language, "없음")}
               </span>
             </div>
             <div className="stats-cell">
-              <span className="stats-cell-label">Clicking Sessions</span>
+              <span className="stats-cell-label">클릭 세션 수</span>
               <span className="stats-cell-value">
                 {formatNumber(stats.totalSessions, language)}
               </span>
             </div>
           </div>
         ) : (
-          <div className="stats-empty">No session data yet.</div>
+          <div className="stats-empty">아직 세션 데이터가 없습니다.</div>
         )}
       </SettingsCard>
     </>

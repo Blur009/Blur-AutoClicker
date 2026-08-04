@@ -19,21 +19,25 @@ interface Props {
 }
 
 const STOP_REASON_TEXTS: Record<string, string> = {
-  "Stopped from UI": "Stopped from UI",
-  "Stopped from toggle": "Stopped from toggle",
-  "Stopped from hotkey": "Stopped from hotkey",
-  "Stopped from hold hotkey": "Stopped from hold hotkey",
-  Stopped: "Stopped",
-  "Top-left corner failsafe": "Top-left corner failsafe",
-  "Top-right corner failsafe": "Top-right corner failsafe",
-  "Bottom-left corner failsafe": "Bottom-left corner failsafe",
-  "Bottom-right corner failsafe": "Bottom-right corner failsafe",
-  "Top edge failsafe": "Top edge failsafe",
-  "Right edge failsafe": "Right edge failsafe",
-  "Bottom edge failsafe": "Bottom edge failsafe",
-  "Left edge failsafe": "Left edge failsafe",
-  "Blocked by Alt+Tab": "Blocked by Alt+Tab",
-  "Blocked by process list": "Blocked by process list",
+  "Stopped from UI": "사용자 인터페이스에서 중지됨",
+  "Stopped from toggle": "전환으로 중지됨",
+  "Stopped from hotkey": "단축키로 중지됨",
+  "Stopped from hold hotkey": "누르기 단축키로 중지됨",
+  "Stopped for hotkey input": "단축키 입력을 위해 중지됨",
+  Stopped: "중지됨",
+  "Top-left corner failsafe": "왼쪽 위 모서리 안전장치",
+  "Top-right corner failsafe": "오른쪽 위 모서리 안전장치",
+  "Bottom-left corner failsafe": "왼쪽 아래 모서리 안전장치",
+  "Bottom-right corner failsafe": "오른쪽 아래 모서리 안전장치",
+  "Top edge failsafe": "위쪽 가장자리 안전장치",
+  "Right edge failsafe": "오른쪽 가장자리 안전장치",
+  "Bottom edge failsafe": "아래쪽 가장자리 안전장치",
+  "Left edge failsafe": "왼쪽 가장자리 안전장치",
+  "Blocked by Alt+Tab": "Alt+Tab으로 차단됨",
+  "Blocked by process list": "프로세스 목록으로 차단됨",
+  "All click points completed": "모든 클릭 지점 완료",
+  "Custom stop zone failsafe": "사용자 지정 영역 안전장치",
+  "Left start zone": "시작 영역에서 나감",
 };
 
 function translateStopReason(stopReason: string | null | undefined): string {
@@ -43,12 +47,12 @@ function translateStopReason(stopReason: string | null | undefined): string {
 
   const clickLimit = stopReason.match(/^Click limit reached \((.+)\)$/);
   if (clickLimit) {
-    return `Click limit reached (${clickLimit[1]})`;
+    return `클릭 제한 도달 (${clickLimit[1]})`;
   }
 
   const timeLimit = stopReason.match(/^Time limit reached \((.+)\)$/);
   if (timeLimit) {
-    return `Time limit reached (${timeLimit[1]})`;
+    return `시간 제한 도달 (${timeLimit[1]})`;
   }
 
   return stopReason;
@@ -126,17 +130,17 @@ export default function StatusBar({
   let hasWarning = false;
 
   if (warning) {
-    centerText = `⚠ ${warning}`;
+    centerText = `⚠ ${translateWarning(warning)}`;
     hasWarning = true;
   } else if (running) {
     const parts: string[] = [];
 
     if (paused) {
-      parts.push("Paused");
+      parts.push("일시 정지");
     }
 
     if (totalClickPoints > 1 && activeClickPointIndex !== null) {
-      parts.push(`Pt ${activeClickPointIndex + 1}/${totalClickPoints}`);
+      parts.push(`지점 ${activeClickPointIndex + 1}/${totalClickPoints}`);
     }
 
     const elapsed = formatElapsed(elapsedMs);
@@ -147,9 +151,9 @@ export default function StatusBar({
     }
 
     if (clickLimitEnabled && clickLimit > 0) {
-      parts.push(`${clickCount} / ${clickLimit} clicks`);
+      parts.push(`${clickCount} / ${clickLimit}클릭`);
     } else if (clickCount > 0) {
-      parts.push(`${clickCount} clicks`);
+      parts.push(`${clickCount}클릭`);
     }
 
     if (paused && stopReason) {
@@ -169,7 +173,7 @@ export default function StatusBar({
           <button
             className="status-bar-preset-btn"
             onClick={onGoToPresets}
-            title="Go to presets"
+            title="프리셋으로 이동"
           >
             <svg
               width="12"
@@ -186,9 +190,9 @@ export default function StatusBar({
           <button
             className="status-bar-hint-btn"
             onClick={onGoToPresets}
-            title="Go to presets"
+            title="프리셋으로 이동"
           >
-            No preset active
+            활성 프리셋 없음
           </button>
         )}
       </div>
@@ -201,11 +205,20 @@ export default function StatusBar({
         <button
           className="status-bar-version-btn"
           onClick={onGoToVersionInfo}
-          title="Info"
+          title="정보"
         >
           v{version}
         </button>
       </div>
     </div>
   );
+}
+function translateWarning(warning: string | null): string {
+  if (!warning) return "";
+  const warnings: Record<string, string> = {
+    "Whitelist mode has no entries selected":
+      "허용 목록 모드에 선택된 앱이 없습니다.",
+    "Finish setting hotkey first": "먼저 단축키 설정을 완료하세요.",
+  };
+  return warnings[warning] ?? warning;
 }

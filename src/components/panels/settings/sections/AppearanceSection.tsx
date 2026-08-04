@@ -7,17 +7,17 @@ import { SettingsCard } from "./shared";
 
 const IMAGE_FILTERS = [
   {
-    name: "Images",
+    name: "이미지",
     extensions: ["png", "jpg", "jpeg", "gif", "bmp", "webp"],
   },
 ];
 
 const PAGES = [
-  { suffix: "Simple", label: "Simple Page" },
-  { suffix: "Advanced", label: "Advanced Page" },
-  { suffix: "Zones", label: "Zones Page" },
-  { suffix: "ClickPoints", label: "Click Points Page" },
-  { suffix: "Settings", label: "Settings Page" },
+  { suffix: "Simple", label: "간단 페이지" },
+  { suffix: "Advanced", label: "고급 페이지" },
+  { suffix: "Zones", label: "영역 페이지" },
+  { suffix: "ClickPoints", label: "클릭 지점 페이지" },
+  { suffix: "Settings", label: "설정 페이지" },
 ] as const;
 
 interface Props {
@@ -66,9 +66,9 @@ function PageAppearanceControls({
     <>
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Background Image</span>
+          <span className="settings-label">배경 이미지</span>
           <span className="settings-sublabel">
-            Path or URL to a background image.
+            배경 이미지의 경로 또는 URL입니다.
           </span>
         </div>
         <div className="settings-bg-image-row">
@@ -81,14 +81,14 @@ function PageAppearanceControls({
           />
           <div className="settings-bg-buttons">
             <button className="settings-btn-secondary" onClick={handleBrowse}>
-              Browse
+              찾아보기
             </button>
             <button
               className="settings-btn-danger settings-btn-danger--compact"
               onClick={() => update({ [bgImageKey]: "" })}
               disabled={!bgImage}
             >
-              Remove
+              제거
             </button>
           </div>
         </div>
@@ -96,9 +96,9 @@ function PageAppearanceControls({
 
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Background Opacity</span>
+          <span className="settings-label">배경 불투명도</span>
           <span className="settings-sublabel">
-            Transparency of the app window background.
+            앱 창 배경의 투명도입니다.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -118,9 +118,9 @@ function PageAppearanceControls({
 
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Background Image Opacity</span>
+          <span className="settings-label">배경 이미지 불투명도</span>
           <span className="settings-sublabel">
-            Transparency of the background image.
+            배경 이미지의 투명도입니다.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -139,8 +139,8 @@ function PageAppearanceControls({
 
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Panel Opacity</span>
-          <span className="settings-sublabel">Transparency of the panel.</span>
+          <span className="settings-label">패널 불투명도</span>
+          <span className="settings-sublabel">패널의 투명도입니다.</span>
         </div>
         <div className="settings-opacity-controls">
           <input
@@ -159,9 +159,9 @@ function PageAppearanceControls({
 
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Panel Blur</span>
+          <span className="settings-label">패널 흐림 효과</span>
           <span className="settings-sublabel">
-            Blur effect behind the panel.
+            패널 뒤에 흐림 효과를 적용합니다.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -188,12 +188,12 @@ export default function AppearanceSection({ settings, update }: Props) {
   };
 
   const themeAccent = (
-    <SettingsCard title="Theme & Accent" description="Applied to all pages.">
+    <SettingsCard title="테마 및 강조 색상" description="모든 페이지에 적용됩니다.">
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Theme</span>
+          <span className="settings-label">테마</span>
           <span className="settings-sublabel">
-            Choose between dark and light mode.
+            어두운 모드와 밝은 모드 중 선택합니다.
           </span>
         </div>
         <div className="settings-seg-group">
@@ -203,15 +203,15 @@ export default function AppearanceSection({ settings, update }: Props) {
               className={`settings-seg-btn ${settings.theme === theme ? "active" : ""}`}
               onClick={() => update({ theme })}
             >
-              {theme === "dark" ? "Dark" : "Light"}
+              {theme === "dark" ? "어두운 모드" : "밝은 모드"}
             </button>
           ))}
         </div>
       </div>
       <div className="settings-row">
         <div className="settings-label-group">
-          <span className="settings-label">Accent Color</span>
-          <span className="settings-sublabel">The primary accent color.</span>
+          <span className="settings-label">강조 색상</span>
+          <span className="settings-sublabel">기본 강조 색상입니다.</span>
         </div>
         <div className="settings-color-controls">
           <label className="settings-color-picker">
@@ -229,7 +229,7 @@ export default function AppearanceSection({ settings, update }: Props) {
             onClick={() => update({ accentColor: DEFAULT_ACCENT_COLOR })}
             disabled={settings.accentColor === DEFAULT_ACCENT_COLOR}
           >
-            Reset
+            초기화
           </button>
         </div>
       </div>
@@ -241,32 +241,32 @@ export default function AppearanceSection({ settings, update }: Props) {
       {themeAccent}
 
       <SettingsCard
-        title="Appearance Mode"
-        description="Use one style for all pages, or customize each page individually."
+        title="모양 적용 방식"
+        description="모든 페이지에 하나의 스타일을 사용하거나 페이지별로 설정합니다."
       >
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Mode</span>
+            <span className="settings-label">방식</span>
           </div>
           <div className="settings-seg-group">
             <button
               className={`settings-seg-btn ${!isPerPage ? "active" : ""}`}
               onClick={() => handleModeChange(false)}
             >
-              Global
+              전체 적용
             </button>
             <button
               className={`settings-seg-btn ${isPerPage ? "active" : ""}`}
               onClick={() => handleModeChange(true)}
             >
-              Individual
+              페이지별
             </button>
           </div>
         </div>
       </SettingsCard>
 
       {!isPerPage ? (
-        <SettingsCard title="Page Style">
+        <SettingsCard title="페이지 스타일">
           <PageAppearanceControls
             settings={settings}
             update={update}
@@ -289,14 +289,14 @@ export default function AppearanceSection({ settings, update }: Props) {
       )}
 
       <SettingsCard
-        title="Taskbar Icon"
-        description="Control how the taskbar and tray icon looks."
+        title="작업 표시줄 아이콘"
+        description="작업 표시줄과 트레이 아이콘의 모양을 설정합니다."
       >
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Active Icon</span>
+            <span className="settings-label">활성 아이콘</span>
             <span className="settings-sublabel">
-              Show different icon when clicker is active.
+              클릭기가 활성화되면 다른 아이콘을 표시합니다.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -313,9 +313,9 @@ export default function AppearanceSection({ settings, update }: Props) {
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Icon Theme</span>
+            <span className="settings-label">아이콘 테마</span>
             <span className="settings-sublabel">
-              Which themed icons to use. Auto follows app theme.
+              사용할 테마 아이콘입니다. 자동은 앱 테마를 따릅니다.
             </span>
           </div>
           <div className="settings-seg-group">
@@ -325,7 +325,7 @@ export default function AppearanceSection({ settings, update }: Props) {
                 className={`settings-seg-btn ${settings.taskbarIconTheme === opt ? "active" : ""}`}
                 onClick={() => update({ taskbarIconTheme: opt })}
               >
-                {opt === "auto" ? "Auto" : opt === "dark" ? "Dark" : "Light"}
+                {opt === "auto" ? "자동" : opt === "dark" ? "어두운 모드" : "밝은 모드"}
               </button>
             ))}
           </div>
@@ -335,9 +335,9 @@ export default function AppearanceSection({ settings, update }: Props) {
           className={`settings-row ${!settings.taskbarIconEnabled ? "settings-row--disabled" : ""}`}
         >
           <div className="settings-label-group">
-            <span className="settings-label">Icon Color</span>
+            <span className="settings-label">아이콘 색상</span>
             <span className="settings-sublabel">
-              Use accent color or default icon colors.
+              강조 색상 또는 기본 아이콘 색상을 사용합니다.
             </span>
           </div>
           <div className="settings-seg-group">
@@ -350,7 +350,7 @@ export default function AppearanceSection({ settings, update }: Props) {
                   update({ taskbarIconColor: opt })
                 }
               >
-                {opt === "theme" ? "Theme" : "Default"}
+                {opt === "theme" ? "테마 색상" : "기본 색상"}
               </button>
             ))}
           </div>
@@ -358,14 +358,14 @@ export default function AppearanceSection({ settings, update }: Props) {
       </SettingsCard>
 
       <SettingsCard
-        title="Status Bar"
-        description="Show the status bar at the bottom of the window."
+        title="상태 표시줄"
+        description="창 하단에 상태 표시줄을 표시합니다."
       >
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Footer</span>
+            <span className="settings-label">하단 표시줄</span>
             <span className="settings-sublabel">
-              Shows active preset, version, and stop reasons.
+              활성 프리셋, 버전, 중지 사유를 표시합니다.
             </span>
           </div>
           <div className="settings-toggle-wrapper">

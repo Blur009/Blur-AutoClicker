@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overlay</title>
+    <title>오버레이</title>
     <style>
         @font-face {
             font-family: 'RobotoFlex';
@@ -93,7 +93,7 @@
             border: 1px solid rgba(255, 255, 255, 0.14);
             box-shadow: 0 12px 34px rgba(0, 0, 0, 0.36);
             color: rgba(255, 255, 255, 0.92);
-            font: 600 13px/1.32 "RobotoFlex", "Segoe UI", sans-serif;
+            font: 600 13px/1.32 "RobotoFlex", "Malgun Gothic", "맑은 고딕", "Segoe UI", sans-serif;
             pointer-events: none;
             opacity: 0;
             transform: translate(18px, 18px);
@@ -120,7 +120,7 @@
             overflow: hidden;
         }
         .zone-label {
-            font-family: "RobotoFlex", sans-serif;
+            font-family: "RobotoFlex", "Malgun Gothic", "맑은 고딕", "Segoe UI", sans-serif;
             font-size: 10rem;
             font-weight: 800;
             line-height: 1;
@@ -147,15 +147,15 @@
         <div id="zone-layer" class="overlay-layer"></div>
         <div id="click-points-layer" class="overlay-layer"></div>
         <div id="pick-prompt" class="overlay-prompt">
-            Right click to add point.
-            <span>Shift + right click to add multiple.</span>
-            <span>Ctrl + right click to delete a point.</span>
-            <span>Esc to cancel.</span>
+            마우스 오른쪽 버튼으로 지점을 추가하세요.
+            <span>Shift + 오른쪽 버튼으로 여러 지점을 추가합니다.</span>
+            <span>Ctrl + 오른쪽 버튼으로 지점을 삭제합니다.</span>
+            <span>Esc로 취소합니다.</span>
         </div>
         <div id="stop-zone-prompt" class="overlay-prompt">
-            Right click and drag to draw stop zone.
-            <span>Release to save.</span>
-            <span>Esc to cancel.</span>
+            마우스 오른쪽 버튼을 누른 채 끌어 중지 영역을 그리세요.
+            <span>버튼을 놓으면 저장합니다.</span>
+            <span>Esc로 취소합니다.</span>
         </div>
     </div>
 

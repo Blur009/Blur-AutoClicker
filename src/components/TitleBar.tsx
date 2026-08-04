@@ -58,21 +58,25 @@ const DEFAULT_TITLE_STATE: TitleViewState = {
 };
 
 const STOP_REASON_TEXTS: Record<string, string> = {
-  "Stopped from UI": "Stopped",
-  "Stopped from toggle": "Stopped",
-  "Stopped from hotkey": "Stopped",
-  "Stopped from hold hotkey": "Stopped",
-  Stopped: "Stopped",
-  "Top-left corner failsafe": "Corner failsafe",
-  "Top-right corner failsafe": "Corner failsafe",
-  "Bottom-left corner failsafe": "Corner failsafe",
-  "Bottom-right corner failsafe": "Corner failsafe",
-  "Top edge failsafe": "Edge failsafe",
-  "Right edge failsafe": "Edge failsafe",
-  "Bottom edge failsafe": "Edge failsafe",
-  "Left edge failsafe": "Edge failsafe",
-  "Blocked by Alt+Tab": "Blocked by Alt+Tab",
-  "Blocked by process list": "Blocked by process list",
+  "Stopped from UI": "중지됨",
+  "Stopped from toggle": "중지됨",
+  "Stopped from hotkey": "중지됨",
+  "Stopped from hold hotkey": "중지됨",
+  "Stopped for hotkey input": "중지됨",
+  Stopped: "중지됨",
+  "Top-left corner failsafe": "모서리 안전장치",
+  "Top-right corner failsafe": "모서리 안전장치",
+  "Bottom-left corner failsafe": "모서리 안전장치",
+  "Bottom-right corner failsafe": "모서리 안전장치",
+  "Top edge failsafe": "가장자리 안전장치",
+  "Right edge failsafe": "가장자리 안전장치",
+  "Bottom edge failsafe": "가장자리 안전장치",
+  "Left edge failsafe": "가장자리 안전장치",
+  "Blocked by Alt+Tab": "Alt+Tab으로 차단됨",
+  "Blocked by process list": "프로세스 목록으로 차단됨",
+  "All click points completed": "모든 클릭 지점 완료",
+  "Custom stop zone failsafe": "사용자 지정 영역 안전장치",
+  "Left start zone": "시작 영역에서 나감",
 };
 
 function translateStopReason(stopReason: string | null | undefined): string {
@@ -81,10 +85,10 @@ function translateStopReason(stopReason: string | null | undefined): string {
   if (staticText) return staticText;
 
   const clickLimit = stopReason.match(/^Click limit reached \((.+)\)$/);
-  if (clickLimit) return "Click limit reached";
+  if (clickLimit) return "클릭 제한 도달";
 
   const timeLimit = stopReason.match(/^Time limit reached \((.+)\)$/);
-  if (timeLimit) return "Time limit reached";
+  if (timeLimit) return "시간 제한 도달";
 
   return stopReason;
 }
@@ -187,7 +191,7 @@ const ClickPointsIcon = memo(function ClickPointsIcon({
 const TAB_ITEMS: readonly TabItem[] = [
   {
     value: "simple",
-    label: "Simple",
+    label: "간단",
     color: "var(--accent)",
     activeBg: "var(--accent-soft)",
     activeFocusRing: "var(--accent-ring)",
@@ -195,7 +199,7 @@ const TAB_ITEMS: readonly TabItem[] = [
   },
   {
     value: "advanced",
-    label: "Advanced",
+    label: "고급",
     color: "var(--accent-yellow)",
     activeBg: "rgba(254, 188, 47, 0.1)",
     activeFocusRing: "rgba(254, 188, 47, 0.25)",
@@ -203,7 +207,7 @@ const TAB_ITEMS: readonly TabItem[] = [
   },
   {
     value: "zones",
-    label: "Zones",
+    label: "영역",
     color: "hsl(208 85% 58%)",
     activeBg: "hsla(208, 85%, 58%, 0.14)",
     activeFocusRing: "hsla(208, 85%, 58%, 0.35)",
@@ -211,7 +215,7 @@ const TAB_ITEMS: readonly TabItem[] = [
   },
   {
     value: "click-points",
-    label: "Click Points",
+    label: "클릭 지점",
     color: "hsl(180 75% 40%)",
     activeBg: "hsla(180, 75%, 40%, 0.14)",
     activeFocusRing: "hsla(180, 75%, 40%, 0.35)",
@@ -260,8 +264,8 @@ const TitleBar = memo(function TitleBar({
           className="settings-button"
           data-active={tab === "settings"}
           onClick={handleSettingsClick}
-          title="Settings"
-          aria-label="Settings"
+          title="설정"
+          aria-label="설정"
           style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
         >
           <svg
@@ -323,7 +327,7 @@ const TitleBar = memo(function TitleBar({
           }}
           active={isAlwaysOnTop}
           title={
-            isAlwaysOnTop ? "Disable Always on Top" : "Enable Always on Top"
+            isAlwaysOnTop ? "항상 위에 표시 끄기" : "항상 위에 표시 켜기"
           }
           label={
             <svg
@@ -349,7 +353,7 @@ const TitleBar = memo(function TitleBar({
           onClick={() => {
             void handleMinimize();
           }}
-          title="Minimize"
+          title="최소화"
           label={
             <svg width="10" height="2" viewBox="0 0 10 2" fill="none">
               <rect width="10" height="2" fill="currentColor" />
@@ -361,7 +365,7 @@ const TitleBar = memo(function TitleBar({
             void onRequestClose();
           }}
           danger
-          title="Close"
+          title="닫기"
           label={
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
               <path

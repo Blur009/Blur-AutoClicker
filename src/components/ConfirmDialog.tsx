@@ -16,8 +16,8 @@ export default function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel = "확인",
+  cancelLabel = "취소",
   busy = false,
   onConfirm,
   onCancel,
@@ -79,7 +79,7 @@ export default function ConfirmDialog({
             onClick={onConfirm}
             disabled={busy}
           >
-            {busy ? "Working..." : confirmLabel}
+            {busy ? "처리 중..." : confirmLabel}
           </button>
         </div>
       </div>

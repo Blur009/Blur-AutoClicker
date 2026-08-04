@@ -6,7 +6,7 @@
 }
 
 :root {
-  --font-family-base: "RobotoFlex", sans-serif;
+  --font-family-base: "RobotoFlex", "Malgun Gothic", "맑은 고딕", "Segoe UI", sans-serif;
 
   --bg-base: rgb(12, 12, 14);
   --bg-surface: rgb(26, 26, 26);

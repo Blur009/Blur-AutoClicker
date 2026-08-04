@@ -177,26 +177,25 @@ export function formatIntervalMs(ms: number): string {
   if (h >= 24) {
     const d = Math.floor(h / 24);
     const rh = h % 24;
-    if (rh > 0)
-      return `${d} day${d > 1 ? "s" : ""} ${rh} hr${rh > 1 ? "s" : ""}`;
-    return `${d} day${d > 1 ? "s" : ""}`;
+    if (rh > 0) return `${d}일 ${rh}시간`;
+    return `${d}일`;
   }
 
   const m = Math.floor((totalSec % 3600) / 60);
 
   if (h > 0) {
-    if (m > 0) return `${h} hr${h > 1 ? "s" : ""} ${m} min${m > 1 ? "s" : ""}`;
-    return `${h} hr${h > 1 ? "s" : ""}`;
+    if (m > 0) return `${h}시간 ${m}분`;
+    return `${h}시간`;
   }
 
   if (m > 0) {
     const s = Math.round(totalSec % 60);
-    if (s > 0) return `${m} min${m > 1 ? "s" : ""} ${s} sec${s > 1 ? "s" : ""}`;
-    return `${m} min${m > 1 ? "s" : ""}`;
+    if (s > 0) return `${m}분 ${s}초`;
+    return `${m}분`;
   }
 
   const s = +(totalSec % 60).toFixed(1);
-  return `${s} sec${s > 1 ? "s" : ""}`;
+  return `${s}초`;
 }
 
 export function isDoubleClickSupported(settings: CadenceSettings): boolean {
@@ -207,13 +206,13 @@ export function formatDurationSummary(settings: CadenceSettings): string {
   const parts: string[] = [];
 
   if (settings.durationHours > 0) {
-    parts.push(`${settings.durationHours}h`);
+    parts.push(`${settings.durationHours}시간`);
   }
   if (settings.durationMinutes > 0) {
-    parts.push(`${settings.durationMinutes}m`);
+    parts.push(`${settings.durationMinutes}분`);
   }
   if (settings.durationSeconds > 0) {
-    parts.push(`${settings.durationSeconds}s`);
+    parts.push(`${settings.durationSeconds}초`);
   }
   if (settings.durationMilliseconds > 0 || parts.length === 0) {
     parts.push(`${settings.durationMilliseconds}ms`);

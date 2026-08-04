@@ -122,7 +122,7 @@ const DEFAULT_STATUS: ClickerStatus = {
 
 const DEFAULT_APP_INFO: AppInfo = {
   version: APP_VERSION,
-  updateStatus: "Update checks are disabled in development",
+  updateStatus: "개발 중에는 업데이트 확인을 사용할 수 없습니다.",
   screenshotProtectionSupported: false,
 };
 
@@ -604,7 +604,7 @@ export default function App() {
     try {
       const filePath = await save({
         defaultPath: `${preset.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`,
-        filters: [{ name: "Preset JSON", extensions: ["json"] }],
+        filters: [{ name: "프리셋 JSON", extensions: ["json"] }],
       });
       if (!filePath) {
         return false;
@@ -626,7 +626,7 @@ export default function App() {
     try {
       const filePath = await open({
         multiple: false,
-        filters: [{ name: "Preset JSON", extensions: ["json"] }],
+        filters: [{ name: "프리셋 JSON", extensions: ["json"] }],
       });
       if (!filePath) {
         return null;
@@ -1267,7 +1267,7 @@ export default function App() {
     tab,
   ]);
 
-  const handleTabChange = (nextTab: Tab) => {
+  const handleTabChange = useCallback((nextTab: Tab) => {
     setTab(nextTab);
 
     if (nextTab === "settings") return;
@@ -1276,7 +1276,7 @@ export default function App() {
     updateSettings({
       lastPanel: nextTab,
     });
-  };
+  }, [updateSettings]);
 
   const handleResetSettings = async () => {
     try {
@@ -1317,7 +1317,9 @@ export default function App() {
   }, []);
 
   const handleTabChangeRef = useRef(handleTabChange);
-  handleTabChangeRef.current = handleTabChange;
+  useEffect(() => {
+    handleTabChangeRef.current = handleTabChange;
+  }, [handleTabChange]);
 
   const keybindMapRef = useRef<Record<string, Tab>>({});
 

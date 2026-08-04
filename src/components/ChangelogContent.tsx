@@ -54,7 +54,7 @@ export default function ChangelogContent({ entries }: Props) {
           className="changelog-expand-btn"
           onClick={() => setExpanded(true)}
         >
-          <span>Show all ({entries.length - 1} more versions)</span>
+          <span>전체 보기 ({entries.length - 1}개 버전 더 보기)</span>
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path
               d="M3 1L7 5L3 9"

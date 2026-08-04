@@ -39,7 +39,7 @@ export default function DutyCycleSection({ settings, update }: Props) {
               <path d="M6 4v2a6 6 0 1 0 12 0v-2a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1" />
             </svg>
           </span>
-          <span className="adv-card-title">Duty Cycle</span>
+          <span className="adv-card-title">클릭 유지 비율</span>
         </div>
         <div className="adv-seg-group">
           {DUTY_CYCLE_MODE_OPTIONS.map((dutyCycleOption) => (
@@ -74,7 +74,7 @@ export default function DutyCycleSection({ settings, update }: Props) {
                 }
               }}
             >
-              {dutyCycleOption}
+              {dutyCycleOption === "Click" ? "클릭" : "누르기"}
             </button>
           ))}
         </div>
@@ -82,8 +82,8 @@ export default function DutyCycleSection({ settings, update }: Props) {
       <CardDivider />
       <div className="adv-card-desc">
         {settings.dutyCycleMode === "Click"
-          ? "Controls how long the button is held during each click."
-          : "Holds the button down continuously. Click speed is disabled."}
+          ? "각 클릭에서 버튼을 누르고 있는 시간을 조절합니다."
+          : "버튼을 계속 누른 상태로 유지합니다. 클릭 속도는 사용할 수 없습니다."}
       </div>
       {settings.dutyCycleMode === "Click" && (
         <div className="adv-row" style={{ gap: 8, justifyContent: "flex-end" }}>
@@ -105,7 +105,7 @@ export default function DutyCycleSection({ settings, update }: Props) {
               whiteSpace: "nowrap",
             }}
           >
-            hold duration
+            누르기 시간
           </span>
         </div>
       )}

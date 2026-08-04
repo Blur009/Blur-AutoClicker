@@ -490,7 +490,7 @@ export default function ClickPointsContent({
   return (
     <div className="adv-sectioncontainer adv-click-points-card">
       <div className="adv-card-header">
-        <span className="adv-card-title">Click Points</span>
+        <span className="adv-card-title">클릭 지점</span>
         <ToggleBtn
           value={settings.clickPointsEnabled}
           onChange={(v) => {
@@ -503,9 +503,9 @@ export default function ClickPointsContent({
       </div>
       <CardDivider />
       <div className="adv-card-desc">
-        Choose a list of spots on your screen to click one after another. Each
-        spot will use the speed and settings you chose. Choose just one spot if
-        you want to click the exact same place over and over.
+        화면에서 순서대로 클릭할 지점 목록을 선택합니다. 각 지점에는 선택한
+        속도와 설정이 적용됩니다. 같은 곳을 반복해서 클릭하려면 지점을 하나만
+        선택하세요.
       </div>
       <Disableable enabled={settings.clickPointsEnabled}>
         <div className="adv-click-points-body">
@@ -517,7 +517,7 @@ export default function ClickPointsContent({
                 void (picking ? cancelPick() : startPick());
               }}
             >
-              {picking ? "Cancel Picking" : "Start Picking"}
+              {picking ? "지점 선택 취소" : "지점 선택 시작"}
             </button>
             <div className="adv-click-points-list-shell">
               <div ref={listViewportRef} className="adv-click-points-list">
@@ -543,11 +543,11 @@ export default function ClickPointsContent({
                       </svg>
                     </div>
                     <div className="adv-click-points-empty-title">
-                      No click points yet
+                      아직 클릭 지점이 없습니다
                     </div>
                     <div className="adv-click-points-empty-hint">
-                      Hit <strong>Start Picking</strong> above, then right-click
-                      anywhere on screen to add a new click point.
+                      위의 <strong>지점 선택 시작</strong>을 누른 다음 화면의
+                      아무 곳이나 마우스 오른쪽 버튼으로 클릭해 지점을 추가하세요.
                     </div>
                   </div>
                 ) : (
@@ -586,10 +586,10 @@ export default function ClickPointsContent({
           <div className="adv-click-points-footer">
             <div className="adv-click-points-option-row">
               {showInfo ? (
-                <InfoIcon text="When enabled, the clicker stops after one full pass through all click points. When disabled, it loops through the list endlessly." />
+                <InfoIcon text="켜면 모든 클릭 지점을 한 번씩 처리한 후 중지합니다. 끄면 목록을 계속 반복합니다." />
               ) : null}
               <span className="adv-click-points-option-label">
-                Stop when complete
+                완료 시 중지
               </span>
               <ToggleBtn
                 value={settings.stopWhenComplete ?? false}

@@ -42,8 +42,8 @@ export default function LimitsSection({ settings, update }: Props) {
     ? settings.clickLimitEnabled
     : settings.timeLimitEnabled;
   const activeUnavailableReason = isClicksMode
-    ? "Enable Click Limit to stop automatically after a set number of clicks."
-    : "Enable Time Limit to stop automatically after a set amount of time.";
+    ? "클릭 제한을 켜면 지정한 클릭 횟수 후 자동으로 중지합니다."
+    : "시간 제한을 켜면 지정한 시간이 지난 후 자동으로 중지합니다.";
 
   const handleModeChange = (nextMode: "clicks" | "time") => {
     const wasEnabled = activeEnabled;
@@ -100,7 +100,7 @@ export default function LimitsSection({ settings, update }: Props) {
               <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
             </svg>
           </span>
-          <span className="adv-card-title">Limits</span>
+          <span className="adv-card-title">제한</span>
         </div>
         <ToggleBtn value={activeEnabled} onChange={handleToggleChange} />
       </div>
@@ -110,7 +110,7 @@ export default function LimitsSection({ settings, update }: Props) {
         disabledReason={activeUnavailableReason}
       >
         <div className="adv-card-desc">
-          Stop automatically after a set number of clicks or time.
+          지정한 클릭 횟수 또는 시간이 지나면 자동으로 중지합니다.
         </div>
         <div
           className="adv-row"
@@ -130,7 +130,7 @@ export default function LimitsSection({ settings, update }: Props) {
                   min={SETTINGS_LIMITS.clickLimit.min}
                   style={{ width: "89px", textAlign: "right" }}
                 />
-                <span className="adv-unit">clicks</span>
+                <span className="adv-unit">클릭</span>
               </div>
             ) : (
               <>
@@ -167,14 +167,14 @@ export default function LimitsSection({ settings, update }: Props) {
                 className={`adv-seg-btn ${isClicksMode ? "active" : ""}`}
                 onClick={() => handleModeChange("clicks")}
               >
-                Click
+                클릭
               </button>
               <button
                 type="button"
                 className={`adv-seg-btn ${!isClicksMode ? "active" : ""}`}
                 onClick={() => handleModeChange("time")}
               >
-                Time
+                시간
               </button>
             </div>
           </div>

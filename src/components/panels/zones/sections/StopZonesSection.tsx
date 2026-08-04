@@ -26,9 +26,9 @@ interface StopZonePickedPayload {
 }
 
 const ACTION_OPTIONS = [
-  { value: "stop", label: "Stop" },
-  { value: "pause", label: "Pause" },
-  { value: "start", label: "Start" },
+  { value: "stop", label: "중지" },
+  { value: "pause", label: "일시 정지" },
+  { value: "start", label: "시작" },
 ] as const;
 
 export default function StopZonesSection({ settings, update }: Props) {
@@ -208,7 +208,7 @@ export default function StopZonesSection({ settings, update }: Props) {
   return (
     <div className="adv-sectioncontainer adv-stop-zones-card">
       <div className="adv-card-header">
-        <span className="adv-card-title">Custom Stop Zones</span>
+        <span className="adv-card-title">사용자 지정 중지 영역</span>
         <ToggleBtn
           value={settings.stopZonesEnabled}
           onChange={(v) => {
@@ -221,8 +221,8 @@ export default function StopZonesSection({ settings, update }: Props) {
       </div>
       <CardDivider />
       <div className="adv-card-desc">
-        Draw zones on screen. The clicker stops, pauses, or starts whenever your
-        cursor moves inside a zone.
+        화면에 영역을 그립니다. 커서가 영역 안으로 들어오면 클릭을 중지하거나
+        일시 정지하거나 시작합니다.
       </div>
       <Disableable enabled={settings.stopZonesEnabled}>
         <div className="adv-stop-zone-body">
@@ -234,7 +234,7 @@ export default function StopZonesSection({ settings, update }: Props) {
                   className="adv-secondary-btn"
                   onClick={addZone}
                 >
-                  Add Zone
+                  영역 추가
                 </button>
               </div>
             )}
@@ -254,7 +254,7 @@ export default function StopZonesSection({ settings, update }: Props) {
                       }}
                       onClick={addZone}
                     >
-                      Add Zone
+                      영역 추가
                     </button>
                     <div className="adv-zones-empty-icon">
                       <svg
@@ -280,11 +280,10 @@ export default function StopZonesSection({ settings, update }: Props) {
                         <line x1="9" y1="3" x2="9" y2="21" />
                       </svg>
                     </div>
-                    <div className="adv-zones-empty-title">No zones yet</div>
+                    <div className="adv-zones-empty-title">아직 영역이 없습니다</div>
                     <div className="adv-zones-empty-hint">
-                      Click <strong>Add Zone</strong> above, then click{" "}
-                      <strong>Draw</strong> on a row to define its area on
-                      screen.
+                      위의 <strong>영역 추가</strong>를 누른 다음 행의
+                      <strong>그리기</strong>를 눌러 화면에서 영역을 지정하세요.
                     </div>
                   </div>
                 ) : (
@@ -350,14 +349,14 @@ export default function StopZonesSection({ settings, update }: Props) {
                             : startDraw(index))
                         }
                       >
-                        {drawingIndex === index ? "Cancel" : "Edit"}
+                        {drawingIndex === index ? "취소" : "그리기"}
                       </button>
                       <button
                         type="button"
                         className="adv-click-points-delete"
                         onClick={() => removeZone(index)}
-                        aria-label="Delete"
-                        title="Delete"
+                        aria-label="삭제"
+                        title="삭제"
                       >
                         <svg
                           width="16"
