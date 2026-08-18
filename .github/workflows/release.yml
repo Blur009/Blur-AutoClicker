@@ -46,7 +46,7 @@ jobs:
           }
 
       - name: Build
-        uses: tauri-apps/tauri-action@fce9c6108b31ea247710505d3aaaa893ee6768d4 # v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
