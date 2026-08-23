@@ -1,0 +1,16 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "com.blur009.blurautoclicker",
+  "build": {
+    "beforeBundleCommand": ""
+  },
+  "bundle": {
+    "targets": ["app", "dmg"],
+    "createUpdaterArtifacts": false,
+    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-"
+    }
+  }
+}

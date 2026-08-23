@@ -1,11 +1,11 @@
 [package]
 name = "BlurAutoClicker"
 version = "3.9.5"
-description = "BlurAutoClicker - accuracy and performance focused auto clicker for Windows."
+description = "BlurAutoClicker - accuracy and performance focused auto clicker for Windows and macOS."
 authors = ["Blur009"]
 license = "GPL-3.0"
 edition = "2021"
-rust-version = "1.97.1"
+rust-version = "1.96.1"
 
 [lib]
 name = "app_lib"
@@ -15,11 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
-tauri = { version = "2.11.5", features = ["protocol-asset", "tray-icon", "image-ico"] }
-windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging",
-  "Win32_System_Threading", "Win32_Security", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_UI_HiDpi", "Win32_System_Diagnostics_ToolHelp", "Win32_System_ProcessStatus", "Win32_UI_Shell"] }
-webview2-com = "0.38"
-windows-core = "0.61"
+tauri = { version = "2.11.5", features = ["protocol-asset", "tray-icon", "image-ico", "image-png", "macos-private-api"] }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros"] }
 serde = { version = "1.0.229", features = ["derive"] }
 thiserror = "2.0.20"
@@ -40,11 +36,9 @@ hmac = "0.13.0"
 sha2 = "0.11"
 hex = "0.4"
 dirs = "6.0.0"
-windows-targets = "0.53.5"
 image = { version = "0.25", default-features = false, features = ["png", "ico"] }
 base64 = "0.23.1"
 chrono = "0.4"
-crashpad-rs = { version = "0.2", features = ["prebuilt"], optional = true }
 walkdir = "2"
 zip = "8.6.0"
 open = "5.4.1"
@@ -54,6 +48,19 @@ tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging",
+  "Win32_System_Threading", "Win32_Security", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_UI_HiDpi", "Win32_System_Diagnostics_ToolHelp", "Win32_System_ProcessStatus", "Win32_UI_Shell"] }
+webview2-com = "0.38"
+windows-core = "0.61"
+windows-targets = "0.53.5"
+crashpad-rs = { version = "0.2", features = ["prebuilt"], optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10.1"
+core-graphics = { version = "0.25.0", features = ["elcapitan", "highsierra"] }
+libc = "0.2"
+objc2-app-kit = "0.3.2"
+objc2-foundation = "0.3.2"
 
 [features]
 default = ["crashpad"]

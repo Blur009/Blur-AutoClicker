@@ -6,12 +6,30 @@ mod settings;
 pub use settings::ClickerSettings;
 mod app_events;
 mod app_state;
+#[cfg(target_os = "windows")]
 mod autostart;
+#[cfg(target_os = "macos")]
+#[path = "macos/autostart.rs"]
+mod autostart;
+#[cfg(target_os = "windows")]
 mod click_point_picker;
+#[cfg(target_os = "macos")]
+#[path = "macos/click_point_picker.rs"]
+mod click_point_picker;
+#[cfg(target_os = "windows")]
+mod custom_stop_zone_picker;
+#[cfg(target_os = "macos")]
+#[path = "macos/custom_stop_zone_picker.rs"]
 mod custom_stop_zone_picker;
 mod engine;
+#[cfg(target_os = "windows")]
+mod hotkeys;
+#[cfg(target_os = "macos")]
+#[path = "macos/hotkeys.rs"]
 mod hotkeys;
 mod icon;
+#[cfg(target_os = "macos")]
+mod macos;
 mod overlay;
 mod ui_commands;
 mod updates;
@@ -96,8 +114,14 @@ fn apply_ws_ex_noactivate(window: &tauri::WebviewWindow, enable: bool) {
     }
 }
 
+#[cfg(target_os = "windows")]
 fn is_rtss_running() -> bool {
     crate::engine::process::is_process_running("RTSS.exe")
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_rtss_running() -> bool {
+    false
 }
 
 fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
@@ -126,6 +150,9 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
     }
 
     let window = builder.build()?;
+
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
 
     // Re-apply the window icon once the window is registered with the taskbar
     // (first focus/resize), because Explorer may have cached the EXE icon into
@@ -181,6 +208,7 @@ fn setup_panic_hook() {
 
         crate::diagnostics::write_panic_report(&report);
 
+        #[cfg(target_os = "windows")]
         unsafe {
             use windows_sys::Win32::UI::WindowsAndMessaging::MessageBoxW;
             use windows_sys::Win32::UI::WindowsAndMessaging::MB_ICONERROR;

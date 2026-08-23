@@ -11,7 +11,6 @@
 
   # Blur Auto Clicker
 
-
   <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/public/V3.0.0_UI.png" width="600"/>
 
   <p align="center"><em>An auto clicker that actually clicks at the speed you set.</em></p>
@@ -31,8 +30,11 @@
 
 </div>
 
+> [!WARNING]
+> **Unofficial AI-made macOS experiment:** The macOS port in this fork was made with AI purely for fun. It is not endorsed by the original author, has not received a professional security audit, should not be taken seriously, and should not be relied on for important work. Review the code and use it at your own risk. This warning applies to the experimental macOS port, not the original Windows project.
+
 ---
-Most auto clickers aren't accurate at high speeds. Set it to 50 CPS and you might get 40. Or 60. This one actually hits the speed you set. It also bundles the useful features from other auto clickers into one place, and adds a few extras. RAM is around 100mb and stays under 200mb (yes its a lot but sadly it cant be reduced due to Webview2).
+Most auto clickers aren't accurate at high speeds. Set it to 50 CPS and you might get 40. Or 60. This one actually hits the speed you set. It also bundles the useful features from other auto clickers into one place, and adds a few extras. RAM is around 100mb and stays under 200mb. The interface uses the system webview: WebView2 on Windows and WKWebView on macOS.
 
 ---
 
@@ -61,8 +63,13 @@ Most auto clickers aren't accurate at high speeds. Set it to 50 CPS and you migh
   <img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Download from GitHub" height="50">
 </a>
 
-Installed to `%localappdata%/BlurAutoClicker/BlurAutoClicker.exe`.  
-Config and stats are saved in `%appdata%/BlurAutoClicker`.
+### Windows
+
+Installed to `%localappdata%/BlurAutoClicker/BlurAutoClicker.exe`. Config and stats are saved in `%appdata%/BlurAutoClicker`.
+
+### macOS
+
+Build the `.app` or `.dmg` from source using the instructions in [BUILDING.md](BUILDING.md). On first launch, allow BlurAutoClicker in **System Settings → Privacy & Security → Accessibility** so global hotkeys, clicking, key pressing, point selection, and stop-zone selection can work outside the app.
 
 > On version 2.1.2 or below? Delete the old executable first — the installer won't do it. Old configs won't work with v3+, they'll be deleted on first launch.
 
@@ -73,7 +80,7 @@ Config and stats are saved in `%appdata%/BlurAutoClicker`.
 <details>
 <summary><b>Why is CPS capped at 500?</b></summary>
 
-Windows has a limit of around 500 CPS for mouse events. The timer resolution bottoms out at about 1ms (1000 CPS), but Windows also needs to do other things, so the practical limit is around 800 CPS. Since I can't guarantee that on every machine, it's set to 500. (A 1000 cps setting is available but not recommended.)
+The practical event-delivery limit varies by operating system, hardware, and the target application. The default cap remains 500 CPS for predictable behavior. A 1000 CPS setting is available but not recommended.
 </details>
 
 <details>

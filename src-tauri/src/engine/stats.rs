@@ -35,8 +35,8 @@ fn stats_file_path() -> PathBuf {
             return dir.join("stats.csv");
         }
     }
-    let app_data = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(app_data)
+    dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
         .join("BlurAutoClicker")
         .join("stats.csv")
 }

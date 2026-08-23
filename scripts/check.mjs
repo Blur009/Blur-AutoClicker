@@ -104,13 +104,14 @@ async function guardRunningInstance() {
     const out = r.stdout || '';
     running = /BlurAutoClicker/i.test(out) || /crashpad_handler/i.test(out);
   } else {
-    const r = spawnSync('pgrep', ['-f', 'BlurAutoClicker|crashpad_handler'], {
+    const r = spawnSync('pgrep', ['-x', 'BlurAutoClicker'], {
       encoding: 'utf8',
+      shell: false,
     });
     running = r.status === 0 && !!r.stdout.trim();
   }
 
-  if (!running) {
+  if (!running && process.platform === 'win32') {
     try {
       const { openSync, closeSync } = await import('node:fs');
       const { resolve } = await import('node:path');
