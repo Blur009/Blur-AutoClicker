@@ -4,14 +4,16 @@ import type { RateInputMode, Settings } from "../../store";
 import {
   convertDurationToRate,
   convertRateToDuration,
+  getEffectiveClicksPerSecond,
   type CadenceDurationFields,
 } from "../../cadence";
 import { normalizeDecimalRaw } from "../../numberInput";
 import {
-  getMaxClickSpeed,
-  getMinIntervalMs,
+  HIGH_CPS_WARNING_THRESHOLD,
+  MIN_CLICK_INTERVAL_MS,
   type ClickInterval,
 } from "../../settingsSchema";
+import { CpsInputWrap, HighCpsWarning } from "../CpsInputWrap";
 import { AdvDropdown } from "./advanced/sections/shared";
 import "./advanced/AdvancedPanel.css";
 import {
@@ -78,8 +80,9 @@ interface Props {
 }
 
 export default function SimpleCadenceInput({ settings, update }: Props) {
-  const maxClickSpeed = getMaxClickSpeed(settings.extendedClickSpeedLimit);
   const [draftCps, setDraftCps] = useState<string | null>(null);
+  const showHighCpsWarning =
+    getEffectiveClicksPerSecond(settings) > HIGH_CPS_WARNING_THRESHOLD;
 
   const updateSimpleCadence = (patch: Partial<Settings>) => {
     const nextSettings = { ...settings, ...patch };
@@ -104,48 +107,51 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
     <div className="InputBox cadence-box simple-cadence-box">
       {settings.rateInputMode === "rate" ? (
         <div className="simple-cadence-row">
-          <input
-            type="text"
-            inputMode="decimal"
-            className="simple-inline-input simple-cadence-input"
-            value={draftCps ?? settings.clickSpeed}
-            aria-label="Clicks Per"
-            onChange={(event) => {
-              const raw = event.target.value;
-              const normalized = normalizeDecimalRaw(raw);
-              if (normalized !== raw) event.target.value = normalized;
-              if (
-                normalized === "" ||
-                normalized === "-" ||
-                normalized === "." ||
-                normalized === "-." ||
-                normalized.endsWith(".")
-              ) {
-                setDraftCps(normalized);
-                return;
+          <CpsInputWrap>
+            <input
+              type="text"
+              inputMode="decimal"
+              className="simple-inline-input simple-cadence-input"
+              value={draftCps ?? settings.clickSpeed}
+              aria-label="Clicks Per"
+              onChange={(event) => {
+                const raw = event.target.value;
+                const normalized = normalizeDecimalRaw(raw);
+                if (normalized !== raw) event.target.value = normalized;
+                if (
+                  normalized === "" ||
+                  normalized === "-" ||
+                  normalized === "." ||
+                  normalized === "-." ||
+                  normalized.endsWith(".")
+                ) {
+                  setDraftCps(normalized);
+                  return;
+                }
+                setDraftCps(null);
+                const val = Number(normalized);
+                updateSimpleCadence({
+                  clickSpeed: Number.isFinite(val) ? val : 1,
+                });
+              }}
+              onBlur={(event) => {
+                setDraftCps(null);
+                handleDecimalBlur(event, 1, undefined, (next) =>
+                  updateSimpleCadence({ clickSpeed: next }),
+                );
+              }}
+              onWheel={(event) =>
+                handleWheelStep(
+                  event,
+                  settings.clickSpeed,
+                  1,
+                  undefined,
+                  (next) => updateSimpleCadence({ clickSpeed: next }),
+                )
               }
-              setDraftCps(null);
-              const val = Number(normalized);
-              updateSimpleCadence({
-                clickSpeed: Number.isNaN(val) ? 1 : val,
-              });
-            }}
-            onBlur={(event) => {
-              setDraftCps(null);
-              handleDecimalBlur(event, 1, maxClickSpeed, (next) =>
-                updateSimpleCadence({ clickSpeed: next }),
-              );
-            }}
-            onWheel={(event) =>
-              handleWheelStep(
-                event,
-                settings.clickSpeed,
-                1,
-                maxClickSpeed,
-                (next) => updateSimpleCadence({ clickSpeed: next }),
-              )
-            }
-          />
+            />
+          </CpsInputWrap>
+          {showHighCpsWarning && <HighCpsWarning compact />}
           <div className="vertical-devider vertical-devider--stretch" />
           <span className="simple-control-label">Clicks Per</span>
           <div className="vertical-devider vertical-devider--stretch" />
@@ -273,7 +279,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
             <DurationField
               className="simple-duration-chip"
               value={settings.durationMilliseconds}
-              min={getMinIntervalMs(settings.extendedClickSpeedLimit)}
+              min={MIN_CLICK_INTERVAL_MS}
               max={999}
               onChange={(next) =>
                 updateSimpleCadence({ durationMilliseconds: next })
@@ -282,7 +288,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
                 handleDurationBlur(
                   event,
                   "durationMilliseconds",
-                  getMinIntervalMs(settings.extendedClickSpeedLimit),
+                  MIN_CLICK_INTERVAL_MS,
                   999,
                   settings as CadenceDurationFields,
                   (patch) => updateSimpleCadence(patch),
@@ -293,7 +299,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
                   event,
                   "durationMilliseconds",
                   settings as CadenceDurationFields,
-                  getMinIntervalMs(settings.extendedClickSpeedLimit),
+                  MIN_CLICK_INTERVAL_MS,
                   999,
                   (patch) => updateSimpleCadence(patch),
                 )

@@ -45,6 +45,7 @@ export function parseDecimalRaw(raw: string) {
 }
 
 export function clamp(value: number, min: number, max?: number) {
+  if (!Number.isFinite(value)) return min;
   const minClamped = Math.max(min, value);
   return max === undefined ? minClamped : Math.min(max, minClamped);
 }

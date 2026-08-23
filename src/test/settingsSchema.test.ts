@@ -4,9 +4,30 @@ import {
   createDefaultSettings,
   sanitizeSettings,
 } from "../settingsSchema";
+import { getEffectiveClicksPerSecond } from "../cadence";
 import type { Settings } from "../settingsSchema";
 
 const VERSION = "3.9.2";
+
+describe("click speed", () => {
+  it("does not cap saved CPS values", () => {
+    const sanitized = sanitizeSettings({ clickSpeed: 250_000 }, VERSION);
+    expect(sanitized.clickSpeed).toBe(250_000);
+    expect(SETTINGS_LIMITS.clickSpeed.max).toBeUndefined();
+  });
+
+  it("does not round effective CPS down to the old 1000 CPS ceiling", () => {
+    const settings = createDefaultSettings(VERSION);
+    settings.clickSpeed = 250_000;
+    settings.clickInterval = "s";
+    expect(getEffectiveClicksPerSecond(settings)).toBe(250_000);
+  });
+
+  it("still rejects zero and negative CPS values", () => {
+    expect(sanitizeSettings({ clickSpeed: 0 }, VERSION).clickSpeed).toBe(1);
+    expect(sanitizeSettings({ clickSpeed: -50 }, VERSION).clickSpeed).toBe(1);
+  });
+});
 
 describe("background blur settings", () => {
   const BLUR_FIELDS = [

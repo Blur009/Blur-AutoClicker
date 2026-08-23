@@ -78,9 +78,9 @@ Build the `.app` or `.dmg` from source using the instructions in [BUILDING.md](B
 ## FAQ
 
 <details>
-<summary><b>Why is CPS capped at 500?</b></summary>
+<summary><b>Is CPS capped?</b></summary>
 
-The practical event-delivery limit varies by operating system, hardware, and the target application. The default cap remains 500 CPS for predictable behavior. A 1000 CPS setting is available but not recommended.
+No artificial CPS cap is enforced. The interface warns above 500 effective clicks per second because very high values can increase CPU usage, flood the input queue, become inaccurate, or make the target application unresponsive. Practical delivery speed still depends on the operating system, hardware, and target application.
 </details>
 
 <details>

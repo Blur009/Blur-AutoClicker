@@ -8,6 +8,7 @@ import {
 import {
   convertDurationToRate,
   formatIntervalMs,
+  getEffectiveClicksPerSecond,
   getIntervalMilliseconds,
   type CadenceDurationFields,
 } from "../../../../cadence";
@@ -16,10 +17,11 @@ import {
   SIMPLE_RATE_INPUT_MODE_OPTIONS,
 } from "../../../sharedCadence";
 import {
-  getMaxClickSpeed,
-  getMinIntervalMs,
+  HIGH_CPS_WARNING_THRESHOLD,
+  MIN_CLICK_INTERVAL_MS,
   type ClickInterval,
 } from "../../../../settingsSchema";
+import { CpsInputWrap, HighCpsWarning } from "../../../CpsInputWrap";
 import { AdvDropdown, CardDivider, Disableable } from "./shared";
 import {
   INTERVAL_OPTIONS,
@@ -36,8 +38,9 @@ interface Props {
 }
 
 export default function ClickSpeedSection({ settings, update }: Props) {
-  const maxClickSpeed = getMaxClickSpeed(settings.extendedClickSpeedLimit);
   const [draftCps, setDraftCps] = useState<string | null>(null);
+  const showHighCpsWarning =
+    getEffectiveClicksPerSecond(settings) > HIGH_CPS_WARNING_THRESHOLD;
 
   const conversionText = (() => {
     if (settings.rateInputMode === "rate") {
@@ -104,54 +107,56 @@ export default function ClickSpeedSection({ settings, update }: Props) {
               {settings.rateInputMode === "rate" ? (
                 <div className="adv-value-outline">
                   <div className="adv-foc">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="adv-number-sm"
-                      value={
-                        draftCps ?? formatDecimalLocale(settings.clickSpeed)
-                      }
-                      style={{ width: "5ch", textAlign: "right" }}
-                      onChange={(event) => {
-                        const raw = event.target.value;
-                        const normalized = normalizeDecimalLocale(raw);
-                        if (normalized !== raw) event.target.value = normalized;
-                        if (
-                          normalized === "" ||
-                          normalized === "-" ||
-                          normalized === "." ||
-                          normalized === "," ||
-                          normalized === "-." ||
-                          normalized === "-," ||
-                          normalized.endsWith(".") ||
-                          normalized.endsWith(",")
-                        ) {
-                          setDraftCps(normalized);
-                          return;
+                    <CpsInputWrap>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="adv-number-sm"
+                        value={
+                          draftCps ?? formatDecimalLocale(settings.clickSpeed)
                         }
-                        setDraftCps(null);
-                        const val = parseDecimalLocale(normalized);
-                        update({ clickSpeed: Number.isNaN(val) ? 1 : val });
-                      }}
-                      onBlur={(event) => {
-                        setDraftCps(null);
-                        handleDecimalBlurLocale(
-                          event,
-                          1,
-                          maxClickSpeed,
-                          (next) => update({ clickSpeed: next }),
-                        );
-                      }}
-                      onWheel={(event) =>
-                        handleWheelStep(
-                          event,
-                          settings.clickSpeed,
-                          1,
-                          maxClickSpeed,
-                          (next) => update({ clickSpeed: next }),
-                        )
-                      }
-                    />
+                        style={{ width: "5ch", textAlign: "right" }}
+                        onChange={(event) => {
+                          const raw = event.target.value;
+                          const normalized = normalizeDecimalLocale(raw);
+                          if (normalized !== raw)
+                            event.target.value = normalized;
+                          if (
+                            normalized === "" ||
+                            normalized === "-" ||
+                            normalized === "." ||
+                            normalized === "," ||
+                            normalized === "-." ||
+                            normalized === "-," ||
+                            normalized.endsWith(".") ||
+                            normalized.endsWith(",")
+                          ) {
+                            setDraftCps(normalized);
+                            return;
+                          }
+                          setDraftCps(null);
+                          const val = parseDecimalLocale(normalized);
+                          update({
+                            clickSpeed: Number.isFinite(val) ? val : 1,
+                          });
+                        }}
+                        onBlur={(event) => {
+                          setDraftCps(null);
+                          handleDecimalBlurLocale(event, 1, undefined, (next) =>
+                            update({ clickSpeed: next }),
+                          );
+                        }}
+                        onWheel={(event) =>
+                          handleWheelStep(
+                            event,
+                            settings.clickSpeed,
+                            1,
+                            undefined,
+                            (next) => update({ clickSpeed: next }),
+                          )
+                        }
+                      />
+                    </CpsInputWrap>
                   </div>
                   <div className="adv-vdivider" />
                   <span className="adv-unf">Clicks Per</span>
@@ -284,7 +289,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                       type="number"
                       className="adv-number-sm"
                       value={settings.durationMilliseconds}
-                      min={getMinIntervalMs(settings.extendedClickSpeedLimit)}
+                      min={MIN_CLICK_INTERVAL_MS}
                       max={999}
                       style={{ width: "34px", textAlign: "right" }}
                       onChange={(event) =>
@@ -296,7 +301,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                         handleDurationBlur(
                           event,
                           "durationMilliseconds",
-                          getMinIntervalMs(settings.extendedClickSpeedLimit),
+                          MIN_CLICK_INTERVAL_MS,
                           999,
                           settings as CadenceDurationFields,
                           (patch) => update(patch),
@@ -307,7 +312,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           event,
                           "durationMilliseconds",
                           settings as CadenceDurationFields,
-                          getMinIntervalMs(settings.extendedClickSpeedLimit),
+                          MIN_CLICK_INTERVAL_MS,
                           999,
                           (patch) => update(patch),
                         )
@@ -322,6 +327,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
               <span className="adv-conversion-display">{conversionText}</span>
             )}
           </div>
+          {showHighCpsWarning && <HighCpsWarning />}
         </div>
       </Disableable>
     </div>
