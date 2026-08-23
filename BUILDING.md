@@ -1,35 +1,41 @@
 # Building From Source
 
-This project is Windows-first. The maintained desktop build path uses the Rust `x86_64-pc-windows-msvc` toolchain plus Node.js.
+This project has native Windows and macOS desktop backends behind the same unchanged Tauri/React interface.
 
 ## Prerequisites
 
 - Node.js 20 or newer
 - Rust via `rustup`
-- Microsoft C++ Build Tools / Visual Studio Build Tools
+- Windows: Microsoft C++ Build Tools / Visual Studio Build Tools
+- macOS: Xcode Command Line Tools (`xcode-select --install`)
 
 ## Setup
 
-```powershell
+```shell
 git clone https://github.com/Blur009/Blur-AutoClicker.git
 cd Blur-AutoClicker
-npm install
-rustup default stable-x86_64-pc-windows-msvc
+npm ci
 ```
+
+The repository's `rust-toolchain.toml` selects the supported Rust toolchain automatically.
 
 ## Run in development
 
-```powershell
+```shell
 npm run dev
 ```
 
+On macOS, approve the Accessibility prompt on first launch. The permission can also be enabled manually in **System Settings → Privacy & Security → Accessibility**. Restart the app after changing the permission if macOS requests it.
+
 ## Build a release bundle
 
-```powershell
+```shell
 npm run build
 ```
 
-The built Windows installer is written to `src-tauri/target/release/bundle/nsis/`.
+- Windows installer: `src-tauri/target/release/bundle/nsis/`
+- macOS app: `src-tauri/target/release/bundle/macos/`
+- macOS disk image: `src-tauri/target/release/bundle/dmg/`
 
 ## Build the portable zip
 
@@ -52,12 +58,18 @@ versions from GitHub Releases.
 
 ## Validation
 
-```powershell
+```shell
 npm run lint
 npm run frontend:build
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo check --manifest-path src-tauri/Cargo.toml --locked
 cargo test --manifest-path src-tauri/Cargo.toml --locked
+```
+
+Or run the complete project check:
+
+```shell
+npm run check
 ```
 
 ## Contributing

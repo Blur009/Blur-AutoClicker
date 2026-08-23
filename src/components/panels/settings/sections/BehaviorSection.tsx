@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { error } from "@tauri-apps/plugin-log";
-import { DEFAULT_MAX_CLICK_SPEED } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
 import { NumInput } from "../../advanced/sections/shared";
-import ConfirmDialog from "../../../ConfirmDialog";
 import { SettingsCard } from "./shared";
 
 interface Props {
@@ -20,9 +18,6 @@ export default function BehaviorSection({
   onToggleAlwaysOnTop,
   portable,
 }: Props) {
-  const [pendingAction, setPendingAction] = useState<
-    "extended-click-speed-limit" | null
-  >(null);
   const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(
     null,
   );
@@ -36,23 +31,6 @@ export default function BehaviorSection({
   const handleAlwaysOnTopChange = (nextValue: boolean) => {
     if (settings.alwaysOnTop === nextValue) return;
     void onToggleAlwaysOnTop();
-  };
-
-  const handleExtendedClickSpeedLimitChange = (nextValue: boolean) => {
-    if (settings.extendedClickSpeedLimit === nextValue) return;
-    if (nextValue) {
-      setPendingAction("extended-click-speed-limit");
-      return;
-    }
-    update({
-      extendedClickSpeedLimit: false,
-      clickSpeed: Math.min(settings.clickSpeed, DEFAULT_MAX_CLICK_SPEED),
-    });
-  };
-
-  const handleConfirmExtendedClickSpeedLimit = () => {
-    update({ extendedClickSpeedLimit: true });
-    setPendingAction(null);
   };
 
   return (
@@ -151,27 +129,6 @@ export default function BehaviorSection({
                 update({
                   taskSwitcherStopEnabled: !settings.taskSwitcherStopEnabled,
                 })
-              }
-            >
-              <span className="settings-toggle-knob" />
-            </button>
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">Extended Click Speed Limit</span>
-            <span className="settings-sublabel">
-              Allow click speeds up to 1000 CPS (may affect performance).
-            </span>
-          </div>
-          <div className="settings-toggle-wrapper">
-            <button
-              className={`settings-toggle ${settings.extendedClickSpeedLimit ? "on" : "off"}`}
-              onClick={() =>
-                handleExtendedClickSpeedLimitChange(
-                  !settings.extendedClickSpeedLimit,
-                )
               }
             >
               <span className="settings-toggle-knob" />
@@ -307,15 +264,6 @@ export default function BehaviorSection({
           </div>
         )}
       </SettingsCard>
-
-      <ConfirmDialog
-        open={pendingAction === "extended-click-speed-limit"}
-        title="Enable extended click speed limit?"
-        message="This will allow click speeds beyond the default limit. This may affect performance."
-        confirmLabel="Enable"
-        onConfirm={handleConfirmExtendedClickSpeedLimit}
-        onCancel={() => setPendingAction(null)}
-      />
     </>
   );
 }

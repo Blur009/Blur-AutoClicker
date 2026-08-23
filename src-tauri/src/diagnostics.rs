@@ -44,6 +44,7 @@ pub fn logs_dir() -> Option<PathBuf> {
     diagnostics_root().map(|d| d.join("Logs"))
 }
 
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub fn crash_reports_dir() -> Option<PathBuf> {
     diagnostics_root().map(|d| d.join("CrashReports"))
 }
@@ -129,12 +130,9 @@ mod tests {
 
     #[test]
     fn portable_layout_resolves_single_level() {
-        let exe_dir = std::path::Path::new(r"C:\apps\Blur");
-        let data = crate::portable::portable_data_dir_of(exe_dir);
-        assert_eq!(
-            diagnostics_root_of(&data),
-            std::path::PathBuf::from(r"C:\apps\Blur\Data\Diagnostics")
-        );
+        let exe_dir = std::path::Path::new("apps").join("Blur");
+        let data = crate::portable::portable_data_dir_of(&exe_dir);
+        assert_eq!(diagnostics_root_of(&data), exe_dir.join("Data/Diagnostics"));
     }
 
     fn with_test_dir(f: impl FnOnce()) {

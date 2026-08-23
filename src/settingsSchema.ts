@@ -40,8 +40,8 @@ export interface StopZone {
 
 export const DEFAULT_ACCENT_COLOR = "#22c55e";
 export const PRESET_NAME_MAX_LENGTH = 40;
-export const DEFAULT_MAX_CLICK_SPEED = 500;
-export const EXTENDED_MAX_CLICK_SPEED = 1000;
+export const HIGH_CPS_WARNING_THRESHOLD = 500;
+export const MIN_CLICK_INTERVAL_MS = 1;
 
 export const CLICK_INTERVAL_OPTIONS = [
   { value: "s", label: "Second" },
@@ -123,7 +123,7 @@ export function createStopZoneId(): string {
 const PRESET_FIELDS = {
   clickSpeed: {
     default: 25,
-    limit: { min: 1, max: EXTENDED_MAX_CLICK_SPEED },
+    limit: { min: 1 },
     ui: { section: "core", control: "number" },
   },
   clickInterval: {
@@ -350,10 +350,6 @@ const SETTINGS_ONLY_FIELDS = {
   },
   taskSwitcherStopEnabled: {
     default: true,
-    ui: { section: "behavior", control: "toggle" },
-  },
-  extendedClickSpeedLimit: {
-    default: false,
     ui: { section: "behavior", control: "toggle" },
   },
   minimizeToTray: {
@@ -880,20 +876,6 @@ export function clampNumber(
     typeof value === "number" && Number.isFinite(value) ? value : fallback;
   const minClamped = min === undefined ? parsed : Math.max(min, parsed);
   return max === undefined ? minClamped : Math.min(max, minClamped);
-}
-
-export function getMaxClickSpeed(
-  extendedClickSpeedLimit: boolean | null | undefined,
-) {
-  return extendedClickSpeedLimit
-    ? EXTENDED_MAX_CLICK_SPEED
-    : DEFAULT_MAX_CLICK_SPEED;
-}
-
-export function getMinIntervalMs(
-  extendedClickSpeedLimit: boolean | null | undefined,
-) {
-  return Math.ceil(1000 / getMaxClickSpeed(extendedClickSpeedLimit));
 }
 
 export function sanitizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -1432,7 +1414,6 @@ export function sanitizeSettings(
     saved.clickSpeed,
     presetSettings.clickSpeed,
     SETTINGS_LIMITS.clickSpeed.min,
-    getMaxClickSpeed(settingsOnly.extendedClickSpeedLimit),
   );
   settingsOnly.disableScreenshots = false;
   settingsOnly.presets = sanitizePresets(saved.presets, defaults);

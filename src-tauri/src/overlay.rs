@@ -68,6 +68,8 @@ pub fn init_overlay(app: &AppHandle) -> AppResult<()> {
         apply_win32_styles(&window)?;
         let _ = sync_overlay_bounds(&window)?;
     }
+    #[cfg(target_os = "macos")]
+    let _ = sync_overlay_bounds(&window)?;
 
     log::info!("[Overlay] Init complete — window configured but hidden");
     Ok(())
@@ -91,7 +93,7 @@ pub fn show_overlay(app: &AppHandle) -> AppResult<()> {
     let bounds = current_virtual_screen_rect()
         .ok_or_else(|| AppError::State("Virtual screen bounds not available".into()))?;
 
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     {
         sync_overlay_bounds(&window)?;
         let visible = window.is_visible().unwrap_or(false);
@@ -175,7 +177,7 @@ pub fn show_click_points_overlay(app: &AppHandle) -> AppResult<()> {
         settings.click_points.clone()
     };
 
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     {
         sync_overlay_bounds(&window)?;
         if !points.is_empty() {
@@ -200,7 +202,7 @@ pub fn show_click_point_pick_overlay(app: &AppHandle) -> AppResult<()> {
     let bounds = current_virtual_screen_rect()
         .ok_or_else(|| AppError::State("Virtual screen bounds not available".into()))?;
 
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     {
         sync_overlay_bounds(&window)?;
         show_overlay_window(&window)?;
@@ -247,7 +249,7 @@ pub fn show_custom_stop_zone_pick_overlay(app: &AppHandle) -> AppResult<()> {
     let bounds = current_virtual_screen_rect()
         .ok_or_else(|| AppError::State("Virtual screen bounds not available".into()))?;
 
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     {
         sync_overlay_bounds(&window)?;
         show_overlay_window(&window)?;
@@ -458,5 +460,31 @@ fn show_overlay_window(window: &tauri::WebviewWindow) -> AppResult<()> {
         );
     }
 
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn sync_overlay_bounds(window: &tauri::WebviewWindow) -> AppResult<VirtualScreenRect> {
+    let bounds = current_virtual_screen_rect()
+        .ok_or_else(|| AppError::State("Virtual screen bounds not available".into()))?;
+    window.set_position(tauri::LogicalPosition::new(
+        bounds.left as f64,
+        bounds.top as f64,
+    ))?;
+    window.set_size(tauri::LogicalSize::new(
+        bounds.width as f64,
+        bounds.height as f64,
+    ))?;
+    Ok(bounds)
+}
+
+#[cfg(target_os = "macos")]
+fn show_overlay_window(window: &tauri::WebviewWindow) -> AppResult<()> {
+    let _ = window.eval(
+        "document.getElementById('zone-layer').innerHTML = ''; \
+         document.getElementById('click-points-layer').innerHTML = '';",
+    );
+    window.set_always_on_top(true)?;
+    window.show()?;
     Ok(())
 }

@@ -1,7 +1,19 @@
 pub mod cycle;
 pub mod failsafe;
+#[cfg(target_os = "windows")]
 pub mod keyboard;
+#[cfg(target_os = "macos")]
+#[path = "../macos/engine_keyboard.rs"]
+pub mod keyboard;
+#[cfg(target_os = "windows")]
 pub mod mouse;
+#[cfg(target_os = "macos")]
+#[path = "../macos/engine_mouse.rs"]
+pub mod mouse;
+#[cfg(target_os = "windows")]
+pub mod process;
+#[cfg(target_os = "macos")]
+#[path = "../macos/engine_process.rs"]
 pub mod process;
 pub mod rng;
 pub mod stats;
@@ -105,6 +117,7 @@ pub struct RunOutcome {
 }
 static CLICK_COUNT: AtomicI64 = AtomicI64::new(0);
 
+#[cfg(target_os = "windows")]
 #[link(name = "ntdll")]
 extern "system" {
     fn NtSetTimerResolution(

@@ -374,6 +374,7 @@ fn force_window_icon_big(window: &tauri::WebviewWindow, img: &RgbaImage) {
 
 // Premultiply straight RGBA (as the `image` crate stores it) into the BGRA
 // byte order Windows icon bitmaps require, with alpha premultiplied.
+#[cfg(target_os = "windows")]
 fn premultiply_rgba_to_bgra(raw: &[u8]) -> Vec<u8> {
     let mut px = Vec::with_capacity(raw.len());
     for p in raw.chunks_exact(4) {
@@ -967,6 +968,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn premultiply_rgba_to_bgra_opaque_red() {
         // opaque red: B/G swapped to front, premultiplied by 255 == unchanged
         assert_eq!(
@@ -976,6 +978,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn premultiply_rgba_to_bgra_partial_alpha() {
         // straight (10,20,30,128) -> premultiplied (b,g,r,a) ~ (15,10,5,128)
         assert_eq!(
@@ -985,11 +988,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn premultiply_rgba_to_bgra_zero_alpha() {
         assert_eq!(premultiply_rgba_to_bgra(&[10, 20, 30, 0]), vec![0, 0, 0, 0]);
     }
 
     #[test]
+    #[cfg(windows)]
     fn premultiply_rgba_to_bgra_multiple_pixels() {
         // (255,0,0,255) -> [0,0,255,255]; (0,0,255,128) -> [128,0,0,128]
         assert_eq!(

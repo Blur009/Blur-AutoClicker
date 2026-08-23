@@ -42,12 +42,15 @@ pub enum AppError {
     #[error("{0}")]
     HotkeyConflict(String),
 
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     #[error("Windows API call failure. System Error Code: {0}")]
     WindowsSystem(u32),
 
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     #[error("High-precision hardware timer unavailable on this machine")]
     TimerPrecision,
 
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     #[error("Inter-thread channel communication disconnected")]
     ChannelFailure,
 }

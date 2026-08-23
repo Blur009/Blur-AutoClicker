@@ -1,18 +1,18 @@
-#[cfg(feature = "crashpad")]
+#[cfg(all(feature = "crashpad", target_os = "windows"))]
 use std::path::PathBuf;
-#[cfg(feature = "crashpad")]
+#[cfg(all(feature = "crashpad", target_os = "windows"))]
 use std::sync::Mutex;
 
-#[cfg(feature = "crashpad")]
+#[cfg(all(feature = "crashpad", target_os = "windows"))]
 use crashpad_rs::CrashpadClient;
 
 // Held in a static so the client is never dropped during abnormal termination
 // (a drop during a crash can hang). The static is deliberately not dropped at
 // process exit; graceful shutdown goes through `shutdown_crashpad()`.
-#[cfg(feature = "crashpad")]
+#[cfg(all(feature = "crashpad", target_os = "windows"))]
 static CRASHPAD_CLIENT: Mutex<Option<CrashpadClient>> = Mutex::new(None);
 
-#[cfg(feature = "crashpad")]
+#[cfg(all(feature = "crashpad", target_os = "windows"))]
 pub fn initialize_crashpad() -> Result<(), Box<dyn std::error::Error>> {
     let client = crashpad_rs::CrashpadClient::new()?;
 
@@ -38,7 +38,7 @@ pub fn initialize_crashpad() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(feature = "crashpad")]
+#[cfg(all(feature = "crashpad", target_os = "windows"))]
 pub fn shutdown_crashpad() {
     let mut slot = CRASHPAD_CLIENT.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(client) = slot.take() {
@@ -50,7 +50,7 @@ pub fn shutdown_crashpad() {
     }
 }
 
-#[cfg(feature = "crashpad")]
+#[cfg(all(feature = "crashpad", target_os = "windows"))]
 fn resolve_handler_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
     if let Some(path) = option_env!("CRASHPAD_HANDLER_PATH") {
         return Ok(PathBuf::from(path));
@@ -70,7 +70,7 @@ fn resolve_handler_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Err("crashpad_handler.exe not found. Ensure the crashpad-rs 'prebuilt' feature is enabled or set CRASHPAD_HANDLER_PATH.".into())
 }
 
-#[cfg(not(feature = "crashpad"))]
+#[cfg(not(all(feature = "crashpad", target_os = "windows")))]
 pub fn initialize_crashpad() -> Result<(), Box<dyn std::error::Error>> {
     log::warn!(
         "[Crashpad] Not available — compile with 'crashpad' feature for out-of-process crash dumps."
@@ -78,14 +78,14 @@ pub fn initialize_crashpad() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(not(feature = "crashpad"))]
+#[cfg(not(all(feature = "crashpad", target_os = "windows")))]
 pub fn shutdown_crashpad() {}
 
 #[cfg(test)]
 mod tests {
 
     #[test]
-    #[cfg(not(feature = "crashpad"))]
+    #[cfg(not(all(feature = "crashpad", target_os = "windows")))]
     fn crashpad_stub_returns_ok() {
         let result = super::initialize_crashpad();
         assert!(result.is_ok());

@@ -3,8 +3,10 @@ use std::sync::OnceLock;
 
 const MARKER_FILE: &str = "portable.txt";
 const MARKER_CONTENT: &str = "BlurAutoClicker Portable Mode";
+#[cfg(target_os = "windows")]
 const BOOTSTRAPPER_FILE: &str = "MicrosoftEdgeWebview2Setup.exe";
 
+#[cfg(target_os = "windows")]
 const WEBVIEW2_CLIENT_KEYS: [&str; 2] = [
     r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
     r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
@@ -12,6 +14,7 @@ const WEBVIEW2_CLIENT_KEYS: [&str; 2] = [
 
 static PORTABLE: OnceLock<bool> = OnceLock::new();
 static PORTABLE_DIR: OnceLock<PathBuf> = OnceLock::new();
+#[cfg(target_os = "windows")]
 static BOOTSTRAPPER_SPAWNED: OnceLock<bool> = OnceLock::new();
 
 /// Detect portable mode and initialize portable paths. Must run before any
@@ -193,13 +196,10 @@ mod tests {
 
     #[test]
     fn layout_resolves_under_exe_data() {
-        let exe_dir = std::path::Path::new(r"C:\apps\Blur");
-        let data = portable_data_dir_of(exe_dir);
-        assert_eq!(data, std::path::PathBuf::from(r"C:\apps\Blur\Data"));
+        let exe_dir = std::path::Path::new("apps").join("Blur");
+        let data = portable_data_dir_of(&exe_dir);
+        assert_eq!(data, exe_dir.join("Data"));
         let webview = webview_dir_of(&data, "main");
-        assert_eq!(
-            webview,
-            std::path::PathBuf::from(r"C:\apps\Blur\Data\EBWebView-main")
-        );
+        assert_eq!(webview, exe_dir.join("Data").join("EBWebView-main"));
     }
 }

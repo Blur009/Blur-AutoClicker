@@ -98,17 +98,11 @@ function run(c) {
  * @returns {boolean} true if a running instance was detected (and we aborted)
  */
 async function guardRunningInstance() {
-  let running = false;
-  if (process.platform === 'win32') {
-    const r = spawnSync('tasklist', ['/NH'], { encoding: 'utf8', shell: true });
-    const out = r.stdout || '';
-    running = /BlurAutoClicker/i.test(out) || /crashpad_handler/i.test(out);
-  } else {
-    const r = spawnSync('pgrep', ['-f', 'BlurAutoClicker|crashpad_handler'], {
-      encoding: 'utf8',
-    });
-    running = r.status === 0 && !!r.stdout.trim();
-  }
+  if (process.platform !== 'win32') return false;
+
+  const r = spawnSync('tasklist', ['/NH'], { encoding: 'utf8', shell: true });
+  const out = r.stdout || '';
+  let running = /BlurAutoClicker/i.test(out) || /crashpad_handler/i.test(out);
 
   if (!running) {
     try {

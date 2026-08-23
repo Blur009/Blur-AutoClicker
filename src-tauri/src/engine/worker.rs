@@ -13,7 +13,9 @@ use crate::ClickerSettings;
 use crate::ClickerState;
 use crate::ClickerStatusPayload;
 use crate::STATUS_EVENT;
+#[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
+#[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     SystemParametersInfoW, SPI_GETKEYBOARDDELAY, SPI_GETKEYBOARDSPEED,
 };
@@ -30,6 +32,7 @@ use super::process;
 use super::rng::SmallRng;
 use super::ClickPointTarget;
 use super::ClickerConfig;
+#[cfg(target_os = "windows")]
 use super::NtSetTimerResolution;
 use super::RunOutcome;
 use super::CLICK_COUNT;
@@ -38,14 +41,17 @@ use super::CLICK_COUNT;
 // changed from normal cpu measurement because it was not accurately
 // showing cpu usage for short clicker run times.
 
+#[cfg(target_os = "windows")]
 windows_targets::link!(
     "kernel32.dll" "system" fn QueryThreadCycleTime(thread: *mut core::ffi::c_void, cycles: *mut u64) -> i32
 );
+#[cfg(target_os = "windows")]
 windows_targets::link!(
     "kernel32.dll" "system" fn GetCurrentThread() -> *mut core::ffi::c_void
 );
 
 #[inline]
+#[cfg(target_os = "windows")]
 fn thread_cycles() -> u64 {
     let mut cycles: u64 = 0;
     unsafe {
@@ -54,12 +60,25 @@ fn thread_cycles() -> u64 {
     cycles
 }
 
+#[inline]
+#[cfg(target_os = "macos")]
+fn thread_cycles() -> u64 {
+    let mut usage = unsafe { std::mem::zeroed::<libc::rusage>() };
+    if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) } != 0 {
+        return 0;
+    }
+    let user = usage.ru_utime.tv_sec as u64 * 1_000_000 + usage.ru_utime.tv_usec as u64;
+    let system = usage.ru_stime.tv_sec as u64 * 1_000_000 + usage.ru_stime.tv_usec as u64;
+    user.saturating_add(system)
+}
+
 impl ClickerConfig {
     pub fn use_click_points(&self) -> bool {
         self.click_points_enabled && !self.click_points.is_empty()
     }
 }
 
+#[cfg(target_os = "windows")]
 fn calibrate_cycle_freq() -> f64 {
     let start_cycles = thread_cycles();
     let start = Instant::now();
@@ -80,18 +99,26 @@ fn calibrate_cycle_freq() -> f64 {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn calibrate_cycle_freq() -> f64 {
+    1_000_000.0
+}
+
 struct TimerResolutionGuard;
 
 impl TimerResolutionGuard {
     fn new() -> Self {
-        let mut current = 0u32;
-        let status = unsafe { NtSetTimerResolution(10000, 1, &mut current) };
-        if status != 0 {
-            log::warn!(
-                "[Timer] {} (NTSTATUS: {:#X})",
-                AppError::TimerPrecision,
-                status
-            );
+        #[cfg(target_os = "windows")]
+        {
+            let mut current = 0u32;
+            let status = unsafe { NtSetTimerResolution(10000, 1, &mut current) };
+            if status != 0 {
+                log::warn!(
+                    "[Timer] {} (NTSTATUS: {:#X})",
+                    AppError::TimerPrecision,
+                    status
+                );
+            }
         }
         Self
     }
@@ -99,8 +126,11 @@ impl TimerResolutionGuard {
 
 impl Drop for TimerResolutionGuard {
     fn drop(&mut self) {
-        let mut current = 0u32;
-        unsafe { NtSetTimerResolution(10000, 0, &mut current) };
+        #[cfg(target_os = "windows")]
+        {
+            let mut current = 0u32;
+            unsafe { NtSetTimerResolution(10000, 0, &mut current) };
+        }
     }
 }
 
@@ -283,8 +313,24 @@ fn interval_secs_from_settings(settings: &ClickerSettings) -> AppResult<f64> {
 }
 
 fn system_double_click_gap_ms() -> u32 {
-    let system_timeout_ms = unsafe { GetDoubleClickTime() };
-    ((system_timeout_ms as f64) * 0.9).floor() as u32
+    #[cfg(target_os = "windows")]
+    {
+        let system_timeout_ms = unsafe { GetDoubleClickTime() };
+        return ((system_timeout_ms as f64) * 0.9).floor() as u32;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let threshold = std::process::Command::new("defaults")
+            .args(["read", "-g", "com.apple.mouse.doubleClickThreshold"])
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .and_then(|output| String::from_utf8(output.stdout).ok())
+            .and_then(|value| value.trim().parse::<f64>().ok())
+            .unwrap_or(0.5);
+        (threshold * 900.0).round().clamp(100.0, 900.0) as u32
+    }
 }
 
 fn current_cycle_target(config: &ClickerConfig, click_point_index: usize) -> ClickPointTarget {
@@ -544,6 +590,7 @@ struct ClickerContext {
     double_plan: ClickCyclePlan,
 }
 
+#[cfg(target_os = "windows")]
 fn get_keyboard_repeat_settings() -> (u32, u32) {
     // SPI_GETKEYBOARDDELAY: 0=250ms, 1=500ms, 2=750ms, 3=1000ms
     let mut delay_setting: u32 = 0;
@@ -582,6 +629,26 @@ fn get_keyboard_repeat_settings() -> (u32, u32) {
     };
 
     (repeat_delay_ms, repeat_interval_ms)
+}
+
+#[cfg(target_os = "macos")]
+fn get_keyboard_repeat_settings() -> (u32, u32) {
+    fn global_default(key: &str) -> Option<f64> {
+        std::process::Command::new("defaults")
+            .args(["read", "-g", key])
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .and_then(|output| String::from_utf8(output.stdout).ok())
+            .and_then(|value| value.trim().parse::<f64>().ok())
+    }
+    let delay = (global_default("InitialKeyRepeat").unwrap_or(25.0) * 15.0)
+        .round()
+        .clamp(150.0, 2_000.0) as u32;
+    let interval = (global_default("KeyRepeat").unwrap_or(2.0) * 15.0)
+        .round()
+        .clamp(15.0, 500.0) as u32;
+    (delay, interval)
 }
 
 impl ClickerContext {
