@@ -37,7 +37,7 @@ dependencies = [
  "tokio",
  "walkdir",
  "webview2-com 0.39.1",
- "windows-core 0.61.2",
+ "windows-core 0.62.2",
  "windows-sys 0.61.2",
  "windows-targets 0.53.5",
  "winreg 0.56.0",
