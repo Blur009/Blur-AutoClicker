@@ -6,9 +6,9 @@ use windows_sys::Win32::Foundation::{GetLastError, LPARAM, LRESULT, WPARAM};
 use windows_sys::Win32::System::Threading::GetCurrentThreadId;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_ESCAPE;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, GetMessageW, PostThreadMessageW, SetWindowsHookExW, UnhookWindowsHookEx, HHOOK,
-    KBDLLHOOKSTRUCT, MSG, MSLLHOOKSTRUCT, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_MOUSEMOVE,
-    WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
+    CallNextHookEx, GetMessageW, PeekMessageW, PostThreadMessageW, SetWindowsHookExW,
+    UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT, MSG, MSLLHOOKSTRUCT, PM_NOREMOVE, WH_KEYBOARD_LL,
+    WH_MOUSE_LL, WM_KEYDOWN, WM_MOUSEMOVE, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
 };
 
 use crate::engine::mouse::{current_virtual_screen_rect, VirtualScreenRect};
@@ -44,6 +44,8 @@ enum KeyboardHookDecision {
 #[derive(Default)]
 struct PickerRuntime {
     active: bool,
+    starting: bool,
+    generation: u64,
     drawing_start: Option<(i32, i32)>,
     mouse_hook: HHOOK,
     keyboard_hook: HHOOK,
@@ -56,9 +58,14 @@ unsafe impl Send for PickerRuntime {}
 unsafe impl Sync for PickerRuntime {}
 
 static PICKER: OnceLock<Mutex<PickerRuntime>> = OnceLock::new();
+static INSTALL_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn picker() -> &'static Mutex<PickerRuntime> {
     PICKER.get_or_init(|| Mutex::new(PickerRuntime::default()))
+}
+
+fn install_lock() -> &'static Mutex<()> {
+    INSTALL_LOCK.get_or_init(|| Mutex::new(()))
 }
 
 fn classify_mouse_message(message: u32, drawing: bool) -> MouseHookDecision {
@@ -91,42 +98,69 @@ fn normalize_rect(start: (i32, i32), end: (i32, i32)) -> StopZoneRect {
     StopZoneRect {
         x: left,
         y: top,
-        width: right - left + 1,
-        height: bottom - top + 1,
+        width: right.saturating_sub(left).saturating_add(1),
+        height: bottom.saturating_sub(top).saturating_add(1),
     }
 }
 
 pub fn start_custom_stop_zone_pick_inner(app: AppHandle) -> AppResult<()> {
     crate::click_point_picker::cancel_click_point_pick_inner(&app);
 
-    {
+    let generation = {
         let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
-        if runtime.active {
+        if runtime.active || runtime.starting {
+            drop(runtime);
             crate::overlay::show_custom_stop_zone_pick_overlay(&app)?;
             return Ok(());
         }
 
-        runtime.active = true;
+        runtime.generation = runtime.generation.wrapping_add(1);
+        runtime.starting = true;
         runtime.drawing_start = None;
         runtime.app = Some(app.clone());
         runtime.last_preview_emit = None;
-    }
+        runtime.generation
+    };
 
     app.state::<ClickerState>()
         .custom_stop_zone_pick_active
         .store(true, std::sync::atomic::Ordering::SeqCst);
 
-    crate::overlay::show_custom_stop_zone_pick_overlay(&app)?;
+    if let Err(error) = crate::overlay::show_custom_stop_zone_pick_overlay(&app) {
+        cancel_custom_stop_zone_pick_generation(&app, generation);
+        return Err(error);
+    }
 
     let (ready_tx, ready_rx) = mpsc::channel();
     std::thread::spawn(move || unsafe {
+        let _install_guard = install_lock().lock().unwrap_or_else(poisoned_inner);
+        {
+            let runtime = picker().lock().unwrap_or_else(poisoned_inner);
+            if !runtime.starting || runtime.generation != generation {
+                let _ = ready_tx.send(Err(AppError::ChannelFailure));
+                return;
+            }
+        }
+
         let thread_id = GetCurrentThreadId();
+        let mut queue_message = std::mem::zeroed::<MSG>();
+        PeekMessageW(&mut queue_message, std::ptr::null_mut(), 0, 0, PM_NOREMOVE);
+
         let mouse_hook =
             SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), std::ptr::null_mut(), 0);
         if mouse_hook.is_null() {
             let err = GetLastError();
             let _ = ready_tx.send(Err(AppError::WindowsSystem(err)));
             return;
+        }
+
+        {
+            let runtime = picker().lock().unwrap_or_else(poisoned_inner);
+            if !runtime.starting || runtime.generation != generation {
+                UnhookWindowsHookEx(mouse_hook);
+                let _ = ready_tx.send(Err(AppError::ChannelFailure));
+                return;
+            }
         }
 
         let keyboard_hook = SetWindowsHookExW(
@@ -142,51 +176,79 @@ pub fn start_custom_stop_zone_pick_inner(app: AppHandle) -> AppResult<()> {
             return;
         }
 
-        {
+        let should_run = {
             let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
-            runtime.mouse_hook = mouse_hook;
-            runtime.keyboard_hook = keyboard_hook;
-            runtime.thread_id = thread_id;
+            if runtime.starting && runtime.generation == generation {
+                runtime.active = true;
+                runtime.starting = false;
+                runtime.mouse_hook = mouse_hook;
+                runtime.keyboard_hook = keyboard_hook;
+                runtime.thread_id = thread_id;
+                true
+            } else {
+                false
+            }
+        };
+
+        if !should_run {
+            UnhookWindowsHookEx(mouse_hook);
+            UnhookWindowsHookEx(keyboard_hook);
+            let _ = ready_tx.send(Err(AppError::ChannelFailure));
+            return;
         }
+
         let _ = ready_tx.send(Ok(()));
+        drop(_install_guard);
 
         let mut msg = std::mem::zeroed::<MSG>();
         while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {}
 
-        UnhookWindowsHookEx(mouse_hook);
-        UnhookWindowsHookEx(keyboard_hook);
-        let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
-        if runtime.mouse_hook == mouse_hook {
-            runtime.mouse_hook = std::ptr::null_mut();
-        }
-        if runtime.keyboard_hook == keyboard_hook {
-            runtime.keyboard_hook = std::ptr::null_mut();
-        }
-        if runtime.mouse_hook.is_null() && runtime.keyboard_hook.is_null() {
-            runtime.thread_id = 0;
+        let _cleanup_guard = install_lock().lock().unwrap_or_else(poisoned_inner);
+        let owns_hooks = {
+            let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
+            if runtime.generation == generation {
+                runtime.active = false;
+                runtime.starting = false;
+                runtime.mouse_hook = std::ptr::null_mut();
+                runtime.keyboard_hook = std::ptr::null_mut();
+                runtime.thread_id = 0;
+                true
+            } else {
+                false
+            }
+        };
+        if owns_hooks {
+            UnhookWindowsHookEx(mouse_hook);
+            UnhookWindowsHookEx(keyboard_hook);
         }
     });
 
     match ready_rx.recv_timeout(Duration::from_secs(1)) {
         Ok(Ok(())) => Ok(()),
         Ok(Err(error)) => {
-            cancel_custom_stop_zone_pick_inner(&app);
+            cancel_custom_stop_zone_pick_generation(&app, generation);
             Err(error)
         }
         Err(_) => {
-            cancel_custom_stop_zone_pick_inner(&app);
+            cancel_custom_stop_zone_pick_generation(&app, generation);
             Err(AppError::ChannelFailure)
         }
     }
 }
 
+fn cancel_custom_stop_zone_pick_generation(app: &AppHandle, generation: u64) {
+    if stop_custom_stop_zone_pick(Some(app.clone()), true, Some(generation)).is_some() {
+        let _ = crate::overlay::hide_custom_stop_zone_pick_overlay(app);
+    }
+}
+
 pub fn cancel_custom_stop_zone_pick_inner(app: &AppHandle) {
-    stop_custom_stop_zone_pick(Some(app.clone()), true);
+    stop_custom_stop_zone_pick(Some(app.clone()), true, None);
     let _ = crate::overlay::hide_custom_stop_zone_pick_overlay(app);
 }
 
 fn cancel_custom_stop_zone_pick_from_hook() {
-    let app = stop_custom_stop_zone_pick(None, true);
+    let app = stop_custom_stop_zone_pick(None, true, None);
     if let Some(app) = app {
         let _ = crate::overlay::hide_custom_stop_zone_pick_overlay(&app);
     }
@@ -203,23 +265,46 @@ fn finish_custom_stop_zone_pick(rect: StopZoneRect) {
     if let Some(ref app) = app {
         let _ = app.emit("custom-stop-zone-picked", rect);
     }
-    stop_custom_stop_zone_pick(None, true);
+    stop_custom_stop_zone_pick(None, true, None);
 }
 
 fn stop_custom_stop_zone_pick(
     app_override: Option<AppHandle>,
     notify_overlay: bool,
+    expected_generation: Option<u64>,
 ) -> Option<AppHandle> {
-    let (app, thread_id) = {
+    let (app, thread_id, mouse_hook, keyboard_hook) = {
         let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
+        if expected_generation.is_some_and(|expected| runtime.generation != expected) {
+            return None;
+        }
         let app = app_override.or_else(|| runtime.app.clone());
         let thread_id = runtime.thread_id;
+        let mouse_hook = runtime.mouse_hook;
+        let keyboard_hook = runtime.keyboard_hook;
+        runtime.generation = runtime.generation.wrapping_add(1);
         runtime.active = false;
+        runtime.starting = false;
         runtime.drawing_start = None;
+        runtime.mouse_hook = std::ptr::null_mut();
+        runtime.keyboard_hook = std::ptr::null_mut();
+        runtime.thread_id = 0;
         runtime.app = None;
         runtime.last_preview_emit = None;
-        (app, thread_id)
+        (app, thread_id, mouse_hook, keyboard_hook)
     };
+
+    unsafe {
+        if !mouse_hook.is_null() {
+            UnhookWindowsHookEx(mouse_hook);
+        }
+        if !keyboard_hook.is_null() {
+            UnhookWindowsHookEx(keyboard_hook);
+        }
+        if thread_id != 0 {
+            PostThreadMessageW(thread_id, WM_QUIT, 0, 0);
+        }
+    }
 
     if let Some(app) = &app {
         app.state::<ClickerState>()
@@ -231,12 +316,6 @@ fn stop_custom_stop_zone_pick(
         }
     }
 
-    if thread_id != 0 {
-        unsafe {
-            PostThreadMessageW(thread_id, WM_QUIT, 0, 0);
-        }
-    }
-
     app
 }
 
@@ -245,13 +324,16 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
         return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
     }
 
+    let drawing = {
+        let runtime = picker().lock().unwrap_or_else(poisoned_inner);
+        if !runtime.active {
+            return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
+        }
+        runtime.drawing_start.is_some()
+    };
+
     let message = wparam as u32;
     let mouse = &*(lparam as *const MSLLHOOKSTRUCT);
-    let drawing = picker()
-        .lock()
-        .unwrap_or_else(poisoned_inner)
-        .drawing_start
-        .is_some();
 
     if message == WM_MOUSEMOVE {
         if should_emit_drag_preview(drawing) {
@@ -288,6 +370,10 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
 
 unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code < 0 {
+        return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
+    }
+
+    if !picker().lock().unwrap_or_else(poisoned_inner).active {
         return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
     }
 
@@ -468,5 +554,12 @@ mod tests {
                 height: 76,
             }
         );
+    }
+
+    #[test]
+    fn extreme_drag_saturates_dimensions() {
+        let rect = normalize_rect((i32::MIN, i32::MIN), (i32::MAX, i32::MAX));
+        assert_eq!(rect.width, i32::MAX);
+        assert_eq!(rect.height, i32::MAX);
     }
 }

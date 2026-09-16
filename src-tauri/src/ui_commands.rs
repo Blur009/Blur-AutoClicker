@@ -273,8 +273,6 @@ pub fn open_diagnostics_folder() -> AppResult<()> {
 
 #[tauri::command]
 pub fn export_diagnostics_bundle() -> AppResult<String> {
-    use std::io::Write;
-
     let exports_dir = crate::diagnostics::exports_dir()
         .ok_or_else(|| AppError::State("Failed to resolve exports path".into()))?;
     std::fs::create_dir_all(&exports_dir)?;
@@ -310,7 +308,7 @@ pub fn export_diagnostics_bundle() -> AppResult<String> {
             .strip_prefix(&root)
             .map_err(|e| AppError::Io(std::io::Error::other(e)))?;
         let name = relative.to_string_lossy().replace('\\', "/");
-        let data = std::fs::read(entry.path())?;
+        let mut source = std::fs::File::open(entry.path())?;
         zip_writer
             .start_file(
                 name,
@@ -318,7 +316,7 @@ pub fn export_diagnostics_bundle() -> AppResult<String> {
                     .compression_method(zip::CompressionMethod::Deflated),
             )
             .map_err(|e| AppError::Io(std::io::Error::other(e)))?;
-        zip_writer.write_all(&data)?;
+        std::io::copy(&mut source, &mut zip_writer)?;
     }
 
     zip_writer
