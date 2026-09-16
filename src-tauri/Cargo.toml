@@ -20,8 +20,8 @@ hex = "0.4"
 tauri = { version = "2.11.5", features = ["protocol-asset", "tray-icon", "image-ico"] }
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging",
   "Win32_System_Threading", "Win32_Security", "Win32_Security_WinTrust", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_UI_HiDpi", "Win32_System_Diagnostics_ToolHelp", "Win32_System_ProcessStatus", "Win32_UI_Shell"] }
-webview2-com = "0.39"
-windows-core = "0.62"
+webview2-com = "0.38.2"
+windows-core = "0.61.2"
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros"] }
 futures-util = "0.3"
 serde = { version = "1.0.229", features = ["derive"] }
@@ -38,7 +38,7 @@ tauri-plugin-persisted-scope = { version = "2", features = ["protocol-asset"] }
 log = "0.4.33"
 serde_json = "1.0.151"
 raw-window-handle = "0.6.2"
-tauri-plugin-updater = "2.10.0"
+tauri-plugin-updater = "2.11.0"
 hmac = "0.13.0"
 sha2 = "0.11"
 hex = "0.4"

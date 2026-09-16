@@ -45,8 +45,6 @@ fn round2(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
 }
 
-// -- CSV read/write --
-
 fn read_all_runs() -> AppResult<Vec<RunRecord>> {
     let path = stats_file_path();
     if !path.exists() {
@@ -117,8 +115,6 @@ fn write_all_runs(runs: &[RunRecord]) -> AppResult<()> {
 fn next_id(runs: &[RunRecord]) -> u64 {
     runs.iter().map(|r| r.id).max().unwrap_or(0) + 1
 }
-
-// -- Compaction --
 
 fn compact_runs(runs: &mut Vec<RunRecord>) {
     if runs.len() < MAX_NORMAL_RUNS {
@@ -232,7 +228,7 @@ pub fn reset_stats() -> AppResult<CumulativeStats> {
     let path = stats_file_path();
 
     if path.exists() {
-        let _ = fs::write(&path, "");
+        fs::write(&path, "")?;
     }
 
     Ok(CumulativeStats {

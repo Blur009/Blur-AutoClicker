@@ -1,5 +1,6 @@
 use super::cycle::{execute_click_cycle, ClickCycleKind, ClickCyclePlan};
 use super::worker::{sleep_interruptible, RunControl};
+use std::cell::Cell;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -34,12 +35,12 @@ impl VirtualScreenRect {
 
     #[inline]
     pub fn right(self) -> i32 {
-        self.left + self.width
+        self.left.saturating_add(self.width)
     }
 
     #[inline]
     pub fn bottom(self) -> i32 {
-        self.top + self.height
+        self.top.saturating_add(self.height)
     }
 
     #[inline]
@@ -47,22 +48,28 @@ impl VirtualScreenRect {
         x >= self.left && x < self.right() && y >= self.top && y < self.bottom()
     }
 
-    fn normalize_x(&self, pixel_x: i32) -> i32 {
-        let relative_x = pixel_x as f64 - self.left as f64;
-        let ratio = relative_x / self.width as f64;
-        (ratio * 65535.0).round() as i32
+    fn normalize_axis(pixel: i32, origin: i32, span: i32) -> i32 {
+        if span <= 1 {
+            return 0;
+        }
+        let max_offset = span - 1;
+        let offset = pixel.saturating_sub(origin).clamp(0, max_offset);
+        ((offset as f64 / max_offset as f64) * 65535.0).round() as i32
     }
+
+    fn normalize_x(&self, pixel_x: i32) -> i32 {
+        Self::normalize_axis(pixel_x, self.left, self.width)
+    }
+
     fn normalize_y(&self, pixel_y: i32) -> i32 {
-        let relative_y = pixel_y as f64 - self.top as f64;
-        let ratio = relative_y / self.height as f64;
-        (ratio * 65535.0).round() as i32
+        Self::normalize_axis(pixel_y, self.top, self.height)
     }
 
     #[inline]
     pub fn offset_from(self, origin: VirtualScreenRect) -> Self {
         Self::new(
-            self.left - origin.left,
-            self.top - origin.top,
+            self.left.saturating_sub(origin.left),
+            self.top.saturating_sub(origin.top),
             self.width,
             self.height,
         )
@@ -97,8 +104,23 @@ pub fn current_virtual_screen_rect() -> Option<VirtualScreenRect> {
 #[cfg(target_os = "windows")]
 pub fn current_monitor_rects() -> Option<Vec<VirtualScreenRect>> {
     use std::ptr;
+    use std::sync::{Mutex, OnceLock};
     use windows_sys::Win32::Foundation::RECT;
     use windows_sys::Win32::Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, MONITORINFO};
+
+    static CACHE: OnceLock<Mutex<Option<(Instant, VirtualScreenRect, Vec<VirtualScreenRect>)>>> =
+        OnceLock::new();
+
+    let screen = current_virtual_screen_rect()?;
+    let cache = CACHE.get_or_init(|| Mutex::new(None));
+    {
+        let cached = cache.lock().unwrap_or_else(|error| error.into_inner());
+        if let Some((cached_at, cached_screen, monitors)) = cached.as_ref() {
+            if *cached_screen == screen && cached_at.elapsed() < Duration::from_secs(1) {
+                return Some(monitors.clone());
+            }
+        }
+    }
 
     unsafe extern "system" fn enum_monitor_proc(
         monitor: *mut std::ffi::c_void,
@@ -135,10 +157,13 @@ pub fn current_monitor_rects() -> Option<Vec<VirtualScreenRect>> {
     };
 
     if ok == 0 || monitors.is_empty() {
-        return current_virtual_screen_rect().map(|screen| vec![screen]);
+        monitors.push(screen);
+    } else {
+        monitors.sort_by_key(|monitor: &VirtualScreenRect| (monitor.top, monitor.left));
     }
 
-    monitors.sort_by_key(|monitor: &VirtualScreenRect| (monitor.top, monitor.left));
+    *cache.lock().unwrap_or_else(|error| error.into_inner()) =
+        Some((Instant::now(), screen, monitors.clone()));
     Some(monitors)
 }
 
@@ -153,14 +178,19 @@ pub fn get_cursor_pos() -> (i32, i32) {
 }
 
 #[inline]
-pub fn move_mouse(target_x: i32, target_y: i32) {
+pub fn move_mouse(target_x: i32, target_y: i32) -> bool {
     if let Some(screen_rect) = current_virtual_screen_rect() {
         let end_x = screen_rect.normalize_x(target_x);
         let end_y = screen_rect.normalize_y(target_y);
 
         let movement = make_movement(end_x, end_y);
-        unsafe { SendInput(1, &movement, std::mem::size_of::<INPUT>() as i32) };
-        log::debug!("moved cursor x:{end_x}, y:{end_y}")
+        let sent = unsafe { SendInput(1, &movement, std::mem::size_of::<INPUT>() as i32) == 1 };
+        if sent {
+            log::debug!("moved cursor x:{end_x}, y:{end_y}")
+        }
+        sent
+    } else {
+        false
     }
 }
 
@@ -199,24 +229,53 @@ pub fn make_input(flags: u32, time: u32) -> INPUT {
 }
 
 #[inline]
-pub fn send_mouse_event(flags: u32) {
+pub fn send_mouse_event(flags: u32) -> bool {
     let input = make_input(flags, 0);
-    unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
+    unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) == 1 }
 }
 
-pub fn send_batch(down: u32, up: u32, n: usize) {
-    let mut inputs: Vec<INPUT> = Vec::with_capacity(n * 2);
-    for _ in 0..n {
-        inputs.push(make_input(down, 0));
-        inputs.push(make_input(up, 0));
+fn release_mouse_button(up: u32) -> bool {
+    for _ in 0..3 {
+        if send_mouse_event(up) {
+            return true;
+        }
     }
-    unsafe {
-        SendInput(
-            inputs.len() as u32,
-            inputs.as_ptr(),
-            std::mem::size_of::<INPUT>() as i32,
-        )
-    };
+    false
+}
+
+fn completed_batch_clicks(inserted: usize, cleanup_up_succeeded: bool) -> usize {
+    inserted / 2 + usize::from(inserted % 2 != 0 && cleanup_up_succeeded)
+}
+
+pub fn send_batch(down: u32, up: u32, n: usize) -> usize {
+    const MAX_BATCH_CLICKS: usize = 8;
+    const MAX_BATCH_INPUTS: usize = MAX_BATCH_CLICKS * 2;
+
+    let mut sent = 0usize;
+    while sent < n {
+        let chunk = (n - sent).min(MAX_BATCH_CLICKS);
+        let mut inputs: [INPUT; MAX_BATCH_INPUTS] = std::array::from_fn(|_| make_input(0, 0));
+        for index in 0..chunk {
+            inputs[index * 2] = make_input(down, 0);
+            inputs[index * 2 + 1] = make_input(up, 0);
+        }
+
+        let inserted = unsafe {
+            SendInput(
+                (chunk * 2) as u32,
+                inputs.as_ptr(),
+                std::mem::size_of::<INPUT>() as i32,
+            ) as usize
+        };
+        let cleanup_up_succeeded = inserted % 2 == 0 || release_mouse_button(up);
+        let completed = completed_batch_clicks(inserted, cleanup_up_succeeded);
+        sent += completed;
+
+        if inserted != chunk * 2 {
+            break;
+        }
+    }
+    sent
 }
 
 pub fn send_clicks(
@@ -226,37 +285,58 @@ pub fn send_clicks(
     plan: ClickCyclePlan,
     control: &RunControl,
     should_abort: &dyn Fn() -> bool,
-) {
-    if count == 0 {
-        return;
-    }
-
-    if should_abort() {
-        return;
+) -> usize {
+    if count == 0 || should_abort() {
+        return 0;
     }
 
     if plan.kind == ClickCycleKind::Single && count > 1 && plan.first_hold_ms == 0 {
-        send_batch(down, up, count);
-        return;
+        return send_batch(down, up, count);
     }
 
-    let is_active = || control.is_active() && !should_abort();
-    let mut sleep_for = |duration| sleep_interruptible(duration, control, should_abort);
+    let mut sent = 0usize;
 
     for _ in 0..count {
         if should_abort() {
-            return;
+            break;
         }
-        if !execute_click_cycle(
-            plan,
-            &mut || send_mouse_event(down),
-            &mut || send_mouse_event(up),
-            &mut sleep_for,
-            &is_active,
-        ) {
-            return;
+
+        let down_succeeded = Cell::new(false);
+        let failed = Cell::new(false);
+        let completed_clicks = Cell::new(0usize);
+        let is_active = || control.is_active() && !should_abort() && !failed.get();
+        let mut sleep_for = |duration| sleep_interruptible(duration, control, should_abort);
+        let mut press = || {
+            let succeeded = send_mouse_event(down);
+            down_succeeded.set(succeeded);
+            if !succeeded {
+                failed.set(true);
+            }
+        };
+        let mut release = || {
+            let succeeded = release_mouse_button(up);
+            if down_succeeded.get() && succeeded {
+                completed_clicks.set(completed_clicks.get() + 1);
+                down_succeeded.set(false);
+            }
+            if !succeeded {
+                failed.set(true);
+            }
+        };
+
+        let completed =
+            execute_click_cycle(plan, &mut press, &mut release, &mut sleep_for, &is_active);
+        if down_succeeded.get() && release_mouse_button(up) {
+            completed_clicks.set(completed_clicks.get() + 1);
+            down_succeeded.set(false);
+        }
+        sent += completed_clicks.get();
+        if !completed || failed.get() || down_succeeded.get() {
+            break;
         }
     }
+
+    sent
 }
 
 #[inline]
@@ -398,4 +478,46 @@ pub fn smooth_move(
     rng: &mut crate::engine::rng::SmallRng,
 ) {
     smooth_move_inner(start_x, start_y, end_x, end_y, duration_ms, rng, true);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{completed_batch_clicks, VirtualScreenRect};
+
+    #[test]
+    fn absolute_coordinates_cover_full_virtual_screen_range() {
+        let screen = VirtualScreenRect::new(-1920, -200, 3840, 1280);
+        assert_eq!(screen.normalize_x(-1920), 0);
+        assert_eq!(screen.normalize_x(1919), 65535);
+        assert_eq!(screen.normalize_y(-200), 0);
+        assert_eq!(screen.normalize_y(1079), 65535);
+    }
+
+    #[test]
+    fn absolute_coordinates_clamp_outside_virtual_screen() {
+        let screen = VirtualScreenRect::new(0, 0, 1920, 1080);
+        assert_eq!(screen.normalize_x(-100), 0);
+        assert_eq!(screen.normalize_x(5000), 65535);
+        assert_eq!(screen.normalize_y(-100), 0);
+        assert_eq!(screen.normalize_y(5000), 65535);
+    }
+
+    #[test]
+    fn absolute_coordinates_handle_single_pixel_span() {
+        assert_eq!(VirtualScreenRect::normalize_axis(10, 10, 1), 0);
+    }
+
+    #[test]
+    fn partial_mouse_batch_counts_cleanup_completed_click() {
+        assert_eq!(completed_batch_clicks(3, true), 2);
+        assert_eq!(completed_batch_clicks(3, false), 1);
+        assert_eq!(completed_batch_clicks(4, false), 2);
+    }
+
+    #[test]
+    fn virtual_screen_edges_saturate() {
+        let rect = VirtualScreenRect::new(i32::MAX - 5, i32::MAX - 5, 10, 10);
+        assert_eq!(rect.right(), i32::MAX);
+        assert_eq!(rect.bottom(), i32::MAX);
+    }
 }

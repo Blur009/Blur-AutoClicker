@@ -35,7 +35,7 @@ pub struct ClickerState {
     pub settings_initialized: AtomicBool,
     pub paused: Arc<AtomicBool>,
     pub paused_by_zone: AtomicBool,
-    pub zone_started_clicker: AtomicBool,
+    pub zone_started_generation: AtomicU64,
     pub warning: Mutex<Option<String>>,
     pub icon_state: Mutex<IconState>,
     pub icon_cache: Mutex<IconCache>,

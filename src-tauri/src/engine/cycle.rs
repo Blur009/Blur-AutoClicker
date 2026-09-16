@@ -57,6 +57,10 @@ where
     }
 
     press();
+    if !is_active() {
+        release();
+        return false;
+    }
     if hold_ms > 0 {
         sleep_for(Duration::from_millis(hold_ms as u64));
         if !is_active() {
