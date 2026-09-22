@@ -3,9 +3,12 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Mutex;
 use std::sync::OnceLock;
+use std::time::{Duration, Instant};
 
 use crate::error::poisoned_inner;
-use windows_sys::Win32::Foundation::{CloseHandle, HWND, INVALID_HANDLE_VALUE, LPARAM};
+use windows_sys::Win32::Foundation::{
+    CloseHandle, GetLastError, HWND, INVALID_HANDLE_VALUE, LPARAM,
+};
 use windows_sys::Win32::Graphics::Gdi::{
     CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetObjectW, SelectObject, BITMAP,
     BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS,
@@ -26,6 +29,9 @@ use image::ImageEncoder;
 const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
 const DI_NORMAL: u32 = 0x0003;
 const PROCESS_DISPLAY_TITLE_MAX_CHARS: usize = 35;
+const MAX_ICON_CACHE_ENTRIES: usize = 128;
+const MAX_PROCESS_PATH_CHARS: usize = 32_768;
+const ERROR_INSUFFICIENT_BUFFER_CODE: u32 = 122;
 
 extern "system" {
     fn QueryFullProcessImageNameW(
@@ -45,9 +51,21 @@ pub struct ProcessInfo {
     pub icon_base64: Option<String>,
 }
 
+struct ForegroundProcessCache {
+    hwnd: usize,
+    pid: u32,
+    name: String,
+    resolved_at: Instant,
+}
+
 fn icon_cache() -> &'static Mutex<HashMap<String, Option<String>>> {
     static CACHE: OnceLock<Mutex<HashMap<String, Option<String>>>> = OnceLock::new();
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn foreground_process_cache() -> &'static Mutex<Option<ForegroundProcessCache>> {
+    static CACHE: OnceLock<Mutex<Option<ForegroundProcessCache>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(None))
 }
 
 fn get_process_exe_path(pid: u32) -> Option<String> {
@@ -56,14 +74,24 @@ fn get_process_exe_path(pid: u32) -> Option<String> {
         if process.is_null() {
             return None;
         }
-        let mut buffer = [0u16; 260];
-        let mut size = buffer.len() as u32;
-        let result = QueryFullProcessImageNameW(process, 0, buffer.as_mut_ptr(), &mut size);
+
+        let mut capacity = 260usize;
+        let path = loop {
+            let mut buffer = vec![0u16; capacity];
+            let mut size = capacity as u32;
+            if QueryFullProcessImageNameW(process, 0, buffer.as_mut_ptr(), &mut size) != 0 {
+                break Some(String::from_utf16_lossy(&buffer[..size as usize]));
+            }
+            if GetLastError() != ERROR_INSUFFICIENT_BUFFER_CODE
+                || capacity >= MAX_PROCESS_PATH_CHARS
+            {
+                break None;
+            }
+            capacity = (capacity * 2).min(MAX_PROCESS_PATH_CHARS);
+        };
+
         CloseHandle(process);
-        if result == 0 {
-            return None;
-        }
-        Some(String::from_utf16_lossy(&buffer[..size as usize]))
+        path
     }
 }
 
@@ -181,8 +209,14 @@ fn get_icon_for_process(exe_name: &str, pid: u32) -> Option<String> {
             return cached.clone();
         }
     }
+
     let icon = get_process_exe_path(pid).and_then(|path| extract_process_icon_base64(&path));
     let mut cache = icon_cache().lock().unwrap_or_else(poisoned_inner);
+    if cache.len() >= MAX_ICON_CACHE_ENTRIES && !cache.contains_key(exe_name) {
+        if let Some(key) = cache.keys().next().cloned() {
+            cache.remove(&key);
+        }
+    }
     cache.insert(exe_name.to_string(), icon.clone());
     icon
 }
@@ -199,29 +233,6 @@ pub fn normalize_process_name(name: &str) -> String {
 fn wide_array_to_string(wide: &[u16]) -> String {
     let len = wide.iter().position(|&c| c == 0).unwrap_or(wide.len());
     String::from_utf16_lossy(&wide[..len])
-}
-
-fn get_process_name_from_pid(target_pid: u32) -> Option<String> {
-    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
-    if snapshot == INVALID_HANDLE_VALUE {
-        return None;
-    }
-    let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
-    entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
-    let mut result = None;
-    if unsafe { Process32FirstW(snapshot, &mut entry) } != 0 {
-        loop {
-            if entry.th32ProcessID == target_pid {
-                result = Some(wide_array_to_string(&entry.szExeFile));
-                break;
-            }
-            if unsafe { Process32NextW(snapshot, &mut entry) } == 0 {
-                break;
-            }
-        }
-    }
-    unsafe { CloseHandle(snapshot) };
-    result
 }
 
 struct BuildWindowMap {
@@ -277,7 +288,36 @@ pub fn get_foreground_process_name() -> Option<String> {
     if pid == 0 {
         return None;
     }
-    get_process_name_from_pid(pid)
+
+    let hwnd_key = hwnd as usize;
+    {
+        let cache = foreground_process_cache()
+            .lock()
+            .unwrap_or_else(poisoned_inner);
+        if let Some(cached) = cache.as_ref() {
+            if cached.hwnd == hwnd_key
+                && cached.pid == pid
+                && cached.resolved_at.elapsed() < Duration::from_secs(1)
+            {
+                return Some(cached.name.clone());
+            }
+        }
+    }
+
+    let path = get_process_exe_path(pid)?;
+    let name = std::path::Path::new(&path)
+        .file_name()
+        .map(|name| name.to_string_lossy().to_lowercase())?;
+
+    *foreground_process_cache()
+        .lock()
+        .unwrap_or_else(poisoned_inner) = Some(ForegroundProcessCache {
+        hwnd: hwnd_key,
+        pid,
+        name: name.clone(),
+        resolved_at: Instant::now(),
+    });
+    Some(name)
 }
 
 fn prefer_titled_pid(existing: u32, candidate: u32, has_title: impl Fn(u32) -> bool) -> u32 {
@@ -344,7 +384,16 @@ pub fn check_process_list(config: &ClickerConfig) -> Option<()> {
     if !config.process_list_enabled {
         return None;
     }
-    let current = get_foreground_process_name()?.to_lowercase();
+
+    let current = match get_foreground_process_name() {
+        Some(name) => name,
+        None => {
+            return match config.process_list_mode {
+                super::ProcessListMode::Whitelist => Some(()),
+                super::ProcessListMode::Blacklist => None,
+            }
+        }
+    };
     let matching_entry = config
         .process_list_entries
         .iter()

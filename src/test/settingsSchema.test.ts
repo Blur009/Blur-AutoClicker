@@ -8,6 +8,10 @@ import type { Settings } from "../settingsSchema";
 
 const VERSION = "3.9.2";
 
+function sanitizeLegacy(value: Record<string, unknown>) {
+  return sanitizeSettings(value as unknown as Partial<Settings>, VERSION);
+}
+
 describe("background blur settings", () => {
   const BLUR_FIELDS = [
     "backgroundBlur",
@@ -64,5 +68,48 @@ describe("background blur settings", () => {
     );
     expect(sanitized.backgroundBlurSimple).toBe(20);
     expect(sanitized.backgroundBlurSettings).toBe(0);
+  });
+});
+
+describe("legacy settings migrations", () => {
+  it("migrates sequenceEnabled and sequencePoints", () => {
+    const sanitized = sanitizeLegacy({
+      sequenceEnabled: true,
+      sequencePoints: [{ id: "legacy", x: -120, y: 80, clicks: 3, radius: 4 }],
+    });
+
+    expect(sanitized.clickPointsEnabled).toBe(true);
+    expect(sanitized.clickPoints).toEqual([
+      { id: "legacy", x: -120, y: 80, clicks: 3, radius: 4 },
+    ]);
+  });
+
+  it("migrates legacy speed variation fields", () => {
+    const sanitized = sanitizeLegacy({
+      speedVariation: 37,
+      speedVariationEnabled: true,
+    });
+
+    expect(sanitized.speedRandomization).toBe(37);
+    expect(sanitized.speedRandomizationEnabled).toBe(true);
+  });
+
+  it("preserves negative legacy stop-zone coordinates and clamps dimensions", () => {
+    const sanitized = sanitizeLegacy({
+      customStopZoneEnabled: true,
+      customStopZoneX: -1920,
+      customStopZoneY: -200,
+      customStopZoneWidth: Number.MAX_SAFE_INTEGER,
+      customStopZoneHeight: Number.MAX_SAFE_INTEGER,
+    });
+
+    expect(sanitized.stopZones).toHaveLength(1);
+    expect(sanitized.stopZones[0]).toMatchObject({
+      x: -1920,
+      y: -200,
+      width: 2_147_483_647,
+      height: 2_147_483_647,
+      action: "stop",
+    });
   });
 });

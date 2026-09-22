@@ -16,6 +16,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "format:write": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "check": "node scripts/check.mjs",
+    "check:all": "node scripts/check.mjs",
     "check:fix": "node scripts/check.mjs --fix",
     "prepare": "lefthook install"
   },
@@ -54,6 +55,6 @@
     "vitest": "^4.1.11"
   },
   "allowScripts": {
-    "lefthook@2.1.10": true
+    "lefthook@2.1.12": true
   }
 }

@@ -1224,10 +1224,10 @@ export function sanitizePresetSnapshot(
   snapshot.clickPoints = sanitizeClickPoints(
     saved.clickPoints ?? (saved.sequencePoints as ClickPoint[] | undefined),
   );
-  if (snapshot.clickPointsEnabled === undefined) {
-    snapshot.clickPointsEnabled =
-      (saved.sequenceEnabled as boolean | undefined) ?? false;
-  }
+  snapshot.clickPointsEnabled = sanitizeBoolean(
+    saved.clickPointsEnabled ?? saved.sequenceEnabled,
+    defaults.clickPointsEnabled,
+  );
   snapshot.processListEntries = sanitizeProcessListEntries(
     saved.processListEntries,
   );
@@ -1339,10 +1339,10 @@ export function sanitizeSettings(
     saved.clickPoints ??
       (savedRecord.sequencePoints as ClickPoint[] | undefined),
   );
-  if (presetSettings.clickPointsEnabled === undefined) {
-    presetSettings.clickPointsEnabled =
-      (savedRecord.sequenceEnabled as boolean | undefined) ?? false;
-  }
+  presetSettings.clickPointsEnabled = sanitizeBoolean(
+    saved.clickPointsEnabled ?? savedRecord.sequenceEnabled,
+    defaults.clickPointsEnabled,
+  );
   presetSettings.processListEntries = sanitizeProcessListEntries(
     saved.processListEntries,
   );
@@ -1353,11 +1353,10 @@ export function sanitizeSettings(
     SETTINGS_LIMITS.speedRandomization.min,
     SETTINGS_LIMITS.speedRandomization.max,
   );
-  if (presetSettings.speedRandomizationEnabled === undefined) {
-    presetSettings.speedRandomizationEnabled =
-      (savedRecord.speedVariationEnabled as boolean | undefined) ??
-      defaults.speedRandomizationEnabled;
-  }
+  presetSettings.speedRandomizationEnabled = sanitizeBoolean(
+    saved.speedRandomizationEnabled ?? savedRecord.speedVariationEnabled,
+    defaults.speedRandomizationEnabled,
+  );
 
   settingsOnly.rateInputMode = sanitizeRateInputMode(
     saved.rateInputMode,
@@ -1406,15 +1405,25 @@ export function sanitizeSettings(
   if (settingsOnly.stopZones.length === 0) {
     const oldEnabled = savedRecord.customStopZoneEnabled as boolean | undefined;
     if (oldEnabled) {
-      const oldX = clampNumber(savedRecord.customStopZoneX, 0, 0);
-      const oldY = clampNumber(savedRecord.customStopZoneY, 0, 0);
+      const oldX = clampNumber(
+        savedRecord.customStopZoneX,
+        0,
+        INT32_MIN,
+        INT32_MAX,
+      );
+      const oldY = clampNumber(
+        savedRecord.customStopZoneY,
+        0,
+        INT32_MIN,
+        INT32_MAX,
+      );
       const oldW = Math.max(
         1,
-        clampNumber(savedRecord.customStopZoneWidth, 100, 1),
+        clampNumber(savedRecord.customStopZoneWidth, 100, 1, INT32_MAX),
       );
       const oldH = Math.max(
         1,
-        clampNumber(savedRecord.customStopZoneHeight, 100, 1),
+        clampNumber(savedRecord.customStopZoneHeight, 100, 1, INT32_MAX),
       );
       settingsOnly.stopZones = [
         {

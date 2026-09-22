@@ -51,7 +51,6 @@ fn disable_browser_accelerator_keys(window: &tauri::WebviewWindow) {
             }
         };
 
-        // Cast to ICoreWebView2Settings3 to disable browser accelerator keys
         if let Ok(settings3) = settings.cast::<ICoreWebView2Settings3>() {
             match unsafe { settings3.SetAreBrowserAcceleratorKeysEnabled(false) } {
                 Ok(()) => {
@@ -113,9 +112,6 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
             .maximizable(false)
             .shadow(false);
 
-    // Set our own icon at creation so Windows associates the window with it
-    // rather than the bundled EXE icon resource (which can shadow runtime
-    // updates in release builds).
     if let Some(icon) = crate::icon::default_icon_image() {
         builder = builder.icon(icon)?;
     }
@@ -127,9 +123,6 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
 
     let window = builder.build()?;
 
-    // Re-apply the window icon once the window is registered with the taskbar
-    // (first focus/resize), because Explorer may have cached the EXE icon into
-    // the taskbar slot before our WM_SETICON at creation arrived.
     #[cfg(target_os = "windows")]
     {
         let applied = std::sync::atomic::AtomicBool::new(false);
@@ -152,9 +145,6 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
 fn set_app_aumid() {
     use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
 
-    // A stable, explicit AppUserModelID so Windows Explorer does not group or
-    // cache this app under the bundled EXE icon, which otherwise shadows
-    // runtime icon updates in release builds.
     let wide: Vec<u16> = "BlurAutoClicker.App"
         .encode_utf16()
         .chain(std::iter::once(0))
@@ -323,6 +313,9 @@ fn spawn_start_zone_monitor(app: &AppHandle) {
             };
 
             if !has_start_zones {
+                state
+                    .zone_started_generation
+                    .store(0, std::sync::atomic::Ordering::SeqCst);
                 prev_in_start_zone = false;
                 prev_has_start_zones = false;
                 continue;
@@ -336,9 +329,9 @@ fn spawn_start_zone_monitor(app: &AppHandle) {
             let in_start_zone = zones.iter().any(|z| {
                 z.action == "start"
                     && cursor.0 >= z.x
-                    && cursor.0 < z.x + z.width
+                    && cursor.0 < z.x.saturating_add(z.width)
                     && cursor.1 >= z.y
-                    && cursor.1 < z.y + z.height
+                    && cursor.1 < z.y.saturating_add(z.height)
             });
 
             if !prev_has_start_zones {
@@ -347,23 +340,26 @@ fn spawn_start_zone_monitor(app: &AppHandle) {
             prev_has_start_zones = true;
 
             let running = state.running.load(std::sync::atomic::Ordering::SeqCst);
-            let zone_started = state
-                .zone_started_clicker
+            let zone_generation = state
+                .zone_started_generation
+                .load(std::sync::atomic::Ordering::SeqCst);
+            let current_generation = state
+                .run_generation
                 .load(std::sync::atomic::Ordering::SeqCst);
 
-            // Transition: outside → inside, start clicker if off
             if in_start_zone && !prev_in_start_zone && !running {
                 if let Err(e) = crate::engine::worker::start_clicker_inner(&handle) {
                     log::error!("[ZoneMonitor] start failed: {e}");
                 } else {
-                    state
-                        .zone_started_clicker
-                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    state.zone_started_generation.store(
+                        state
+                            .run_generation
+                            .load(std::sync::atomic::Ordering::SeqCst),
+                        std::sync::atomic::Ordering::SeqCst,
+                    );
                 }
-            }
-            // Transition: inside → outside, stop clicker if we started it
-            else if !in_start_zone && prev_in_start_zone && zone_started {
-                if running {
+            } else if !in_start_zone && prev_in_start_zone && zone_generation != 0 {
+                if running && zone_generation == current_generation {
                     if let Err(e) = crate::engine::worker::stop_clicker_inner(
                         &handle,
                         Some(String::from("Left start zone")),
@@ -372,8 +368,8 @@ fn spawn_start_zone_monitor(app: &AppHandle) {
                     }
                 }
                 state
-                    .zone_started_clicker
-                    .store(false, std::sync::atomic::Ordering::SeqCst);
+                    .zone_started_generation
+                    .store(0, std::sync::atomic::Ordering::SeqCst);
             }
 
             prev_in_start_zone = in_start_zone;
@@ -410,8 +406,6 @@ fn setup_frontend_listener(app: &AppHandle) {
         if let Some(window) = overlay_init_handle.get_webview_window("main") {
             apply_ws_ex_noactivate(&window, false);
             log::info!("[Window] Cleared WS_EX_NOACTIVATE on main window");
-            // Apply here (not at window creation) so CoreWebView2 is guaranteed
-            // to exist — applying earlier can silently no-op and leave F6 crashing.
             disable_browser_accelerator_keys(&window);
         }
     });
@@ -448,7 +442,7 @@ fn create_clicker_state() -> ClickerState {
         settings_initialized: AtomicBool::new(false),
         paused: Arc::new(AtomicBool::new(false)),
         paused_by_zone: AtomicBool::new(false),
-        zone_started_clicker: AtomicBool::new(false),
+        zone_started_generation: AtomicU64::new(0),
         warning: Mutex::new(None),
         icon_cache: Mutex::new(crate::icon::init_icon_cache()),
         icon_state: Mutex::new(IconState {
@@ -539,7 +533,6 @@ pub fn run() {
             );
             spawn_overlay_auto_hide(&handle);
             spawn_start_zone_monitor(&handle);
-            window_lifecycle::start_periodic_trimming(30);
             setup_hotkeys(&handle)?;
             setup_frontend_listener(&handle);
             setup_close_handler(&handle);
@@ -585,17 +578,29 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            match &event {
-                tauri::RunEvent::ExitRequested { .. } => {
-                    // Central shutdown: fires for window close, tray quit,
-                    // quit_app, and updater restarts. Drops the crashpad client
-                    // so crashpad_handler.exe terminates instead of being orphaned.
-                    crate::crash_handler::shutdown_crashpad();
-                }
-                tauri::RunEvent::WindowEvent { event, label, .. } => match event {
-                    tauri::WindowEvent::CloseRequested { api, .. } if label == "main" => {
-                        api.prevent_close();
+        .run(|app_handle, event| match &event {
+            tauri::RunEvent::ExitRequested { .. } => {
+                crate::crash_handler::shutdown_crashpad();
+            }
+            tauri::RunEvent::WindowEvent { event, label, .. } => match event {
+                tauri::WindowEvent::CloseRequested { api, .. } if label == "main" => {
+                    api.prevent_close();
+                    let minimize_to_tray = {
+                        let state = app_handle.state::<ClickerState>();
+                        let minimize_to_tray = state
+                            .settings
+                            .lock()
+                            .unwrap_or_else(poisoned_inner)
+                            .minimize_to_tray;
+                        minimize_to_tray
+                    };
+                    if minimize_to_tray {
+                        crate::window_lifecycle::on_hide(app_handle);
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.hide();
+                        }
+                        let _ = app_handle.emit("minimized-changed", true);
+                    } else {
                         crate::app_events::APP_EVENTS_SHUTDOWN
                             .store(true, std::sync::atomic::Ordering::SeqCst);
                         crate::overlay::OVERLAY_THREAD_RUNNING
@@ -607,13 +612,13 @@ pub fn run() {
                         );
                         app_handle.exit(0);
                     }
-                    tauri::WindowEvent::Resized(size) if label == "main" => {
-                        let minimized = size.width == 0 || size.height == 0;
-                        let _ = app_handle.emit("minimized-changed", minimized);
-                    }
-                    _ => {}
-                },
+                }
+                tauri::WindowEvent::Resized(size) if label == "main" => {
+                    let minimized = size.width == 0 || size.height == 0;
+                    let _ = app_handle.emit("minimized-changed", minimized);
+                }
                 _ => {}
-            }
+            },
+            _ => {}
         });
 }
