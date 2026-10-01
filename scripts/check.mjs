@@ -11,6 +11,8 @@
  * re-verifies them — it never auto-edits code that only fails type/test checks.
  */
 
+import { closeSync, existsSync, openSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const COLOR =
@@ -18,7 +20,6 @@ const COLOR =
   !process.env.NO_COLOR &&
   process.env.TERM !== 'dumb';
 const esc = (code) => (s) => (COLOR ? `\x1b[${code}m${s}\x1b[0m` : `${s}`);
-// NOTE: every color entry is a *function* — always call it: C.red('text').
 const C = {
   bold: esc('1'),
   dim: esc('2'),
@@ -37,7 +38,7 @@ const TAG = { pass: 'PASS', warn: 'WARN', fail: 'FAIL' };
 const CHECKS = [
   {
     name: 'cargo test',
-    cmd: ['cargo', 'test', '--manifest-path', 'src-tauri/Cargo.toml'],
+    cmd: ['cargo', 'test', '--manifest-path', 'src-tauri/Cargo.toml', '--locked'],
     warn: [/^warning(\[\w+\])?:/m],
   },
   { name: 'npm test', cmd: ['npm', 'run', 'test'], warn: [/^warning:/m] },
@@ -64,7 +65,7 @@ const CHECKS = [
   },
   {
     name: 'clippy',
-    cmd: ['cargo', 'clippy', '--manifest-path', 'src-tauri/Cargo.toml'],
+    cmd: ['cargo', 'clippy', '--manifest-path', 'src-tauri/Cargo.toml', '--locked'],
     warn: [/^warning(\[\w+\])?:/m],
   },
   {
@@ -111,14 +112,14 @@ async function guardRunningInstance() {
   }
 
   if (!running) {
-    try {
-      const { openSync, closeSync } = await import('node:fs');
-      const { resolve } = await import('node:path');
-      const resource = resolve('src-tauri/resources/crashpad_handler.exe');
-      const fd = openSync(resource, 'r+');
-      closeSync(fd);
-    } catch {
-      running = true;
+    const resource = resolve('src-tauri/resources/crashpad_handler.exe');
+    if (existsSync(resource)) {
+      try {
+        const fd = openSync(resource, 'r+');
+        closeSync(fd);
+      } catch {
+        running = true;
+      }
     }
   }
 

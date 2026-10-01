@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use tauri_plugin_log::fern;
@@ -20,27 +20,36 @@ pub fn create_app_events_target() -> fern::Dispatch {
             };
             let _ = std::fs::create_dir_all(&dir);
 
-            let mut batch: Vec<String> = Vec::new();
-            let mut approx_size: u64 = 0;
+            let mut writer: Option<BufWriter<std::fs::File>> = None;
+            let mut current_size = 0u64;
 
             for record_str in rx {
                 if APP_EVENTS_SHUTDOWN.load(Ordering::SeqCst) {
                     break;
                 }
+
                 let record_len = record_str.len() as u64 + 1;
-                if approx_size + record_len > MAX_FILE_SIZE {
-                    flush_telemetry_batch(&dir, &batch);
-                    batch.clear();
-                    approx_size = 0;
+                if writer.is_none() || current_size.saturating_add(record_len) > MAX_FILE_SIZE {
+                    if let Some(mut current) = writer.take() {
+                        let _ = current.flush();
+                    }
+                    writer = create_telemetry_writer(&dir);
                     rotate_telemetry_files(&dir);
+                    current_size = 0;
                 }
-                batch.push(record_str);
-                approx_size += record_len;
+
+                if let Some(current) = writer.as_mut() {
+                    if writeln!(current, "{record_str}").is_ok() {
+                        current_size = current_size.saturating_add(record_len);
+                        let _ = current.flush();
+                    }
+                }
             }
 
-            if !batch.is_empty() {
-                flush_telemetry_batch(&dir, &batch);
+            if let Some(mut current) = writer {
+                let _ = current.flush();
             }
+            rotate_telemetry_files(&dir);
         })
         .expect("failed to spawn telemetry writer thread");
 
@@ -57,25 +66,32 @@ pub fn create_app_events_target() -> fern::Dispatch {
         }))
 }
 
+fn create_telemetry_writer(dir: &std::path::Path) -> Option<BufWriter<std::fs::File>> {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+
+    for suffix in 0..16u8 {
+        let path = dir.join(format!("events_{timestamp}_{suffix}.jsonl"));
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path);
+        if let Ok(file) = file {
+            return Some(BufWriter::new(file));
+        }
+    }
+
+    None
+}
+
 fn telemetry_filter(metadata: &log::Metadata) -> bool {
     let target = metadata.target();
     (target.starts_with("blur_autoclicker")
         || target.starts_with("app_lib")
         || target.starts_with("BlurAutoClicker"))
         && metadata.level() <= log::Level::Warn
-}
-
-fn flush_telemetry_batch(dir: &std::path::Path, batch: &[String]) {
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    let path = dir.join(format!("events_{ts}.jsonl"));
-    if let Ok(mut file) = std::fs::File::create(&path) {
-        for line in batch {
-            let _ = writeln!(file, "{line}");
-        }
-    }
 }
 
 fn rotate_telemetry_files(dir: &std::path::Path) {
@@ -86,7 +102,14 @@ fn rotate_telemetry_files(dir: &std::path::Path) {
             .collect(),
         Err(_) => return,
     };
-    files.sort_by_key(|e| e.file_name());
+    files.sort_by_key(|e| {
+        (
+            e.metadata()
+                .and_then(|metadata| metadata.modified())
+                .unwrap_or(std::time::UNIX_EPOCH),
+            e.file_name(),
+        )
+    });
     while files.len() > MAX_FILES {
         if let Some(oldest) = files.first() {
             let _ = std::fs::remove_file(oldest.path());
@@ -189,31 +212,57 @@ mod tests {
 
     #[test]
     fn rotate_keeps_max_files() {
-        let dir = std::env::temp_dir().join("BlurAutoClicker_Test_AppEventsRotate");
-        let _ = std::fs::create_dir_all(&dir);
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
 
         for i in 0..5 {
             let path = dir.join(format!("old_events_{i}.jsonl"));
-            let _ = std::fs::write(&path, "test");
+            std::fs::write(&path, "test").unwrap();
         }
 
-        rotate_telemetry_files(&dir);
+        rotate_telemetry_files(dir);
 
-        let remaining: Vec<_> = std::fs::read_dir(&dir)
+        let remaining: Vec<_> = std::fs::read_dir(dir)
             .unwrap()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_name().to_string_lossy().ends_with(".jsonl"))
             .collect();
-        assert!(
-            remaining.len() <= MAX_FILES,
-            "expected <= {} files, got {}",
-            MAX_FILES,
-            remaining.len()
-        );
+        assert_eq!(remaining.len(), MAX_FILES);
+    }
 
-        for entry in &remaining {
-            let _ = std::fs::remove_file(entry.path());
+    #[test]
+    fn rotation_preserves_new_logs_when_legacy_names_sort_after_them() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        for i in 0..MAX_FILES {
+            let path = dir.join(format!("events_999999999{i}.jsonl"));
+            let mut file = std::fs::File::create(path).unwrap();
+            writeln!(file, "legacy").unwrap();
+            file.set_times(std::fs::FileTimes::new().set_modified(std::time::UNIX_EPOCH))
+                .unwrap();
         }
-        let _ = std::fs::remove_dir(&dir);
+        let current = dir.join("events_1000000000000000000_0.jsonl");
+        std::fs::write(&current, "current").unwrap();
+
+        rotate_telemetry_files(dir);
+
+        assert_eq!(std::fs::read_to_string(current).unwrap(), "current");
+        assert_eq!(std::fs::read_dir(dir).unwrap().count(), MAX_FILES);
+    }
+
+    #[test]
+    fn consecutive_writers_preserve_both_records() {
+        let temp = tempfile::tempdir().unwrap();
+        for message in ["first", "second"] {
+            let mut writer = create_telemetry_writer(temp.path()).unwrap();
+            writeln!(writer, "{message}").unwrap();
+            writer.flush().unwrap();
+        }
+        let mut contents: Vec<_> = std::fs::read_dir(temp.path())
+            .unwrap()
+            .map(|entry| std::fs::read_to_string(entry.unwrap().path()).unwrap())
+            .collect();
+        contents.sort();
+        assert_eq!(contents, ["first\n", "second\n"]);
     }
 }

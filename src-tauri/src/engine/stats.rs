@@ -232,7 +232,7 @@ pub fn reset_stats() -> AppResult<CumulativeStats> {
     let path = stats_file_path();
 
     if path.exists() {
-        let _ = fs::write(&path, "");
+        fs::write(&path, "")?;
     }
 
     Ok(CumulativeStats {

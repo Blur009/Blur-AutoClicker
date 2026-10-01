@@ -16,6 +16,8 @@ pub struct IconState {
 pub struct ClickerState {
     pub running: Arc<AtomicBool>,
     pub run_generation: AtomicU64,
+    pub run_transition: Mutex<()>,
+    pub click_count: Mutex<Arc<AtomicI64>>,
     pub settings: Mutex<ClickerSettings>,
     pub last_error: Mutex<Option<String>>,
     pub stop_reason: Mutex<Option<String>>,
@@ -35,7 +37,7 @@ pub struct ClickerState {
     pub settings_initialized: AtomicBool,
     pub paused: Arc<AtomicBool>,
     pub paused_by_zone: AtomicBool,
-    pub zone_started_clicker: AtomicBool,
+    pub zone_started_generation: AtomicU64,
     pub warning: Mutex<Option<String>>,
     pub icon_state: Mutex<IconState>,
     pub icon_cache: Mutex<IconCache>,
