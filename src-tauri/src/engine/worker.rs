@@ -1,5 +1,6 @@
 use std::f64::consts::PI;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Emitter, Manager};
@@ -21,7 +22,9 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 use super::cycle::ClickCyclePlan;
 use super::failsafe::detect_stop_zones;
 use super::failsafe::should_stop_for_failsafe;
-use super::keyboard::{is_alphabetic_vk, send_key_down, send_key_presses, send_key_up};
+use super::keyboard::{
+    is_alphabetic_vk, send_key_down, send_key_presses, send_key_repeat, send_key_up,
+};
 use super::mouse::{
     current_cursor_position, get_button_flags, get_cursor_pos, move_mouse, send_clicks,
     smooth_move, VirtualScreenRect,
@@ -32,7 +35,6 @@ use super::ClickPointTarget;
 use super::ClickerConfig;
 use super::NtSetTimerResolution;
 use super::RunOutcome;
-use super::CLICK_COUNT;
 
 // -- CPU measurement --
 // changed from normal cpu measurement because it was not accurately
@@ -108,22 +110,22 @@ impl Drop for TimerResolutionGuard {
 pub struct RunControl {
     app: AppHandle,
     expected_generation: u64,
+    click_count: Arc<AtomicI64>,
 }
 
 impl RunControl {
     pub fn new(app: AppHandle, expected_generation: u64) -> Self {
+        let click_count = app
+            .state::<ClickerState>()
+            .click_count
+            .lock()
+            .unwrap_or_else(poisoned_inner)
+            .clone();
         Self {
             app,
             expected_generation,
+            click_count,
         }
-    }
-
-    pub fn is_current_generation(&self) -> bool {
-        self.app
-            .state::<ClickerState>()
-            .run_generation
-            .load(Ordering::SeqCst)
-            == self.expected_generation
     }
 
     pub fn is_active(&self) -> bool {
@@ -134,7 +136,16 @@ impl RunControl {
 }
 
 pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
+    start_clicker_with_source(app, false)
+}
+
+pub fn start_clicker_from_zone_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
+    start_clicker_with_source(app, true)
+}
+
+fn start_clicker_with_source(app: &AppHandle, from_zone: bool) -> AppResult<ClickerStatusPayload> {
     let state = app.state::<ClickerState>();
+    let _transition = state.run_transition.lock().unwrap_or_else(poisoned_inner);
     if state.running.load(Ordering::SeqCst) {
         return Err(AppError::AlreadyRunning);
     }
@@ -200,6 +211,12 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
         state.active_click_point_tick.store(0, Ordering::SeqCst);
     }
     let expected_generation = state.run_generation.fetch_add(1, Ordering::SeqCst) + 1;
+    reset_run_count(&state);
+    state.paused_by_zone.store(false, Ordering::SeqCst);
+    state.zone_started_generation.store(
+        if from_zone { expected_generation } else { 0 },
+        Ordering::SeqCst,
+    );
     let control = RunControl::new(app.clone(), expected_generation);
     let app_handle = app.clone();
 
@@ -215,34 +232,61 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
             record_run(outcome.click_count, outcome.elapsed_secs, outcome.avg_cpu);
         }
 
-        if !control.is_current_generation() {
+        let state = app_handle.state::<ClickerState>();
+        if !finalize_run_state(&state, control.expected_generation, &outcome.stop_reason) {
             return;
         }
 
-        let state = app_handle.state::<ClickerState>();
-        state.running.store(false, Ordering::SeqCst);
-        state.active_click_point_index.store(-1, Ordering::SeqCst);
-        state.active_click_point_tick.store(0, Ordering::SeqCst);
-
         crate::icon::set_app_icons(&app_handle);
-
-        *state.stop_reason.lock().unwrap_or_else(poisoned_inner) =
-            Some(outcome.stop_reason.clone());
-        *state.last_error.lock().unwrap_or_else(poisoned_inner) = None;
         emit_status(&app_handle);
     });
 
     Ok(payload)
 }
+
+fn finalize_run_state(state: &ClickerState, generation: u64, stop_reason: &str) -> bool {
+    let _transition = state.run_transition.lock().unwrap_or_else(poisoned_inner);
+    if state.run_generation.load(Ordering::SeqCst) != generation {
+        return false;
+    }
+    state.paused_by_zone.store(false, Ordering::SeqCst);
+    state.zone_started_generation.store(0, Ordering::SeqCst);
+    state.running.store(false, Ordering::SeqCst);
+    state.active_click_point_index.store(-1, Ordering::SeqCst);
+    state.active_click_point_tick.store(0, Ordering::SeqCst);
+    *state.stop_reason.lock().unwrap_or_else(poisoned_inner) = Some(stop_reason.to_string());
+    *state.last_error.lock().unwrap_or_else(poisoned_inner) = None;
+    true
+}
+
 pub fn stop_clicker_inner(
     app: &AppHandle,
     stop_reason: Option<String>,
 ) -> AppResult<ClickerStatusPayload> {
+    stop_clicker_for_generation(app, stop_reason, None)
+}
+
+pub fn stop_clicker_from_zone_inner(
+    app: &AppHandle,
+    generation: u64,
+) -> AppResult<ClickerStatusPayload> {
+    stop_clicker_for_generation(app, Some(String::from("Left start zone")), Some(generation))
+}
+
+fn stop_clicker_for_generation(
+    app: &AppHandle,
+    stop_reason: Option<String>,
+    expected_generation: Option<u64>,
+) -> AppResult<ClickerStatusPayload> {
     let state = app.state::<ClickerState>();
+    let _transition = state.run_transition.lock().unwrap_or_else(poisoned_inner);
+    if expected_generation.is_some_and(|generation| !zone_owns_run(&state, generation)) {
+        return Ok(current_status(app));
+    }
     let was_running = state.running.swap(false, Ordering::SeqCst);
     state.active_click_point_index.store(-1, Ordering::SeqCst);
     state.active_click_point_tick.store(0, Ordering::SeqCst);
-    state.zone_started_clicker.store(false, Ordering::SeqCst);
+    state.zone_started_generation.store(0, Ordering::SeqCst);
     state.paused_by_zone.store(false, Ordering::SeqCst);
     if was_running {
         state.run_generation.fetch_add(1, Ordering::SeqCst);
@@ -259,6 +303,12 @@ pub fn stop_clicker_inner(
     }
     emit_status(app);
     Ok(payload)
+}
+
+fn zone_owns_run(state: &ClickerState, generation: u64) -> bool {
+    generation != 0
+        && state.zone_started_generation.load(Ordering::SeqCst) == generation
+        && state.run_generation.load(Ordering::SeqCst) == generation
 }
 
 fn duration_interval_secs(settings: &ClickerSettings) -> f64 {
@@ -376,8 +426,8 @@ pub fn build_config(settings: &ClickerSettings) -> AppResult<ClickerConfig> {
                 radius: point.radius,
             })
             .collect(),
-        offset: 2.0,
-        offset_chance: 21.6,
+        offset: 0.0,
+        offset_chance: 0.0,
         smoothing: 1,
         stop_zones: settings
             .stop_zones
@@ -452,8 +502,8 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
 
     ClickerStatusPayload {
         running: state.running.load(Ordering::SeqCst),
-        paused: state.paused.load(Ordering::SeqCst),
-        click_count: get_click_count(),
+        paused: state.paused.load(Ordering::SeqCst) || state.paused_by_zone.load(Ordering::SeqCst),
+        click_count: current_click_count(&state),
         last_error,
         stop_reason,
         warning,
@@ -623,8 +673,7 @@ impl ClickerContext {
         let hold_ms =
             ((config.interval_secs * duty.max(0.0) / 100.0 * 1000.0) as u32).min(cycle_ms);
 
-        // Keyboard hold mode: 100% duty cycle = emulate Windows auto-repeat
-        let keyboard_hold_mode = is_keyboard && duty >= 100.0;
+        let keyboard_hold_mode = is_keyboard && config.duty >= 100.0;
         let (keyboard_repeat_delay_ms, keyboard_repeat_interval_ms) = if keyboard_hold_mode {
             get_keyboard_repeat_settings()
         } else {
@@ -699,6 +748,14 @@ fn check_abort(config: &ClickerConfig, start_time: Instant) -> Option<String> {
     None
 }
 
+fn set_zone_pause(state: &ClickerState, app: &AppHandle, paused: bool) -> bool {
+    let changed = state.paused_by_zone.swap(paused, Ordering::SeqCst) != paused;
+    if changed {
+        emit_status(app);
+    }
+    state.paused.load(Ordering::SeqCst) || paused
+}
+
 fn update_target(
     config: &ClickerConfig,
     ctx: &ClickerContext,
@@ -725,8 +782,9 @@ fn update_target(
     }
     st.target_x = (target.x as f64 + jitter_x) as i32;
     st.target_y = (target.y as f64 + jitter_y) as i32;
-    let should_move =
-        st.moved_click_point_index != Some(st.click_point_index) || config.offset > 0.0;
+    let should_move = st.moved_click_point_index != Some(st.click_point_index)
+        || target.radius > 0
+        || config.offset > 0.0;
     if !should_move {
         return;
     }
@@ -758,16 +816,18 @@ fn run_batch(
     control: &RunControl,
     should_abort: &dyn Fn() -> bool,
 ) -> bool {
-    let requested = if config.use_click_points() {
-        st.click_point_clicks_remaining.min(ctx.batch_size)
-    } else {
-        ctx.batch_size
-    };
-    let remaining = if config.limit > 0 {
+    let requested = ctx.batch_size;
+    let global_remaining = if config.limit > 0 {
         (config.limit as i64 - st.click_count).max(0) as usize
     } else {
         usize::MAX
     };
+    let point_remaining = if config.use_click_points() {
+        st.click_point_clicks_remaining
+    } else {
+        usize::MAX
+    };
+    let remaining = global_remaining.min(point_remaining);
     let batch = plan_cycle_batch(requested, remaining, config.double_click_enabled);
     if batch.cycles == 0 {
         return false;
@@ -781,9 +841,10 @@ fn run_batch(
     };
     st.next_batch_time += Duration::from_secs_f64(batch_dur.max(0.001));
 
+    let mut sent = 0usize;
     if ctx.is_keyboard {
         if batch.double_cycles > 0 {
-            send_key_presses(
+            sent += send_key_presses(
                 config.key_code,
                 batch.double_cycles,
                 config.keyboard_uppercase,
@@ -793,7 +854,7 @@ fn run_batch(
             );
         }
         if batch.single_cycles > 0 {
-            send_key_presses(
+            sent += send_key_presses(
                 config.key_code,
                 batch.single_cycles,
                 config.keyboard_uppercase,
@@ -804,7 +865,7 @@ fn run_batch(
         }
     } else {
         if batch.double_cycles > 0 {
-            send_clicks(
+            sent += send_clicks(
                 ctx.down_flag,
                 ctx.up_flag,
                 batch.double_cycles,
@@ -814,7 +875,7 @@ fn run_batch(
             );
         }
         if batch.single_cycles > 0 {
-            send_clicks(
+            sent += send_clicks(
                 ctx.down_flag,
                 ctx.up_flag,
                 batch.single_cycles,
@@ -825,44 +886,47 @@ fn run_batch(
         }
     }
 
-    if !control.is_active() {
-        return false;
+    if sent > 0 {
+        st.click_count += sent as i64;
+        control.click_count.store(st.click_count, Ordering::Relaxed);
+        if config.use_click_points() {
+            st.click_point_clicks_remaining = st.click_point_clicks_remaining.saturating_sub(sent);
+        }
     }
 
-    st.click_count += batch.physical_clicks as i64;
-    CLICK_COUNT.store(st.click_count, Ordering::Relaxed);
+    if sent != batch.physical_clicks || !control.is_active() {
+        return false;
+    }
 
     let sleep_dur = st.next_batch_time.saturating_duration_since(Instant::now());
     if sleep_dur > Duration::ZERO {
         sleep_interruptible(sleep_dur, control, should_abort);
     }
+    if !control.is_active() || should_abort() {
+        return false;
+    }
 
-    if config.use_click_points() {
-        st.click_point_clicks_remaining =
-            st.click_point_clicks_remaining.saturating_sub(batch.cycles);
-        if st.click_point_clicks_remaining == 0 {
-            let next_index = (st.click_point_index + 1) % config.click_points.len();
-            if config.stop_when_complete && next_index == 0 {
-                st.stop_reason = String::from("All click points completed");
-                st.stop_reason_finalized = true;
-                let state = control.app.state::<ClickerState>();
-                state
-                    .active_click_point_index
-                    .store(st.click_point_index as i64, Ordering::SeqCst);
-                state.active_click_point_tick.fetch_add(1, Ordering::SeqCst);
-                emit_status(&control.app);
-                return false;
-            }
-            st.click_point_index = next_index;
-            st.click_point_clicks_remaining =
-                config.click_points[st.click_point_index].clicks.max(1);
+    if config.use_click_points() && st.click_point_clicks_remaining == 0 {
+        let next_index = (st.click_point_index + 1) % config.click_points.len();
+        if config.stop_when_complete && next_index == 0 {
+            st.stop_reason = String::from("All click points completed");
+            st.stop_reason_finalized = true;
             let state = control.app.state::<ClickerState>();
             state
                 .active_click_point_index
                 .store(st.click_point_index as i64, Ordering::SeqCst);
             state.active_click_point_tick.fetch_add(1, Ordering::SeqCst);
             emit_status(&control.app);
+            return false;
         }
+        st.click_point_index = next_index;
+        st.click_point_clicks_remaining = config.click_points[st.click_point_index].clicks.max(1);
+        let state = control.app.state::<ClickerState>();
+        state
+            .active_click_point_index
+            .store(st.click_point_index as i64, Ordering::SeqCst);
+        state.active_click_point_tick.fetch_add(1, Ordering::SeqCst);
+        emit_status(&control.app);
     }
 
     true
@@ -884,7 +948,6 @@ fn cpu_usage(start_cycles: u64, cycle_freq: f64, elapsed_secs: f64) -> f64 {
 }
 
 pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
-    CLICK_COUNT.store(0, Ordering::SeqCst);
     let _timer = TimerResolutionGuard::new();
 
     let cycle_freq = calibrate_cycle_freq();
@@ -908,30 +971,10 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     let should_abort = || check_abort(&config, start_time).is_some();
     let clicker_state = control.app.state::<ClickerState>();
 
-    // Keyboard hold mode: emulate Windows auto-repeat
     if ctx.keyboard_hold_mode {
-        // Send initial key down
-        send_key_down(ctx.key_code, ctx.keyboard_uppercase);
-        st.click_count += 1;
-        CLICK_COUNT.store(st.click_count, Ordering::Relaxed);
+        let mut held_shift: Option<bool> = None;
+        let mut next_repeat_time = Instant::now();
 
-        // Wait for initial repeat delay
-        let delay_dur = Duration::from_millis(ctx.keyboard_repeat_delay_ms as u64);
-        sleep_interruptible(delay_dur, &control, &should_abort);
-        if !control.is_active() || should_abort() {
-            send_key_up(ctx.key_code, ctx.keyboard_uppercase);
-            let elapsed = start_time.elapsed().as_secs_f64();
-            let avg_cpu = cpu_usage(cpu_start, cycle_freq, elapsed);
-            return RunOutcome {
-                stop_reason: st.stop_reason,
-                click_count: st.click_count,
-                elapsed_secs: elapsed,
-                avg_cpu,
-            };
-        }
-
-        // Auto-repeat loop: send repeated KEYDOWN at repeat interval
-        let mut last_repeat = Instant::now();
         while control.is_active() {
             if config.limit > 0 && st.click_count >= config.limit as i64 {
                 st.stop_reason = format!("Click limit reached ({})", config.limit);
@@ -966,37 +1009,52 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
                 break;
             }
 
-            match zone_hit {
-                Some((crate::engine::ZoneAction::Pause, _)) => {
-                    clicker_state.paused_by_zone.store(true, Ordering::SeqCst);
-                }
-                _ => {
-                    clicker_state.paused_by_zone.store(false, Ordering::SeqCst);
-                }
-            }
+            let paused_by_zone = matches!(zone_hit, Some((crate::engine::ZoneAction::Pause, _)));
+            let paused = set_zone_pause(&clicker_state, &control.app, paused_by_zone);
 
-            if clicker_state.paused.load(Ordering::SeqCst)
-                || clicker_state.paused_by_zone.load(Ordering::SeqCst)
-            {
-                std::thread::sleep(std::time::Duration::from_millis(10));
+            if paused {
+                if let Some(use_shift) = held_shift.take() {
+                    if !send_key_up(ctx.key_code, use_shift) {
+                        st.stop_reason = String::from("Input injection failed");
+                        break;
+                    }
+                }
+                std::thread::sleep(Duration::from_millis(10));
                 continue;
             }
 
-            // Send repeated key down (auto-repeat)
-            if last_repeat.elapsed()
-                >= Duration::from_millis(ctx.keyboard_repeat_interval_ms as u64)
-            {
-                send_key_down(ctx.key_code, ctx.keyboard_uppercase);
+            if held_shift.is_none() {
+                let Some(use_shift) = send_key_down(ctx.key_code, ctx.keyboard_uppercase) else {
+                    st.stop_reason = String::from("Input injection failed");
+                    break;
+                };
+                held_shift = Some(use_shift);
                 st.click_count += 1;
-                CLICK_COUNT.store(st.click_count, Ordering::Relaxed);
-                last_repeat = Instant::now();
+                control.click_count.store(st.click_count, Ordering::Relaxed);
+                next_repeat_time =
+                    Instant::now() + Duration::from_millis(ctx.keyboard_repeat_delay_ms as u64);
+                continue;
+            }
+
+            if Instant::now() >= next_repeat_time {
+                if !send_key_repeat(ctx.key_code) {
+                    st.stop_reason = String::from("Input injection failed");
+                    break;
+                }
+                st.click_count += 1;
+                control.click_count.store(st.click_count, Ordering::Relaxed);
+                next_repeat_time =
+                    Instant::now() + Duration::from_millis(ctx.keyboard_repeat_interval_ms as u64);
             }
 
             std::thread::sleep(Duration::from_millis(1));
         }
 
-        // Release key on exit
-        send_key_up(ctx.key_code, ctx.keyboard_uppercase);
+        if let Some(use_shift) = held_shift {
+            if !send_key_up(ctx.key_code, use_shift) && st.stop_reason == "Stopped" {
+                st.stop_reason = String::from("Input injection failed");
+            }
+        }
 
         let elapsed = start_time.elapsed().as_secs_f64();
         let avg_cpu = cpu_usage(cpu_start, cycle_freq, elapsed);
@@ -1008,7 +1066,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
         };
     }
 
-    // Normal mode (mouse or keyboard with <100% duty)
+    let mut was_paused = false;
     while control.is_active() {
         if config.limit > 0 && st.click_count >= config.limit as i64 {
             st.stop_reason = format!("Click limit reached ({})", config.limit);
@@ -1043,27 +1101,31 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             break;
         }
 
-        match zone_hit {
-            Some((crate::engine::ZoneAction::Pause, _)) => {
-                clicker_state.paused_by_zone.store(true, Ordering::SeqCst);
-            }
-            _ => {
-                clicker_state.paused_by_zone.store(false, Ordering::SeqCst);
-            }
+        let paused_by_zone = matches!(zone_hit, Some((crate::engine::ZoneAction::Pause, _)));
+        let paused = set_zone_pause(&clicker_state, &control.app, paused_by_zone);
+
+        if paused {
+            was_paused = true;
+            std::thread::sleep(Duration::from_millis(10));
+            continue;
         }
 
-        if clicker_state.paused.load(Ordering::SeqCst)
-            || clicker_state.paused_by_zone.load(Ordering::SeqCst)
-        {
-            std::thread::sleep(std::time::Duration::from_millis(10));
-            continue;
+        if was_paused {
+            st.next_batch_time = Instant::now();
+            was_paused = false;
         }
 
         update_target(&config, &ctx, &mut rng, &mut st);
 
         if !run_batch(&config, &ctx, &mut rng, &mut st, &control, &should_abort) {
             if control.is_active() && !st.stop_reason_finalized {
-                st.stop_reason = format!("Click limit reached ({})", config.limit);
+                if let Some(reason) = check_abort(&config, start_time) {
+                    st.stop_reason = reason;
+                } else if config.limit > 0 && st.click_count >= config.limit as i64 {
+                    st.stop_reason = format!("Click limit reached ({})", config.limit);
+                } else {
+                    st.stop_reason = String::from("Input injection failed");
+                }
             }
             break;
         }
@@ -1080,8 +1142,18 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     }
 }
 
-pub fn get_click_count() -> i64 {
-    CLICK_COUNT.load(Ordering::Relaxed)
+fn reset_run_count(state: &ClickerState) -> Arc<AtomicI64> {
+    let count = Arc::new(AtomicI64::new(0));
+    *state.click_count.lock().unwrap_or_else(poisoned_inner) = count.clone();
+    count
+}
+
+fn current_click_count(state: &ClickerState) -> i64 {
+    state
+        .click_count
+        .lock()
+        .unwrap_or_else(poisoned_inner)
+        .load(Ordering::Relaxed)
 }
 
 pub fn sleep_interruptible(
@@ -1146,6 +1218,101 @@ mod tests {
 
             process_list_entries: Vec::new(),
             task_switcher_stop_enabled: false,
+        }
+    }
+
+    #[test]
+    fn stale_worker_cannot_finalize_a_new_run() {
+        let state = crate::create_clicker_state();
+        state.running.store(true, Ordering::SeqCst);
+        state.run_generation.store(3, Ordering::SeqCst);
+        state.zone_started_generation.store(3, Ordering::SeqCst);
+        state.paused_by_zone.store(true, Ordering::SeqCst);
+        state.active_click_point_index.store(2, Ordering::SeqCst);
+
+        assert!(!finalize_run_state(&state, 1, "Old run finished"));
+        assert!(state.running.load(Ordering::SeqCst));
+        assert!(state.paused_by_zone.load(Ordering::SeqCst));
+        assert_eq!(state.zone_started_generation.load(Ordering::SeqCst), 3);
+        assert_eq!(state.active_click_point_index.load(Ordering::SeqCst), 2);
+        assert!(state.stop_reason.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn stale_worker_cannot_overwrite_a_new_runs_click_count() {
+        let state = crate::create_clicker_state();
+        let previous = reset_run_count(&state);
+        previous.store(99, Ordering::Relaxed);
+        let current = reset_run_count(&state);
+        assert_eq!(current_click_count(&state), 0);
+        current.store(2, Ordering::Relaxed);
+        previous.store(100, Ordering::Relaxed);
+        assert_eq!(current_click_count(&state), 2);
+    }
+
+    #[test]
+    fn current_worker_finalizes_and_clears_zone_ownership() {
+        let state = crate::create_clicker_state();
+        state.running.store(true, Ordering::SeqCst);
+        state.run_generation.store(3, Ordering::SeqCst);
+        state.zone_started_generation.store(3, Ordering::SeqCst);
+        state.paused_by_zone.store(true, Ordering::SeqCst);
+
+        assert!(finalize_run_state(&state, 3, "Click limit reached (3)"));
+        assert!(!state.running.load(Ordering::SeqCst));
+        assert!(!state.paused_by_zone.load(Ordering::SeqCst));
+        assert_eq!(state.zone_started_generation.load(Ordering::SeqCst), 0);
+        assert_eq!(state.active_click_point_index.load(Ordering::SeqCst), -1);
+        assert_eq!(
+            state.stop_reason.lock().unwrap().as_deref(),
+            Some("Click limit reached (3)")
+        );
+    }
+
+    #[test]
+    fn start_zone_cannot_stop_a_replacement_run() {
+        let state = crate::create_clicker_state();
+        state.run_generation.store(1, Ordering::SeqCst);
+        state.zone_started_generation.store(1, Ordering::SeqCst);
+        assert!(zone_owns_run(&state, 1));
+        state.run_generation.store(3, Ordering::SeqCst);
+        assert!(!zone_owns_run(&state, 1));
+        state.zone_started_generation.store(0, Ordering::SeqCst);
+        assert!(!zone_owns_run(&state, 3));
+        assert!(!zone_owns_run(&state, 0));
+    }
+
+    #[test]
+    fn batches_never_exceed_remaining_physical_clicks() {
+        for double_click in [false, true] {
+            for requested in 0..8 {
+                for remaining in 0..16 {
+                    let batch = plan_cycle_batch(requested, remaining, double_click);
+                    assert!(batch.cycles <= requested);
+                    assert!(batch.physical_clicks <= remaining);
+                    assert_eq!(batch.cycles, batch.double_cycles + batch.single_cycles);
+                    assert_eq!(
+                        batch.physical_clicks,
+                        batch.double_cycles * 2 + batch.single_cycles
+                    );
+                    assert_eq!(
+                        batch.physical_clicks,
+                        remaining.min(requested * if double_click { 2 } else { 1 })
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn keyboard_hold_mode_remains_enabled_at_high_cps() {
+        for cps in [10.0, 50.0, 100.0, 200.0, 501.0, 1000.0] {
+            let mut config = sample_config();
+            config.input_type = crate::engine::InputType::Keyboard;
+            config.key_code = b'A' as u16;
+            config.duty = 100.0;
+            config.interval_secs = 1.0 / cps;
+            assert!(ClickerContext::new(&config).keyboard_hold_mode, "{cps} CPS");
         }
     }
 
@@ -1274,7 +1441,7 @@ mod tests {
         config.input_type = crate::engine::InputType::Keyboard;
         config.key_code = b'A' as u16;
         config.duty = 100.0;
-        config.interval_secs = 0.1; // 10 CPS
+        config.interval_secs = 0.1;
 
         let ctx = ClickerContext::new(&config);
         assert!(ctx.keyboard_hold_mode);

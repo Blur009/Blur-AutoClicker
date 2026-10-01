@@ -114,7 +114,16 @@ pub fn detect_failsafe(
 }
 
 pub fn should_stop_for_failsafe(config: &ClickerConfig) -> Option<String> {
+    if !config.corner_stop_enabled
+        && !config.edge_stop_enabled
+        && (!config.stop_zones_enabled || config.stop_zones.is_empty())
+    {
+        return None;
+    }
     let cursor = current_cursor_position()?;
+    if !config.corner_stop_enabled && !config.edge_stop_enabled {
+        return detect_failsafe(cursor, &[], config);
+    }
     let monitors = current_monitor_rects()?;
     detect_failsafe(cursor, &monitors, config)
 }

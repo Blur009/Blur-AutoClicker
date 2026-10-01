@@ -57,6 +57,10 @@ where
     }
 
     press();
+    if !is_active() {
+        release();
+        return false;
+    }
     if hold_ms > 0 {
         sleep_for(Duration::from_millis(hold_ms as u64));
         if !is_active() {
@@ -126,6 +130,28 @@ mod tests {
 
         assert!(sent);
         assert_eq!(&*sleeps.borrow(), &[55]);
+    }
+
+    #[test]
+    fn cancellation_during_press_releases_without_sleeping_or_second_press() {
+        let active = Cell::new(true);
+        let events = RefCell::new(Vec::new());
+        let mut press = || {
+            events.borrow_mut().push("down");
+            active.set(false);
+        };
+        let mut release = || events.borrow_mut().push("up");
+        let mut sleep_for = |_| panic!("cancelled cycle must not sleep");
+        let is_active = || active.get();
+
+        assert!(!execute_click_cycle(
+            ClickCyclePlan::double(50, 100, 10),
+            &mut press,
+            &mut release,
+            &mut sleep_for,
+            &is_active,
+        ));
+        assert_eq!(&*events.borrow(), &["down", "up"]);
     }
 
     #[test]

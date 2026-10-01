@@ -6,7 +6,6 @@ pub mod process;
 pub mod rng;
 pub mod stats;
 pub mod worker;
-use std::sync::atomic::AtomicI64;
 pub use worker::start_clicker;
 pub const AUTOCLICKER_EXTRA_INFO: usize = 0x800D_A5A5; //Just a random Identifier
 use self::mouse::VirtualScreenRect;
@@ -103,7 +102,6 @@ pub struct RunOutcome {
     pub elapsed_secs: f64,
     pub avg_cpu: f64,
 }
-static CLICK_COUNT: AtomicI64 = AtomicI64::new(0);
 
 #[link(name = "ntdll")]
 extern "system" {

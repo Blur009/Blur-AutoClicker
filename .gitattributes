@@ -1,0 +1,5 @@
+src/**/*.ts text eol=lf
+src/**/*.tsx text eol=lf
+src/**/*.css text eol=lf
+package.json text eol=lf
+package-lock.json text eol=lf
