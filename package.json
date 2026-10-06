@@ -20,7 +20,7 @@
     "prepare": "lefthook install"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/cli": "^2.11.5",
     "@tauri-apps/plugin-dialog": "^2.7.3",
     "@tauri-apps/plugin-fs": "^2.5.2",
