@@ -11,68 +11,74 @@
  * re-verifies them — it never auto-edits code that only fails type/test checks.
  */
 
-import { spawnSync } from 'node:child_process';
+import { spawnSync } from "node:child_process";
 
 const COLOR =
   (process.stdout.isTTY || process.env.FORCE_COLOR) &&
   !process.env.NO_COLOR &&
-  process.env.TERM !== 'dumb';
+  process.env.TERM !== "dumb";
 const esc = (code) => (s) => (COLOR ? `\x1b[${code}m${s}\x1b[0m` : `${s}`);
 // NOTE: every color entry is a *function* — always call it: C.red('text').
 const C = {
-  bold: esc('1'),
-  dim: esc('2'),
-  red: esc('31'),
-  green: esc('32'),
-  yellow: esc('33'),
-  cyan: esc('36'),
-  grey: esc('90'),
-  reset: COLOR ? '\x1b[0m' : '',
+  bold: esc("1"),
+  dim: esc("2"),
+  red: esc("31"),
+  green: esc("32"),
+  yellow: esc("33"),
+  cyan: esc("36"),
+  grey: esc("90"),
+  reset: COLOR ? "\x1b[0m" : "",
 };
-const TAG = { pass: 'PASS', warn: 'WARN', fail: 'FAIL' };
+const TAG = { pass: "PASS", warn: "WARN", fail: "FAIL" };
 
 /** @typedef {{ name: string, cmd: string[], warn?: RegExp[], fix?: string[] }} Check */
 
 /** @type {Check[]} */
 const CHECKS = [
   {
-    name: 'cargo test',
-    cmd: ['cargo', 'test', '--manifest-path', 'src-tauri/Cargo.toml'],
+    name: "cargo test",
+    cmd: ["cargo", "test", "--manifest-path", "src-tauri/Cargo.toml"],
     warn: [/^warning(\[\w+\])?:/m],
   },
-  { name: 'npm test', cmd: ['npm', 'run', 'test'], warn: [/^warning:/m] },
+  { name: "npm test", cmd: ["npm", "run", "test"], warn: [/^warning:/m] },
   {
-    name: 'eslint',
-    cmd: ['npm', 'run', 'lint'],
+    name: "eslint",
+    cmd: ["npm", "run", "lint"],
     warn: [/\bwarning\b/i],
-    fix: ['npm', 'run', 'lint', '--', '--fix'],
+    fix: ["npm", "run", "lint", "--", "--fix"],
   },
   {
-    name: 'prettier',
-    cmd: ['npm', 'run', 'format:check'],
-    fix: ['npm', 'run', 'format:write'],
+    name: "prettier",
+    cmd: ["npm", "run", "format:check"],
+    fix: ["npm", "run", "format:write"],
   },
   {
-    name: 'frontend:build',
-    cmd: ['npm', 'run', 'frontend:build'],
+    name: "frontend:build",
+    cmd: ["npm", "run", "frontend:build"],
     warn: [/warning/i],
   },
   {
-    name: 'cargo check',
-    cmd: ['cargo', 'check', '--manifest-path', 'src-tauri/Cargo.toml', '--locked'],
+    name: "cargo check",
+    cmd: [
+      "cargo",
+      "check",
+      "--manifest-path",
+      "src-tauri/Cargo.toml",
+      "--locked",
+    ],
     warn: [/^warning(\[\w+\])?:/m],
   },
   {
-    name: 'clippy',
-    cmd: ['cargo', 'clippy', '--manifest-path', 'src-tauri/Cargo.toml'],
+    name: "clippy",
+    cmd: ["cargo", "clippy", "--manifest-path", "src-tauri/Cargo.toml"],
     warn: [/^warning(\[\w+\])?:/m],
   },
   {
-    name: 'fmt',
-    cmd: ['cargo', 'fmt', '--manifest-path', 'src-tauri/Cargo.toml', '--check'],
-    fix: ['cargo', 'fmt', '--manifest-path', 'src-tauri/Cargo.toml'],
+    name: "fmt",
+    cmd: ["cargo", "fmt", "--manifest-path", "src-tauri/Cargo.toml", "--check"],
+    fix: ["cargo", "fmt", "--manifest-path", "src-tauri/Cargo.toml"],
   },
-  { name: 'npm audit', cmd: ['npm', 'audit'], fix: ['npm', 'audit', 'fix'] },
+  { name: "npm audit", cmd: ["npm", "audit"], fix: ["npm", "audit", "fix"] },
 ];
 
 /**
@@ -82,16 +88,23 @@ const CHECKS = [
 function run(c) {
   const t0 = Date.now();
   const r = spawnSync(c.cmd[0], c.cmd.slice(1), {
-    encoding: 'utf8',
+    encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
     shell: true,
   });
   const ms = Date.now() - t0;
-  const out = r.error ? String(r.error) : (r.stdout || '') + (r.stderr || '');
-  let status = 'pass';
-  if (r.status !== 0) status = 'fail';
-  else if (c.warn && c.warn.some((re) => re.test(out))) status = 'warn';
-  return { name: c.name, cmd: c.cmd.join(' '), status, out, ms, code: r.status };
+  const out = r.error ? String(r.error) : (r.stdout || "") + (r.stderr || "");
+  let status = "pass";
+  if (r.status !== 0) status = "fail";
+  else if (c.warn && c.warn.some((re) => re.test(out))) status = "warn";
+  return {
+    name: c.name,
+    cmd: c.cmd.join(" "),
+    status,
+    out,
+    ms,
+    code: r.status,
+  };
 }
 
 /**
@@ -101,12 +114,12 @@ async function guardRunningInstance() {
   let running = false;
 
   // Match our own binary by name.
-  if (process.platform === 'win32') {
-    const r = spawnSync('tasklist', ['/NH'], { encoding: 'utf8', shell: true });
-    running = /BlurAutoClicker/i.test(r.stdout || '');
+  if (process.platform === "win32") {
+    const r = spawnSync("tasklist", ["/NH"], { encoding: "utf8", shell: true });
+    running = /BlurAutoClicker/i.test(r.stdout || "");
   } else {
-    const r = spawnSync('pgrep', ['-f', 'BlurAutoClicker'], {
-      encoding: 'utf8',
+    const r = spawnSync("pgrep", ["-f", "BlurAutoClicker"], {
+      encoding: "utf8",
     });
     running = r.status === 0 && !!r.stdout.trim();
   }
@@ -117,22 +130,22 @@ async function guardRunningInstance() {
   // that is also exactly what breaks the cargo steps.
   if (!running) {
     try {
-      const { openSync, closeSync } = await import('node:fs');
-      const { resolve } = await import('node:path');
-      const resource = resolve('src-tauri/resources/crashpad_handler.exe');
-      const fd = openSync(resource, 'r+');
+      const { openSync, closeSync } = await import("node:fs");
+      const { resolve } = await import("node:path");
+      const resource = resolve("src-tauri/resources/crashpad_handler.exe");
+      const fd = openSync(resource, "r+");
       closeSync(fd);
     } catch (err) {
       // Absent is not locked; the file is only staged on Windows builds.
-      if (err?.code !== 'ENOENT') running = true;
+      if (err?.code !== "ENOENT") running = true;
     }
   }
 
   if (!running) return false;
 
   process.stdout.write(
-    `\n${C.red('CHECK ABORTED — BlurAutoClicker is currently running.')}\n` +
-      `${C.bold('Close BlurAutoClicker')} (and any ${C.bold('crashpad_handler.exe')} it left behind), then re-run ${C.bold('npm run check')}.\n` +
+    `\n${C.red("CHECK ABORTED — BlurAutoClicker is currently running.")}\n` +
+      `${C.bold("Close BlurAutoClicker")} (and any ${C.bold("crashpad_handler.exe")} it left behind), then re-run ${C.bold("npm run check")}.\n` +
       `${C.dim('A running instance locks src-tauri/resources/crashpad_handler.exe, so every cargo step fails with "os error 32: file in use by another process".')}\n`,
   );
   process.exit(1);
@@ -140,7 +153,7 @@ async function guardRunningInstance() {
 
 async function main() {
   const total = CHECKS.length;
-  const doFix = process.argv.includes('--fix');
+  const doFix = process.argv.includes("--fix");
   const results = [];
   const t0 = Date.now();
 
@@ -153,9 +166,9 @@ async function main() {
     process.stdout.write(`  [${i + 1}/${total}] ${C.cyan(label)} … `);
     const res = run(c);
     const tag =
-      res.status === 'pass'
+      res.status === "pass"
         ? C.green(TAG.pass)
-        : res.status === 'warn'
+        : res.status === "warn"
           ? C.yellow(TAG.warn)
           : C.red(TAG.fail);
     process.stdout.write(`${tag} ${C.grey(`${res.ms}ms`)}\n`);
@@ -165,13 +178,13 @@ async function main() {
   if (doFix) {
     for (let i = 0; i < total; i++) {
       const c = CHECKS[i];
-      if (results[i].status !== 'fail' || !c.fix) continue;
+      if (results[i].status !== "fail" || !c.fix) continue;
       const label = c.name.padEnd(16);
       process.stdout.write(
-        `  [${i + 1}/${total}] ${C.cyan(label)} ${C.dim('(auto-fix)')} … `,
+        `  [${i + 1}/${total}] ${C.cyan(label)} ${C.dim("(auto-fix)")} … `,
       );
       const fr = spawnSync(c.fix[0], c.fix.slice(1), {
-        encoding: 'utf8',
+        encoding: "utf8",
         maxBuffer: 64 * 1024 * 1024,
         shell: true,
       });
@@ -179,18 +192,18 @@ async function main() {
         process.stdout.write(`${C.dim(`(fixer exited ${fr.status}) `)}`);
       const res = run(c);
       const tag =
-        res.status === 'pass'
-          ? C.green('fixed')
-          : res.status === 'warn'
-            ? C.yellow('still warnings')
-            : C.red('still failing');
+        res.status === "pass"
+          ? C.green("fixed")
+          : res.status === "warn"
+            ? C.yellow("still warnings")
+            : C.red("still failing");
       process.stdout.write(`${tag} ${C.grey(`${res.ms}ms`)}\n`);
       results[i] = res;
     }
   }
 
-  const fails = results.filter((r) => r.status === 'fail');
-  const warns = results.filter((r) => r.status === 'warn');
+  const fails = results.filter((r) => r.status === "fail");
+  const warns = results.filter((r) => r.status === "warn");
   const totalMs = ((Date.now() - t0) / 1000).toFixed(1);
 
   if (fails.length === 0 && warns.length === 0) {
@@ -201,17 +214,19 @@ async function main() {
   }
 
   process.stdout.write(
-    `\n${C.bold('Result')}: ${fails.length} failed, ${warns.length} with warnings\n`,
+    `\n${C.bold("Result")}: ${fails.length} failed, ${warns.length} with warnings\n`,
   );
   for (const r of [...fails, ...warns]) {
-    const mark = r.status === 'fail' ? C.red(TAG.fail) : C.yellow(TAG.warn);
-    process.stdout.write(`  ${mark} ${C.bold(r.name)}  ${C.dim(`[${r.cmd}]`)}\n`);
+    const mark = r.status === "fail" ? C.red(TAG.fail) : C.yellow(TAG.warn);
+    process.stdout.write(
+      `  ${mark} ${C.bold(r.name)}  ${C.dim(`[${r.cmd}]`)}\n`,
+    );
   }
 
   for (const r of fails) {
     process.stdout.write(`\n${C.bold(r.name)} output (last lines):\n`);
-    const lines = r.out.replace(/\r\n/g, '\n').trim().split('\n');
-    process.stdout.write(`${C.dim(lines.slice(-40).join('\n'))}\n`);
+    const lines = r.out.replace(/\r\n/g, "\n").trim().split("\n");
+    process.stdout.write(`${C.dim(lines.slice(-40).join("\n"))}\n`);
   }
 
   const verdict =
