@@ -99,17 +99,22 @@ function run(c) {
  */
 async function guardRunningInstance() {
   let running = false;
+
+  // Match our own binary by name.
   if (process.platform === 'win32') {
     const r = spawnSync('tasklist', ['/NH'], { encoding: 'utf8', shell: true });
-    const out = r.stdout || '';
-    running = /BlurAutoClicker/i.test(out) || /crashpad_handler/i.test(out);
+    running = /BlurAutoClicker/i.test(r.stdout || '');
   } else {
-    const r = spawnSync('pgrep', ['-f', 'BlurAutoClicker|crashpad_handler'], {
+    const r = spawnSync('pgrep', ['-f', 'BlurAutoClicker'], {
       encoding: 'utf8',
     });
     running = r.status === 0 && !!r.stdout.trim();
   }
 
+  // Deliberately not matching `crashpad_handler` by process name: every Electron
+  // and crashpad app ships one, so Google Drive, Medal and friends tripped this.
+  // The handler that matters is the one holding *our* staged binary open, and
+  // that is also exactly what breaks the cargo steps.
   if (!running) {
     try {
       const { openSync, closeSync } = await import('node:fs');
@@ -117,8 +122,9 @@ async function guardRunningInstance() {
       const resource = resolve('src-tauri/resources/crashpad_handler.exe');
       const fd = openSync(resource, 'r+');
       closeSync(fd);
-    } catch {
-      running = true;
+    } catch (err) {
+      // Absent is not locked; the file is only staged on Windows builds.
+      if (err?.code !== 'ENOENT') running = true;
     }
   }
 
@@ -126,7 +132,7 @@ async function guardRunningInstance() {
 
   process.stdout.write(
     `\n${C.red('CHECK ABORTED — BlurAutoClicker is currently running.')}\n` +
-      `${C.bold('Close BlurAutoClicker')} (and any ${C.bold('crashpad_handler.exe')} it spawned), then re-run ${C.bold('npm run check')}.\n` +
+      `${C.bold('Close BlurAutoClicker')} (and any ${C.bold('crashpad_handler.exe')} it left behind), then re-run ${C.bold('npm run check')}.\n` +
       `${C.dim('A running instance locks src-tauri/resources/crashpad_handler.exe, so every cargo step fails with "os error 32: file in use by another process".')}\n`,
   );
   process.exit(1);
