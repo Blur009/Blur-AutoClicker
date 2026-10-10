@@ -15,6 +15,7 @@ mod icon;
 mod overlay;
 mod ui_commands;
 mod updates;
+mod webview_guard;
 mod window_lifecycle;
 
 pub use crate::app_state::ClickerStatusPayload;
@@ -226,6 +227,9 @@ fn setup_logging(app: &AppHandle) {
                 Target::new(TargetKind::Dispatch(
                     crate::app_events::create_app_events_target(),
                 )),
+                Target::new(TargetKind::Dispatch(
+                    crate::webview_guard::create_watch_target(),
+                )),
             ])
             .level(log_level)
             .level_for("tao", log::LevelFilter::Warn)
@@ -402,6 +406,7 @@ fn setup_hotkeys(app: &AppHandle) -> Result<(), std::io::Error> {
 fn setup_frontend_listener(app: &AppHandle) {
     let overlay_init_handle = app.clone();
     app.listen("frontend-ready", move |_| {
+        crate::webview_guard::frontend_ready();
         log::info!("[Window] Frontend ready, initializing overlay...");
         if let Err(e) = overlay::init_overlay(&overlay_init_handle) {
             log::error!("[Window] Overlay init failed: {e}");
@@ -542,6 +547,7 @@ pub fn run() {
             window_lifecycle::start_periodic_trimming(30);
             setup_hotkeys(&handle)?;
             setup_frontend_listener(&handle);
+            crate::webview_guard::spawn_watchdog();
             setup_close_handler(&handle);
             Ok(())
         })
