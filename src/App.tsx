@@ -1,10 +1,11 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
-import { error } from "@tauri-apps/plugin-log";
+import { error, warn } from "@tauri-apps/plugin-log";
 import {
   currentMonitor,
   getCurrentWindow,
   LogicalSize,
+  monitorFromPoint,
   PhysicalPosition,
 } from "@tauri-apps/api/window";
 import {
@@ -115,6 +116,16 @@ async function getClampedPanelSize(
       Math.max(220, workAreaHeight - verticalMargin),
     ),
   };
+}
+
+async function isPointOnMonitor(x: number, y: number): Promise<boolean> {
+  try {
+    return (await monitorFromPoint(x, y)) !== null;
+  } catch {
+    // If the monitor lookup fails, keep the saved position rather than forcing
+    // a recenter on every launch.
+    return true;
+  }
 }
 
 const DEFAULT_STATUS: ClickerStatus = {
@@ -357,16 +368,29 @@ export default function App() {
   }, []);
 
   const applyStartupWindowPlacement = async () => {
-    const pos = committedSettingsRef.current.windowPosition;
-    if (
-      committedSettingsRef.current.rememberWindowPosition &&
-      pos.x !== null &&
-      pos.y !== null
-    ) {
-      await getCurrentWindow().setPosition(new PhysicalPosition(pos.x, pos.y));
-    } else {
-      await getCurrentWindow().center();
+    const settings = committedSettingsRef.current;
+    const savedX = settings.windowPosition.x;
+    const savedY = settings.windowPosition.y;
+
+    if (settings.rememberWindowPosition && savedX !== null && savedY !== null) {
+      if (await isPointOnMonitor(savedX, savedY)) {
+        await getCurrentWindow().setPosition(
+          new PhysicalPosition(savedX, savedY),
+        );
+        return;
+      }
+      // A saved position can land off-screen after a monitor is unplugged or
+      // the resolution / scaling changes. Center rather than show a window the
+      // user cannot see or reach.
+      warn(
+        JSON.stringify({
+          source: "App.windowPlacement",
+          error: `saved window position (${savedX}, ${savedY}) is off-screen, centering`,
+        }),
+      );
     }
+
+    await getCurrentWindow().center();
   };
 
   const handleWindowClose = async () => {
@@ -787,7 +811,14 @@ export default function App() {
               iconEnabled: hydratedSettings.taskbarIconEnabled,
               iconTheme: hydratedSettings.taskbarIconTheme,
               iconColor: hydratedSettings.taskbarIconColor,
-            });
+            }).catch((err) =>
+              warn(
+                JSON.stringify({
+                  source: "App.applyAccentTheme",
+                  error: String(err),
+                }),
+              ),
+            );
           }
           setAppInfo(loadedAppInfo);
           setStatus(loadedStatus);
@@ -1105,7 +1136,14 @@ export default function App() {
       iconEnabled: settings.taskbarIconEnabled,
       iconTheme: settings.taskbarIconTheme,
       iconColor: settings.taskbarIconColor,
-    });
+    }).catch((err) =>
+      warn(
+        JSON.stringify({
+          source: "App.applyAccentTheme",
+          error: String(err),
+        }),
+      ),
+    );
   }, [
     settings.accentColor,
     settings.theme,
