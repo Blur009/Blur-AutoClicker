@@ -208,3 +208,204 @@ impl Default for ClickerSettings {
         }
     }
 }
+
+/// Inclusive bounds mirroring the `limit` blocks in `src/settingsSchema.ts`. The
+/// frontend clamps to these before sending, so a value outside them arrived by
+/// walking around the UI.
+mod limits {
+    pub const CLICK_SPEED: (f64, f64) = (1.0, 1_000.0);
+    pub const SAVED_CLICK_SPEED: (f64, f64) = (1.0, f64::MAX);
+    pub const DUTY_CYCLE: (f64, f64) = (0.0, 100.0);
+    pub const SPEED_RANDOMIZATION: (f64, f64) = (0.0, 200.0);
+    pub const TIME_LIMIT: (f64, f64) = (1.0, f64::MAX);
+    pub const CLICK_LIMIT: (i32, i32) = (1, 100_000_000);
+    pub const STOP_BOUNDARY: (i32, i32) = (0, 10_000);
+    pub const CLICK_POINT_CLICKS: (u32, u32) = (1, 999_999);
+    pub const CLICK_POINT_RADIUS: (u32, u32) = (0, 9_999);
+}
+
+/// Non-finite input falls back to `min`: `f64::clamp` propagates NaN, and an
+/// infinite interval is exactly what turns into a panic further down.
+fn clamp_f64(field: &str, value: &mut f64, (min, max): (f64, f64)) {
+    let clamped = if value.is_finite() {
+        value.clamp(min, max)
+    } else {
+        min
+    };
+    if clamped != *value {
+        log::warn!("[Settings] {field} = {value} is outside {min}..={max}, using {clamped}");
+        *value = clamped;
+    }
+}
+
+fn clamp_i32(field: &str, value: &mut i32, (min, max): (i32, i32)) {
+    let clamped = (*value).clamp(min, max);
+    if clamped != *value {
+        log::warn!("[Settings] {field} = {value} is outside {min}..={max}, using {clamped}");
+        *value = clamped;
+    }
+}
+
+fn clamp_u32(field: &str, value: &mut u32, (min, max): (u32, u32)) {
+    let clamped = (*value).clamp(min, max);
+    if clamped != *value {
+        log::warn!("[Settings] {field} = {value} is outside {min}..={max}, using {clamped}");
+        *value = clamped;
+    }
+}
+
+impl ClickerSettings {
+    /// Pin every numeric field to the range the frontend already enforces.
+    ///
+    /// IPC arguments arrive as JSON, where serde checks the type and nothing
+    /// else. A caller that skips the UI can send `clickSpeed: 5e-20`, which
+    /// `interval_secs_from_settings` turns into an interval above
+    /// `Duration::MAX`; the clicker thread then dies on its first batch and the
+    /// UI keeps reporting a run that is already over. Clamping rather than
+    /// rejecting is what `sanitizeFields` does on the frontend, so both sides
+    /// agree on what got saved.
+    pub fn sanitize(&mut self) {
+        clamp_f64("clickSpeed", &mut self.click_speed, limits::CLICK_SPEED);
+        clamp_f64(
+            "savedClickSpeed",
+            &mut self.saved_click_speed,
+            limits::SAVED_CLICK_SPEED,
+        );
+        clamp_f64("dutyCycle", &mut self.duty_cycle, limits::DUTY_CYCLE);
+        clamp_f64(
+            "speedRandomization",
+            &mut self.speed_randomization,
+            limits::SPEED_RANDOMIZATION,
+        );
+        clamp_f64("timeLimit", &mut self.time_limit, limits::TIME_LIMIT);
+
+        clamp_i32("clickLimit", &mut self.click_limit, limits::CLICK_LIMIT);
+        for (field, value) in [
+            ("cornerStopTL", &mut self.corner_stop_tl),
+            ("cornerStopTR", &mut self.corner_stop_tr),
+            ("cornerStopBL", &mut self.corner_stop_bl),
+            ("cornerStopBR", &mut self.corner_stop_br),
+            ("edgeStopTop", &mut self.edge_stop_top),
+            ("edgeStopRight", &mut self.edge_stop_right),
+            ("edgeStopBottom", &mut self.edge_stop_bottom),
+            ("edgeStopLeft", &mut self.edge_stop_left),
+        ] {
+            clamp_i32(field, value, limits::STOP_BOUNDARY);
+        }
+
+        for point in &mut self.click_points {
+            clamp_u32(
+                "clickPoints[].clicks",
+                &mut point.clicks,
+                limits::CLICK_POINT_CLICKS,
+            );
+            clamp_u32(
+                "clickPoints[].radius",
+                &mut point.radius,
+                limits::CLICK_POINT_RADIUS,
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sanitized(mutate: impl FnOnce(&mut ClickerSettings)) -> ClickerSettings {
+        let mut settings = ClickerSettings::default();
+        mutate(&mut settings);
+        settings.sanitize();
+        settings
+    }
+
+    #[test]
+    fn sanitize_leaves_the_defaults_alone() {
+        let before = ClickerSettings::default();
+        let after = sanitized(|_| {});
+        assert_eq!(before.click_speed, after.click_speed);
+        assert_eq!(before.speed_randomization, after.speed_randomization);
+        assert_eq!(before.duty_cycle, after.duty_cycle);
+        assert_eq!(before.click_limit, after.click_limit);
+        assert_eq!(before.corner_stop_tl, after.corner_stop_tl);
+    }
+
+    #[test]
+    fn sanitize_raises_a_click_speed_that_would_overflow_a_duration() {
+        for value in [5e-20, 0.0, -3.0, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+            assert_eq!(sanitized(|s| s.click_speed = value).click_speed, 1.0);
+        }
+        assert_eq!(sanitized(|s| s.click_speed = 1e9).click_speed, 1_000.0);
+    }
+
+    #[test]
+    fn sanitize_bounds_speed_randomization_and_duty_cycle() {
+        assert_eq!(
+            sanitized(|s| s.speed_randomization = 1e12).speed_randomization,
+            200.0
+        );
+        assert_eq!(
+            sanitized(|s| s.speed_randomization = -1.0).speed_randomization,
+            0.0
+        );
+        assert_eq!(sanitized(|s| s.duty_cycle = 101.0).duty_cycle, 100.0);
+    }
+
+    #[test]
+    fn sanitize_keeps_values_inside_the_range() {
+        let settings = sanitized(|s| {
+            s.click_speed = 500.0;
+            s.speed_randomization = 35.0;
+            s.duty_cycle = 45.0;
+            s.time_limit = 60.0;
+            s.click_limit = 1_000;
+            s.corner_stop_tl = 50;
+        });
+        assert_eq!(settings.click_speed, 500.0);
+        assert_eq!(settings.speed_randomization, 35.0);
+        assert_eq!(settings.duty_cycle, 45.0);
+        assert_eq!(settings.time_limit, 60.0);
+        assert_eq!(settings.click_limit, 1_000);
+        assert_eq!(settings.corner_stop_tl, 50);
+    }
+
+    #[test]
+    fn sanitize_bounds_click_limits_and_boundaries() {
+        assert_eq!(sanitized(|s| s.click_limit = 0).click_limit, 1);
+        assert_eq!(
+            sanitized(|s| s.click_limit = 100_000_001).click_limit,
+            100_000_000
+        );
+        assert_eq!(sanitized(|s| s.edge_stop_left = -1).edge_stop_left, 0);
+        assert_eq!(
+            sanitized(|s| s.corner_stop_br = 20_000).corner_stop_br,
+            10_000
+        );
+    }
+
+    #[test]
+    fn sanitize_bounds_click_points() {
+        let settings = sanitized(|s| {
+            s.click_points = vec![
+                ClickPoint {
+                    id: "a".into(),
+                    x: 0,
+                    y: 0,
+                    clicks: 0,
+                    radius: 50_000,
+                },
+                ClickPoint {
+                    id: "b".into(),
+                    x: 0,
+                    y: 0,
+                    clicks: u32::MAX,
+                    radius: 10,
+                },
+            ];
+        });
+        assert_eq!(settings.click_points[0].clicks, 1);
+        assert_eq!(settings.click_points[0].radius, 9_999);
+        assert_eq!(settings.click_points[1].clicks, 999_999);
+        assert_eq!(settings.click_points[1].radius, 10);
+    }
+}

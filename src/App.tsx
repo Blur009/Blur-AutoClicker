@@ -811,7 +811,14 @@ export default function App() {
               iconEnabled: hydratedSettings.taskbarIconEnabled,
               iconTheme: hydratedSettings.taskbarIconTheme,
               iconColor: hydratedSettings.taskbarIconColor,
-            });
+            }).catch((err) =>
+              warn(
+                JSON.stringify({
+                  source: "App.applyAccentTheme",
+                  error: String(err),
+                }),
+              ),
+            );
           }
           setAppInfo(loadedAppInfo);
           setStatus(loadedStatus);
@@ -1129,7 +1136,14 @@ export default function App() {
       iconEnabled: settings.taskbarIconEnabled,
       iconTheme: settings.taskbarIconTheme,
       iconColor: settings.taskbarIconColor,
-    });
+    }).catch((err) =>
+      warn(
+        JSON.stringify({
+          source: "App.applyAccentTheme",
+          error: String(err),
+        }),
+      ),
+    );
   }, [
     settings.accentColor,
     settings.theme,

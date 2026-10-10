@@ -22,6 +22,9 @@ pub enum AppError {
     State(String),
 
     #[error("{0}")]
+    InvalidSetting(String),
+
+    #[error("{0}")]
     Network(String),
 
     #[error(transparent)]
@@ -80,6 +83,10 @@ impl Serialize for AppError {
             },
             AppError::Network(msg) => ErrorPayload {
                 code: "NETWORK_ERROR",
+                message: msg.clone(),
+            },
+            AppError::InvalidSetting(msg) => ErrorPayload {
+                code: "INVALID_SETTING",
                 message: msg.clone(),
             },
             AppError::Io(err) => ErrorPayload {
@@ -163,6 +170,14 @@ mod tests {
         let val = serde_json::to_value(&err).unwrap();
         assert_eq!(val["code"], "STATE_ERROR");
         assert_eq!(val["message"], "bad state");
+    }
+
+    #[test]
+    fn app_error_invalid_setting_serializes_correctly() {
+        let err = AppError::InvalidSetting("accent colour 'x' is not #RRGGBB".into());
+        let val = serde_json::to_value(&err).unwrap();
+        assert_eq!(val["code"], "INVALID_SETTING");
+        assert!(val["message"].as_str().unwrap().contains("#RRGGBB"));
     }
 
     #[test]
