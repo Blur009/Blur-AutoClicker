@@ -60,3 +60,4 @@ src/TestBed.tsx
 src/tauri-mock-setup.ts
 vite.test.config.ts
 .claude/settings.local.json
+piolium/
