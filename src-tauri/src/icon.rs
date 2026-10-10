@@ -120,12 +120,15 @@ pub fn resolve_theme(pref: &IconThemePref, app_theme: &str) -> ResolvedTheme {
 
 fn compute_tinted(hex: &str, base: &[u8], mask: &[u8]) -> Option<RgbaImage> {
     let hex = hex.trim_start_matches('#');
-    if hex.len() < 6 {
-        return None;
-    }
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+    // `get` rather than indexing: these are byte offsets, and a string of six or
+    // more bytes can still split a multi-byte character.
+    let (r, g, b) = match (hex.get(0..2), hex.get(2..4), hex.get(4..6)) {
+        (Some(r), Some(g), Some(b)) => (r, g, b),
+        _ => return None,
+    };
+    let r = u8::from_str_radix(r, 16).ok()?;
+    let g = u8::from_str_radix(g, 16).ok()?;
+    let b = u8::from_str_radix(b, 16).ok()?;
 
     let base_img = image::load_from_memory(base).ok()?.to_rgba8();
     let mask_img = image::load_from_memory(mask).ok()?.to_rgba8();
@@ -539,6 +542,17 @@ pub fn set_icon_theme(
 mod tests {
     use super::*;
     use image::ImageEncoder;
+
+    #[test]
+    fn compute_tinted_declines_a_colour_that_splits_a_character() {
+        // Six bytes, but byte 2 lands inside the first 'é'. Indexing here used to
+        // panic on the event-loop thread; the function should just return None.
+        assert!(compute_tinted("aééb", &[], &[]).is_none());
+        assert!(compute_tinted("#€€€", &[], &[]).is_none());
+        assert!(compute_tinted("#22c55", &[], &[]).is_none());
+        // Well-formed colour, no image bytes to tint.
+        assert!(compute_tinted("#22c55e", &[], &[]).is_none());
+    }
 
     struct RecordingBackend {
         window_ok: bool,

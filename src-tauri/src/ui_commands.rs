@@ -68,7 +68,13 @@ pub fn toggle_clicker(app: AppHandle) -> AppResult<ClickerStatusPayload> {
 }
 
 #[tauri::command]
-pub fn update_settings(app: AppHandle, settings: ClickerSettings) -> AppResult<ClickerSettings> {
+pub fn update_settings(
+    app: AppHandle,
+    mut settings: ClickerSettings,
+) -> AppResult<ClickerSettings> {
+    // The payload is not trusted. `sanitizeSettings` on the frontend is the only
+    // thing bounding these values today, and a direct `invoke` walks around it.
+    settings.sanitize();
     let state = app.state::<ClickerState>();
     let was_initialized = state.settings_initialized.load(Ordering::SeqCst);
     let zone_changed: bool;
@@ -340,6 +346,14 @@ pub fn export_diagnostics_bundle() -> AppResult<String> {
     Ok(zip_path.to_string_lossy().to_string())
 }
 
+/// `compute_tinted` reads six hex digits after an optional `#`. Reject anything
+/// else here so a bad colour never reaches the icon pipeline or the state it
+/// keeps for later redraws.
+fn is_hex_color(value: &str) -> bool {
+    let digits = value.strip_prefix('#').unwrap_or(value);
+    digits.len() == 6 && digits.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
 #[tauri::command]
 pub fn set_accent_color(
     app: AppHandle,
@@ -349,6 +363,11 @@ pub fn set_accent_color(
     icon_theme: String,
     icon_color: String,
 ) -> AppResult<()> {
+    if !is_hex_color(&color) {
+        return Err(AppError::InvalidSetting(format!(
+            "accent colour '{color}' is not #RRGGBB"
+        )));
+    }
     let handle = app.clone();
     let closure_handle = handle.clone();
     let _ = handle.run_on_main_thread(move || {

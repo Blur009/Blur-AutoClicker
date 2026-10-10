@@ -133,6 +133,50 @@ impl RunControl {
     }
 }
 
+/// Clears the "a run is active" state when the clicker thread leaves, unwinding
+/// included. A panic in the click loop used to skip that teardown and leave the
+/// UI reporting a run that was already dead.
+struct RunFlagsGuard {
+    app: AppHandle,
+    generation: u64,
+    armed: bool,
+}
+
+impl RunFlagsGuard {
+    fn new(app: AppHandle, generation: u64) -> Self {
+        Self {
+            app,
+            generation,
+            armed: true,
+        }
+    }
+
+    /// Idempotent, so the normal path can clear early and `Drop` becomes a no-op.
+    fn clear(&mut self) {
+        if !self.armed {
+            return;
+        }
+        self.armed = false;
+
+        let state = self.app.state::<ClickerState>();
+        // A newer run owns these flags once the generation moves on.
+        if state.run_generation.load(Ordering::SeqCst) != self.generation {
+            return;
+        }
+        state.running.store(false, Ordering::SeqCst);
+        state.active_click_point_index.store(-1, Ordering::SeqCst);
+        state.active_click_point_tick.store(0, Ordering::SeqCst);
+        crate::icon::set_app_icons(&self.app);
+        emit_status(&self.app);
+    }
+}
+
+impl Drop for RunFlagsGuard {
+    fn drop(&mut self) {
+        self.clear();
+    }
+}
+
 pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
     let state = app.state::<ClickerState>();
     if state.running.load(Ordering::SeqCst) {
@@ -208,6 +252,7 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
     emit_status(app);
 
     std::thread::spawn(move || {
+        let mut run = RunFlagsGuard::new(app_handle.clone(), expected_generation);
         let outcome = engine_start(config, control.clone());
 
         if outcome.click_count > 0 {
@@ -220,16 +265,10 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
         }
 
         let state = app_handle.state::<ClickerState>();
-        state.running.store(false, Ordering::SeqCst);
-        state.active_click_point_index.store(-1, Ordering::SeqCst);
-        state.active_click_point_tick.store(0, Ordering::SeqCst);
-
-        crate::icon::set_app_icons(&app_handle);
-
         *state.stop_reason.lock().unwrap_or_else(poisoned_inner) =
             Some(outcome.stop_reason.clone());
         *state.last_error.lock().unwrap_or_else(poisoned_inner) = None;
-        emit_status(&app_handle);
+        run.clear();
     });
 
     Ok(payload)
@@ -779,7 +818,14 @@ fn run_batch(
     } else {
         base_dur
     };
-    st.next_batch_time += Duration::from_secs_f64(batch_dur.max(0.001));
+    // `sanitize` bounds `click_speed` and `speed_randomization`, so a batch can no
+    // longer overflow a `Duration`. Staying fallible here keeps a panic out of the
+    // click loop whatever the config happens to hold.
+    let batch_dur = batch_dur.max(0.001);
+    st.next_batch_time += Duration::try_from_secs_f64(batch_dur).unwrap_or_else(|_| {
+        log::error!("[engine] batch duration {batch_dur} does not fit a Duration, using 1s");
+        Duration::from_secs(1)
+    });
 
     if ctx.is_keyboard {
         if batch.double_cycles > 0 {
