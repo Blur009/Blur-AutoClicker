@@ -14,6 +14,12 @@ jobs:
     name: Build and release
     runs-on: windows-latest
     timeout-minutes: 30
+    # Hand the tag over as data. Interpolating ${{ github.ref_name }} straight
+    # into a run: block makes GitHub substitute it before the shell parses the
+    # script, so a tag carrying shell metacharacters would become code.
+    env:
+      TAG_NAME: ${{ github.ref_name }}
+      REPO: ${{ github.repository }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,7 +35,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
 
       - name: Install dependencies
         run: npm ci
@@ -44,7 +50,7 @@ jobs:
       - name: Extract changelog
         shell: pwsh
         run: |
-          $version = [regex]::Escape(("${{ github.ref_name }}".TrimStart('v')))
+          $version = [regex]::Escape(($env:TAG_NAME).TrimStart('v'))
           $content = Get-Content CHANGELOG.md -Raw
           $pattern = "(?ms)# v$version .*?(?=\n# v|\z)"
           $match = [regex]::Match($content, $pattern)
@@ -69,7 +75,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if (Test-Path release_body.md) {
-            gh release edit "${{ github.ref_name }}" --notes-file release_body.md
+            gh release edit "$env:TAG_NAME" --notes-file release_body.md
           }
 
       - name: Create portable package
@@ -77,15 +83,15 @@ jobs:
         run: |
           & "${{ github.workspace }}/scripts/package-portable.ps1" `
             -RepoRoot "${{ github.workspace }}" `
-            -Tag "${{ github.ref_name }}"
+            -Tag "$env:TAG_NAME"
 
       - name: Upload portable package
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.ref_name }}" `
-            "BlurAutoClicker-${{ github.ref_name }}-portable.zip" `
+          gh release upload "$env:TAG_NAME" `
+            "BlurAutoClicker-$env:TAG_NAME-portable.zip" `
             --clobber
 
   winget:
@@ -94,6 +100,8 @@ jobs:
     needs: release
     if: ${{ startsWith(github.ref_name, 'v') && !contains(github.ref_name, '-') }}
     env:
+      TAG_NAME: ${{ github.ref_name }}
+      REPO: ${{ github.repository }}
       WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -102,7 +110,7 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = $env:TAG_NAME
           Write-Output "version=$($tag.TrimStart('v'))" >> $env:GITHUB_OUTPUT
 
       - name: Find NSIS installer URL
@@ -111,7 +119,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $release = gh api "repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}" | ConvertFrom-Json
+          $release = gh api "repos/$env:REPO/releases/tags/$env:TAG_NAME" | ConvertFrom-Json
           $installer = $release.assets | Where-Object { $_.name -like '*_x64-setup.exe' } | Select-Object -First 1
           if (-not $installer) { throw 'No NSIS installer asset found' }
           Write-Output "url=$($installer.browser_download_url)" >> $env:GITHUB_OUTPUT
@@ -163,7 +171,7 @@ jobs:
           if ($match.Success) {
             Set-Content -Path release_notes.md -Value $match.Value.Trim()
           } else {
-            Set-Content -Path release_notes.md -Value "See https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+            Set-Content -Path release_notes.md -Value "See https://github.com/$env:REPO/releases/tag/$env:TAG_NAME"
           }
 
       - name: Inject ReleaseNotes into locale manifest
@@ -192,7 +200,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue create `
-            --title "WinGet submission failed for ${{ github.ref_name }}" `
-            --body "The winget-pkgs PR submission failed on release **${{ github.ref_name }}**.
+            --title "WinGet submission failed for $env:TAG_NAME" `
+            --body "The winget-pkgs PR submission failed on release **$env:TAG_NAME**.
 
-          Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for logs.
+          Check the [workflow run](${{ github.server_url }}/$env:REPO/actions/runs/${{ github.run_id }}) for logs.
