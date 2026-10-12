@@ -258,6 +258,14 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
         if outcome.click_count > 0 {
             print_run_stats(outcome.click_count, outcome.elapsed_secs, outcome.avg_cpu);
             record_run(outcome.click_count, outcome.elapsed_secs, outcome.avg_cpu);
+            match crate::engine::stats::get_stats() {
+                Ok(stats) => {
+                    if let Err(e) = app_handle.emit("stats-updated", stats) {
+                        log::warn!("[stats] Failed to emit stats-updated: {e}");
+                    }
+                }
+                Err(e) => log::warn!("[stats] Failed to re-read stats for emit: {e:?}"),
+            }
         }
 
         if !control.is_current_generation() {

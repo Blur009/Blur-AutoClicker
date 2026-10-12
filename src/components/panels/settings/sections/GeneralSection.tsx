@@ -3,11 +3,13 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppInfo } from "../../../../store";
 import { changelogEntries } from "../../../../changelog";
@@ -29,15 +31,12 @@ function formatTime(totalSeconds: number, language: string): string {
   if (totalSeconds < 3600) {
     const m = Math.floor(totalSeconds / 60);
     const s = Math.floor(totalSeconds % 60);
-    return s > 0
-      ? `${m.toLocaleString(language)}m ${s.toLocaleString(language)}s`
-      : `${m.toLocaleString(language)}m`;
+    return `${m.toLocaleString(language)}m ${s.toLocaleString(language)}s`;
   }
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
-  return m > 0
-    ? `${h.toLocaleString(language)}h ${m.toLocaleString(language)}m`
-    : `${h.toLocaleString(language)}h`;
+  const s = Math.floor(totalSeconds % 60);
+  return `${h.toLocaleString(language)}h ${m.toLocaleString(language)}m ${s.toLocaleString(language)}s`;
 }
 
 function formatNumber(n: number, language: string): string {
@@ -110,6 +109,31 @@ const UsageStatsGrid = memo(function UsageStatsGrid({
   );
 });
 
+function useAnimatedNumber(target: number, duration = 600) {
+  const [display, setDisplay] = useState(target);
+  const displayRef = useRef(target);
+  useEffect(() => {
+    const from = displayRef.current;
+    if (from === target) return;
+    const instant =
+      duration <= 0 ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = instant ? 1 : Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const current = from + (target - from) * eased;
+      displayRef.current = current;
+      setDisplay(current);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return display;
+}
+
 export default function GeneralSection({
   appInfo,
   updateCheckStatus,
@@ -123,19 +147,44 @@ export default function GeneralSection({
     invoke<CumulativeStats>("get_stats")
       .then(setStats)
       .catch(() => {});
+
+    let cleanup: (() => void) | undefined;
+    listen<CumulativeStats>("stats-updated", (event) => {
+      setStats(event.payload);
+    })
+      .then((unlisten) => {
+        cleanup = unlisten;
+      })
+      .catch(() => {});
+
+    return () => {
+      cleanup?.();
+    };
   }, []);
 
   const hasStats = stats !== null && stats.totalSessions > 0;
 
+  const animatedClicks = useAnimatedNumber(stats?.totalClicks ?? 0);
+  const animatedTime = useAnimatedNumber(stats?.totalTimeSecs ?? 0);
+  const animatedCpu = useAnimatedNumber(stats?.avgCpu ?? 0);
+  const animatedSessions = useAnimatedNumber(stats?.totalSessions ?? 0);
+
   const formattedStats = useMemo(() => {
     if (stats === null || stats.totalSessions <= 0) return null;
     return {
-      totalClicks: formatNumber(stats.totalClicks, language),
-      totalTime: formatTime(stats.totalTimeSecs, language),
-      avgCpu: formatCpu(stats.avgCpu, language, "N/A"),
-      sessions: formatNumber(stats.totalSessions, language),
+      totalClicks: formatNumber(animatedClicks, language),
+      totalTime: formatTime(animatedTime, language),
+      avgCpu: formatCpu(animatedCpu, language, "N/A"),
+      sessions: formatNumber(animatedSessions, language),
     };
-  }, [stats, language]);
+  }, [
+    stats,
+    language,
+    animatedClicks,
+    animatedTime,
+    animatedCpu,
+    animatedSessions,
+  ]);
 
   const updateButtonLabel = UPDATE_BUTTON_LABELS[updateCheckStatus];
 

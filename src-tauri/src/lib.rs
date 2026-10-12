@@ -496,6 +496,10 @@ pub fn run() {
             #[cfg(windows)]
             set_app_aumid();
 
+            if let Err(e) = crate::engine::stats::init() {
+                log::error!("[stats] Failed to initialize stats database: {e}");
+            }
+
             if !crate::portable::is_portable() {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             }

@@ -1,4 +1,5 @@
 use std::sync::atomic::Ordering;
+use tauri::Emitter;
 use tauri::Manager;
 
 use tauri::AppHandle;
@@ -226,8 +227,12 @@ pub fn get_stats() -> AppResult<CumulativeStats> {
 }
 
 #[tauri::command]
-pub fn reset_stats() -> AppResult<CumulativeStats> {
-    crate::engine::stats::reset_stats()
+pub fn reset_stats(app: AppHandle) -> AppResult<CumulativeStats> {
+    let stats = crate::engine::stats::reset_stats()?;
+    if let Err(e) = app.emit("stats-updated", stats.clone()) {
+        log::warn!("[stats] Failed to emit stats-updated after reset: {e}");
+    }
+    Ok(stats)
 }
 
 #[tauri::command]

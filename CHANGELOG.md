@@ -2,7 +2,12 @@
 
 ## Changed
 
-- Full performance pass over the whole app. Should be slightly faster now.
+- Small perforance improvements.
+- Converted statistics to be stored without compression.
+
+## Fixed
+
+- Clicking stats now update without needing to leave and re-enter the settings page.
 
 # v3.9.6 - 24.08.2026 (d.m.y)
 

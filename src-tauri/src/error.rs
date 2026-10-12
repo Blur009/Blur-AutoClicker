@@ -53,6 +53,12 @@ pub enum AppError {
 
     #[error("Inter-thread channel communication disconnected")]
     ChannelFailure,
+
+    #[error(transparent)]
+    Db(#[from] rusqlite::Error),
+
+    #[error("Database migration failed: {0}")]
+    DbMigration(String),
 }
 
 #[derive(Serialize)]
@@ -125,6 +131,14 @@ impl Serialize for AppError {
             AppError::ChannelFailure => ErrorPayload {
                 code: "THREAD_SYNC_FAILURE",
                 message: "Active communication between automation threads was severed.".to_string(),
+            },
+            AppError::Db(err) => ErrorPayload {
+                code: "DB_ERROR",
+                message: err.to_string(),
+            },
+            AppError::DbMigration(msg) => ErrorPayload {
+                code: "DB_MIGRATION_ERROR",
+                message: msg.clone(),
             },
         };
         payload.serialize(serializer)
