@@ -165,6 +165,18 @@ pub fn move_mouse(target_x: i32, target_y: i32) {
 }
 
 #[inline]
+fn move_mouse_with_rect(target_x: i32, target_y: i32, screen_rect: Option<VirtualScreenRect>) {
+    if let Some(rect) = screen_rect {
+        let end_x = rect.normalize_x(target_x);
+        let end_y = rect.normalize_y(target_y);
+
+        let movement = make_movement(end_x, end_y);
+        unsafe { SendInput(1, &movement, std::mem::size_of::<INPUT>() as i32) };
+        log::debug!("moved cursor x:{end_x}, y:{end_y}")
+    }
+}
+
+#[inline]
 pub fn make_movement(end_x: i32, end_y: i32) -> INPUT {
     INPUT {
         r#type: INPUT_MOUSE,
@@ -235,9 +247,18 @@ pub fn send_clicks(
         return;
     }
 
-    if plan.kind == ClickCycleKind::Single && count > 1 && plan.first_hold_ms == 0 {
-        send_batch(down, up, count);
-        return;
+    if plan.kind == ClickCycleKind::Single && plan.first_hold_ms == 0 {
+        if count > 1 {
+            send_batch(down, up, count);
+            return;
+        }
+        if count == 1 {
+            if !control.is_active() {
+                return;
+            }
+            send_batch(down, up, 1);
+            return;
+        }
     }
 
     let is_active = || control.is_active() && !should_abort();
@@ -291,9 +312,10 @@ fn smooth_move_inner(
     duration_ms: u64,
     rng: &mut crate::engine::rng::SmallRng,
     allow_overshoot: bool,
+    screen_rect: Option<VirtualScreenRect>,
 ) {
     if duration_ms < 3 || (start_x == end_x && start_y == end_y) {
-        move_mouse(end_x, end_y);
+        move_mouse_with_rect(end_x, end_y, screen_rect);
         return;
     }
 
@@ -304,7 +326,7 @@ fn smooth_move_inner(
     let distance = delta_x.hypot(delta_y);
 
     if distance < 3.0 {
-        move_mouse(end_x, end_y);
+        move_mouse_with_rect(end_x, end_y, screen_rect);
         return;
     }
 
@@ -354,7 +376,7 @@ fn smooth_move_inner(
             current_y += perp_y * wobble * sign;
         }
 
-        move_mouse(current_x as i32, current_y as i32);
+        move_mouse_with_rect(current_x as i32, current_y as i32, screen_rect);
 
         if i < steps {
             let elapsed = start_time.elapsed();
@@ -376,7 +398,16 @@ fn smooth_move_inner(
 
         let correction_ms = (duration_ms as f64 * 0.19).max(4.0) as u64;
 
-        smooth_move_inner(end_x, end_y, over_x, over_y, correction_ms, rng, false);
+        smooth_move_inner(
+            end_x,
+            end_y,
+            over_x,
+            over_y,
+            correction_ms,
+            rng,
+            false,
+            screen_rect,
+        );
         smooth_move_inner(
             over_x,
             over_y,
@@ -385,6 +416,7 @@ fn smooth_move_inner(
             (correction_ms * 2 / 3).max(3),
             rng,
             false,
+            screen_rect,
         );
     }
 }
@@ -397,5 +429,15 @@ pub fn smooth_move(
     duration_ms: u64,
     rng: &mut crate::engine::rng::SmallRng,
 ) {
-    smooth_move_inner(start_x, start_y, end_x, end_y, duration_ms, rng, true);
+    let screen_rect = current_virtual_screen_rect();
+    smooth_move_inner(
+        start_x,
+        start_y,
+        end_x,
+        end_y,
+        duration_ms,
+        rng,
+        true,
+        screen_rect,
+    );
 }

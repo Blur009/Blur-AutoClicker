@@ -16,7 +16,15 @@ use tauri_plugin_log::fern;
 static FRONTEND_READY: AtomicBool = AtomicBool::new(false);
 /// The wry error captured from the log, if the webview failed to create.
 static WEBVIEW_ERROR: Mutex<Option<String>> = Mutex::new(None);
+static WEBVIEW_ERROR_SET: AtomicBool = AtomicBool::new(false);
+static WATCHDOG_THREAD: Mutex<Option<std::thread::Thread>> = Mutex::new(None);
 
+fn poke_watchdog() {
+    let thread = WATCHDOG_THREAD.lock().ok().and_then(|slot| slot.clone());
+    if let Some(thread) = thread {
+        thread.unpark();
+    }
+}
 /// Grace period after a captured error before we give up. Covers a slow but
 /// eventually successful webview start.
 const ERROR_GRACE: Duration = Duration::from_secs(3);
@@ -25,6 +33,7 @@ const READY_TIMEOUT: Duration = Duration::from_secs(20);
 
 pub fn frontend_ready() {
     FRONTEND_READY.store(true, Ordering::SeqCst);
+    poke_watchdog();
 }
 
 fn captured_error() -> Option<String> {
@@ -75,6 +84,9 @@ pub fn create_watch_target() -> fern::Dispatch {
     fern::Dispatch::new()
         .filter(|metadata| is_webview_target(metadata.target()))
         .chain(fern::Output::call(|record| {
+            if WEBVIEW_ERROR_SET.load(Ordering::SeqCst) {
+                return;
+            }
             let message = record.args().to_string();
             if !is_webview_failure(&message) {
                 return;
@@ -82,6 +94,8 @@ pub fn create_watch_target() -> fern::Dispatch {
             if let Ok(mut slot) = WEBVIEW_ERROR.lock() {
                 if slot.is_none() {
                     *slot = Some(message);
+                    WEBVIEW_ERROR_SET.store(true, Ordering::SeqCst);
+                    poke_watchdog();
                 }
             }
         }))
@@ -94,6 +108,9 @@ pub fn spawn_watchdog() {
     std::thread::Builder::new()
         .name("webview-watchdog".into())
         .spawn(|| {
+            if let Ok(mut slot) = WATCHDOG_THREAD.lock() {
+                *slot = Some(std::thread::current());
+            }
             let started = Instant::now();
             loop {
                 if FRONTEND_READY.load(Ordering::SeqCst) {
@@ -101,7 +118,14 @@ pub fn spawn_watchdog() {
                 }
                 let elapsed = started.elapsed();
 
-                match captured_error() {
+                let error = if WEBVIEW_ERROR_SET.load(Ordering::SeqCst) {
+                    captured_error()
+                } else {
+                    None
+                };
+
+                let has_error = error.is_some();
+                match error {
                     Some(error) if elapsed >= ERROR_GRACE => {
                         report(Some(&error));
                         return;
@@ -113,7 +137,17 @@ pub fn spawn_watchdog() {
                     _ => {}
                 }
 
-                std::thread::sleep(Duration::from_millis(250));
+                let deadline = if has_error {
+                    ERROR_GRACE
+                } else {
+                    READY_TIMEOUT
+                };
+                match deadline.checked_sub(elapsed) {
+                    Some(remaining) if !remaining.is_zero() => {
+                        std::thread::park_timeout(remaining);
+                    }
+                    _ => continue,
+                }
             }
         })
         .ok();

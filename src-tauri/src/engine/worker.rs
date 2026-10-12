@@ -60,7 +60,7 @@ impl ClickerConfig {
     }
 }
 
-fn calibrate_cycle_freq() -> f64 {
+fn measure_cycle_freq() -> f64 {
     let start_cycles = thread_cycles();
     let start = Instant::now();
 
@@ -933,7 +933,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
     CLICK_COUNT.store(0, Ordering::SeqCst);
     let _timer = TimerResolutionGuard::new();
 
-    let cycle_freq = calibrate_cycle_freq();
+    let cycle_freq = measure_cycle_freq();
     let cpu_start = thread_cycles();
     let start_time = Instant::now();
     let mut rng = SmallRng::new();
@@ -1029,16 +1029,21 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             }
 
             // Send repeated key down (auto-repeat)
-            if last_repeat.elapsed()
-                >= Duration::from_millis(ctx.keyboard_repeat_interval_ms as u64)
-            {
+            let repeat_interval =
+                Duration::from_millis(ctx.keyboard_repeat_interval_ms.max(1) as u64);
+            if last_repeat.elapsed() >= repeat_interval {
                 send_key_down(ctx.key_code, ctx.keyboard_uppercase);
                 st.click_count += 1;
                 CLICK_COUNT.store(st.click_count, Ordering::Relaxed);
                 last_repeat = Instant::now();
             }
 
-            std::thread::sleep(Duration::from_millis(1));
+            let until_next = (last_repeat + repeat_interval)
+                .saturating_duration_since(Instant::now())
+                .min(Duration::from_millis(10));
+            if !until_next.is_zero() {
+                std::thread::sleep(until_next);
+            }
         }
 
         // Release key on exit
@@ -1135,16 +1140,16 @@ pub fn sleep_interruptible(
     control: &RunControl,
     should_abort: &dyn Fn() -> bool,
 ) {
-    let tick = Duration::from_millis(5);
+    let tick = Duration::from_millis(10);
     let start = Instant::now();
-    let mut tick_count = 0u64;
-    while control.is_active() && start.elapsed() < remaining {
-        if tick_count.is_multiple_of(2) && should_abort() {
+    let mut elapsed = start.elapsed();
+    while control.is_active() && elapsed < remaining {
+        if should_abort() {
             return;
         }
-        let left = remaining.saturating_sub(start.elapsed());
+        let left = remaining.saturating_sub(elapsed);
         std::thread::sleep(left.min(tick));
-        tick_count += 1;
+        elapsed = start.elapsed();
     }
 }
 

@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo, type CSSProperties } from "react";
 import { error } from "@tauri-apps/plugin-log";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -35,12 +36,21 @@ const PAGES = [
   { suffix: "Settings", label: "Settings Page" },
 ] as const;
 
+const THEME_SEG_OPTIONS = ["dark", "light"] as const;
+const ICON_THEME_SEG_OPTIONS: IconTheme[] = ["auto", "dark", "light"];
+const ICON_COLOR_SEG_OPTIONS: IconColor[] = ["theme", "default"];
+
+const LEGACY_WARNING_ROW_STYLE: CSSProperties = { marginTop: "-0.5rem" };
+const LEGACY_WARNING_TEXT_STYLE: CSSProperties = {
+  color: "var(--accent-yellow)",
+};
+
 interface Props {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
 }
 
-function PageAppearanceControls({
+const PageAppearanceControls = memo(function PageAppearanceControls({
   settings,
   update,
   suffix,
@@ -63,7 +73,7 @@ function PageAppearanceControls({
   const panelBlur = settings[panelBlurKey] as number;
   const bgBlur = settings[bgBlurKey] as number;
 
-  const handleBrowse = async () => {
+  const handleBrowse = useCallback(async () => {
     try {
       const selected = await open({ multiple: false, filters: MEDIA_FILTERS });
       if (selected) {
@@ -77,7 +87,60 @@ function PageAppearanceControls({
         }),
       );
     }
-  };
+  }, [bgImageKey, update]);
+
+  const handleBgImageChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [bgImageKey]: e.target.value }),
+    [bgImageKey, update],
+  );
+
+  const handleRemoveBgImage = useCallback(
+    () => update({ [bgImageKey]: "" }),
+    [bgImageKey, update],
+  );
+
+  const handleWinOpacityChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [winOpacityKey]: Number(e.target.value) }),
+    [winOpacityKey, update],
+  );
+
+  const handleBgOpacityChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [bgOpacityKey]: Number(e.target.value) }),
+    [bgOpacityKey, update],
+  );
+
+  const handlePanelOpacityChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [panelOpacityKey]: Number(e.target.value) }),
+    [panelOpacityKey, update],
+  );
+
+  const handleBgBlurChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [bgBlurKey]: Number(e.target.value) }),
+    [bgBlurKey, update],
+  );
+
+  const handlePanelBlurChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [panelBlurKey]: Number(e.target.value) }),
+    [panelBlurKey, update],
+  );
+
+  const legacyVideoWarning = useMemo(() => {
+    const ext = getExtension(bgImage);
+    if (!isLegacyVideoExtension(ext)) return null;
+    return (
+      <div className="settings-row" style={LEGACY_WARNING_ROW_STYLE}>
+        <span className="settings-sublabel" style={LEGACY_WARNING_TEXT_STYLE}>
+          MOV/M4V/AVI/MKV often fail. If video stays black, convert it to mp4.
+        </span>
+      </div>
+    );
+  }, [bgImage]);
 
   return (
     <>
@@ -94,7 +157,7 @@ function PageAppearanceControls({
             className="settings-bg-input"
             type="text"
             value={bgImage}
-            onChange={(e) => update({ [bgImageKey]: e.target.value })}
+            onChange={handleBgImageChange}
             placeholder="https://example.com/image.png or C:\Videos\loop.mp4"
           />
           <div className="settings-bg-buttons">
@@ -103,30 +166,14 @@ function PageAppearanceControls({
             </button>
             <button
               className="settings-btn-danger settings-btn-danger--compact"
-              onClick={() => update({ [bgImageKey]: "" })}
+              onClick={handleRemoveBgImage}
               disabled={!bgImage}
             >
               Remove
             </button>
           </div>
         </div>
-        {(() => {
-          const ext = getExtension(bgImage);
-          if (isLegacyVideoExtension(ext)) {
-            return (
-              <div className="settings-row" style={{ marginTop: "-0.5rem" }}>
-                <span
-                  className="settings-sublabel"
-                  style={{ color: "var(--accent-yellow)" }}
-                >
-                  MOV/M4V/AVI/MKV often fail. If video stays black, convert it
-                  to mp4.
-                </span>
-              </div>
-            );
-          }
-          return null;
-        })()}
+        {legacyVideoWarning}
       </div>
 
       <div className="settings-row">
@@ -143,9 +190,7 @@ function PageAppearanceControls({
             min="0"
             max="100"
             value={winOpacity}
-            onChange={(e) =>
-              update({ [winOpacityKey]: Number(e.target.value) })
-            }
+            onChange={handleWinOpacityChange}
           />
           <span className="settings-slider-value">{winOpacity}%</span>
         </div>
@@ -166,7 +211,7 @@ function PageAppearanceControls({
             max="100"
             value={bgOpacity}
             disabled={!bgImage}
-            onChange={(e) => update({ [bgOpacityKey]: Number(e.target.value) })}
+            onChange={handleBgOpacityChange}
           />
           <span className="settings-slider-value">{bgOpacity}%</span>
         </div>
@@ -184,9 +229,7 @@ function PageAppearanceControls({
             min="0"
             max="100"
             value={panelOpacity}
-            onChange={(e) =>
-              update({ [panelOpacityKey]: Number(e.target.value) })
-            }
+            onChange={handlePanelOpacityChange}
           />
           <span className="settings-slider-value">{panelOpacity}%</span>
         </div>
@@ -207,7 +250,7 @@ function PageAppearanceControls({
             max="20"
             value={bgBlur}
             disabled={!bgImage}
-            onChange={(e) => update({ [bgBlurKey]: Number(e.target.value) })}
+            onChange={handleBgBlurChange}
           />
           <span className="settings-slider-value">{bgBlur}px</span>
         </div>
@@ -227,23 +270,38 @@ function PageAppearanceControls({
             min="0"
             max="20"
             value={panelBlur}
-            onChange={(e) => update({ [panelBlurKey]: Number(e.target.value) })}
+            onChange={handlePanelBlurChange}
           />
           <span className="settings-slider-value">{panelBlur}px</span>
         </div>
       </div>
     </>
   );
-}
+});
 
-export default function AppearanceSection({ settings, update }: Props) {
-  const isPerPage = settings.perPageAppearance;
-
-  const handleModeChange = (individual: boolean) => {
-    update({ perPageAppearance: individual });
-  };
-
-  const themeAccent = (
+const ThemeAccentCard = memo(function ThemeAccentCard({
+  theme,
+  accentColor,
+  update,
+}: {
+  theme: Settings["theme"];
+  accentColor: string;
+  update: (patch: Partial<Settings>) => void;
+}) {
+  const handleThemeSelect = useCallback(
+    (next: Settings["theme"]) => update({ theme: next }),
+    [update],
+  );
+  const handleAccentChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) =>
+      update({ accentColor: event.target.value }),
+    [update],
+  );
+  const handleAccentReset = useCallback(
+    () => update({ accentColor: DEFAULT_ACCENT_COLOR }),
+    [update],
+  );
+  return (
     <SettingsCard title="Theme & Accent" description="Applied to all pages.">
       <div className="settings-row">
         <div className="settings-label-group">
@@ -253,13 +311,13 @@ export default function AppearanceSection({ settings, update }: Props) {
           </span>
         </div>
         <div className="settings-seg-group">
-          {(["dark", "light"] as const).map((theme) => (
+          {THEME_SEG_OPTIONS.map((option) => (
             <button
-              key={theme}
-              className={`settings-seg-btn ${settings.theme === theme ? "active" : ""}`}
-              onClick={() => update({ theme })}
+              key={option}
+              className={`settings-seg-btn ${theme === option ? "active" : ""}`}
+              onClick={() => handleThemeSelect(option)}
             >
-              {theme === "dark" ? "Dark" : "Light"}
+              {option === "dark" ? "Dark" : "Light"}
             </button>
           ))}
         </div>
@@ -273,17 +331,17 @@ export default function AppearanceSection({ settings, update }: Props) {
           <label className="settings-color-picker">
             <input
               type="color"
-              value={settings.accentColor}
-              onChange={(event) => update({ accentColor: event.target.value })}
+              value={accentColor}
+              onChange={handleAccentChange}
             />
           </label>
           <span className="settings-value settings-value--mono">
-            {settings.accentColor.toUpperCase()}
+            {accentColor.toUpperCase()}
           </span>
           <button
             className="settings-btn-secondary"
-            onClick={() => update({ accentColor: DEFAULT_ACCENT_COLOR })}
-            disabled={settings.accentColor === DEFAULT_ACCENT_COLOR}
+            onClick={handleAccentReset}
+            disabled={accentColor === DEFAULT_ACCENT_COLOR}
           >
             Reset
           </button>
@@ -291,10 +349,45 @@ export default function AppearanceSection({ settings, update }: Props) {
       </div>
     </SettingsCard>
   );
+});
+
+export default function AppearanceSection({ settings, update }: Props) {
+  const isPerPage = settings.perPageAppearance;
+
+  const handleModeChange = useCallback(
+    (individual: boolean) => update({ perPageAppearance: individual }),
+    [update],
+  );
+
+  const handleTaskbarIconToggle = useCallback(
+    () => update({ taskbarIconEnabled: !settings.taskbarIconEnabled }),
+    [update, settings.taskbarIconEnabled],
+  );
+
+  const handleIconThemeSelect = useCallback(
+    (opt: IconTheme) => update({ taskbarIconTheme: opt }),
+    [update],
+  );
+
+  const handleIconColorSelect = useCallback(
+    (opt: IconColor) => {
+      if (settings.taskbarIconEnabled) update({ taskbarIconColor: opt });
+    },
+    [update, settings.taskbarIconEnabled],
+  );
+
+  const handleStatusBarToggle = useCallback(
+    () => update({ statusBarEnabled: !settings.statusBarEnabled }),
+    [update, settings.statusBarEnabled],
+  );
 
   return (
     <>
-      {themeAccent}
+      <ThemeAccentCard
+        theme={settings.theme}
+        accentColor={settings.accentColor}
+        update={update}
+      />
 
       <SettingsCard
         title="Appearance Mode"
@@ -358,9 +451,7 @@ export default function AppearanceSection({ settings, update }: Props) {
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.taskbarIconEnabled ? "on" : "off"}`}
-              onClick={() =>
-                update({ taskbarIconEnabled: !settings.taskbarIconEnabled })
-              }
+              onClick={handleTaskbarIconToggle}
             >
               <span className="settings-toggle-knob" />
             </button>
@@ -375,11 +466,11 @@ export default function AppearanceSection({ settings, update }: Props) {
             </span>
           </div>
           <div className="settings-seg-group">
-            {(["auto", "dark", "light"] as IconTheme[]).map((opt) => (
+            {ICON_THEME_SEG_OPTIONS.map((opt) => (
               <button
                 key={opt}
                 className={`settings-seg-btn ${settings.taskbarIconTheme === opt ? "active" : ""}`}
-                onClick={() => update({ taskbarIconTheme: opt })}
+                onClick={() => handleIconThemeSelect(opt)}
               >
                 {opt === "auto" ? "Auto" : opt === "dark" ? "Dark" : "Light"}
               </button>
@@ -397,14 +488,11 @@ export default function AppearanceSection({ settings, update }: Props) {
             </span>
           </div>
           <div className="settings-seg-group">
-            {(["theme", "default"] as IconColor[]).map((opt) => (
+            {ICON_COLOR_SEG_OPTIONS.map((opt) => (
               <button
                 key={opt}
                 className={`settings-seg-btn ${settings.taskbarIconColor === opt ? "active" : ""}`}
-                onClick={() =>
-                  settings.taskbarIconEnabled &&
-                  update({ taskbarIconColor: opt })
-                }
+                onClick={() => handleIconColorSelect(opt)}
               >
                 {opt === "theme" ? "Theme" : "Default"}
               </button>
@@ -427,9 +515,7 @@ export default function AppearanceSection({ settings, update }: Props) {
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.statusBarEnabled ? "on" : "off"}`}
-              onClick={() =>
-                update({ statusBarEnabled: !settings.statusBarEnabled })
-              }
+              onClick={handleStatusBarToggle}
             >
               <span className="settings-toggle-knob" />
             </button>

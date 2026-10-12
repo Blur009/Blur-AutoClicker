@@ -58,8 +58,7 @@ export function normalizeDecimalLocale(raw: string) {
   return `${negative ? "-" : ""}${value}`;
 }
 
-export function parseDecimalLocale(raw: string) {
-  const normalized = normalizeDecimalLocale(raw);
+export function parseNormalizedDecimalLocale(normalized: string) {
   if (
     normalized === "" ||
     normalized === "-" ||
@@ -70,6 +69,10 @@ export function parseDecimalLocale(raw: string) {
   }
   const value = Number(normalized.replace(",", "."));
   return Number.isNaN(value) ? 0 : value;
+}
+
+export function parseDecimalLocale(raw: string) {
+  return parseNormalizedDecimalLocale(normalizeDecimalLocale(raw));
 }
 
 export function formatDecimalLocale(value: number) {

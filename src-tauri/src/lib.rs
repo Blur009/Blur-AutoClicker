@@ -314,16 +314,20 @@ fn spawn_start_zone_monitor(app: &AppHandle) {
     std::thread::spawn(move || {
         let mut prev_in_start_zone = false;
         let mut prev_has_start_zones = false;
+        let mut cached_zones: Vec<crate::settings::StopZoneConfig> = Vec::new();
         while ZONE_MONITOR_RUNNING.load(std::sync::atomic::Ordering::SeqCst) {
             std::thread::sleep(std::time::Duration::from_millis(100));
 
             let state = handle.state::<ClickerState>();
 
-            let (has_start_zones, zones) = {
+            let has_start_zones = {
                 let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
                 let has = settings.stop_zones_enabled
                     && settings.stop_zones.iter().any(|z| z.action == "start");
-                (has, settings.stop_zones.clone())
+                if has && settings.stop_zones != cached_zones {
+                    cached_zones = settings.stop_zones.clone();
+                }
+                has
             };
 
             if !has_start_zones {
@@ -331,6 +335,8 @@ fn spawn_start_zone_monitor(app: &AppHandle) {
                 prev_has_start_zones = false;
                 continue;
             }
+
+            let zones = &cached_zones;
 
             let cursor = match crate::engine::mouse::current_cursor_position() {
                 Some(c) => c,

@@ -188,48 +188,40 @@ pub fn decide_icon(
     is_dark: bool,
     cache: &IconCache,
 ) -> Option<IconDecision> {
-    let (deact_same, deact_other) = if is_dark {
-        (
-            cache.deactivated_dark.clone(),
-            cache.deactivated_light.clone(),
-        )
+    let (deact_same, deact_other): (&Option<RgbaImage>, &Option<RgbaImage>) = if is_dark {
+        (&cache.deactivated_dark, &cache.deactivated_light)
     } else {
-        (
-            cache.deactivated_light.clone(),
-            cache.deactivated_dark.clone(),
-        )
+        (&cache.deactivated_light, &cache.deactivated_dark)
     };
-    let (emb_same, emb_other) = if is_dark {
-        (cache.activated_dark.clone(), cache.activated_light.clone())
+    let (emb_same, emb_other): (&Option<RgbaImage>, &Option<RgbaImage>) = if is_dark {
+        (&cache.activated_dark, &cache.activated_light)
     } else {
-        (cache.activated_light.clone(), cache.activated_dark.clone())
+        (&cache.activated_light, &cache.activated_dark)
     };
-    let (tint_same, tint_other) = if is_dark {
-        (
-            cache.active_tint_dark.clone(),
-            cache.active_tint_light.clone(),
-        )
+    let (tint_same, tint_other): (&Option<RgbaImage>, &Option<RgbaImage>) = if is_dark {
+        (&cache.active_tint_dark, &cache.active_tint_light)
     } else {
-        (
-            cache.active_tint_light.clone(),
-            cache.active_tint_dark.clone(),
-        )
+        (&cache.active_tint_light, &cache.active_tint_dark)
     };
 
     if !running || !icon_enabled {
         let chosen = deact_same
-            .or_else(|| deact_other.clone())
-            .or_else(|| emb_same.clone())
-            .or_else(|| emb_other.clone())
-            .or_else(|| tint_same.clone())
-            .or_else(|| tint_other.clone());
-        chosen.map(|image| IconDecision { image })
+            .as_ref()
+            .or(deact_other.as_ref())
+            .or(emb_same.as_ref())
+            .or(emb_other.as_ref())
+            .or(tint_same.as_ref())
+            .or(tint_other.as_ref());
+        chosen.cloned().map(|image| IconDecision { image })
     } else {
         let chosen = tint_same
-            .or_else(|| emb_same.clone())
-            .or_else(|| deact_same.clone())
-            .or_else(|| deact_other.clone());
-        chosen.map(|image| IconDecision { image })
+            .as_ref()
+            .or(tint_other.as_ref())
+            .or(emb_same.as_ref())
+            .or(emb_other.as_ref())
+            .or(deact_same.as_ref())
+            .or(deact_other.as_ref());
+        chosen.cloned().map(|image| IconDecision { image })
     }
 }
 
@@ -821,25 +813,25 @@ mod tests {
     }
 
     #[test]
-    fn decide_icon_active_tint_none_falls_to_embedded() {
+    fn decide_icon_active_tint_none_falls_to_other_tint() {
         let mut cache = cache_from_real_icons();
         cache.active_tint_dark = None;
         let d = decide_icon(true, true, true, &cache).expect("some");
         assert_eq!(
             rgba_of(&d.image),
-            rgba_of(cache.activated_dark.as_ref().unwrap())
+            rgba_of(cache.active_tint_light.as_ref().unwrap())
         );
     }
 
     #[test]
-    fn decide_icon_embedded_none_falls_to_deactivated() {
+    fn decide_icon_embedded_none_falls_to_other_tint() {
         let mut cache = cache_from_real_icons();
         cache.active_tint_dark = None;
         cache.activated_dark = None;
         let d = decide_icon(true, true, true, &cache).expect("some");
         assert_eq!(
             rgba_of(&d.image),
-            rgba_of(cache.deactivated_dark.as_ref().unwrap())
+            rgba_of(cache.active_tint_light.as_ref().unwrap())
         );
     }
 
@@ -850,7 +842,7 @@ mod tests {
         let d = decide_icon(true, true, true, &cache).expect("some");
         assert_eq!(
             rgba_of(&d.image),
-            rgba_of(cache.activated_dark.as_ref().unwrap())
+            rgba_of(cache.active_tint_light.as_ref().unwrap())
         );
     }
 
@@ -861,7 +853,7 @@ mod tests {
         let d = decide_icon(true, true, false, &cache).expect("some");
         assert_eq!(
             rgba_of(&d.image),
-            rgba_of(cache.activated_light.as_ref().unwrap())
+            rgba_of(cache.active_tint_dark.as_ref().unwrap())
         );
     }
 

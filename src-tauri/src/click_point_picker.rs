@@ -232,8 +232,14 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
         return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
     }
 
-    let shift_down = (GetAsyncKeyState(VK_SHIFT as i32) & 0x8000u16 as i16) != 0;
-    let ctrl_down = (GetAsyncKeyState(VK_CONTROL as i32) & 0x8000u16 as i16) != 0;
+    let (shift_down, ctrl_down) = if message == WM_RBUTTONDOWN {
+        (
+            (GetAsyncKeyState(VK_SHIFT as i32) & 0x8000u16 as i16) != 0,
+            (GetAsyncKeyState(VK_CONTROL as i32) & 0x8000u16 as i16) != 0,
+        )
+    } else {
+        (false, false)
+    };
 
     match classify_mouse_message(message, shift_down, ctrl_down) {
         MouseHookDecision::Pass => CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam),

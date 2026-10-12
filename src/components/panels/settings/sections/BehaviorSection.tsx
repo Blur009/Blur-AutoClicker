@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { error } from "@tauri-apps/plugin-log";
 import { DEFAULT_MAX_CLICK_SPEED } from "../../../../settingsSchema";
@@ -13,6 +13,24 @@ interface Props {
   onToggleAlwaysOnTop: () => Promise<void>;
   portable: boolean;
 }
+
+const UNIT_ROW_STYLE: CSSProperties = { gap: "0.25rem" };
+const CLICKS_UNIT_STYLE: CSSProperties = {
+  minWidth: "0.75rem",
+  textAlign: "left",
+};
+const RADIUS_UNIT_STYLE: CSSProperties = {
+  minWidth: "0.375rem",
+  textAlign: "center",
+};
+const CLICKS_INPUT_STYLE: CSSProperties = {
+  width: "7ch",
+  textAlign: "right",
+};
+const RADIUS_INPUT_STYLE: CSSProperties = {
+  width: "5ch",
+  textAlign: "right",
+};
 
 export default function BehaviorSection({
   settings,
@@ -33,27 +51,98 @@ export default function BehaviorSection({
       .catch(() => setAutostartEnabled(false));
   }, []);
 
-  const handleAlwaysOnTopChange = (nextValue: boolean) => {
-    if (settings.alwaysOnTop === nextValue) return;
-    void onToggleAlwaysOnTop();
-  };
+  const handleAlwaysOnTopChange = useCallback(
+    (nextValue: boolean) => {
+      if (settings.alwaysOnTop === nextValue) return;
+      void onToggleAlwaysOnTop();
+    },
+    [settings.alwaysOnTop, onToggleAlwaysOnTop],
+  );
 
-  const handleExtendedClickSpeedLimitChange = (nextValue: boolean) => {
-    if (settings.extendedClickSpeedLimit === nextValue) return;
-    if (nextValue) {
-      setPendingAction("extended-click-speed-limit");
-      return;
-    }
-    update({
-      extendedClickSpeedLimit: false,
-      clickSpeed: Math.min(settings.clickSpeed, DEFAULT_MAX_CLICK_SPEED),
-    });
-  };
+  const handleExtendedClickSpeedLimitChange = useCallback(
+    (nextValue: boolean) => {
+      if (settings.extendedClickSpeedLimit === nextValue) return;
+      if (nextValue) {
+        setPendingAction("extended-click-speed-limit");
+        return;
+      }
+      update({
+        extendedClickSpeedLimit: false,
+        clickSpeed: Math.min(settings.clickSpeed, DEFAULT_MAX_CLICK_SPEED),
+      });
+    },
+    [settings.extendedClickSpeedLimit, settings.clickSpeed, update],
+  );
 
-  const handleConfirmExtendedClickSpeedLimit = () => {
+  const handleConfirmExtendedClickSpeedLimit = useCallback(() => {
     update({ extendedClickSpeedLimit: true });
     setPendingAction(null);
-  };
+  }, [update]);
+
+  const handleCancelPending = useCallback(() => setPendingAction(null), []);
+
+  const handleShowStopOverlayToggle = useCallback(
+    () => update({ showStopOverlay: !settings.showStopOverlay }),
+    [update, settings.showStopOverlay],
+  );
+
+  const handleShowStopReasonToggle = useCallback(
+    () => update({ showStopReason: !settings.showStopReason }),
+    [update, settings.showStopReason],
+  );
+
+  const handleStrictHotkeyModifiersToggle = useCallback(
+    () =>
+      update({
+        strictHotkeyModifiers: !settings.strictHotkeyModifiers,
+      }),
+    [update, settings.strictHotkeyModifiers],
+  );
+
+  const handleTaskSwitcherStopToggle = useCallback(
+    () =>
+      update({
+        taskSwitcherStopEnabled: !settings.taskSwitcherStopEnabled,
+      }),
+    [update, settings.taskSwitcherStopEnabled],
+  );
+
+  const handleNewClickPointClicksChange = useCallback(
+    (value: number) => update({ newClickPointClicks: value }),
+    [update],
+  );
+
+  const handleNewClickPointRadiusChange = useCallback(
+    (value: number) => update({ newClickPointRadius: value }),
+    [update],
+  );
+
+  const handleMinimizeToTrayToggle = useCallback(
+    () => update({ minimizeToTray: !settings.minimizeToTray }),
+    [update, settings.minimizeToTray],
+  );
+
+  const handleRememberWindowPositionToggle = useCallback(
+    () =>
+      update({
+        rememberWindowPosition: !settings.rememberWindowPosition,
+      }),
+    [update, settings.rememberWindowPosition],
+  );
+
+  const handleAutostartToggle = useCallback(() => {
+    const newValue = !autostartEnabled;
+    invoke("set_autostart_enabled", { enabled: newValue })
+      .then(() => setAutostartEnabled(newValue))
+      .catch((err) =>
+        error(
+          JSON.stringify({
+            source: "SettingsPanel.setAutostart",
+            error: String(err),
+          }),
+        ),
+      );
+  }, [autostartEnabled]);
 
   return (
     <>
@@ -88,9 +177,7 @@ export default function BehaviorSection({
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.showStopOverlay ? "on" : "off"}`}
-              onClick={() =>
-                update({ showStopOverlay: !settings.showStopOverlay })
-              }
+              onClick={handleShowStopOverlayToggle}
             >
               <span className="settings-toggle-knob" />
             </button>
@@ -107,9 +194,7 @@ export default function BehaviorSection({
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.showStopReason ? "on" : "off"}`}
-              onClick={() =>
-                update({ showStopReason: !settings.showStopReason })
-              }
+              onClick={handleShowStopReasonToggle}
             >
               <span className="settings-toggle-knob" />
             </button>
@@ -126,11 +211,7 @@ export default function BehaviorSection({
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.strictHotkeyModifiers ? "on" : "off"}`}
-              onClick={() =>
-                update({
-                  strictHotkeyModifiers: !settings.strictHotkeyModifiers,
-                })
-              }
+              onClick={handleStrictHotkeyModifiersToggle}
             >
               <span className="settings-toggle-knob" />
             </button>
@@ -147,11 +228,7 @@ export default function BehaviorSection({
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.taskSwitcherStopEnabled ? "on" : "off"}`}
-              onClick={() =>
-                update({
-                  taskSwitcherStopEnabled: !settings.taskSwitcherStopEnabled,
-                })
-              }
+              onClick={handleTaskSwitcherStopToggle}
             >
               <span className="settings-toggle-knob" />
             </button>
@@ -191,11 +268,8 @@ export default function BehaviorSection({
               Clicks per point for new entries.
             </span>
           </div>
-          <div className="adv-numbox-sm" style={{ gap: "0.25rem" }}>
-            <span
-              className="adv-unit"
-              style={{ minWidth: "0.75rem", textAlign: "left" }}
-            >
+          <div className="adv-numbox-sm" style={UNIT_ROW_STYLE}>
+            <span className="adv-unit" style={CLICKS_UNIT_STYLE}>
               clicks
             </span>
             <NumInput
@@ -203,8 +277,8 @@ export default function BehaviorSection({
               value={settings.newClickPointClicks}
               min={1}
               max={999999}
-              onChange={(value) => update({ newClickPointClicks: value })}
-              style={{ width: "7ch", textAlign: "right" }}
+              onChange={handleNewClickPointClicksChange}
+              style={CLICKS_INPUT_STYLE}
             />
           </div>
         </div>
@@ -215,11 +289,8 @@ export default function BehaviorSection({
               Randomization radius for new entries.
             </span>
           </div>
-          <div className="adv-numbox-sm" style={{ gap: "0.25rem" }}>
-            <span
-              className="adv-unit"
-              style={{ minWidth: "0.375rem", textAlign: "center" }}
-            >
+          <div className="adv-numbox-sm" style={UNIT_ROW_STYLE}>
+            <span className="adv-unit" style={RADIUS_UNIT_STYLE}>
               r
             </span>
             <NumInput
@@ -227,8 +298,8 @@ export default function BehaviorSection({
               value={settings.newClickPointRadius}
               min={0}
               max={9999}
-              onChange={(value) => update({ newClickPointRadius: value })}
-              style={{ width: "5ch", textAlign: "right" }}
+              onChange={handleNewClickPointRadiusChange}
+              style={RADIUS_INPUT_STYLE}
             />
           </div>
         </div>
@@ -245,9 +316,7 @@ export default function BehaviorSection({
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.minimizeToTray ? "on" : "off"}`}
-              onClick={() =>
-                update({ minimizeToTray: !settings.minimizeToTray })
-              }
+              onClick={handleMinimizeToTrayToggle}
             >
               <span className="settings-toggle-knob" />
             </button>
@@ -264,11 +333,7 @@ export default function BehaviorSection({
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.rememberWindowPosition ? "on" : "off"}`}
-              onClick={() =>
-                update({
-                  rememberWindowPosition: !settings.rememberWindowPosition,
-                })
-              }
+              onClick={handleRememberWindowPositionToggle}
             >
               <span className="settings-toggle-knob" />
             </button>
@@ -287,19 +352,7 @@ export default function BehaviorSection({
               <button
                 className={`settings-toggle ${autostartEnabled ? "on" : "off"}`}
                 disabled={autostartEnabled === null}
-                onClick={() => {
-                  const newValue = !autostartEnabled;
-                  invoke("set_autostart_enabled", { enabled: newValue })
-                    .then(() => setAutostartEnabled(newValue))
-                    .catch((err) =>
-                      error(
-                        JSON.stringify({
-                          source: "SettingsPanel.setAutostart",
-                          error: String(err),
-                        }),
-                      ),
-                    );
-                }}
+                onClick={handleAutostartToggle}
               >
                 <span className="settings-toggle-knob" />
               </button>
@@ -314,7 +367,7 @@ export default function BehaviorSection({
         message="This will allow click speeds beyond the default limit. This may affect performance."
         confirmLabel="Enable"
         onConfirm={handleConfirmExtendedClickSpeedLimit}
-        onCancel={() => setPendingAction(null)}
+        onCancel={handleCancelPending}
       />
     </>
   );

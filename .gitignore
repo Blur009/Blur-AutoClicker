@@ -33,6 +33,7 @@ src-tauri/resources/*
 *.njsproj
 *.sln
 *.sw?
+*.pi
 
 # -- OS files --
 .DS_Store

@@ -1,4 +1,4 @@
-import { type CSSProperties } from "react";
+import { memo, useCallback, useMemo, type CSSProperties } from "react";
 import type { ClickPoint } from "../../../store";
 import { NumInput } from "../advanced/sections/shared";
 
@@ -20,7 +20,34 @@ interface Props {
   setItemRef: (pointId: string, node: HTMLDivElement | null) => void;
 }
 
-export default function ClickPointRow({
+const LABEL_STYLE: CSSProperties = { gap: "0.25rem" };
+
+const UNIT_X_STYLE: CSSProperties = {
+  minWidth: "0.125rem",
+  textAlign: "center",
+};
+
+const UNIT_Y_STYLE: CSSProperties = {
+  minWidth: "0.125rem",
+  textAlign: "left",
+};
+
+const UNIT_CLICKS_STYLE: CSSProperties = {
+  minWidth: "0.75rem",
+  textAlign: "left",
+};
+
+const UNIT_R_STYLE: CSSProperties = {
+  minWidth: "0.375rem",
+  textAlign: "center",
+};
+
+const NUM_INPUT_STYLE: CSSProperties = {
+  textAlign: "right",
+  width: undefined,
+};
+
+function ClickPointRow({
   point,
   index,
   isActive,
@@ -32,21 +59,45 @@ export default function ClickPointRow({
   onDragStart,
   setItemRef,
 }: Props) {
+  const handleXChange = useCallback(
+    (value: number) => onUpdate(index, { x: value }),
+    [onUpdate, index],
+  );
+  const handleYChange = useCallback(
+    (value: number) => onUpdate(index, { y: value }),
+    [onUpdate, index],
+  );
+  const handleClicksChange = useCallback(
+    (value: number) => onUpdate(index, { clicks: value }),
+    [onUpdate, index],
+  );
+  const handleRadiusChange = useCallback(
+    (value: number) => onUpdate(index, { radius: value }),
+    [onUpdate, index],
+  );
+  const itemRef = useCallback(
+    (node: HTMLDivElement | null) => setItemRef(point.id, node),
+    [setItemRef, point.id],
+  );
+  const activeStyle = useMemo(
+    () =>
+      isActive
+        ? ({
+            "--click-points-step-duration": `${stepDurationMs}ms`,
+            "--click-points-step-clicks": point.clicks,
+          } as CSSProperties)
+        : undefined,
+    [isActive, stepDurationMs, point.clicks],
+  );
+
   return (
     <div
       key={point.id}
-      ref={(node) => setItemRef(point.id, node)}
+      ref={itemRef}
       className={`adv-click-points-item ${
         isDragging ? "adv-click-points-item--dragging" : ""
       } ${isActive ? "adv-click-points-item--active" : ""}`}
-      style={
-        isActive
-          ? ({
-              "--click-points-step-duration": `${stepDurationMs}ms`,
-              "--click-points-step-clicks": point.clicks,
-            } as CSSProperties)
-          : undefined
-      }
+      style={activeStyle}
     >
       {isActive ? (
         <span key={activeTick} className="adv-click-points-progress" />
@@ -83,52 +134,37 @@ export default function ClickPointRow({
       </div>
       <label
         className="adv-numbox-sm adv-click-points-coord adv-click-points-position"
-        style={{ gap: "0.25rem" }}
+        style={LABEL_STYLE}
       >
-        <span
-          className="adv-unit"
-          style={{
-            minWidth: "0.125rem",
-            textAlign: "center",
-          }}
-        >
+        <span className="adv-unit" style={UNIT_X_STYLE}>
           X
         </span>
         <NumInput
           hoverWheel={false}
           value={point.x}
-          onChange={(value) => onUpdate(index, { x: value })}
-          style={{ textAlign: "right", width: undefined }}
+          onChange={handleXChange}
+          style={NUM_INPUT_STYLE}
         />
       </label>
       <label
         className="adv-numbox-sm adv-click-points-coord adv-click-points-position"
-        style={{ gap: "0.25rem" }}
+        style={LABEL_STYLE}
       >
-        <span
-          className="adv-unit"
-          style={{
-            minWidth: "0.125rem",
-            textAlign: "left",
-          }}
-        >
+        <span className="adv-unit" style={UNIT_Y_STYLE}>
           Y
         </span>
         <NumInput
           hoverWheel={false}
           value={point.y}
-          onChange={(value) => onUpdate(index, { y: value })}
-          style={{ textAlign: "right", width: undefined }}
+          onChange={handleYChange}
+          style={NUM_INPUT_STYLE}
         />
       </label>
       <label
         className="adv-numbox-sm adv-click-points-coord adv-click-points-clicks"
-        style={{ gap: "0.25rem" }}
+        style={LABEL_STYLE}
       >
-        <span
-          className="adv-unit"
-          style={{ minWidth: "0.75rem", textAlign: "left" }}
-        >
+        <span className="adv-unit" style={UNIT_CLICKS_STYLE}>
           clicks
         </span>
         <NumInput
@@ -136,18 +172,15 @@ export default function ClickPointRow({
           value={point.clicks}
           min={1}
           max={999999}
-          onChange={(value) => onUpdate(index, { clicks: value })}
-          style={{ textAlign: "right", width: undefined }}
+          onChange={handleClicksChange}
+          style={NUM_INPUT_STYLE}
         />
       </label>
       <label
         className="adv-numbox-sm adv-click-points-coord adv-click-points-radius"
-        style={{ gap: "0.25rem" }}
+        style={LABEL_STYLE}
       >
-        <span
-          className="adv-unit"
-          style={{ minWidth: "0.375rem", textAlign: "center" }}
-        >
+        <span className="adv-unit" style={UNIT_R_STYLE}>
           r
         </span>
         <NumInput
@@ -155,8 +188,8 @@ export default function ClickPointRow({
           value={point.radius}
           min={0}
           max={9999}
-          onChange={(value) => onUpdate(index, { radius: value })}
-          style={{ textAlign: "right", width: undefined }}
+          onChange={handleRadiusChange}
+          style={NUM_INPUT_STYLE}
         />
       </label>
       <div className="adv-click-points-actions">
@@ -188,3 +221,5 @@ export default function ClickPointRow({
     </div>
   );
 }
+
+export default memo(ClickPointRow);

@@ -229,9 +229,9 @@ struct BuildWindowMap {
 }
 
 unsafe extern "system" fn enum_window_title_proc(hwnd: HWND, lparam: LPARAM) -> i32 {
-    let state = &mut *(lparam as *mut BuildWindowMap);
+    let state = unsafe { &mut *(lparam as *mut BuildWindowMap) };
     let mut pid: u32 = 0;
-    GetWindowThreadProcessId(hwnd, &mut pid);
+    unsafe { GetWindowThreadProcessId(hwnd, &mut pid) };
     if pid == 0 {
         return 1;
     }
@@ -239,7 +239,7 @@ unsafe extern "system" fn enum_window_title_proc(hwnd: HWND, lparam: LPARAM) -> 
         return 1;
     }
     let mut buffer = [0u16; 512];
-    let len = GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32);
+    let len = unsafe { GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32) };
     if len > 0 {
         let title = String::from_utf16_lossy(&buffer[..len as usize]);
         let trimmed = title.trim().to_string();
@@ -332,11 +332,10 @@ pub fn list_running_processes() -> Vec<ProcessInfo> {
             })
         })
         .collect();
-    result.sort_by(|a, b| {
-        a.display_name
-            .to_lowercase()
-            .cmp(&b.display_name.to_lowercase())
-    });
+    result.sort_by_cached_key(|p| p.display_name.to_lowercase());
+    debug_assert!(result
+        .windows(2)
+        .all(|w| w[0].display_name.to_lowercase() <= w[1].display_name.to_lowercase()));
     result
 }
 

@@ -19,8 +19,7 @@ fn vk_to_scan(vk: u16) -> (u16, bool) {
 }
 
 #[inline]
-pub fn make_keyboard_input(vk: u16, flags: u32) -> INPUT {
-    let (scan, extended) = vk_to_scan(vk);
+fn make_keyboard_input_with_scan(scan: u16, extended: bool, flags: u32) -> INPUT {
     let ext_flag = if extended { KEYEVENTF_EXTENDEDKEY } else { 0 };
     INPUT {
         r#type: INPUT_KEYBOARD,
@@ -34,6 +33,12 @@ pub fn make_keyboard_input(vk: u16, flags: u32) -> INPUT {
             },
         },
     }
+}
+
+#[inline]
+pub fn make_keyboard_input(vk: u16, flags: u32) -> INPUT {
+    let (scan, extended) = vk_to_scan(vk);
+    make_keyboard_input_with_scan(scan, extended, flags)
 }
 
 #[inline]
@@ -104,6 +109,7 @@ pub fn send_key_batch(vk: u16, n: usize, uppercase: bool) {
     for _ in 0..n {
         push_key_press(&mut inputs, vk, use_shift);
     }
+    debug_assert_eq!(inputs.len(), n * inputs_per_press);
     unsafe {
         SendInput(
             inputs.len() as u32,
@@ -129,9 +135,18 @@ pub fn send_key_presses(
         return;
     }
 
-    if plan.kind == ClickCycleKind::Single && count > 1 && plan.first_hold_ms == 0 {
-        send_key_batch(vk, count, uppercase);
-        return;
+    if plan.kind == ClickCycleKind::Single && plan.first_hold_ms == 0 {
+        if count > 1 {
+            send_key_batch(vk, count, uppercase);
+            return;
+        }
+        if count == 1 {
+            if !control.is_active() {
+                return;
+            }
+            send_key_batch(vk, count, uppercase);
+            return;
+        }
     }
 
     let use_shift = should_hold_shift_for_case(vk, uppercase);

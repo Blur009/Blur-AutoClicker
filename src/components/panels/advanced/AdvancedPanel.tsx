@@ -1,3 +1,4 @@
+import { memo } from "react";
 import "./sections/shared.css";
 import "./AdvancedPanel.css";
 import type { Settings } from "../../../store";
@@ -10,18 +11,27 @@ import LimitsSection from "./sections/LimitsSection";
 
 interface Props {
   settings: Settings;
-  update: (patch: Partial<Settings>) => void;
+  update: PatchFn;
 }
+
+type PatchFn = (patch: Partial<Settings>) => void;
+
+const MemoClickSpeedSection = memo(ClickSpeedSection);
+const MemoHotkeySection = memo(HotkeySection);
+const MemoClickerTypeSection = memo(ClickerTypeSection);
+const MemoLimitsSection = memo(LimitsSection);
+const MemoDutyCycleSection = memo(DutyCycleSection);
+const MemoSpeedRandomizationSection = memo(SpeedRandomizationSection);
 
 function AdvancedPanel({ settings, update }: Props) {
   return (
     <div className="adv-panel adv-panel-text adv-panel--grid">
-      <ClickSpeedSection settings={settings} update={update} />
-      <HotkeySection settings={settings} update={update} />
-      <ClickerTypeSection settings={settings} update={update} />
-      <LimitsSection settings={settings} update={update} />
-      <DutyCycleSection settings={settings} update={update} />
-      <SpeedRandomizationSection settings={settings} update={update} />
+      <MemoClickSpeedSection settings={settings} update={update} />
+      <MemoHotkeySection settings={settings} update={update} />
+      <MemoClickerTypeSection settings={settings} update={update} />
+      <MemoLimitsSection settings={settings} update={update} />
+      <MemoDutyCycleSection settings={settings} update={update} />
+      <MemoSpeedRandomizationSection settings={settings} update={update} />
     </div>
   );
 }

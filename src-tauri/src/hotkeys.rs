@@ -9,7 +9,7 @@ use crate::error::AppError;
 use crate::error::AppResult;
 use crate::AppHandle;
 use crate::ClickerState;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::Instant;
@@ -353,6 +353,8 @@ pub fn format_hotkey_binding(binding: &HotkeyBinding) -> String {
 
 static PHYSICAL_KEY_STATE: OnceLock<&'static [AtomicBool; 256]> = OnceLock::new();
 static HOOKS_ACTIVE: AtomicBool = AtomicBool::new(false);
+static OWN_PID: OnceLock<u32> = OnceLock::new();
+static OWN_ROOT_HWND: AtomicIsize = AtomicIsize::new(0);
 
 fn physical_key_state() -> &'static [AtomicBool; 256] {
     PHYSICAL_KEY_STATE
@@ -484,8 +486,9 @@ pub fn start_hotkey_listener(app: AppHandle) {
                 }
             }
 
-            if last_check.elapsed() >= POLL_INTERVAL {
-                last_check = Instant::now();
+            let tick_now = Instant::now();
+            if tick_now.duration_since(last_check) >= POLL_INTERVAL {
+                last_check = tick_now;
 
                 let (binding, strict) = {
                     let binding = state
@@ -607,7 +610,7 @@ pub fn start_hotkey_listener(app: AppHandle) {
                     continue;
                 }
 
-                if now_epoch_ms() < suppress_until {
+                if suppress_until != 0 && now_epoch_ms() < suppress_until {
                     was_pressed = currently_pressed;
                     continue;
                 }
@@ -662,6 +665,10 @@ fn is_mouse_hotkey_binding(binding: &HotkeyBinding) -> bool {
     binding.main_vks.iter().any(|vk| mouse_vks.contains(vk))
 }
 
+fn own_pid() -> u32 {
+    *OWN_PID.get_or_init(|| unsafe { GetCurrentProcessId() })
+}
+
 fn is_cursor_over_own_window() -> bool {
     unsafe {
         let mut pt: POINT = std::mem::zeroed();
@@ -672,11 +679,25 @@ fn is_cursor_over_own_window() -> bool {
         if hwnd.is_null() {
             return false;
         }
+        let cached = OWN_ROOT_HWND.load(Ordering::Relaxed);
+        if cached != 0 && hwnd as isize == cached {
+            let mut pid: u32 = 0;
+            GetWindowThreadProcessId(hwnd, &mut pid);
+            if pid == own_pid() {
+                return true;
+            }
+        }
         let root = GetAncestor(hwnd, GA_ROOT);
         let root = if root.is_null() { hwnd } else { root };
         let mut pid: u32 = 0;
         GetWindowThreadProcessId(root, &mut pid);
-        pid == GetCurrentProcessId()
+        let own = pid == own_pid();
+        if own {
+            OWN_ROOT_HWND.store(root as isize, Ordering::Relaxed);
+        } else if cached != 0 && root as isize == cached {
+            let _ = OWN_ROOT_HWND.compare_exchange(cached, 0, Ordering::Relaxed, Ordering::Relaxed);
+        }
+        own
     }
 }
 
@@ -863,12 +884,12 @@ fn modifiers_match(binding: &HotkeyBinding, down: &DownState, strict: bool) -> b
     }
 
     if strict {
-        let main_groups: Vec<ModifierGroup> = binding
-            .main_vks
-            .iter()
-            .filter_map(|vk| modifier_group_for_vk(*vk))
-            .collect();
-        let contains = |g: ModifierGroup| main_groups.contains(&g);
+        let contains = |g: ModifierGroup| {
+            binding
+                .main_vks
+                .iter()
+                .any(|vk| modifier_group_for_vk(*vk) == Some(g))
+        };
         // generic extra check
         if down.ctrl
             && !binding.ctrl

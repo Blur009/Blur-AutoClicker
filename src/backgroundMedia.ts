@@ -205,51 +205,56 @@ export function isSafeConvertedAssetUrl(url: string): boolean {
 export function classifyRawInput(raw: string): {
   type: "http" | "data" | "asset" | "local" | "empty" | "blocked";
   kind: MediaKind | "none";
+  sanitized: string | null;
 } {
   const trimmed = raw.trim();
-  if (!trimmed) return { type: "empty", kind: "none" };
+  if (!trimmed) return { type: "empty", kind: "none", sanitized: null };
   if (
     trimmed.includes("\n") ||
     trimmed.includes("\r") ||
     trimmed.includes("\0")
   ) {
-    return { type: "blocked", kind: "none" };
+    return { type: "blocked", kind: "none", sanitized: null };
   }
 
   const lower = trimmed.toLowerCase();
   if (lower.startsWith("data:")) {
     if (trimmed.length > MAX_DATA_URL_LENGTH)
-      return { type: "blocked", kind: "none" };
+      return { type: "blocked", kind: "none", sanitized: null };
   } else if (trimmed.length > MAX_BACKGROUND_URL_LENGTH) {
-    return { type: "blocked", kind: "none" };
+    return { type: "blocked", kind: "none", sanitized: null };
   }
   if (lower.startsWith("data:")) {
     const sanitized = sanitizeDataImageUrl(trimmed);
-    if (!sanitized) return { type: "blocked", kind: "none" };
-    return { type: "data", kind: "image" };
+    if (!sanitized) return { type: "blocked", kind: "none", sanitized: null };
+    return { type: "data", kind: "image", sanitized };
   }
   if (lower.startsWith("asset://")) {
     const sanitized = sanitizeAssetUrl(trimmed);
-    if (!sanitized) return { type: "blocked", kind: "none" };
+    if (!sanitized) return { type: "blocked", kind: "none", sanitized: null };
     const ext = getExtension(trimmed);
-    return { type: "asset", kind: getMediaKindFromExtension(ext) };
+    return { type: "asset", kind: getMediaKindFromExtension(ext), sanitized };
   }
   if (lower.startsWith("http://") || lower.startsWith("https://")) {
     const sanitized = sanitizeHttpUrl(trimmed);
-    if (!sanitized) return { type: "blocked", kind: "none" };
+    if (!sanitized) return { type: "blocked", kind: "none", sanitized: null };
     const ext = getExtension(sanitized);
 
-    return { type: "http", kind: getMediaKindFromExtension(ext) };
+    return { type: "http", kind: getMediaKindFromExtension(ext), sanitized };
   }
 
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
     if (!/^[a-zA-Z]:[\\/]/.test(trimmed)) {
-      return { type: "blocked", kind: "none" };
+      return { type: "blocked", kind: "none", sanitized: null };
     }
   }
 
   const ext = getExtension(trimmed);
-  return { type: "local", kind: getMediaKindFromExtension(ext) };
+  return {
+    type: "local",
+    kind: getMediaKindFromExtension(ext),
+    sanitized: null,
+  };
 }
 
 export function resolveBackgroundSource(
@@ -266,13 +271,13 @@ export function resolveBackgroundSource(
   }
 
   if (classification.type === "data") {
-    const sanitized = sanitizeDataImageUrl(trimmed);
+    const sanitized = classification.sanitized;
     if (!sanitized) return { kind: "none", src: null, cssUrl: null };
     return { kind: "image", src: sanitized, cssUrl: escapeCssUrl(sanitized) };
   }
 
   if (classification.type === "asset") {
-    const sanitized = sanitizeAssetUrl(trimmed);
+    const sanitized = classification.sanitized;
     if (!sanitized) return { kind: "none", src: null, cssUrl: null };
     if (classification.kind === "video") {
       return { kind: "video", src: sanitized, cssUrl: null };
@@ -281,7 +286,7 @@ export function resolveBackgroundSource(
   }
 
   if (classification.type === "http") {
-    const sanitized = sanitizeHttpUrl(trimmed);
+    const sanitized = classification.sanitized;
     if (!sanitized) return { kind: "none", src: null, cssUrl: null };
     if (classification.kind === "video") {
       return { kind: "video", src: sanitized, cssUrl: null };

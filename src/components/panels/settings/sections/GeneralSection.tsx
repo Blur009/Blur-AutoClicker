@@ -1,4 +1,12 @@
-import { useEffect, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppInfo } from "../../../../store";
@@ -55,6 +63,53 @@ interface Props {
   onCheckForUpdate: () => void;
 }
 
+const UPDATE_BUTTON_LABELS = {
+  idle: "Check for Update",
+  checking: "Checking...",
+  available: "Update found!",
+  unavailable: "No update found",
+  error: "Check failed",
+} as const;
+
+const KOFI_URL = "https://ko-fi.com/Z8Z71T8QD4";
+const YOUTUBE_URL = "https://youtube.com/@Blur009";
+const TWITCH_URL = "https://twitch.tv/Blur009";
+const GITHUB_URL = "https://github.com/Blur009/Blur-AutoClicker";
+
+const KOFI_IMG_STYLE: CSSProperties = { border: 0, height: "28px" };
+
+const UsageStatsGrid = memo(function UsageStatsGrid({
+  formatted,
+}: {
+  formatted: {
+    totalClicks: string;
+    totalTime: string;
+    avgCpu: string;
+    sessions: string;
+  };
+}) {
+  return (
+    <div className="stats-grid">
+      <div className="stats-cell">
+        <span className="stats-cell-label">Total Clicks</span>
+        <span className="stats-cell-value">{formatted.totalClicks}</span>
+      </div>
+      <div className="stats-cell">
+        <span className="stats-cell-label">Total Clicking Time</span>
+        <span className="stats-cell-value">{formatted.totalTime}</span>
+      </div>
+      <div className="stats-cell">
+        <span className="stats-cell-label">Average CPU Usage</span>
+        <span className="stats-cell-value">{formatted.avgCpu}</span>
+      </div>
+      <div className="stats-cell">
+        <span className="stats-cell-label">Clicking Sessions</span>
+        <span className="stats-cell-value">{formatted.sessions}</span>
+      </div>
+    </div>
+  );
+});
+
 export default function GeneralSection({
   appInfo,
   updateCheckStatus,
@@ -72,13 +127,36 @@ export default function GeneralSection({
 
   const hasStats = stats !== null && stats.totalSessions > 0;
 
-  const updateButtonLabel = {
-    idle: "Check for Update",
-    checking: "Checking...",
-    available: "Update found!",
-    unavailable: "No update found",
-    error: "Check failed",
-  }[updateCheckStatus];
+  const formattedStats = useMemo(() => {
+    if (stats === null || stats.totalSessions <= 0) return null;
+    return {
+      totalClicks: formatNumber(stats.totalClicks, language),
+      totalTime: formatTime(stats.totalTimeSecs, language),
+      avgCpu: formatCpu(stats.avgCpu, language, "N/A"),
+      sessions: formatNumber(stats.totalSessions, language),
+    };
+  }, [stats, language]);
+
+  const updateButtonLabel = UPDATE_BUTTON_LABELS[updateCheckStatus];
+
+  const toggleChangelog = useCallback(() => setShowChangelog((v) => !v), []);
+
+  const openKofi = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    void openUrl(KOFI_URL);
+  }, []);
+  const openYoutube = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    void openUrl(YOUTUBE_URL);
+  }, []);
+  const openTwitch = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    void openUrl(TWITCH_URL);
+  }, []);
+  const openGithub = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    void openUrl(GITHUB_URL);
+  }, []);
 
   return (
     <>
@@ -90,14 +168,11 @@ export default function GeneralSection({
               className="social-icon social-icon--kofi"
               href="#"
               title="Ko-fi"
-              onClick={(e) => {
-                e.preventDefault();
-                void openUrl("https://ko-fi.com/Z8Z71T8QD4");
-              }}
+              onClick={openKofi}
             >
               <img
                 height="28"
-                style={{ border: 0, height: "28px" }}
+                style={KOFI_IMG_STYLE}
                 src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
                 alt="Buy Me a Coffee at ko-fi.com"
               />
@@ -106,10 +181,7 @@ export default function GeneralSection({
               className="social-icon social-icon--youtube"
               href="#"
               title="YouTube"
-              onClick={(e) => {
-                e.preventDefault();
-                void openUrl("https://youtube.com/@Blur009");
-              }}
+              onClick={openYoutube}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -124,10 +196,7 @@ export default function GeneralSection({
               className="social-icon social-icon--twitch"
               href="#"
               title="Twitch"
-              onClick={(e) => {
-                e.preventDefault();
-                void openUrl("https://twitch.tv/Blur009");
-              }}
+              onClick={openTwitch}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -142,10 +211,7 @@ export default function GeneralSection({
               className="social-icon social-icon--github"
               href="#"
               title="GitHub"
-              onClick={(e) => {
-                e.preventDefault();
-                void openUrl("https://github.com/Blur009/Blur-AutoClicker");
-              }}
+              onClick={openGithub}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -169,7 +235,7 @@ export default function GeneralSection({
           <div className="settings-row-actions">
             <button
               className="settings-btn-secondary changelog-toggle-btn"
-              onClick={() => setShowChangelog((v) => !v)}
+              onClick={toggleChangelog}
             >
               <svg
                 className={`changelog-arrow${showChangelog ? " open" : ""}`}
@@ -204,33 +270,8 @@ export default function GeneralSection({
         title="Usage"
         description="Clicking statistics for all sessions (only stored locally)."
       >
-        {hasStats ? (
-          <div className="stats-grid">
-            <div className="stats-cell">
-              <span className="stats-cell-label">Total Clicks</span>
-              <span className="stats-cell-value">
-                {formatNumber(stats.totalClicks, language)}
-              </span>
-            </div>
-            <div className="stats-cell">
-              <span className="stats-cell-label">Total Clicking Time</span>
-              <span className="stats-cell-value">
-                {formatTime(stats.totalTimeSecs, language)}
-              </span>
-            </div>
-            <div className="stats-cell">
-              <span className="stats-cell-label">Average CPU Usage</span>
-              <span className="stats-cell-value">
-                {formatCpu(stats.avgCpu, language, "N/A")}
-              </span>
-            </div>
-            <div className="stats-cell">
-              <span className="stats-cell-label">Clicking Sessions</span>
-              <span className="stats-cell-value">
-                {formatNumber(stats.totalSessions, language)}
-              </span>
-            </div>
-          </div>
+        {hasStats && formattedStats ? (
+          <UsageStatsGrid formatted={formattedStats} />
         ) : (
           <div className="stats-empty">No session data yet.</div>
         )}

@@ -105,6 +105,9 @@ pub fn update_settings(
         return Ok(settings);
     }
 
+    if !zone_changed && !click_points_changed {
+        return Ok(settings);
+    }
     if zone_changed {
         let _ = crate::overlay::show_overlay(&app);
     }
@@ -277,10 +280,32 @@ pub fn open_diagnostics_folder() -> AppResult<()> {
     Ok(())
 }
 
+fn is_already_compressed(name: &str) -> bool {
+    let ext = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+    matches!(
+        ext.as_str(),
+        "zip"
+            | "gz"
+            | "bz2"
+            | "xz"
+            | "zst"
+            | "7z"
+            | "rar"
+            | "png"
+            | "jpg"
+            | "jpeg"
+            | "gif"
+            | "webp"
+            | "ico"
+            | "mp4"
+            | "webm"
+            | "mp3"
+            | "ogg"
+    )
+}
+
 #[tauri::command]
 pub fn export_diagnostics_bundle() -> AppResult<String> {
-    use std::io::Write;
-
     let exports_dir = crate::diagnostics::exports_dir()
         .ok_or_else(|| AppError::State("Failed to resolve exports path".into()))?;
     std::fs::create_dir_all(&exports_dir)?;
@@ -316,15 +341,23 @@ pub fn export_diagnostics_bundle() -> AppResult<String> {
             .strip_prefix(&root)
             .map_err(|e| AppError::Io(std::io::Error::other(e)))?;
         let name = relative.to_string_lossy().replace('\\', "/");
-        let data = std::fs::read(entry.path())?;
+        let stored = is_already_compressed(&name);
+        let options = zip::write::SimpleFileOptions::default().compression_method(if stored {
+            zip::CompressionMethod::Stored
+        } else {
+            zip::CompressionMethod::Deflated
+        });
+        let options = if stored {
+            options
+        } else {
+            options.compression_level(Some(1))
+        };
         zip_writer
-            .start_file(
-                name,
-                zip::write::SimpleFileOptions::default()
-                    .compression_method(zip::CompressionMethod::Deflated),
-            )
+            .start_file(name, options)
             .map_err(|e| AppError::Io(std::io::Error::other(e)))?;
-        zip_writer.write_all(&data)?;
+        let file = std::fs::File::open(entry.path())?;
+        let mut reader = std::io::BufReader::with_capacity(64 * 1024, file);
+        std::io::copy(&mut reader, &mut zip_writer)?;
     }
 
     zip_writer

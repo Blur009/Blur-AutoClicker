@@ -1,4 +1,11 @@
-import { useState, type WheelEvent, type FocusEvent } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type WheelEvent,
+  type FocusEvent,
+} from "react";
 import type { Settings } from "../../../../store";
 import {
   formatDecimalLocale,
@@ -35,11 +42,38 @@ interface Props {
   update: (patch: Partial<Settings>) => void;
 }
 
+const HEADER_ROW_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+};
+
+const HEADER_ICON_STYLE: CSSProperties = { color: "var(--text-dim)" };
+
+const CPS_INPUT_STYLE: CSSProperties = { width: "5ch", textAlign: "right" };
+
+const DURATION_WIDE_INPUT_STYLE: CSSProperties = {
+  width: "34px",
+  textAlign: "right",
+};
+
+const DURATION_NARROW_INPUT_STYLE: CSSProperties = {
+  width: "26px",
+  textAlign: "right",
+};
+
 export default function ClickSpeedSection({ settings, update }: Props) {
-  const maxClickSpeed = getMaxClickSpeed(settings.extendedClickSpeedLimit);
+  const maxClickSpeed = useMemo(
+    () => getMaxClickSpeed(settings.extendedClickSpeedLimit),
+    [settings.extendedClickSpeedLimit],
+  );
+  const minIntervalMs = useMemo(
+    () => getMinIntervalMs(settings.extendedClickSpeedLimit),
+    [settings.extendedClickSpeedLimit],
+  );
   const [draftCps, setDraftCps] = useState<string | null>(null);
 
-  const conversionText = (() => {
+  const conversionText = useMemo(() => {
     if (settings.rateInputMode === "rate") {
       const intervalMs =
         getIntervalMilliseconds(settings.clickInterval) / settings.clickSpeed;
@@ -52,19 +86,43 @@ export default function ClickSpeedSection({ settings, update }: Props) {
       INTERVAL_OPTIONS.find((o) => o.value === converted.clickInterval)
         ?.label || "Second";
     return `${formatDecimalLocale(converted.clickSpeed)} clicks per ${unitLabel.toLowerCase()}`;
-  })();
+  }, [
+    settings.rateInputMode,
+    settings.clickInterval,
+    settings.clickSpeed,
+    settings.durationHours,
+    settings.durationMinutes,
+    settings.durationSeconds,
+    settings.durationMilliseconds,
+    settings.extendedClickSpeedLimit,
+  ]);
+
+  const handleClickSpeedUpdate = useCallback(
+    (next: number) => update({ clickSpeed: next }),
+    [update],
+  );
+
+  const handleClickIntervalChange = useCallback(
+    (v: string) => update({ clickInterval: v as ClickInterval }),
+    [update],
+  );
+
+  const applyPatch = useCallback(
+    (patch: Partial<Settings>) => update(patch),
+    [update],
+  );
+
+  const handleRateModeSelect = useCallback(
+    (value: Settings["rateInputMode"]) =>
+      switchCadenceMode(value, settings, update),
+    [settings, update],
+  );
 
   return (
     <div className="adv-sectioncontainer adv-basic-card">
       <div className="adv-card-header">
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <span style={{ color: "var(--text-dim)" }}>
+        <div style={HEADER_ROW_STYLE}>
+          <span style={HEADER_ICON_STYLE}>
             <svg
               width="20"
               height="20"
@@ -83,7 +141,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
               key={value}
               type="button"
               className={`adv-seg-btn ${settings.rateInputMode === value ? "active" : ""}`}
-              onClick={() => switchCadenceMode(value, settings, update)}
+              onClick={() => handleRateModeSelect(value)}
             >
               {label}
             </button>
@@ -111,7 +169,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                       value={
                         draftCps ?? formatDecimalLocale(settings.clickSpeed)
                       }
-                      style={{ width: "5ch", textAlign: "right" }}
+                      style={CPS_INPUT_STYLE}
                       onChange={(event) => {
                         const raw = event.target.value;
                         const normalized = normalizeDecimalLocale(raw);
@@ -139,7 +197,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           event,
                           1,
                           maxClickSpeed,
-                          (next) => update({ clickSpeed: next }),
+                          handleClickSpeedUpdate,
                         );
                       }}
                       onWheel={(event) =>
@@ -148,7 +206,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           settings.clickSpeed,
                           1,
                           maxClickSpeed,
-                          (next) => update({ clickSpeed: next }),
+                          handleClickSpeedUpdate,
                         )
                       }
                     />
@@ -160,9 +218,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                     <AdvDropdown
                       value={settings.clickInterval}
                       options={INTERVAL_OPTIONS}
-                      onChange={(v) =>
-                        update({ clickInterval: v as ClickInterval })
-                      }
+                      onChange={handleClickIntervalChange}
                     />
                   </div>
                 </div>
@@ -175,7 +231,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                       value={settings.durationHours}
                       min={0}
                       max={999}
-                      style={{ width: "34px", textAlign: "right" }}
+                      style={DURATION_WIDE_INPUT_STYLE}
                       onChange={(event) =>
                         handleNumberChange(event, (next) =>
                           update({ durationHours: next }),
@@ -188,7 +244,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           0,
                           999,
                           settings as CadenceDurationFields,
-                          (patch) => update(patch),
+                          applyPatch,
                         )
                       }
                       onWheel={(event: WheelEvent<HTMLInputElement>) =>
@@ -198,7 +254,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           settings as CadenceDurationFields,
                           0,
                           999,
-                          (patch) => update(patch),
+                          applyPatch,
                         )
                       }
                     />
@@ -212,7 +268,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                       value={settings.durationMinutes}
                       min={0}
                       max={59}
-                      style={{ width: "26px", textAlign: "right" }}
+                      style={DURATION_NARROW_INPUT_STYLE}
                       onChange={(event) =>
                         handleNumberChange(event, (next) =>
                           update({ durationMinutes: next }),
@@ -225,7 +281,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           0,
                           59,
                           settings as CadenceDurationFields,
-                          (patch) => update(patch),
+                          applyPatch,
                         )
                       }
                       onWheel={(event: WheelEvent<HTMLInputElement>) =>
@@ -235,7 +291,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           settings as CadenceDurationFields,
                           0,
                           59,
-                          (patch) => update(patch),
+                          applyPatch,
                         )
                       }
                     />
@@ -249,7 +305,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                       value={settings.durationSeconds}
                       min={0}
                       max={59}
-                      style={{ width: "26px", textAlign: "right" }}
+                      style={DURATION_NARROW_INPUT_STYLE}
                       onChange={(event) =>
                         handleNumberChange(event, (next) =>
                           update({ durationSeconds: next }),
@@ -262,7 +318,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           0,
                           59,
                           settings as CadenceDurationFields,
-                          (patch) => update(patch),
+                          applyPatch,
                         )
                       }
                       onWheel={(event: WheelEvent<HTMLInputElement>) =>
@@ -272,7 +328,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           settings as CadenceDurationFields,
                           0,
                           59,
-                          (patch) => update(patch),
+                          applyPatch,
                         )
                       }
                     />
@@ -284,9 +340,9 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                       type="number"
                       className="adv-number-sm"
                       value={settings.durationMilliseconds}
-                      min={getMinIntervalMs(settings.extendedClickSpeedLimit)}
+                      min={minIntervalMs}
                       max={999}
-                      style={{ width: "34px", textAlign: "right" }}
+                      style={DURATION_WIDE_INPUT_STYLE}
                       onChange={(event) =>
                         handleNumberChange(event, (next) =>
                           update({ durationMilliseconds: next }),
@@ -296,10 +352,10 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                         handleDurationBlur(
                           event,
                           "durationMilliseconds",
-                          getMinIntervalMs(settings.extendedClickSpeedLimit),
+                          minIntervalMs,
                           999,
                           settings as CadenceDurationFields,
-                          (patch) => update(patch),
+                          applyPatch,
                         )
                       }
                       onWheel={(event: WheelEvent<HTMLInputElement>) =>
@@ -307,9 +363,9 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           event,
                           "durationMilliseconds",
                           settings as CadenceDurationFields,
-                          getMinIntervalMs(settings.extendedClickSpeedLimit),
+                          minIntervalMs,
                           999,
-                          (patch) => update(patch),
+                          applyPatch,
                         )
                       }
                     />

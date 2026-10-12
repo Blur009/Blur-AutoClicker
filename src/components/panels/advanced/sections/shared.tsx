@@ -25,54 +25,48 @@ import "./shared.css";
 
 // ToggleBtn ← These are here just for some visual space
 
-const ToggleBtn = memo(
-  function ToggleBtn({
-    value,
-    onChange,
-    disabled = false,
-    disabledReason,
-  }: {
-    value: boolean;
-    onChange: (v: boolean) => void;
-    disabled?: boolean;
-    disabledReason?: string;
-  }) {
-    useEffect(() => {
-      if (disabled && value) {
-        onChange(false);
-      }
-    }, [disabled, value, onChange]);
+const ToggleBtn = memo(function ToggleBtn({
+  value,
+  onChange,
+  disabled = false,
+  disabledReason,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+  disabledReason?: string;
+}) {
+  useEffect(() => {
+    if (disabled && value) {
+      onChange(false);
+    }
+  }, [disabled, value, onChange]);
 
-    const group = (
-      <div className="adv-toggle-group">
-        <button
-          className={`adv-toggle-btn adv-toggle-off ${!value ? "active" : ""} ${disabled ? "adv-disabled" : ""}`}
-          onClick={() => !disabled && onChange(false)}
-          disabled={disabled}
-        >
-          Off
-        </button>
-        <button
-          className={`adv-toggle-btn adv-toggle-on ${value ? "active" : ""} ${disabled ? "adv-disabled" : ""}`}
-          onClick={() => !disabled && onChange(true)}
-          disabled={disabled}
-        >
-          On
-        </button>
-      </div>
-    );
+  const group = (
+    <div className="adv-toggle-group">
+      <button
+        className={`adv-toggle-btn adv-toggle-off ${!value ? "active" : ""} ${disabled ? "adv-disabled" : ""}`}
+        onClick={() => !disabled && onChange(false)}
+        disabled={disabled}
+      >
+        Off
+      </button>
+      <button
+        className={`adv-toggle-btn adv-toggle-on ${value ? "active" : ""} ${disabled ? "adv-disabled" : ""}`}
+        onClick={() => !disabled && onChange(true)}
+        disabled={disabled}
+      >
+        On
+      </button>
+    </div>
+  );
 
-    return disabled ? (
-      <UnavailableReason reason={disabledReason}>{group}</UnavailableReason>
-    ) : (
-      group
-    );
-  },
-  (prev, next) =>
-    prev.value === next.value &&
-    prev.disabled === next.disabled &&
-    prev.disabledReason === next.disabledReason,
-);
+  return disabled ? (
+    <UnavailableReason reason={disabledReason}>{group}</UnavailableReason>
+  ) : (
+    group
+  );
+});
 
 export { ToggleBtn };
 
@@ -131,6 +125,14 @@ export function NumInput({
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const wheelRef = useRef(false);
+  const latestRef = useRef({ value, min, max, onChange, hoverWheel });
+  useLayoutEffect(() => {
+    latestRef.current.value = value;
+    latestRef.current.min = min;
+    latestRef.current.max = max;
+    latestRef.current.onChange = onChange;
+    latestRef.current.hoverWheel = hoverWheel;
+  });
   const [draft, setDraft] = useState<string | null>(null);
   const normalize = allowDecimal ? normalizeDecimalLocale : normalizeIntegerRaw;
   const clampValue = (next: number) => {
@@ -197,20 +199,23 @@ export function NumInput({
     const el = ref.current;
     if (!el) return;
     const handler = (e: WheelEvent) => {
-      if (!hoverWheel && e.target !== el) return;
+      const latest = latestRef.current;
+      if (!latest.hoverWheel && e.target !== el) return;
       e.preventDefault();
       const direction = e.deltaY < 0 ? 1 : -1;
-      const current = Number.isFinite(value) ? value : (min ?? 0);
+      const current = Number.isFinite(latest.value)
+        ? latest.value
+        : (latest.min ?? 0);
       let step = 1;
       if (e.shiftKey && e.ctrlKey) step = 100;
       else if (e.ctrlKey) step = 25;
       else if (e.shiftKey) step = 5;
       let next = current + direction * step;
-      if (min !== undefined && next < min) next = min;
-      if (max !== undefined && next > max) next = max;
+      if (latest.min !== undefined && next < latest.min) next = latest.min;
+      if (latest.max !== undefined && next > latest.max) next = latest.max;
       wheelRef.current = true;
       setDraft(null);
-      onChange(next);
+      latest.onChange(next);
       setTimeout(() => {
         wheelRef.current = false;
       }, 0);
@@ -220,7 +225,7 @@ export function NumInput({
     });
     return () =>
       el.removeEventListener("wheel", handler as unknown as EventListener);
-  }, [hoverWheel, value, min, max, onChange]);
+  }, []);
 
   return (
     <input

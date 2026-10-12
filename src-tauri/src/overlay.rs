@@ -15,6 +15,119 @@ static CLICK_POINT_PICK_OVERLAY_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CUSTOM_STOP_ZONE_PICK_OVERLAY_ACTIVE: AtomicBool = AtomicBool::new(false);
 pub static OVERLAY_THREAD_RUNNING: AtomicBool = AtomicBool::new(true);
 
+static LAST_ZONE_PAYLOAD: Mutex<Option<(VirtualScreenRect, Vec<u8>)>> = Mutex::new(None);
+static LAST_CLICK_POINTS_PAYLOAD: Mutex<Option<(VirtualScreenRect, Vec<u8>)>> = Mutex::new(None);
+
+struct OverlayZoneSnapshot {
+    edge_stop_enabled: bool,
+    edge_stop_top: i32,
+    edge_stop_right: i32,
+    edge_stop_bottom: i32,
+    edge_stop_left: i32,
+    corner_stop_enabled: bool,
+    corner_stop_tl: i32,
+    corner_stop_tr: i32,
+    corner_stop_bl: i32,
+    corner_stop_br: i32,
+    stop_zones_enabled: bool,
+    stop_zones: Vec<crate::settings::StopZoneConfig>,
+}
+
+#[derive(serde::Serialize)]
+struct OverlayZoneStopZone {
+    id: String,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    action: String,
+}
+
+#[derive(serde::Serialize)]
+struct OverlayZoneMonitor {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+#[derive(serde::Serialize)]
+struct OverlayZoneData {
+    #[serde(rename = "edgeStopEnabled")]
+    edge_stop_enabled: bool,
+    #[serde(rename = "edgeStopTop")]
+    edge_stop_top: i32,
+    #[serde(rename = "edgeStopRight")]
+    edge_stop_right: i32,
+    #[serde(rename = "edgeStopBottom")]
+    edge_stop_bottom: i32,
+    #[serde(rename = "edgeStopLeft")]
+    edge_stop_left: i32,
+    #[serde(rename = "cornerStopEnabled")]
+    corner_stop_enabled: bool,
+    #[serde(rename = "cornerStopTL")]
+    corner_stop_tl: i32,
+    #[serde(rename = "cornerStopTR")]
+    corner_stop_tr: i32,
+    #[serde(rename = "cornerStopBL")]
+    corner_stop_bl: i32,
+    #[serde(rename = "cornerStopBR")]
+    corner_stop_br: i32,
+    #[serde(rename = "stopZones")]
+    stop_zones: Vec<OverlayZoneStopZone>,
+    #[serde(rename = "stopZonesEnabled")]
+    stop_zones_enabled: bool,
+    #[serde(rename = "screenWidth")]
+    screen_width: i32,
+    #[serde(rename = "screenHeight")]
+    screen_height: i32,
+    monitors: Vec<OverlayZoneMonitor>,
+    #[serde(rename = "_showDisabledEdges")]
+    show_disabled_edges: bool,
+    #[serde(rename = "_showDisabledCorners")]
+    show_disabled_corners: bool,
+}
+
+#[derive(serde::Serialize)]
+struct OverlayClickPoint {
+    id: String,
+    x: i32,
+    y: i32,
+    radius: u32,
+}
+
+#[derive(serde::Serialize)]
+struct OverlayClickPointsData {
+    points: Vec<OverlayClickPoint>,
+    #[serde(rename = "screenWidth")]
+    screen_width: i32,
+    #[serde(rename = "screenHeight")]
+    screen_height: i32,
+    persistent: bool,
+}
+
+fn payload_changed(
+    cache: &Mutex<Option<(VirtualScreenRect, Vec<u8>)>>,
+    bounds: VirtualScreenRect,
+    bytes: &[u8],
+) -> bool {
+    let mut last = cache.lock().unwrap_or_else(poisoned_inner);
+    if let Some((last_bounds, last_bytes)) = last.as_ref() {
+        if *last_bounds == bounds && last_bytes == bytes {
+            return false;
+        }
+    }
+    *last = Some((bounds, bytes.to_vec()));
+    true
+}
+
+fn invalidate_overlay_caches() {
+    *LAST_ZONE_PAYLOAD.lock().unwrap_or_else(poisoned_inner) = None;
+    *LAST_CLICK_POINTS_PAYLOAD
+        .lock()
+        .unwrap_or_else(poisoned_inner) = None;
+}
+
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetWindowLongW, SetWindowLongW, SetWindowPos, ShowWindow, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST,
@@ -102,59 +215,84 @@ pub fn show_overlay(app: &AppHandle) -> AppResult<()> {
 
     *LAST_ZONE_SHOW.lock().unwrap_or_else(poisoned_inner) = Some(Instant::now());
 
-    let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
+    let snapshot = {
+        let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
+        OverlayZoneSnapshot {
+            edge_stop_enabled: settings.edge_stop_enabled,
+            edge_stop_top: settings.edge_stop_top,
+            edge_stop_right: settings.edge_stop_right,
+            edge_stop_bottom: settings.edge_stop_bottom,
+            edge_stop_left: settings.edge_stop_left,
+            corner_stop_enabled: settings.corner_stop_enabled,
+            corner_stop_tl: settings.corner_stop_tl,
+            corner_stop_tr: settings.corner_stop_tr,
+            corner_stop_bl: settings.corner_stop_bl,
+            corner_stop_br: settings.corner_stop_br,
+            stop_zones_enabled: settings.stop_zones_enabled,
+            stop_zones: settings.stop_zones.clone(),
+        }
+    };
     let monitors = current_monitor_rects().unwrap_or_else(|| vec![bounds]);
-    let stop_zones_payload: Vec<_> = settings
+    let stop_zones_payload: Vec<OverlayZoneStopZone> = snapshot
         .stop_zones
         .iter()
         .map(|zone| {
             let offset =
                 VirtualScreenRect::new(zone.x, zone.y, zone.width.max(1), zone.height.max(1))
                     .offset_from(bounds);
-            serde_json::json!({
-                "id": zone.id,
-                "x": offset.left,
-                "y": offset.top,
-                "width": offset.width,
-                "height": offset.height,
-                "action": zone.action,
-            })
+            OverlayZoneStopZone {
+                id: zone.id.clone(),
+                x: offset.left,
+                y: offset.top,
+                width: offset.width,
+                height: offset.height,
+                action: zone.action.clone(),
+            }
         })
         .collect();
-    let monitor_payload: Vec<_> = monitors
+    let monitor_payload: Vec<OverlayZoneMonitor> = monitors
         .into_iter()
         .map(|monitor| {
             let offset = monitor.offset_from(bounds);
-            serde_json::json!({
-                "x": offset.left,
-                "y": offset.top,
-                "width": offset.width,
-                "height": offset.height,
-            })
+            OverlayZoneMonitor {
+                x: offset.left,
+                y: offset.top,
+                width: offset.width,
+                height: offset.height,
+            }
         })
         .collect();
-    let _ = window.emit(
-        "zone-data",
-        serde_json::json!({
-            "edgeStopEnabled": settings.edge_stop_enabled,
-            "edgeStopTop": settings.edge_stop_top,
-            "edgeStopRight": settings.edge_stop_right,
-            "edgeStopBottom": settings.edge_stop_bottom,
-            "edgeStopLeft": settings.edge_stop_left,
-            "cornerStopEnabled": settings.corner_stop_enabled,
-            "cornerStopTL": settings.corner_stop_tl,
-            "cornerStopTR": settings.corner_stop_tr,
-            "cornerStopBL": settings.corner_stop_bl,
-            "cornerStopBR": settings.corner_stop_br,
-            "stopZones": stop_zones_payload,
-            "stopZonesEnabled": settings.stop_zones_enabled,
-            "screenWidth": bounds.width,
-            "screenHeight": bounds.height,
-            "monitors": monitor_payload,
-            "_showDisabledEdges": !settings.edge_stop_enabled,
-            "_showDisabledCorners": !settings.corner_stop_enabled,
-        }),
-    );
+    let payload = OverlayZoneData {
+        edge_stop_enabled: snapshot.edge_stop_enabled,
+        edge_stop_top: snapshot.edge_stop_top,
+        edge_stop_right: snapshot.edge_stop_right,
+        edge_stop_bottom: snapshot.edge_stop_bottom,
+        edge_stop_left: snapshot.edge_stop_left,
+        corner_stop_enabled: snapshot.corner_stop_enabled,
+        corner_stop_tl: snapshot.corner_stop_tl,
+        corner_stop_tr: snapshot.corner_stop_tr,
+        corner_stop_bl: snapshot.corner_stop_bl,
+        corner_stop_br: snapshot.corner_stop_br,
+        stop_zones: stop_zones_payload,
+        stop_zones_enabled: snapshot.stop_zones_enabled,
+        screen_width: bounds.width,
+        screen_height: bounds.height,
+        monitors: monitor_payload,
+        show_disabled_edges: !snapshot.edge_stop_enabled,
+        show_disabled_corners: !snapshot.corner_stop_enabled,
+    };
+    match serde_json::to_vec(&payload) {
+        Ok(bytes) => {
+            if !payload_changed(&LAST_ZONE_PAYLOAD, bounds, &bytes) {
+                return Ok(());
+            }
+            let _ = window.emit("zone-data", &payload);
+        }
+        Err(_) => {
+            *LAST_ZONE_PAYLOAD.lock().unwrap_or_else(poisoned_inner) = None;
+            let _ = window.emit("zone-data", &payload);
+        }
+    };
 
     Ok(())
 }
@@ -209,8 +347,11 @@ pub fn show_click_point_pick_overlay(app: &AppHandle) -> AppResult<()> {
     CLICK_POINT_PICK_OVERLAY_ACTIVE.store(true, Ordering::SeqCst);
 
     let state = app.state::<ClickerState>();
-    let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
-    emit_click_points(&window, bounds, &settings.click_points, true);
+    let click_points = {
+        let settings = state.settings.lock().unwrap_or_else(poisoned_inner);
+        settings.click_points.clone()
+    };
+    emit_click_points(&window, bounds, &click_points, true);
     set_click_point_pick_mode(app, true)?;
 
     if let Some((x, y)) = current_cursor_position() {
@@ -299,28 +440,39 @@ fn emit_click_points(
     points: &[crate::settings::ClickPoint],
     persistent: bool,
 ) {
-    let points_payload: Vec<_> = points
+    let points_payload: Vec<OverlayClickPoint> = points
         .iter()
         .map(|point| {
             let offset = VirtualScreenRect::new(point.x, point.y, 1, 1).offset_from(bounds);
-            serde_json::json!({
-                "id": point.id,
-                "x": offset.left,
-                "y": offset.top,
-                "radius": point.radius,
-            })
+            OverlayClickPoint {
+                id: point.id.clone(),
+                x: offset.left,
+                y: offset.top,
+                radius: point.radius,
+            }
         })
         .collect();
 
-    let _ = window.emit(
-        "click-points-data",
-        serde_json::json!({
-            "points": points_payload,
-            "screenWidth": bounds.width,
-            "screenHeight": bounds.height,
-            "persistent": persistent,
-        }),
-    );
+    let payload = OverlayClickPointsData {
+        points: points_payload,
+        screen_width: bounds.width,
+        screen_height: bounds.height,
+        persistent,
+    };
+    match serde_json::to_vec(&payload) {
+        Ok(bytes) => {
+            if !payload_changed(&LAST_CLICK_POINTS_PAYLOAD, bounds, &bytes) {
+                return;
+            }
+            let _ = window.emit("click-points-data", &payload);
+        }
+        Err(_) => {
+            *LAST_CLICK_POINTS_PAYLOAD
+                .lock()
+                .unwrap_or_else(poisoned_inner) = None;
+            let _ = window.emit("click-points-data", &payload);
+        }
+    }
 }
 
 // ---- Background timer ----
@@ -358,6 +510,7 @@ pub fn hide_overlay(app: AppHandle) -> AppResult<()> {
 }
 
 fn hide_overlay_window(window: &tauri::WebviewWindow) {
+    invalidate_overlay_caches();
     #[cfg(target_os = "windows")]
     {
         if let Ok(hwnd) = get_hwnd(window) {
@@ -439,6 +592,7 @@ fn sync_overlay_bounds(window: &tauri::WebviewWindow) -> AppResult<VirtualScreen
 
 #[cfg(target_os = "windows")]
 fn show_overlay_window(window: &tauri::WebviewWindow) -> AppResult<()> {
+    invalidate_overlay_caches();
     let _ = window.eval(
         "document.getElementById('zone-layer').innerHTML = ''; \
          document.getElementById('click-points-layer').innerHTML = '';",

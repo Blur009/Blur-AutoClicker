@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import type { CSSProperties, FocusEvent, WheelEvent } from "react";
 import type { RateInputMode, Settings } from "../../store";
 import {
@@ -27,7 +27,7 @@ import {
   switchCadenceMode,
 } from "../sharedCadence";
 
-function DurationField({
+const DurationField = memo(function DurationField({
   value,
   min,
   max,
@@ -70,7 +70,7 @@ function DurationField({
       <span className={className ? "postfix" : "adv-unit"}>{unit}</span>
     </div>
   );
-}
+});
 
 interface Props {
   settings: Settings;
@@ -78,27 +78,285 @@ interface Props {
 }
 
 export default function SimpleCadenceInput({ settings, update }: Props) {
-  const maxClickSpeed = getMaxClickSpeed(settings.extendedClickSpeedLimit);
+  const maxClickSpeed = useMemo(
+    () => getMaxClickSpeed(settings.extendedClickSpeedLimit),
+    [settings.extendedClickSpeedLimit],
+  );
+  const minIntervalMs = useMemo(
+    () => getMinIntervalMs(settings.extendedClickSpeedLimit),
+    [settings.extendedClickSpeedLimit],
+  );
   const [draftCps, setDraftCps] = useState<string | null>(null);
 
-  const updateSimpleCadence = (patch: Partial<Settings>) => {
-    const nextSettings = { ...settings, ...patch };
+  const updateSimpleCadence = useCallback(
+    (patch: Partial<Settings>) => {
+      const nextSettings = { ...settings, ...patch };
 
-    if (nextSettings.rateInputMode === "rate") {
-      const converted = convertRateToDuration(nextSettings);
+      if (nextSettings.rateInputMode === "rate") {
+        const converted = convertRateToDuration(nextSettings);
+        update({
+          ...patch,
+          ...(converted ?? {}),
+        });
+        return;
+      }
+
+      const converted = convertDurationToRate(nextSettings);
       update({
         ...patch,
         ...(converted ?? {}),
       });
-      return;
-    }
+    },
+    [settings, update],
+  );
 
-    const converted = convertDurationToRate(nextSettings);
-    update({
-      ...patch,
-      ...(converted ?? {}),
-    });
-  };
+  const handleClickSpeedUpdate = useCallback(
+    (next: number) => updateSimpleCadence({ clickSpeed: next }),
+    [updateSimpleCadence],
+  );
+
+  const handleClickIntervalChange = useCallback(
+    (value: string) =>
+      updateSimpleCadence({ clickInterval: value as ClickInterval }),
+    [updateSimpleCadence],
+  );
+
+  const handleRateModeChange = useCallback(
+    (value: string) =>
+      switchCadenceMode(value as RateInputMode, settings, update),
+    [settings, update],
+  );
+
+  const handleCpsBlur = useCallback(
+    (event: FocusEvent<HTMLInputElement>) => {
+      setDraftCps(null);
+      handleDecimalBlur(event, 1, maxClickSpeed, handleClickSpeedUpdate);
+    },
+    [maxClickSpeed, handleClickSpeedUpdate],
+  );
+
+  const handleCpsWheel = useCallback(
+    (event: WheelEvent<HTMLInputElement>) =>
+      handleWheelStep(
+        event,
+        settings.clickSpeed,
+        1,
+        maxClickSpeed,
+        handleClickSpeedUpdate,
+      ),
+    [settings.clickSpeed, maxClickSpeed, handleClickSpeedUpdate],
+  );
+
+  const handleDurationHoursChange = useCallback(
+    (next: number) => updateSimpleCadence({ durationHours: next }),
+    [updateSimpleCadence],
+  );
+  const handleDurationMinutesChange = useCallback(
+    (next: number) => updateSimpleCadence({ durationMinutes: next }),
+    [updateSimpleCadence],
+  );
+  const handleDurationSecondsChange = useCallback(
+    (next: number) => updateSimpleCadence({ durationSeconds: next }),
+    [updateSimpleCadence],
+  );
+  const handleDurationMsChange = useCallback(
+    (next: number) => updateSimpleCadence({ durationMilliseconds: next }),
+    [updateSimpleCadence],
+  );
+
+  const durationSnapshot = {
+    durationHours: settings.durationHours,
+    durationMinutes: settings.durationMinutes,
+    durationSeconds: settings.durationSeconds,
+    durationMilliseconds: settings.durationMilliseconds,
+  } as CadenceDurationFields;
+
+  const handleDurationHoursBlur = useCallback(
+    (event: FocusEvent<HTMLInputElement>) =>
+      handleDurationBlur(
+        event,
+        "durationHours",
+        0,
+        999,
+        durationSnapshot,
+        updateSimpleCadence,
+      ),
+    [
+      durationSnapshot.durationHours,
+      durationSnapshot.durationMinutes,
+      durationSnapshot.durationSeconds,
+      durationSnapshot.durationMilliseconds,
+      updateSimpleCadence,
+    ],
+  );
+
+  const handleDurationHoursWheel = useCallback(
+    (event: WheelEvent<HTMLInputElement>) =>
+      handleDurationWheelStep(
+        event,
+        "durationHours",
+        durationSnapshot,
+        0,
+        999,
+        updateSimpleCadence,
+      ),
+    [
+      durationSnapshot.durationHours,
+      durationSnapshot.durationMinutes,
+      durationSnapshot.durationSeconds,
+      durationSnapshot.durationMilliseconds,
+      updateSimpleCadence,
+    ],
+  );
+
+  const handleDurationMinutesBlur = useCallback(
+    (event: FocusEvent<HTMLInputElement>) =>
+      handleDurationBlur(
+        event,
+        "durationMinutes",
+        0,
+        59,
+        durationSnapshot,
+        updateSimpleCadence,
+      ),
+    [
+      durationSnapshot.durationHours,
+      durationSnapshot.durationMinutes,
+      durationSnapshot.durationSeconds,
+      durationSnapshot.durationMilliseconds,
+      updateSimpleCadence,
+    ],
+  );
+
+  const handleDurationMinutesWheel = useCallback(
+    (event: WheelEvent<HTMLInputElement>) =>
+      handleDurationWheelStep(
+        event,
+        "durationMinutes",
+        durationSnapshot,
+        0,
+        59,
+        updateSimpleCadence,
+      ),
+    [
+      durationSnapshot.durationHours,
+      durationSnapshot.durationMinutes,
+      durationSnapshot.durationSeconds,
+      durationSnapshot.durationMilliseconds,
+      updateSimpleCadence,
+    ],
+  );
+
+  const handleDurationSecondsBlur = useCallback(
+    (event: FocusEvent<HTMLInputElement>) =>
+      handleDurationBlur(
+        event,
+        "durationSeconds",
+        0,
+        59,
+        durationSnapshot,
+        updateSimpleCadence,
+      ),
+    [
+      durationSnapshot.durationHours,
+      durationSnapshot.durationMinutes,
+      durationSnapshot.durationSeconds,
+      durationSnapshot.durationMilliseconds,
+      updateSimpleCadence,
+    ],
+  );
+
+  const handleDurationSecondsWheel = useCallback(
+    (event: WheelEvent<HTMLInputElement>) =>
+      handleDurationWheelStep(
+        event,
+        "durationSeconds",
+        durationSnapshot,
+        0,
+        59,
+        updateSimpleCadence,
+      ),
+    [
+      durationSnapshot.durationHours,
+      durationSnapshot.durationMinutes,
+      durationSnapshot.durationSeconds,
+      durationSnapshot.durationMilliseconds,
+      updateSimpleCadence,
+    ],
+  );
+
+  const handleDurationMsBlur = useCallback(
+    (event: FocusEvent<HTMLInputElement>) =>
+      handleDurationBlur(
+        event,
+        "durationMilliseconds",
+        minIntervalMs,
+        999,
+        durationSnapshot,
+        updateSimpleCadence,
+      ),
+    [
+      durationSnapshot.durationHours,
+      durationSnapshot.durationMinutes,
+      durationSnapshot.durationSeconds,
+      durationSnapshot.durationMilliseconds,
+      minIntervalMs,
+      updateSimpleCadence,
+    ],
+  );
+
+  const handleDurationMsWheel = useCallback(
+    (event: WheelEvent<HTMLInputElement>) =>
+      handleDurationWheelStep(
+        event,
+        "durationMilliseconds",
+        durationSnapshot,
+        minIntervalMs,
+        999,
+        updateSimpleCadence,
+      ),
+    [
+      durationSnapshot.durationHours,
+      durationSnapshot.durationMinutes,
+      durationSnapshot.durationSeconds,
+      durationSnapshot.durationMilliseconds,
+      minIntervalMs,
+      updateSimpleCadence,
+    ],
+  );
+
+  const hoursStyle = useMemo(
+    () =>
+      ({
+        width: dynamicChWidth(settings.durationHours, 1, 3),
+        minWidth: "1ch",
+      }) as CSSProperties,
+    [settings.durationHours],
+  );
+  const minutesStyle = useMemo(
+    () =>
+      ({
+        width: dynamicChWidth(settings.durationMinutes, 1, 2),
+        minWidth: "1ch",
+      }) as CSSProperties,
+    [settings.durationMinutes],
+  );
+  const secondsStyle = useMemo(
+    () =>
+      ({
+        width: dynamicChWidth(settings.durationSeconds, 1, 2),
+        minWidth: "1ch",
+      }) as CSSProperties,
+    [settings.durationSeconds],
+  );
+  const msStyle = useMemo(
+    () =>
+      ({
+        width: dynamicChWidth(settings.durationMilliseconds, 1, 3),
+        minWidth: "1ch",
+      }) as CSSProperties,
+    [settings.durationMilliseconds],
+  );
 
   return (
     <div className="InputBox cadence-box simple-cadence-box">
@@ -130,21 +388,8 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
                 clickSpeed: Number.isNaN(val) ? 1 : val,
               });
             }}
-            onBlur={(event) => {
-              setDraftCps(null);
-              handleDecimalBlur(event, 1, maxClickSpeed, (next) =>
-                updateSimpleCadence({ clickSpeed: next }),
-              );
-            }}
-            onWheel={(event) =>
-              handleWheelStep(
-                event,
-                settings.clickSpeed,
-                1,
-                maxClickSpeed,
-                (next) => updateSimpleCadence({ clickSpeed: next }),
-              )
-            }
+            onBlur={handleCpsBlur}
+            onWheel={handleCpsWheel}
           />
           <div className="vertical-devider vertical-devider--stretch" />
           <span className="simple-control-label">Clicks Per</span>
@@ -153,18 +398,14 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
             value={settings.clickInterval}
             options={INTERVAL_OPTIONS}
             allowWindowOverflow
-            onChange={(value) =>
-              updateSimpleCadence({ clickInterval: value as ClickInterval })
-            }
+            onChange={handleClickIntervalChange}
           />
           <div className="vertical-devider vertical-devider--stretch" />
           <AdvDropdown
             value={settings.rateInputMode}
             options={SIMPLE_RATE_INPUT_MODE_OPTIONS}
             allowWindowOverflow
-            onChange={(value) =>
-              switchCadenceMode(value as RateInputMode, settings, update)
-            }
+            onChange={handleRateModeChange}
           />
         </div>
       ) : (
@@ -175,31 +416,10 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
               value={settings.durationHours}
               min={0}
               max={999}
-              onChange={(next) => updateSimpleCadence({ durationHours: next })}
-              onBlur={(event) =>
-                handleDurationBlur(
-                  event,
-                  "durationHours",
-                  0,
-                  999,
-                  settings as CadenceDurationFields,
-                  (patch) => updateSimpleCadence(patch),
-                )
-              }
-              onWheel={(event) =>
-                handleDurationWheelStep(
-                  event,
-                  "durationHours",
-                  settings as CadenceDurationFields,
-                  0,
-                  999,
-                  (patch) => updateSimpleCadence(patch),
-                )
-              }
-              style={{
-                width: dynamicChWidth(settings.durationHours, 1, 3),
-                minWidth: "1ch",
-              }}
+              onChange={handleDurationHoursChange}
+              onBlur={handleDurationHoursBlur}
+              onWheel={handleDurationHoursWheel}
+              style={hoursStyle}
               unit="h"
             />
             <DurationField
@@ -207,33 +427,10 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
               value={settings.durationMinutes}
               min={0}
               max={59}
-              onChange={(next) =>
-                updateSimpleCadence({ durationMinutes: next })
-              }
-              onBlur={(event) =>
-                handleDurationBlur(
-                  event,
-                  "durationMinutes",
-                  0,
-                  59,
-                  settings as CadenceDurationFields,
-                  (patch) => updateSimpleCadence(patch),
-                )
-              }
-              onWheel={(event) =>
-                handleDurationWheelStep(
-                  event,
-                  "durationMinutes",
-                  settings as CadenceDurationFields,
-                  0,
-                  59,
-                  (patch) => updateSimpleCadence(patch),
-                )
-              }
-              style={{
-                width: dynamicChWidth(settings.durationMinutes, 1, 2),
-                minWidth: "1ch",
-              }}
+              onChange={handleDurationMinutesChange}
+              onBlur={handleDurationMinutesBlur}
+              onWheel={handleDurationMinutesWheel}
+              style={minutesStyle}
               unit="m"
             />
             <DurationField
@@ -241,67 +438,21 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
               value={settings.durationSeconds}
               min={0}
               max={59}
-              onChange={(next) =>
-                updateSimpleCadence({ durationSeconds: next })
-              }
-              onBlur={(event) =>
-                handleDurationBlur(
-                  event,
-                  "durationSeconds",
-                  0,
-                  59,
-                  settings as CadenceDurationFields,
-                  (patch) => updateSimpleCadence(patch),
-                )
-              }
-              onWheel={(event) =>
-                handleDurationWheelStep(
-                  event,
-                  "durationSeconds",
-                  settings as CadenceDurationFields,
-                  0,
-                  59,
-                  (patch) => updateSimpleCadence(patch),
-                )
-              }
-              style={{
-                width: dynamicChWidth(settings.durationSeconds, 1, 2),
-                minWidth: "1ch",
-              }}
+              onChange={handleDurationSecondsChange}
+              onBlur={handleDurationSecondsBlur}
+              onWheel={handleDurationSecondsWheel}
+              style={secondsStyle}
               unit="s"
             />
             <DurationField
               className="simple-duration-chip"
               value={settings.durationMilliseconds}
-              min={getMinIntervalMs(settings.extendedClickSpeedLimit)}
+              min={minIntervalMs}
               max={999}
-              onChange={(next) =>
-                updateSimpleCadence({ durationMilliseconds: next })
-              }
-              onBlur={(event) =>
-                handleDurationBlur(
-                  event,
-                  "durationMilliseconds",
-                  getMinIntervalMs(settings.extendedClickSpeedLimit),
-                  999,
-                  settings as CadenceDurationFields,
-                  (patch) => updateSimpleCadence(patch),
-                )
-              }
-              onWheel={(event) =>
-                handleDurationWheelStep(
-                  event,
-                  "durationMilliseconds",
-                  settings as CadenceDurationFields,
-                  getMinIntervalMs(settings.extendedClickSpeedLimit),
-                  999,
-                  (patch) => updateSimpleCadence(patch),
-                )
-              }
-              style={{
-                width: dynamicChWidth(settings.durationMilliseconds, 1, 3),
-                minWidth: "1ch",
-              }}
+              onChange={handleDurationMsChange}
+              onBlur={handleDurationMsBlur}
+              onWheel={handleDurationMsWheel}
+              style={msStyle}
               unit="ms"
             />
           </div>
@@ -312,9 +463,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
             value={settings.rateInputMode}
             options={SIMPLE_RATE_INPUT_MODE_OPTIONS}
             allowWindowOverflow
-            onChange={(value) =>
-              switchCadenceMode(value as RateInputMode, settings, update)
-            }
+            onChange={handleRateModeChange}
           />
         </div>
       )}

@@ -343,14 +343,15 @@ export default function App() {
     const { hotkey, ...rest } = patch;
 
     if (Object.keys(rest).length > 0) {
-      const nextUiSettings = sanitizeSettings(
-        { ...uiSettingsRef.current, ...rest },
-        APP_VERSION,
-      );
+      const uiBase = uiSettingsRef.current;
       const nextCommittedSettings = sanitizeSettings(
         { ...committedSettingsRef.current, ...rest },
         APP_VERSION,
       );
+      const nextUiSettings = {
+        ...nextCommittedSettings,
+        hotkey: uiBase.hotkey,
+      };
 
       persistCommittedSettingsRef.current(
         nextCommittedSettings,
@@ -393,7 +394,7 @@ export default function App() {
     await getCurrentWindow().center();
   };
 
-  const handleWindowClose = async () => {
+  const handleWindowClose = useCallback(async () => {
     if (committedSettingsRef.current.rememberWindowPosition) {
       const pos = await getCurrentWindow().outerPosition();
       const next = sanitizeSettings(
@@ -410,9 +411,9 @@ export default function App() {
     } else {
       await invoke("quit_app");
     }
-  };
+  }, []);
 
-  const handleToggleAlwaysOnTop = async () => {
+  const handleToggleAlwaysOnTop = useCallback(async () => {
     const nextValue = !committedSettingsRef.current.alwaysOnTop;
 
     try {
@@ -423,7 +424,7 @@ export default function App() {
     } catch (err) {
       error(JSON.stringify({ source: "App.alwaysOnTop", error: String(err) }));
     }
-  };
+  }, [updateSettings]);
 
   const handleSavePreset = (name: string) => {
     if (status.running) {
@@ -1224,7 +1225,6 @@ export default function App() {
       root.style.removeProperty("--bg-image-blur");
     };
   }, [
-    settings,
     settings.windowOpacity,
     settings.panelOpacity,
     settings.panelBlur,
@@ -1335,7 +1335,6 @@ export default function App() {
     );
     root.style.setProperty("--bg-opacity", String(bgOp));
   }, [
-    settings,
     settings.backgroundOpacity,
     settings.perPageAppearance,
     settings.backgroundOpacitySimple,

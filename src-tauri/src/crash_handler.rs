@@ -76,11 +76,48 @@ fn verify_handler_integrity(handler: &std::path::Path) -> Result<(), Box<dyn std
     let Some(pinned) = option_env!("CRASHPAD_HANDLER_SHA256") else {
         return Ok(());
     };
+    let stamp_path = {
+        let mut s = handler.as_os_str().to_owned();
+        s.push(".verified");
+        PathBuf::from(s)
+    };
+    let current_fp: Option<(u128, u64)> = std::fs::metadata(handler)
+        .and_then(|m| m.modified().map(|t| (t, m.len())))
+        .map(|(t, len)| {
+            (
+                t.duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_nanos())
+                    .unwrap_or(0),
+                len,
+            )
+        })
+        .ok();
+    if let Some((mtime_nanos, size)) = current_fp {
+        if let Ok(stamp) = std::fs::read_to_string(&stamp_path) {
+            let mut parts = stamp.split_ascii_whitespace();
+            if let (Some(s_mtime), Some(s_size), Some(s_digest)) =
+                (parts.next(), parts.next(), parts.next())
+            {
+                if s_mtime == mtime_nanos.to_string()
+                    && s_size == size.to_string()
+                    && s_digest.eq_ignore_ascii_case(pinned)
+                {
+                    return Ok(());
+                }
+            }
+        }
+    }
     let bytes = std::fs::read(handler)?;
     use sha2::Digest;
     let digest = hex::encode(sha2::Sha256::digest(&bytes));
     if !digest.eq_ignore_ascii_case(pinned) {
         return Err(format!("crashpad_handler.exe integrity check failed (expected {pinned}, got {digest}); refusing to spawn").into());
+    }
+    if let Some((mtime_nanos, size)) = current_fp {
+        let contents = format!("{mtime_nanos} {size} {digest}");
+        if std::fs::write(&stamp_path, contents).is_err() {
+            let _ = std::fs::remove_file(&stamp_path);
+        }
     }
     Ok(())
 }

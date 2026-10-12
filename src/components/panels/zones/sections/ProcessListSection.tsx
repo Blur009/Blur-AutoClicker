@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Settings } from "../../../../store";
 import type { ProcessListEntry } from "../../../../settingsSchema";
@@ -22,16 +30,51 @@ interface Props {
   showInfo: boolean;
 }
 
+const PROC_LIST_HEADER_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+};
+
+const PROC_LIST_ROW_STYLE: CSSProperties = {
+  marginBottom: "0.5rem",
+};
+
+const PROC_DIVIDER_STYLE: CSSProperties = {
+  height: 1,
+  background: "var(--border-subtle)",
+  margin: "0.25rem 0",
+};
+
+const PROC_EMPTY_SEARCH_STYLE: CSSProperties = {
+  textAlign: "center",
+  padding: "1rem",
+};
+
 export default function ProcessListSection({ settings, update }: Props) {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  function sameProcessListIgnoringIcons(a: ProcessInfo[], b: ProcessInfo[]) {
+    return (
+      a.length === b.length &&
+      a.every(
+        (proc, index) =>
+          proc.name === b[index]?.name &&
+          proc.displayName === b[index]?.displayName &&
+          proc.pid === b[index]?.pid,
+      )
+    );
+  }
+
   const silentRefresh = useCallback(async () => {
     try {
       const procs = await invoke<ProcessInfo[]>("list_processes");
-      setProcesses(procs);
+      setProcesses((prev) =>
+        sameProcessListIgnoringIcons(prev, procs) ? prev : procs,
+      );
     } catch {
       //
     }
@@ -56,42 +99,48 @@ export default function ProcessListSection({ settings, update }: Props) {
     };
   }, [silentRefresh]);
 
-  const toggleEntry = (name: string, checked: boolean) => {
-    const next = checked
-      ? [
-          ...settings.processListEntries,
-          {
-            name,
-            enabled: true,
-          } as ProcessListEntry,
-        ]
-      : settings.processListEntries.filter((e) => e.name !== name);
-    update({ processListEntries: next });
-  };
-
-  const entryMap = new Map(settings.processListEntries.map((e) => [e.name, e]));
-  const matchesSearch = (p: ProcessInfo) =>
-    searchQuery.length < 1 ||
-    p.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.name.toLowerCase().includes(searchQuery.toLowerCase());
-
-  const checkedProcesses = processes.filter(
-    (p) => entryMap.get(p.name)?.enabled && matchesSearch(p),
+  const toggleEntry = useCallback(
+    (name: string, checked: boolean) => {
+      const next = checked
+        ? [
+            ...settings.processListEntries,
+            {
+              name,
+              enabled: true,
+            } as ProcessListEntry,
+          ]
+        : settings.processListEntries.filter((e) => e.name !== name);
+      update({ processListEntries: next });
+    },
+    [settings.processListEntries, update],
   );
-  const uncheckedProcesses = processes.filter(
-    (p) => !entryMap.has(p.name) && matchesSearch(p),
+
+  const entryMap = useMemo(
+    () => new Map(settings.processListEntries.map((e) => [e.name, e])),
+    [settings.processListEntries],
   );
+  const loweredQuery = searchQuery.toLowerCase();
+  const { checkedProcesses, uncheckedProcesses } = useMemo(() => {
+    const checked: ProcessInfo[] = [];
+    const unchecked: ProcessInfo[] = [];
+    for (const p of processes) {
+      if (
+        loweredQuery.length >= 1 &&
+        !p.displayName.toLowerCase().includes(loweredQuery) &&
+        !p.name.toLowerCase().includes(loweredQuery)
+      ) {
+        continue;
+      }
+      if (entryMap.get(p.name)?.enabled) checked.push(p);
+      else if (!entryMap.has(p.name)) unchecked.push(p);
+    }
+    return { checkedProcesses: checked, uncheckedProcesses: unchecked };
+  }, [processes, entryMap, loweredQuery]);
 
   return (
     <div className="adv-sectioncontainer adv-process-list-section">
       <div className="adv-card-header">
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
+        <div style={PROC_LIST_HEADER_STYLE}>
           <span className="adv-card-title">Process List</span>
         </div>
         <ToggleBtn
@@ -108,7 +157,7 @@ export default function ProcessListSection({ settings, update }: Props) {
         enabled={settings.processListEnabled}
         disabledReason="Enable Process List to manage application rules."
       >
-        <div className="adv-row" style={{ marginBottom: "0.5rem" }}>
+        <div className="adv-row" style={PROC_LIST_ROW_STYLE}>
           <div className="adv-seg-group">
             <button
               type="button"
@@ -152,7 +201,7 @@ export default function ProcessListSection({ settings, update }: Props) {
             uncheckedProcesses.length === 0 ? (
             <div
               className="adv-click-points-empty"
-              style={{ textAlign: "center", padding: "1rem" }}
+              style={PROC_EMPTY_SEARCH_STYLE}
             >
               no process named "{searchQuery}"
             </div>
@@ -167,13 +216,7 @@ export default function ProcessListSection({ settings, update }: Props) {
                 />
               ))}
               {checkedProcesses.length > 0 && uncheckedProcesses.length > 0 && (
-                <div
-                  style={{
-                    height: 1,
-                    background: "var(--border-subtle)",
-                    margin: "0.25rem 0",
-                  }}
-                />
+                <div style={PROC_DIVIDER_STYLE} />
               )}
               {uncheckedProcesses.map((proc) => (
                 <ProcessRow
@@ -191,7 +234,7 @@ export default function ProcessListSection({ settings, update }: Props) {
   );
 }
 
-function ProcessRow({
+const ProcessRow = memo(function ProcessRow({
   proc,
   entry,
   onToggleEntry,
@@ -216,4 +259,4 @@ function ProcessRow({
       <span className="adv-proc-exe">{proc.name}</span>
     </label>
   );
-}
+});

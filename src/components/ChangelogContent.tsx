@@ -3,6 +3,9 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { ChangelogEntry } from "../changelog";
 import "./ChangelogContent.css";
 
+const MARKDOWN_CACHE_MAX = 20;
+const markdownCache = new Map<string, Array<Array<{ __html: string }>>>();
+
 function renderMarkdown(text: string): { __html: string } {
   let html = text
     .replace(/&/g, "&amp;")
@@ -24,6 +27,22 @@ function renderMarkdown(text: string): { __html: string } {
     .join("");
 
   return { __html: html };
+}
+
+function renderEntryItems(
+  entry: ChangelogEntry,
+): Array<Array<{ __html: string }>> {
+  const cached = markdownCache.get(entry.version);
+  if (cached) return cached;
+  const rendered = entry.sections.map((section) =>
+    section.items.map((item) => renderMarkdown(item)),
+  );
+  if (markdownCache.size >= MARKDOWN_CACHE_MAX) {
+    const oldest = markdownCache.keys().next();
+    if (!oldest.done) markdownCache.delete(oldest.value);
+  }
+  markdownCache.set(entry.version, rendered);
+  return rendered;
 }
 
 interface Props {
@@ -96,23 +115,27 @@ export default function ChangelogContent({ entries }: Props) {
 }
 
 function ChangelogEntryCard({ entry }: { entry: ChangelogEntry }) {
+  const renderedItems = renderEntryItems(entry);
   return (
     <div className="changelog-entry">
       <div className="changelog-entry-header">
         <span className="changelog-version">v{entry.version}</span>
         <span className="changelog-date">{entry.date}</span>
       </div>
-      {entry.sections.map((section) => (
+      {entry.sections.map((section, s) => (
         <div key={section.heading} className="changelog-section">
           <span className="changelog-section-heading">{section.heading}</span>
           <ul className="changelog-items">
-            {section.items.map((item, i) => (
-              <li
-                key={i}
-                className="changelog-item"
-                dangerouslySetInnerHTML={renderMarkdown(item)}
-              />
-            ))}
+            {section.items.map((item, i) => {
+              const rendered = renderedItems[s]?.[i];
+              return (
+                <li
+                  key={i}
+                  className="changelog-item"
+                  dangerouslySetInnerHTML={rendered ?? renderMarkdown(item)}
+                />
+              );
+            })}
           </ul>
         </div>
       ))}

@@ -3,7 +3,7 @@ import {
   normalizeDecimalRaw,
   normalizeDecimalLocale,
   normalizeIntegerRaw,
-  parseDecimalLocale,
+  parseNormalizedDecimalLocale,
 } from "../numberInput";
 import {
   convertDurationToRate,
@@ -148,7 +148,7 @@ export function handleDecimalBlurLocale(
   if (normalized !== event.target.value) {
     event.target.value = normalized;
   }
-  apply(clamp(parseDecimalLocale(normalized), min, max));
+  apply(clamp(parseNormalizedDecimalLocale(normalized), min, max));
 }
 
 export function handleDurationBlur(

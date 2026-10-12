@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from "react";
 import type { Settings } from "../../../../store";
 import KeyCaptureInput from "../../../KeyCaptureInput";
 import { SettingsCard } from "./shared";
@@ -91,27 +92,82 @@ const TOGGLE_GROUPS: {
   },
 ];
 
+interface KeybindRowProps {
+  label: string;
+  sublabel: string;
+  value: string;
+  onChange: (key: string) => void;
+}
+
+const KeybindRow = memo(function KeybindRow({
+  label,
+  sublabel,
+  value,
+  onChange,
+}: KeybindRowProps) {
+  return (
+    <div className="settings-row">
+      <div className="settings-label-group">
+        <span className="settings-label">{label}</span>
+        <span className="settings-sublabel">{sublabel}</span>
+      </div>
+      <KeyCaptureInput
+        className="settings-keybind-capture"
+        value={value}
+        onChange={onChange}
+      />
+    </div>
+  );
+});
+
 export default function KeybindsSection({ settings, update }: Props) {
+  const handleMasterKeyChange = useCallback(
+    (key: string) => update({ keybindMaster: key }),
+    [update],
+  );
+
+  const handleMasterModeToggle = useCallback(
+    () => update({ masterKeybindMode: "toggle" }),
+    [update],
+  );
+
+  const handleMasterModeHold = useCallback(
+    () => update({ masterKeybindMode: "hold" }),
+    [update],
+  );
+
+  const pageHandlers = useMemo(
+    () =>
+      Object.fromEntries(
+        PAGES.map((page) => [
+          page.key,
+          (key: string) => update({ [page.key]: key }),
+        ]),
+      ) as Record<(typeof PAGES)[number]["key"], (key: string) => void>,
+    [update],
+  );
+
+  const toggleHandlers = useMemo(() => {
+    const handlers = {} as Record<string, (key: string) => void>;
+    for (const group of TOGGLE_GROUPS) {
+      for (const item of group.items) {
+        handlers[item.key] = (key: string) => update({ [item.key]: key });
+      }
+    }
+    return handlers;
+  }, [update]);
   return (
     <>
       <SettingsCard
         title="Master Switch"
         description="Bind a key that globally enables or disables the autoclicker. When off, the main activation keybind will not start it. Empty by default (always allowed)."
       >
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <span className="settings-label">Master Key</span>
-            <span className="settings-sublabel">
-              Toggle disables/enables on press. Hold keeps it enabled while
-              held.
-            </span>
-          </div>
-          <KeyCaptureInput
-            className="settings-keybind-capture"
-            value={settings.keybindMaster}
-            onChange={(key) => update({ keybindMaster: key })}
-          />
-        </div>
+        <KeybindRow
+          label="Master Key"
+          sublabel="Toggle disables/enables on press. Hold keeps it enabled while held."
+          value={settings.keybindMaster}
+          onChange={handleMasterKeyChange}
+        />
         <div className="settings-row">
           <div className="settings-label-group">
             <span className="settings-label">Master Key Mode</span>
@@ -123,14 +179,14 @@ export default function KeybindsSection({ settings, update }: Props) {
             <button
               type="button"
               className={`settings-seg-btn ${settings.masterKeybindMode === "toggle" ? "active" : ""}`}
-              onClick={() => update({ masterKeybindMode: "toggle" })}
+              onClick={handleMasterModeToggle}
             >
               Toggle
             </button>
             <button
               type="button"
               className={`settings-seg-btn ${settings.masterKeybindMode === "hold" ? "active" : ""}`}
-              onClick={() => update({ masterKeybindMode: "hold" })}
+              onClick={handleMasterModeHold}
             >
               Hold
             </button>
@@ -143,19 +199,13 @@ export default function KeybindsSection({ settings, update }: Props) {
         description="Set a keyboard shortcut for each page. Press the key you want to bind."
       >
         {PAGES.map((page) => (
-          <div className="settings-row" key={page.key}>
-            <div className="settings-label-group">
-              <span className="settings-label">{page.label}</span>
-              <span className="settings-sublabel">
-                Switch to the {page.label} page.
-              </span>
-            </div>
-            <KeyCaptureInput
-              className="settings-keybind-capture"
-              value={settings[page.key]}
-              onChange={(key) => update({ [page.key]: key })}
-            />
-          </div>
+          <KeybindRow
+            key={page.key}
+            label={page.label}
+            sublabel={`Switch to the ${page.label} page.`}
+            value={settings[page.key]}
+            onChange={pageHandlers[page.key]}
+          />
         ))}
       </SettingsCard>
 
@@ -166,17 +216,13 @@ export default function KeybindsSection({ settings, update }: Props) {
           description="Bind a key to flip a setting from anywhere in the app. Empty by default."
         >
           {group.items.map((item) => (
-            <div className="settings-row" key={item.key}>
-              <div className="settings-label-group">
-                <span className="settings-label">{item.label}</span>
-                <span className="settings-sublabel">{item.sublabel}</span>
-              </div>
-              <KeyCaptureInput
-                className="settings-keybind-capture"
-                value={settings[item.key] as string}
-                onChange={(key) => update({ [item.key]: key })}
-              />
-            </div>
+            <KeybindRow
+              key={item.key}
+              label={item.label}
+              sublabel={item.sublabel}
+              value={settings[item.key] as string}
+              onChange={toggleHandlers[item.key]}
+            />
           ))}
         </SettingsCard>
       ))}

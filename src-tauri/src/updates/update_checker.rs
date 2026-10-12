@@ -1,6 +1,6 @@
+use std::sync::OnceLock;
 use std::time::Duration;
 
-use futures_util::StreamExt;
 use reqwest::header::USER_AGENT;
 use serde::Deserialize;
 use tauri::AppHandle;
@@ -9,6 +9,17 @@ use crate::error::AppError;
 use crate::error::AppResult;
 
 const MAX_RESPONSE_BYTES: u64 = 1_000_000;
+
+static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn http_client() -> &'static reqwest::Client {
+    HTTP_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .expect("HTTP client builder with fixed 10s timeout should not fail")
+    })
+}
 
 fn ensure_size(len: Option<u64>) -> Result<(), AppError> {
     if let Some(n) = len {
@@ -27,10 +38,7 @@ struct GithubRelease {
 #[tauri::command]
 pub async fn fetch_changelog() -> AppResult<String> {
     let url = "https://raw.githubusercontent.com/Blur009/Blur-AutoClicker/main/CHANGELOG.md";
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .map_err(|e| AppError::Network(format!("Failed to build HTTP client: {}", e)))?;
+    let client = http_client();
 
     let response = client
         .get(url)
@@ -43,33 +51,27 @@ pub async fn fetch_changelog() -> AppResult<String> {
 
     ensure_size(response.content_length())?;
 
-    let mut stream = response.bytes_stream();
-    let mut buf = Vec::new();
-    while let Some(chunk) = stream.next().await {
-        let chunk =
-            chunk.map_err(|e| AppError::Network(format!("Failed to read changelog: {}", e)))?;
-        if (buf.len() + chunk.len()) as u64 > MAX_RESPONSE_BYTES {
-            return Err(AppError::Network(format!(
-                "Changelog too large (>{} bytes)",
-                MAX_RESPONSE_BYTES
-            )));
-        }
-        buf.extend_from_slice(&chunk);
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| AppError::Network(format!("Failed to read changelog: {}", e)))?;
+    if bytes.len() as u64 > MAX_RESPONSE_BYTES {
+        return Err(AppError::Network(format!(
+            "Changelog too large (>{} bytes)",
+            MAX_RESPONSE_BYTES
+        )));
     }
-    let text = String::from_utf8(buf)
+    let text = std::str::from_utf8(&bytes)
         .map_err(|e| AppError::Network(format!("Changelog not valid UTF-8: {}", e)))?;
 
-    Ok(text.trim().to_string())
+    Ok(text.trim().to_owned())
 }
 
 #[tauri::command]
 pub async fn check_for_updates(app: AppHandle) -> AppResult<Option<CheckUpdateResult>> {
     let current_version = app.config().version.clone().unwrap_or("0.0.0".into());
     let url = "https://api.github.com/repos/Blur009/Blur-AutoClicker/releases/latest";
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .map_err(|e| AppError::Network(format!("Failed to build HTTP client: {}", e)))?;
+    let client = http_client();
 
     let response = client
         .get(url)
@@ -83,23 +85,21 @@ pub async fn check_for_updates(app: AppHandle) -> AppResult<Option<CheckUpdateRe
     ensure_size(response.content_length())?;
 
     if response.status().is_success() {
-        let mut stream = response.bytes_stream();
-        let mut buf = Vec::new();
-        while let Some(chunk) = stream.next().await {
-            let chunk =
-                chunk.map_err(|e| AppError::Network(format!("Failed to read release: {}", e)))?;
-            if (buf.len() + chunk.len()) as u64 > MAX_RESPONSE_BYTES {
-                return Err(AppError::Network(format!(
-                    "Release response too large (>{} bytes)",
-                    MAX_RESPONSE_BYTES
-                )));
-            }
-            buf.extend_from_slice(&chunk);
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| AppError::Network(format!("Failed to read release: {}", e)))?;
+        if bytes.len() as u64 > MAX_RESPONSE_BYTES {
+            return Err(AppError::Network(format!(
+                "Release response too large (>{} bytes)",
+                MAX_RESPONSE_BYTES
+            )));
         }
-        let text = String::from_utf8(buf)
-            .map_err(|e| AppError::Network(format!("Release not valid UTF-8: {}", e)))?;
+        let text = std::str::from_utf8(&bytes)
+            .map_err(|e| AppError::Network(format!("Release not valid UTF-8: {}", e)))?
+            .trim();
 
-        let release: GithubRelease = serde_json::from_str(text.trim())
+        let release: GithubRelease = serde_json::from_slice(text.as_bytes())
             .map_err(|e| AppError::Network(format!("Failed to parse release: {}", e)))?;
 
         if is_update_available(&release.tag_name, &current_version) {

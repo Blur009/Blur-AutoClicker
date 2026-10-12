@@ -120,6 +120,161 @@ const NUMPAD_LOCATION_KEY_MAP: Record<string, string> = {
   ".": "numpaddecimal",
 };
 
+const MOUSE_TOKEN_MAP: Record<string, string> = {
+  mouseleft: "mouseleft",
+  leftmouse: "mouseleft",
+  leftbutton: "mouseleft",
+  mouse1: "mouseleft",
+  lmb: "mouseleft",
+  mouseright: "mouseright",
+  rightmouse: "mouseright",
+  rightbutton: "mouseright",
+  mouse2: "mouseright",
+  rmb: "mouseright",
+  mousemiddle: "mousemiddle",
+  middlemouse: "mousemiddle",
+  middlebutton: "mousemiddle",
+  mouse3: "mousemiddle",
+  mmb: "mousemiddle",
+  scrollbutton: "mousemiddle",
+  middleclick: "mousemiddle",
+  mouse4: "mouse4",
+  xbutton1: "mouse4",
+  mouseback: "mouse4",
+  browserback: "mouse4",
+  backbutton: "mouse4",
+  mouse5: "mouse5",
+  xbutton2: "mouse5",
+  mouseforward: "mouse5",
+  browserforward: "mouse5",
+  forwardbutton: "mouse5",
+};
+
+const NUMPAD_TOKEN_MAP: Record<string, string> = {
+  numpadadd: "numpadadd",
+  numadd: "numpadadd",
+  numplus: "numpadadd",
+  numpadplus: "numpadadd",
+  numpadsubtract: "numpadsubtract",
+  numsubtract: "numpadsubtract",
+  numsub: "numpadsubtract",
+  numminus: "numpadsubtract",
+  numpadminus: "numpadsubtract",
+  numpadmultiply: "numpadmultiply",
+  nummultiply: "numpadmultiply",
+  nummul: "numpadmultiply",
+  numpadmul: "numpadmultiply",
+  numpaddivide: "numpaddivide",
+  numdivide: "numpaddivide",
+  numdiv: "numpaddivide",
+  numpaddiv: "numpaddivide",
+  numpaddecimal: "numpaddecimal",
+  numdecimal: "numpaddecimal",
+  numdot: "numpaddecimal",
+  numdel: "numpaddecimal",
+  numpadpoint: "numpaddecimal",
+};
+
+const NAMED_KEY_MAP: Record<string, string> = {
+  enter: "enter",
+  tab: "tab",
+  spacebar: "space",
+  backspace: "backspace",
+  delete: "delete",
+  insert: "insert",
+  home: "home",
+  end: "end",
+  pageup: "pageup",
+  pagedown: "pagedown",
+  arrowup: "up",
+  arrowdown: "down",
+  arrowleft: "left",
+  arrowright: "right",
+  capslock: "capslock",
+  numlock: "numlock",
+  scrolllock: "scrolllock",
+  printscreen: "printscreen",
+  pause: "pause",
+  break: "pause",
+  contextmenu: "menu",
+  apps: "menu",
+  menu: "menu",
+  escape: "escape",
+  esc: "escape",
+  leftctrl: "leftctrl",
+  ctrlleft: "leftctrl",
+  lctrl: "leftctrl",
+  rightctrl: "rightctrl",
+  ctrlright: "rightctrl",
+  rctrl: "rightctrl",
+  leftshift: "leftshift",
+  shiftleft: "leftshift",
+  lshift: "leftshift",
+  rightshift: "rightshift",
+  shiftright: "rightshift",
+  rshift: "rightshift",
+  leftalt: "leftalt",
+  altleft: "leftalt",
+  lalt: "leftalt",
+  rightalt: "rightalt",
+  altright: "rightalt",
+  ralt: "rightalt",
+  altgr: "rightalt",
+  leftsuper: "leftsuper",
+  superleft: "leftsuper",
+  leftwin: "leftsuper",
+  winleft: "leftsuper",
+  lwin: "leftsuper",
+  rightsuper: "rightsuper",
+  superright: "rightsuper",
+  rightwin: "rightsuper",
+  winright: "rightsuper",
+  rwin: "rightsuper",
+};
+
+const NAMED_DISPLAY_MAP: Record<string, string> = {
+  up: "Up",
+  down: "Down",
+  left: "Left",
+  right: "Right",
+  pageup: "Page Up",
+  pagedown: "Page Down",
+  backspace: "Backspace",
+  delete: "Delete",
+  insert: "Insert",
+  home: "Home",
+  end: "End",
+  enter: "Enter",
+  tab: "Tab",
+  space: "Space",
+  escape: "Esc",
+  esc: "Esc",
+  capslock: "Caps Lock",
+  numlock: "Num Lock",
+  scrolllock: "Scroll Lock",
+  printscreen: "Print Screen",
+  pause: "Pause",
+  menu: "Menu",
+  leftctrl: "Left Ctrl",
+  rightctrl: "Right Ctrl",
+  leftshift: "Left Shift",
+  rightshift: "Right Shift",
+  leftalt: "Left Alt",
+  rightalt: "Right Alt",
+  leftsuper: "Left Super",
+  rightsuper: "Right Super",
+  numpadadd: "Num +",
+  numpadsubtract: "Num -",
+  numpadmultiply: "Num *",
+  numpaddivide: "Num /",
+  numpaddecimal: "Num .",
+  mouseleft: "Mouse Left",
+  mouseright: "Mouse Right",
+  mousemiddle: "Mouse Middle",
+  mouse4: "Mouse Back",
+  mouse5: "Mouse Forward",
+};
+
 type LayoutMapLike = {
   get(code: string): string | undefined;
 };
@@ -218,38 +373,7 @@ function normalizeModifierToken(token: string): string | null {
 
 function normalizeMouseToken(token: string): string | null {
   const lower = token.trim().toLowerCase();
-
-  const mouseMap: Record<string, string> = {
-    mouseleft: "mouseleft",
-    leftmouse: "mouseleft",
-    leftbutton: "mouseleft",
-    mouse1: "mouseleft",
-    lmb: "mouseleft",
-    mouseright: "mouseright",
-    rightmouse: "mouseright",
-    rightbutton: "mouseright",
-    mouse2: "mouseright",
-    rmb: "mouseright",
-    mousemiddle: "mousemiddle",
-    middlemouse: "mousemiddle",
-    middlebutton: "mousemiddle",
-    mouse3: "mousemiddle",
-    mmb: "mousemiddle",
-    scrollbutton: "mousemiddle",
-    middleclick: "mousemiddle",
-    mouse4: "mouse4",
-    xbutton1: "mouse4",
-    mouseback: "mouse4",
-    browserback: "mouse4",
-    backbutton: "mouse4",
-    mouse5: "mouse5",
-    xbutton2: "mouse5",
-    mouseforward: "mouse5",
-    browserforward: "mouse5",
-    forwardbutton: "mouse5",
-  };
-
-  return mouseMap[lower] ?? null;
+  return MOUSE_TOKEN_MAP[lower] ?? null;
 }
 
 function normalizeNumpadToken(token: string): string | null {
@@ -263,99 +387,17 @@ function normalizeNumpadToken(token: string): string | null {
     return `numpad${lower.slice(3)}`;
   }
 
-  const numpadMap: Record<string, string> = {
-    numpadadd: "numpadadd",
-    numadd: "numpadadd",
-    numplus: "numpadadd",
-    numpadplus: "numpadadd",
-    numpadsubtract: "numpadsubtract",
-    numsubtract: "numpadsubtract",
-    numsub: "numpadsubtract",
-    numminus: "numpadsubtract",
-    numpadminus: "numpadsubtract",
-    numpadmultiply: "numpadmultiply",
-    nummultiply: "numpadmultiply",
-    nummul: "numpadmultiply",
-    numpadmul: "numpadmultiply",
-    numpaddivide: "numpaddivide",
-    numdivide: "numpaddivide",
-    numdiv: "numpaddivide",
-    numpaddiv: "numpaddivide",
-    numpaddecimal: "numpaddecimal",
-    numdecimal: "numpaddecimal",
-    numdot: "numpaddecimal",
-    numdel: "numpaddecimal",
-    numpadpoint: "numpaddecimal",
-  };
-
-  return numpadMap[lower] ?? null;
+  return NUMPAD_TOKEN_MAP[lower] ?? null;
 }
 
 function normalizeNamedKey(key: string): string | null {
   const lower = key.toLowerCase();
 
-  const keyMap: Record<string, string> = {
-    enter: "enter",
-    tab: "tab",
-    spacebar: "space",
-    backspace: "backspace",
-    delete: "delete",
-    insert: "insert",
-    home: "home",
-    end: "end",
-    pageup: "pageup",
-    pagedown: "pagedown",
-    arrowup: "up",
-    arrowdown: "down",
-    arrowleft: "left",
-    arrowright: "right",
-    capslock: "capslock",
-    numlock: "numlock",
-    scrolllock: "scrolllock",
-    printscreen: "printscreen",
-    pause: "pause",
-    break: "pause",
-    contextmenu: "menu",
-    apps: "menu",
-    menu: "menu",
-    escape: "escape",
-    esc: "escape",
-    leftctrl: "leftctrl",
-    ctrlleft: "leftctrl",
-    lctrl: "leftctrl",
-    rightctrl: "rightctrl",
-    ctrlright: "rightctrl",
-    rctrl: "rightctrl",
-    leftshift: "leftshift",
-    shiftleft: "leftshift",
-    lshift: "leftshift",
-    rightshift: "rightshift",
-    shiftright: "rightshift",
-    rshift: "rightshift",
-    leftalt: "leftalt",
-    altleft: "leftalt",
-    lalt: "leftalt",
-    rightalt: "rightalt",
-    altright: "rightalt",
-    ralt: "rightalt",
-    altgr: "rightalt",
-    leftsuper: "leftsuper",
-    superleft: "leftsuper",
-    leftwin: "leftsuper",
-    winleft: "leftsuper",
-    lwin: "leftsuper",
-    rightsuper: "rightsuper",
-    superright: "rightsuper",
-    rightwin: "rightsuper",
-    winright: "rightsuper",
-    rwin: "rightsuper",
-  };
-
   if (/^f\d{1,2}$/i.test(key)) {
     return lower;
   }
 
-  return keyMap[lower] ?? null;
+  return NAMED_KEY_MAP[lower] ?? null;
 }
 
 function mainKeyFromCode(
@@ -511,6 +553,27 @@ const SIDE_MODIFIER_TOKENS = new Set([
   "rwin",
 ]);
 
+const LEFT_CTRL_TOKENS = new Set(["leftctrl", "ctrlleft", "lctrl"]);
+const RIGHT_CTRL_TOKENS = new Set(["rightctrl", "ctrlright", "rctrl"]);
+const LEFT_ALT_TOKENS = new Set(["leftalt", "altleft", "lalt"]);
+const RIGHT_ALT_TOKENS = new Set(["rightalt", "altright", "ralt", "altgr"]);
+const LEFT_SHIFT_TOKENS = new Set(["leftshift", "shiftleft", "lshift"]);
+const RIGHT_SHIFT_TOKENS = new Set(["rightshift", "shiftright", "rshift"]);
+const LEFT_SUPER_TOKENS = new Set([
+  "leftsuper",
+  "superleft",
+  "leftwin",
+  "winleft",
+  "lwin",
+]);
+const RIGHT_SUPER_TOKENS = new Set([
+  "rightsuper",
+  "superright",
+  "rightwin",
+  "winright",
+  "rwin",
+]);
+
 export function hotkeyMainKeys(hotkey: string): string[] {
   if (!hotkey) return [];
   const parts = hotkey
@@ -567,51 +630,8 @@ function displayTokenFromStoredValue(
     return `Num ${lower.slice(6)}`;
   }
 
-  const namedDisplayMap: Record<string, string> = {
-    up: "Up",
-    down: "Down",
-    left: "Left",
-    right: "Right",
-    pageup: "Page Up",
-    pagedown: "Page Down",
-    backspace: "Backspace",
-    delete: "Delete",
-    insert: "Insert",
-    home: "Home",
-    end: "End",
-    enter: "Enter",
-    tab: "Tab",
-    space: "Space",
-    escape: "Esc",
-    esc: "Esc",
-    capslock: "Caps Lock",
-    numlock: "Num Lock",
-    scrolllock: "Scroll Lock",
-    printscreen: "Print Screen",
-    pause: "Pause",
-    menu: "Menu",
-    leftctrl: "Left Ctrl",
-    rightctrl: "Right Ctrl",
-    leftshift: "Left Shift",
-    rightshift: "Right Shift",
-    leftalt: "Left Alt",
-    rightalt: "Right Alt",
-    leftsuper: "Left Super",
-    rightsuper: "Right Super",
-    numpadadd: "Num +",
-    numpadsubtract: "Num -",
-    numpadmultiply: "Num *",
-    numpaddivide: "Num /",
-    numpaddecimal: "Num .",
-    mouseleft: "Mouse Left",
-    mouseright: "Mouse Right",
-    mousemiddle: "Mouse Middle",
-    mouse4: "Mouse Back",
-    mouse5: "Mouse Forward",
-  };
-
-  if (namedDisplayMap[lower]) {
-    return labels?.keys[lower] ?? namedDisplayMap[lower];
+  if (NAMED_DISPLAY_MAP[lower]) {
+    return labels?.keys[lower] ?? NAMED_DISPLAY_MAP[lower];
   }
 
   return trimmed;
@@ -785,41 +805,35 @@ function canonicalizeHotkeyString(
     if (!part) continue;
 
     // side-specific first
-    if (["leftctrl", "ctrlleft", "lctrl"].includes(part)) {
+    if (LEFT_CTRL_TOKENS.has(part)) {
       leftCtrl = true;
       continue;
     }
-    if (["rightctrl", "ctrlright", "rctrl"].includes(part)) {
+    if (RIGHT_CTRL_TOKENS.has(part)) {
       rightCtrl = true;
       continue;
     }
-    if (["leftalt", "altleft", "lalt"].includes(part)) {
+    if (LEFT_ALT_TOKENS.has(part)) {
       leftAlt = true;
       continue;
     }
-    if (["rightalt", "altright", "ralt", "altgr"].includes(part)) {
+    if (RIGHT_ALT_TOKENS.has(part)) {
       rightAlt = true;
       continue;
     }
-    if (["leftshift", "shiftleft", "lshift"].includes(part)) {
+    if (LEFT_SHIFT_TOKENS.has(part)) {
       leftShift = true;
       continue;
     }
-    if (["rightshift", "shiftright", "rshift"].includes(part)) {
+    if (RIGHT_SHIFT_TOKENS.has(part)) {
       rightShift = true;
       continue;
     }
-    if (
-      ["leftsuper", "superleft", "leftwin", "winleft", "lwin"].includes(part)
-    ) {
+    if (LEFT_SUPER_TOKENS.has(part)) {
       leftSuper = true;
       continue;
     }
-    if (
-      ["rightsuper", "superright", "rightwin", "winright", "rwin"].includes(
-        part,
-      )
-    ) {
+    if (RIGHT_SUPER_TOKENS.has(part)) {
       rightSuper = true;
       continue;
     }

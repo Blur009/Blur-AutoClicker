@@ -72,13 +72,6 @@ function reorderClickPoints(
   ];
 }
 
-function haveSameOrder(a: ClickPoint[], b: ClickPoint[]) {
-  return (
-    a.length === b.length &&
-    a.every((point, index) => point.id === b[index]?.id)
-  );
-}
-
 export default function ClickPointsContent({
   settings,
   update,
@@ -245,20 +238,41 @@ export default function ClickPointsContent({
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [cancelPick, picking]);
 
-  const updatePoint = (index: number, patch: Partial<ClickPoint>) => {
-    const nextPoints = settings.clickPoints.map(
-      (point: ClickPoint, pointIndex: number) =>
-        pointIndex === index ? { ...point, ...patch } : point,
-    );
-    update({ clickPoints: nextPoints });
-  };
+  const commitPoints = useCallback(
+    (nextPoints: ClickPoint[]) => {
+      const current = latestPointsRef.current;
+      if (
+        current.length === nextPoints.length &&
+        current.every((point, index) => point === nextPoints[index])
+      ) {
+        return;
+      }
+      latestPointsRef.current = nextPoints;
+      update({ clickPoints: nextPoints });
+    },
+    [update],
+  );
 
-  const deletePoint = (index: number) => {
-    const nextPoints = settings.clickPoints.filter(
-      (_: ClickPoint, pointIndex: number) => pointIndex !== index,
-    );
-    update({ clickPoints: nextPoints });
-  };
+  const updatePoint = useCallback(
+    (index: number, patch: Partial<ClickPoint>) => {
+      const nextPoints = latestPointsRef.current.map(
+        (point: ClickPoint, pointIndex: number) =>
+          pointIndex === index ? { ...point, ...patch } : point,
+      );
+      commitPoints(nextPoints);
+    },
+    [commitPoints],
+  );
+
+  const deletePoint = useCallback(
+    (index: number) => {
+      const nextPoints = latestPointsRef.current.filter(
+        (_: ClickPoint, pointIndex: number) => pointIndex !== index,
+      );
+      commitPoints(nextPoints);
+    },
+    [commitPoints],
+  );
 
   const setItemRef = useCallback(
     (pointId: string, node: HTMLDivElement | null) => {
@@ -283,17 +297,6 @@ export default function ClickPointsContent({
       viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 6;
     setShowBottomFade(hasMoreBelow);
   }, []);
-
-  const commitPoints = useCallback(
-    (nextPoints: ClickPoint[]) => {
-      if (haveSameOrder(latestPointsRef.current, nextPoints)) {
-        return;
-      }
-      latestPointsRef.current = nextPoints;
-      update({ clickPoints: nextPoints });
-    },
-    [update],
-  );
 
   const computeInsertionIndex = useCallback(
     (clientY: number, draggedId: string) => {
@@ -468,6 +471,7 @@ export default function ClickPointsContent({
 
   const activeIndex =
     running && settings.clickPointsEnabled ? activeClickPointIndex : null;
+  const effectiveIntervalMs = getEffectiveIntervalMs(settings);
 
   const handleDragStart = useCallback(
     (
@@ -556,7 +560,7 @@ export default function ClickPointsContent({
                       const isActive = activeIndex === index;
                       const stepDurationMs = Math.max(
                         1,
-                        point.clicks * getEffectiveIntervalMs(settings),
+                        point.clicks * effectiveIntervalMs,
                       );
 
                       return (
@@ -566,7 +570,7 @@ export default function ClickPointsContent({
                           index={index}
                           isActive={isActive}
                           isDragging={draggingId === point.id}
-                          activeTick={activeClickPointTick}
+                          activeTick={isActive ? activeClickPointTick : 0}
                           stepDurationMs={stepDurationMs}
                           onUpdate={updatePoint}
                           onDelete={deletePoint}

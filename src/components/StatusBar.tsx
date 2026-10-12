@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import "./StatusBar.css";
 
 interface Props {
@@ -65,7 +65,7 @@ function formatElapsed(ms: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export default function StatusBar({
+export default memo(function StatusBar({
   activePresetName,
   version,
   stopReason,
@@ -95,7 +95,7 @@ export default function StatusBar({
         );
       };
       tick();
-      intervalRef.current = setInterval(tick, 200);
+      intervalRef.current = setInterval(tick, 500);
     } else if (running && paused) {
       if (segmentStartRef.current !== null) {
         baseElapsedRef.current += Date.now() - segmentStartRef.current;
@@ -208,4 +208,4 @@ export default function StatusBar({
       </div>
     </div>
   );
-}
+});

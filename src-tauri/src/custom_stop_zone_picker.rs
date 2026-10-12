@@ -242,31 +242,29 @@ fn stop_custom_stop_zone_pick(
 
 unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code < 0 {
-        return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
+        return unsafe { CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam) };
     }
 
     let message = wparam as u32;
-    let mouse = &*(lparam as *const MSLLHOOKSTRUCT);
-    let drawing = picker()
-        .lock()
-        .unwrap_or_else(poisoned_inner)
-        .drawing_start
-        .is_some();
+    let mouse = unsafe { &*(lparam as *const MSLLHOOKSTRUCT) };
+    let drawing_start = picker().lock().unwrap_or_else(poisoned_inner).drawing_start;
+    let drawing = drawing_start.is_some();
 
     if message == WM_MOUSEMOVE {
         if should_emit_drag_preview(drawing) {
-            let start = picker().lock().unwrap_or_else(poisoned_inner).drawing_start;
-            if let Some(start) = start {
+            if let Some(start) = drawing_start {
                 emit_preview(start, (mouse.pt.x, mouse.pt.y), false);
             }
         } else {
             emit_cursor_position(mouse.pt.x, mouse.pt.y);
         }
-        return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
+        return unsafe { CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam) };
     }
 
     match classify_mouse_message(message, drawing) {
-        MouseHookDecision::Pass => CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam),
+        MouseHookDecision::Pass => unsafe {
+            CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam)
+        },
         MouseHookDecision::StartDrawing => {
             {
                 let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
@@ -277,8 +275,7 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
             1
         }
         MouseHookDecision::FinishDrawing => {
-            let start = picker().lock().unwrap_or_else(poisoned_inner).drawing_start;
-            if let Some(start) = start {
+            if let Some(start) = drawing_start {
                 finish_custom_stop_zone_pick(normalize_rect(start, (mouse.pt.x, mouse.pt.y)));
             }
             1
@@ -288,14 +285,16 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
 
 unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code < 0 {
-        return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
+        return unsafe { CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam) };
     }
 
     let message = wparam as u32;
-    let keyboard = &*(lparam as *const KBDLLHOOKSTRUCT);
+    let keyboard = unsafe { &*(lparam as *const KBDLLHOOKSTRUCT) };
 
     match classify_keyboard_message(message, keyboard.vkCode) {
-        KeyboardHookDecision::Pass => CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam),
+        KeyboardHookDecision::Pass => unsafe {
+            CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam)
+        },
         KeyboardHookDecision::Cancel => {
             cancel_custom_stop_zone_pick_from_hook();
             1
