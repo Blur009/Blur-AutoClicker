@@ -1,12 +1,13 @@
 use tauri::AppHandle;
 
 #[cfg(target_os = "windows")]
-static TRIM_MAPS: std::sync::Mutex<
-    Option<(
-        std::collections::HashMap<u32, Vec<u32>>,
-        std::collections::HashMap<u32, bool>,
-    )>,
-> = std::sync::Mutex::new(None);
+type TrimMaps = Option<(
+    std::collections::HashMap<u32, Vec<u32>>,
+    std::collections::HashMap<u32, bool>,
+)>;
+
+#[cfg(target_os = "windows")]
+static TRIM_MAPS: std::sync::Mutex<TrimMaps> = std::sync::Mutex::new(None);
 
 #[cfg(target_os = "windows")]
 fn trim_webview_processes() {

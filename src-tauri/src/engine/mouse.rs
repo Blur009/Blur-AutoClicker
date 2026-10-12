@@ -304,18 +304,22 @@ pub fn cubic_bezier(t: f64, p0: f64, p1: f64, p2: f64, p3: f64) -> f64 {
     u * u * u * p0 + 3.0 * u * u * t * p1 + 3.0 * u * t * t * p2 + t * t * t * p3
 }
 
+struct SmoothMoveCtx<'a> {
+    rng: &'a mut crate::engine::rng::SmallRng,
+    allow_overshoot: bool,
+    screen_rect: Option<VirtualScreenRect>,
+}
+
 fn smooth_move_inner(
     start_x: i32,
     start_y: i32,
     end_x: i32,
     end_y: i32,
     duration_ms: u64,
-    rng: &mut crate::engine::rng::SmallRng,
-    allow_overshoot: bool,
-    screen_rect: Option<VirtualScreenRect>,
+    ctx: &mut SmoothMoveCtx<'_>,
 ) {
     if duration_ms < 3 || (start_x == end_x && start_y == end_y) {
-        move_mouse_with_rect(end_x, end_y, screen_rect);
+        move_mouse_with_rect(end_x, end_y, ctx.screen_rect);
         return;
     }
 
@@ -326,7 +330,7 @@ fn smooth_move_inner(
     let distance = delta_x.hypot(delta_y);
 
     if distance < 3.0 {
-        move_mouse_with_rect(end_x, end_y, screen_rect);
+        move_mouse_with_rect(end_x, end_y, ctx.screen_rect);
         return;
     }
 
@@ -339,27 +343,27 @@ fn smooth_move_inner(
     let tick_duration = Duration::from_millis(duration_ms) / steps as u32;
     let start_time = Instant::now();
 
-    let cp1_ratio = rng.next_f64() * 0.28 + 0.20;
-    let cp2_ratio = rng.next_f64() * 0.24 + 0.55;
+    let cp1_ratio = ctx.rng.next_f64() * 0.28 + 0.20;
+    let cp2_ratio = ctx.rng.next_f64() * 0.24 + 0.55;
 
     let max_perp_offset = (distance * 0.29).min(76.0);
 
     let perp_x = -delta_y / distance;
     let perp_y = delta_x / distance;
 
-    let offset_1 = (rng.next_f64() * 0.41 + 0.07)
+    let offset_1 = (ctx.rng.next_f64() * 0.41 + 0.07)
         * max_perp_offset
-        * (if rng.next_f64() >= 0.5 { 1.0 } else { -1.0 });
-    let offset_2 = (rng.next_f64() * 0.41 + 0.07)
+        * (if ctx.rng.next_f64() >= 0.5 { 1.0 } else { -1.0 });
+    let offset_2 = (ctx.rng.next_f64() * 0.41 + 0.07)
         * max_perp_offset
-        * (if rng.next_f64() >= 0.5 { 1.0 } else { -1.0 });
+        * (if ctx.rng.next_f64() >= 0.5 { 1.0 } else { -1.0 });
 
     let control_1x = start_x + delta_x * cp1_ratio + perp_x * offset_1;
     let control_1y = start_y + delta_y * cp1_ratio + perp_y * offset_1;
     let control_2x = start_x + delta_x * cp2_ratio + perp_x * offset_2;
     let control_2y = start_y + delta_y * cp2_ratio + perp_y * offset_2;
 
-    let mid_wobble = rng.next_f64() < 0.37 && duration_ms > 22;
+    let mid_wobble = ctx.rng.next_f64() < 0.37 && duration_ms > 22;
     let wobble_step = if mid_wobble { steps / 2 } else { 0 };
 
     for i in 0..=steps {
@@ -370,13 +374,13 @@ fn smooth_move_inner(
         let mut current_y = cubic_bezier(ease, start_y, control_1y, control_2y, target_y);
 
         if mid_wobble && i == wobble_step {
-            let wobble = rng.next_f64() * 1.7 + 0.7;
-            let sign = if rng.next_f64() >= 0.5 { 1.0 } else { -1.0 };
+            let wobble = ctx.rng.next_f64() * 1.7 + 0.7;
+            let sign = if ctx.rng.next_f64() >= 0.5 { 1.0 } else { -1.0 };
             current_x += perp_x * wobble * sign;
             current_y += perp_y * wobble * sign;
         }
 
-        move_mouse_with_rect(current_x as i32, current_y as i32, screen_rect);
+        move_mouse_with_rect(current_x as i32, current_y as i32, ctx.screen_rect);
 
         if i < steps {
             let elapsed = start_time.elapsed();
@@ -388,8 +392,8 @@ fn smooth_move_inner(
         }
     }
 
-    if allow_overshoot && duration_ms > 16 && rng.next_f64() < 0.47 {
-        let overshoot_amount = rng.next_f64() * 6.3 + 2.2;
+    if ctx.allow_overshoot && duration_ms > 16 && ctx.rng.next_f64() < 0.47 {
+        let overshoot_amount = ctx.rng.next_f64() * 6.3 + 2.2;
         let dir_x = delta_x / distance;
         let dir_y = delta_y / distance;
 
@@ -398,25 +402,15 @@ fn smooth_move_inner(
 
         let correction_ms = (duration_ms as f64 * 0.19).max(4.0) as u64;
 
-        smooth_move_inner(
-            end_x,
-            end_y,
-            over_x,
-            over_y,
-            correction_ms,
-            rng,
-            false,
-            screen_rect,
-        );
+        ctx.allow_overshoot = false;
+        smooth_move_inner(end_x, end_y, over_x, over_y, correction_ms, ctx);
         smooth_move_inner(
             over_x,
             over_y,
             end_x,
             end_y,
             (correction_ms * 2 / 3).max(3),
-            rng,
-            false,
-            screen_rect,
+            ctx,
         );
     }
 }
@@ -430,14 +424,10 @@ pub fn smooth_move(
     rng: &mut crate::engine::rng::SmallRng,
 ) {
     let screen_rect = current_virtual_screen_rect();
-    smooth_move_inner(
-        start_x,
-        start_y,
-        end_x,
-        end_y,
-        duration_ms,
+    let mut ctx = SmoothMoveCtx {
         rng,
-        true,
+        allow_overshoot: true,
         screen_rect,
-    );
+    };
+    smooth_move_inner(start_x, start_y, end_x, end_y, duration_ms, &mut ctx);
 }
