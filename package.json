@@ -46,7 +46,7 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
     "jsdom": "^30.1.2",
-    "lefthook": "^2.1.16",
+    "lefthook": "^2.2.1",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.1",
