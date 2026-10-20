@@ -51,7 +51,7 @@ chrono = "0.4"
 # vendored would require depot_tools + python and breaks `cargo check` without it
 crashpad-rs = { version = "0.2", features = ["prebuilt"], optional = true }
 walkdir = "2"
-zip = "8.6.0"
+zip = "9.0.4"
 open = "5.4.1"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 rusqlite_migration = "2.6.0"
