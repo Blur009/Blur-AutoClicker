@@ -22,7 +22,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/cli": "^2.12.1",
-    "@tauri-apps/plugin-dialog": "^2.7.3",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
     "@tauri-apps/plugin-fs": "^2.7.1",
     "@tauri-apps/plugin-log": "^2.10.1",
     "@tauri-apps/plugin-opener": "^2.7.2",
