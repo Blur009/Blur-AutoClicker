@@ -1,0 +1,25 @@
+# cargo-audit config. Read by `cargo audit` when run from src-tauri/ (our CI).
+#
+# Everything else is either patched or a warning we accept. The three ignores
+# below are all zip advisories that need zip >= 9.0.0, which two of our
+# transitive deps cannot take yet.
+
+[advisories]
+ignore = [
+  # RUSTSEC-2026-0367: extract() keeps SUID/SGID bits from the archive.
+  # RUSTSEC-2026-0368: symlink entries can point outside the destination.
+  # RUSTSEC-2026-0369: extract() applies permissions through symlinks.
+  #
+  # Both affect only the `extract()` path, which we never feed untrusted bytes:
+  # - tauri-plugin-updater 2.13.3 (windows-only zip ^4) verifies the minisign
+  #   signature over the downloaded archive before extracting it, so forging an
+  #   archive requires our private key.
+  # - crashpad-rs-sys 0.2.7 (build-dependency, zip 0.6) unpacks the prebuilt
+  #   Crashpad archive that build.rs pins by SHA-256.
+  # Neither runs as root on Unix: the updater runs as the user, the build script
+  # as the developer or CI runner. Windows has no SUID bits at all.
+  # Drop these once tauri-plugin-updater and crashpad-rs move to zip 9.
+  "RUSTSEC-2026-0367",
+  "RUSTSEC-2026-0368",
+  "RUSTSEC-2026-0369",
+]
