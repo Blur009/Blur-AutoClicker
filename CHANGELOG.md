@@ -1,5 +1,9 @@
 # v3.9.7 - 12.10.2026 (d.m.y)
 
+## New
+
+- Added an overlay to show when the clicker is active. Settings → Overlay. On by default. 
+
 ## Changed
 
 - Small perforance improvements.

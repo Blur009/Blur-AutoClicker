@@ -12,6 +12,7 @@ mod custom_stop_zone_picker;
 mod engine;
 mod hotkeys;
 mod icon;
+mod indicator;
 mod overlay;
 mod ui_commands;
 mod updates;
@@ -472,6 +473,33 @@ fn create_clicker_state() -> ClickerState {
     }
 }
 
+pub fn sync_indicator_config(app: &AppHandle) {
+    let state = app.state::<ClickerState>();
+    let settings = state.settings.lock().unwrap_or_else(poisoned_inner).clone();
+    let (accent, theme) = {
+        let icon_state = state.icon_state.lock().unwrap_or_else(poisoned_inner);
+        (icon_state.accent_color.clone(), icon_state.theme.clone())
+    };
+
+    crate::indicator::apply_config(crate::indicator::IndicatorConfig {
+        enabled: settings.indicator_enabled,
+        corner: settings.indicator_corner,
+        size: settings.indicator_size,
+        offset_x: settings.indicator_offset_x,
+        offset_y: settings.indicator_offset_y,
+        color_mode: settings.indicator_color_mode,
+        accent_hex: accent,
+        custom_hex: settings.indicator_custom_color,
+        flash_enabled: settings.indicator_flash_enabled,
+        flash_dim: settings.indicator_flash_dim,
+        countdown_enabled: settings.indicator_countdown_enabled,
+        countdown_mode: settings.indicator_countdown_mode,
+        background_mode: settings.indicator_background_mode,
+        background_strength: settings.indicator_background_strength,
+        theme,
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     crate::portable::init();
@@ -552,6 +580,8 @@ pub fn run() {
             crate::icon::set_icon_theme(
                 &handle, "#22c55e", "dark", true, "auto", "theme",
             );
+            crate::indicator::init(&handle);
+            sync_indicator_config(&handle);
             spawn_overlay_auto_hide(&handle);
             spawn_start_zone_monitor(&handle);
             window_lifecycle::start_periodic_trimming(30);
@@ -596,6 +626,7 @@ pub fn run() {
             ui_commands::open_diagnostics_folder,
             ui_commands::export_diagnostics_bundle,
             ui_commands::set_accent_color,
+            ui_commands::get_indicator_config,
             ui_commands::debug_trigger_panic,
             ui_commands::debug_trigger_crash,
         ])
@@ -608,6 +639,7 @@ pub fn run() {
                     // quit_app, and updater restarts. Drops the crashpad client
                     // so crashpad_handler.exe terminates instead of being orphaned.
                     crate::crash_handler::shutdown_crashpad();
+                    crate::indicator::shutdown();
                 }
                 tauri::RunEvent::WindowEvent { event, label, .. } => match event {
                     tauri::WindowEvent::CloseRequested { api, .. } if label == "main" => {

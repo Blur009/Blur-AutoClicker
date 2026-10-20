@@ -12,6 +12,11 @@ export type IconColor = "theme" | "default";
 export type PresetId = string;
 export type RateInputMode = "rate" | "duration";
 export type ProcessListMode = "whitelist" | "blacklist";
+export type IndicatorCorner =
+  "top-right" | "top-left" | "bottom-right" | "bottom-left";
+export type IndicatorColorMode = "theme" | "black" | "white" | "custom";
+export type IndicatorCountdownMode = "plain" | "short" | "words";
+export type IndicatorBackgroundMode = "off" | "card" | "shadow";
 
 const INT32_MIN: number = -2147483648;
 const INT32_MAX: number = 2147483647;
@@ -72,6 +77,28 @@ export const THEME_OPTIONS = [
   "dark",
   "light",
 ] as const satisfies ReadonlyArray<Theme>;
+export const INDICATOR_CORNER_OPTIONS = [
+  "top-right",
+  "top-left",
+  "bottom-right",
+  "bottom-left",
+] as const satisfies ReadonlyArray<IndicatorCorner>;
+export const INDICATOR_COLOR_MODE_OPTIONS = [
+  "theme",
+  "black",
+  "white",
+  "custom",
+] as const satisfies ReadonlyArray<IndicatorColorMode>;
+export const INDICATOR_COUNTDOWN_MODE_OPTIONS = [
+  "plain",
+  "short",
+  "words",
+] as const satisfies ReadonlyArray<IndicatorCountdownMode>;
+export const INDICATOR_BACKGROUND_MODE_OPTIONS = [
+  "off",
+  "card",
+  "shadow",
+] as const satisfies ReadonlyArray<IndicatorBackgroundMode>;
 
 type LimitDef = {
   min?: number;
@@ -388,6 +415,63 @@ const SETTINGS_ONLY_FIELDS = {
   accentColor: {
     default: DEFAULT_ACCENT_COLOR,
     ui: { section: "appearance", control: "color" },
+  },
+  indicatorEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  indicatorCorner: {
+    default: "top-right" as IndicatorCorner,
+    ui: { section: "appearance", control: "select" },
+  },
+  indicatorColorMode: {
+    default: "theme" as IndicatorColorMode,
+    ui: { section: "appearance", control: "select" },
+  },
+  indicatorCustomColor: {
+    default: "#ffffff",
+    ui: { section: "appearance", control: "color" },
+  },
+  indicatorSize: {
+    default: 32,
+    limit: { min: 16, max: 512 },
+    ui: { section: "appearance", control: "number" },
+  },
+  indicatorOffsetX: {
+    default: 24,
+    limit: { min: 0, max: 4000 },
+    ui: { section: "appearance", control: "number" },
+  },
+  indicatorOffsetY: {
+    default: 24,
+    limit: { min: 0, max: 4000 },
+    ui: { section: "appearance", control: "number" },
+  },
+  indicatorFlashEnabled: {
+    default: false,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  indicatorFlashDim: {
+    default: 25,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  indicatorCountdownEnabled: {
+    default: false,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  indicatorCountdownMode: {
+    default: "words" as IndicatorCountdownMode,
+    ui: { section: "appearance", control: "select" },
+  },
+  indicatorBackgroundMode: {
+    default: "card" as IndicatorBackgroundMode,
+    ui: { section: "appearance", control: "select" },
+  },
+  indicatorBackgroundStrength: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
   },
   backgroundImage: {
     default: "",
@@ -1381,6 +1465,43 @@ export function sanitizeSettings(
     saved.accentColor,
     defaults.accentColor,
   );
+  settingsOnly.indicatorCorner = sanitizeEnum(
+    saved.indicatorCorner,
+    defaults.indicatorCorner,
+    INDICATOR_CORNER_OPTIONS,
+  );
+  settingsOnly.indicatorColorMode = sanitizeEnum(
+    saved.indicatorColorMode,
+    defaults.indicatorColorMode,
+    INDICATOR_COLOR_MODE_OPTIONS,
+  );
+  settingsOnly.indicatorCustomColor = sanitizeHexColor(
+    saved.indicatorCustomColor,
+    defaults.indicatorCustomColor,
+  );
+  const rawCountdownMode = saved.indicatorCountdownMode as string | undefined;
+  const savedCountdownMode =
+    rawCountdownMode === "off"
+      ? "plain"
+      : typeof rawCountdownMode === "string"
+        ? rawCountdownMode
+        : saved.indicatorCountdownEnabled === true
+          ? "words"
+          : undefined;
+  settingsOnly.indicatorCountdownMode = sanitizeEnum(
+    savedCountdownMode,
+    defaults.indicatorCountdownMode,
+    INDICATOR_COUNTDOWN_MODE_OPTIONS,
+  );
+  settingsOnly.indicatorBackgroundMode = sanitizeEnum(
+    saved.indicatorBackgroundMode,
+    defaults.indicatorBackgroundMode,
+    INDICATOR_BACKGROUND_MODE_OPTIONS,
+  );
+  settingsOnly.indicatorCountdownEnabled =
+    typeof saved.indicatorCountdownEnabled === "boolean"
+      ? saved.indicatorCountdownEnabled
+      : savedCountdownMode !== undefined;
 
   // Sanitize stopZones from raw data (skip sanitizeFields default)
   const rawStopZones = savedRecord.stopZones;

@@ -99,6 +99,7 @@ pub fn update_settings(
         *old = settings.clone();
     }
     *state.warning.lock().unwrap_or_else(poisoned_inner) = None;
+    crate::sync_indicator_config(&app);
 
     if !was_initialized {
         state.settings_initialized.store(true, Ordering::SeqCst);
@@ -133,6 +134,7 @@ pub fn reset_settings(app: AppHandle) -> AppResult<ClickerSettings> {
         let state = app.state::<ClickerState>();
         *state.settings.lock().unwrap_or_else(poisoned_inner) = defaults.clone();
     }
+    crate::sync_indicator_config(&app);
     register_hotkey_inner(&app, defaults.hotkey.clone())?;
     Ok(defaults)
 }
@@ -419,6 +421,11 @@ pub fn set_accent_color(
         );
     });
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_indicator_config() -> crate::indicator::IndicatorStatus {
+    crate::indicator::config_snapshot()
 }
 
 #[tauri::command]

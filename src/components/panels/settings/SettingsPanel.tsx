@@ -6,6 +6,7 @@ import type { AppInfo, PresetId, Settings } from "../../../store";
 import GeneralSection from "./sections/GeneralSection";
 import BehaviorSection from "./sections/BehaviorSection";
 import AppearanceSection from "./sections/AppearanceSection";
+import OverlaySection from "./sections/OverlaySection";
 import PresetsSection from "./sections/PresetsSection";
 import MaintenanceSection from "./sections/MaintenanceSection";
 import KeybindsSection from "./sections/KeybindsSection";
@@ -15,6 +16,7 @@ type SettingsTab =
   | "general"
   | "behavior"
   | "appearance"
+  | "overlay"
   | "keybinds"
   | "process-list"
   | "presets"
@@ -197,6 +199,29 @@ export default function SettingsPanel({
           Appearance
         </button>
         <button
+          className={`sidebar-tab ${activeTab === "overlay" ? "active" : ""}`}
+          onClick={() => setActiveTab("overlay")}
+        >
+          <span className="tab-icon tab-icon-overlay">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="2" y="4" width="20" height="14" rx="2" />
+              <rect x="13" y="6" width="7" height="5" rx="1" />
+              <path d="M8 21h8" />
+            </svg>
+          </span>
+          Overlay
+        </button>
+        <button
           className={`sidebar-tab ${activeTab === "keybinds" ? "active" : ""}`}
           onClick={() => setActiveTab("keybinds")}
         >
@@ -308,6 +333,9 @@ export default function SettingsPanel({
         )}
         {activeTab === "appearance" && (
           <AppearanceSection settings={settings} update={update} />
+        )}
+        {activeTab === "overlay" && (
+          <OverlaySection settings={settings} update={update} />
         )}
         {activeTab === "keybinds" && (
           <KeybindsSection settings={settings} update={update} />

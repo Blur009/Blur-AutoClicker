@@ -73,7 +73,7 @@ const TitleBar = lazy(() => import("./components/TitleBar"));
 const StatusBar = lazy(() => import("./components/StatusBar"));
 export type Tab = "simple" | "advanced" | "zones" | "settings" | "click-points";
 
-const BACKEND_SETTINGS_SCHEMA_VERSION = 10;
+const BACKEND_SETTINGS_SCHEMA_VERSION = 11;
 const MAX_DROPDOWN_OVERFLOW_BOTTOM = 220;
 const STATUS_BAR_HEIGHT = 26;
 

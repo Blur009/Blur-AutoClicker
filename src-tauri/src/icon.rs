@@ -471,6 +471,7 @@ pub fn set_app_icons(app: &AppHandle) {
     if let Err(e) = app.run_on_main_thread(move || {
         let state = handle.state::<ClickerState>();
         let running = state.running.load(Ordering::SeqCst);
+        crate::indicator::set_active(running);
 
         let (icon_enabled, is_dark) = {
             let icon_state = state.icon_state.lock().unwrap_or_else(poisoned_inner);
@@ -528,6 +529,7 @@ pub fn set_icon_theme(
     }
 
     set_app_icons(app);
+    crate::sync_indicator_config(app);
 }
 
 #[cfg(test)]

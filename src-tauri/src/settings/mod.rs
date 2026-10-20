@@ -27,6 +27,42 @@ fn default_true() -> bool {
     true
 }
 
+fn default_indicator_corner() -> String {
+    "top-right".to_string()
+}
+
+fn default_indicator_color_mode() -> String {
+    "theme".to_string()
+}
+
+fn default_indicator_custom_color() -> String {
+    "#ffffff".to_string()
+}
+
+fn default_indicator_size() -> u32 {
+    32
+}
+
+fn default_indicator_offset() -> u32 {
+    24
+}
+
+fn default_indicator_flash_dim() -> u32 {
+    25
+}
+
+fn default_indicator_countdown_mode() -> String {
+    "words".to_string()
+}
+
+fn default_indicator_background_mode() -> String {
+    "card".to_string()
+}
+
+fn default_indicator_background_strength() -> u32 {
+    100
+}
+
 use crate::engine::ProcessListEntry;
 
 #[derive(Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, Debug)]
@@ -127,6 +163,33 @@ pub struct ClickerSettings {
     pub show_stop_reason: bool,
     pub show_stop_overlay: bool,
     pub strict_hotkey_modifiers: bool,
+
+    #[serde(default = "default_true")]
+    pub indicator_enabled: bool,
+    #[serde(default = "default_indicator_corner")]
+    pub indicator_corner: String,
+    #[serde(default = "default_indicator_color_mode")]
+    pub indicator_color_mode: String,
+    #[serde(default = "default_indicator_custom_color")]
+    pub indicator_custom_color: String,
+    #[serde(default = "default_indicator_size")]
+    pub indicator_size: u32,
+    #[serde(default = "default_indicator_offset")]
+    pub indicator_offset_x: u32,
+    #[serde(default = "default_indicator_offset")]
+    pub indicator_offset_y: u32,
+    #[serde(default)]
+    pub indicator_flash_enabled: bool,
+    #[serde(default = "default_indicator_flash_dim")]
+    pub indicator_flash_dim: u32,
+    #[serde(default)]
+    pub indicator_countdown_enabled: bool,
+    #[serde(default = "default_indicator_countdown_mode")]
+    pub indicator_countdown_mode: String,
+    #[serde(default = "default_indicator_background_mode")]
+    pub indicator_background_mode: String,
+    #[serde(default = "default_indicator_background_strength")]
+    pub indicator_background_strength: u32,
 }
 
 // Frontend-only settings intentionally omitted from Rust:
@@ -137,7 +200,7 @@ impl Default for ClickerSettings {
     fn default() -> Self {
         Self {
             // Meta
-            version: 10,
+            version: 11,
 
             // Preset snapshot fields
             click_speed: 25.0,
@@ -205,6 +268,20 @@ impl Default for ClickerSettings {
             show_stop_reason: true,
             show_stop_overlay: true,
             strict_hotkey_modifiers: false,
+
+            indicator_enabled: true,
+            indicator_corner: default_indicator_corner(),
+            indicator_color_mode: default_indicator_color_mode(),
+            indicator_custom_color: default_indicator_custom_color(),
+            indicator_size: default_indicator_size(),
+            indicator_offset_x: default_indicator_offset(),
+            indicator_offset_y: default_indicator_offset(),
+            indicator_flash_enabled: false,
+            indicator_flash_dim: default_indicator_flash_dim(),
+            indicator_countdown_enabled: false,
+            indicator_countdown_mode: default_indicator_countdown_mode(),
+            indicator_background_mode: default_indicator_background_mode(),
+            indicator_background_strength: default_indicator_background_strength(),
         }
     }
 }
@@ -222,6 +299,14 @@ mod limits {
     pub const STOP_BOUNDARY: (i32, i32) = (0, 10_000);
     pub const CLICK_POINT_CLICKS: (u32, u32) = (1, 999_999);
     pub const CLICK_POINT_RADIUS: (u32, u32) = (0, 9_999);
+    pub const INDICATOR_SIZE: (u32, u32) = (16, 512);
+    pub const INDICATOR_OFFSET: (u32, u32) = (0, 4_000);
+    pub const INDICATOR_FLASH_DIM: (u32, u32) = (0, 100);
+    pub const INDICATOR_CORNERS: [&str; 4] =
+        ["top-right", "top-left", "bottom-right", "bottom-left"];
+    pub const INDICATOR_COLOR_MODES: [&str; 4] = ["theme", "black", "white", "custom"];
+    pub const INDICATOR_COUNTDOWN_MODES: [&str; 3] = ["plain", "words", "short"];
+    pub const INDICATOR_BACKGROUND_MODES: [&str; 3] = ["off", "card", "shadow"];
 }
 
 /// Non-finite input falls back to `min`: `f64::clamp` propagates NaN, and an
@@ -252,6 +337,18 @@ fn clamp_u32(field: &str, value: &mut u32, (min, max): (u32, u32)) {
         log::warn!("[Settings] {field} = {value} is outside {min}..={max}, using {clamped}");
         *value = clamped;
     }
+}
+
+fn sanitize_choice(field: &str, value: &mut String, allowed: &[&str], fallback: &str) {
+    if !allowed.contains(&value.as_str()) {
+        log::warn!("[Settings] {field} = {value:?} is not one of {allowed:?}, using {fallback:?}");
+        *value = fallback.to_string();
+    }
+}
+
+fn is_hex_color(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 7 && bytes[0] == b'#' && bytes[1..].iter().all(u8::is_ascii_hexdigit)
 }
 
 impl ClickerSettings {
@@ -304,6 +401,67 @@ impl ClickerSettings {
                 &mut point.radius,
                 limits::CLICK_POINT_RADIUS,
             );
+        }
+
+        clamp_u32(
+            "indicatorSize",
+            &mut self.indicator_size,
+            limits::INDICATOR_SIZE,
+        );
+        clamp_u32(
+            "indicatorOffsetX",
+            &mut self.indicator_offset_x,
+            limits::INDICATOR_OFFSET,
+        );
+        clamp_u32(
+            "indicatorOffsetY",
+            &mut self.indicator_offset_y,
+            limits::INDICATOR_OFFSET,
+        );
+        clamp_u32(
+            "indicatorFlashDim",
+            &mut self.indicator_flash_dim,
+            limits::INDICATOR_FLASH_DIM,
+        );
+
+        sanitize_choice(
+            "indicatorCorner",
+            &mut self.indicator_corner,
+            &limits::INDICATOR_CORNERS,
+            "top-right",
+        );
+        sanitize_choice(
+            "indicatorColorMode",
+            &mut self.indicator_color_mode,
+            &limits::INDICATOR_COLOR_MODES,
+            "theme",
+        );
+        if self.indicator_countdown_mode == "off" {
+            self.indicator_countdown_mode = String::from("plain");
+        }
+        sanitize_choice(
+            "indicatorCountdownMode",
+            &mut self.indicator_countdown_mode,
+            &limits::INDICATOR_COUNTDOWN_MODES,
+            "plain",
+        );
+        sanitize_choice(
+            "indicatorBackgroundMode",
+            &mut self.indicator_background_mode,
+            &limits::INDICATOR_BACKGROUND_MODES,
+            "off",
+        );
+        clamp_u32(
+            "indicatorBackgroundStrength",
+            &mut self.indicator_background_strength,
+            limits::INDICATOR_FLASH_DIM,
+        );
+        if !is_hex_color(&self.indicator_custom_color) {
+            log::warn!(
+                "[Settings] indicatorCustomColor = {:?} is not #RRGGBB, using default",
+                self.indicator_custom_color
+            );
+            self.indicator_custom_color = default_indicator_custom_color();
         }
     }
 }
@@ -407,5 +565,91 @@ mod tests {
         assert_eq!(settings.click_points[0].radius, 9_999);
         assert_eq!(settings.click_points[1].clicks, 999_999);
         assert_eq!(settings.click_points[1].radius, 10);
+    }
+
+    #[test]
+    fn sanitize_leaves_the_indicator_defaults_alone() {
+        let settings = sanitized(|_| {});
+        assert!(settings.indicator_enabled);
+        assert_eq!(settings.indicator_corner, "top-right");
+        assert_eq!(settings.indicator_color_mode, "theme");
+        assert_eq!(settings.indicator_custom_color, "#ffffff");
+        assert_eq!(settings.indicator_size, 32);
+        assert_eq!(settings.indicator_offset_x, 24);
+        assert_eq!(settings.indicator_offset_y, 24);
+        assert!(!settings.indicator_flash_enabled);
+        assert_eq!(settings.indicator_flash_dim, 25);
+        assert_eq!(settings.indicator_countdown_mode, "words");
+        assert!(!settings.indicator_countdown_enabled);
+        assert_eq!(settings.indicator_background_mode, "card");
+        assert_eq!(settings.indicator_background_strength, 100);
+    }
+
+    #[test]
+    fn sanitize_bounds_the_indicator_numbers() {
+        assert_eq!(sanitized(|s| s.indicator_size = 0).indicator_size, 16);
+        assert_eq!(sanitized(|s| s.indicator_size = 513).indicator_size, 512);
+        assert_eq!(
+            sanitized(|s| s.indicator_offset_x = 4_001).indicator_offset_x,
+            4_000
+        );
+        assert_eq!(
+            sanitized(|s| s.indicator_offset_y = u32::MAX).indicator_offset_y,
+            4_000
+        );
+        assert_eq!(
+            sanitized(|s| s.indicator_flash_dim = 101).indicator_flash_dim,
+            100
+        );
+
+        let inside = sanitized(|s| {
+            s.indicator_size = 128;
+            s.indicator_offset_x = 0;
+            s.indicator_offset_y = 4_000;
+            s.indicator_flash_dim = 0;
+        });
+        assert_eq!(inside.indicator_size, 128);
+        assert_eq!(inside.indicator_offset_x, 0);
+        assert_eq!(inside.indicator_offset_y, 4_000);
+        assert_eq!(inside.indicator_flash_dim, 0);
+    }
+
+    #[test]
+    fn sanitize_repairs_the_indicator_strings() {
+        assert_eq!(
+            sanitized(|s| s.indicator_corner = "middle".into()).indicator_corner,
+            "top-right"
+        );
+        assert_eq!(
+            sanitized(|s| s.indicator_corner = String::new()).indicator_corner,
+            "top-right"
+        );
+        assert_eq!(
+            sanitized(|s| s.indicator_corner = "bottom-left".into()).indicator_corner,
+            "bottom-left"
+        );
+
+        assert_eq!(
+            sanitized(|s| s.indicator_color_mode = "rainbow".into()).indicator_color_mode,
+            "theme"
+        );
+        assert_eq!(
+            sanitized(|s| s.indicator_color_mode = "custom".into()).indicator_color_mode,
+            "custom"
+        );
+    }
+
+    #[test]
+    fn sanitize_repairs_the_indicator_custom_color() {
+        for bad in ["red", "#fff", "#GGGGGG", "22c55e", "#22c55e00", ""] {
+            assert_eq!(
+                sanitized(|s| s.indicator_custom_color = bad.into()).indicator_custom_color,
+                "#ffffff"
+            );
+        }
+        assert_eq!(
+            sanitized(|s| s.indicator_custom_color = "#ABCDEF".into()).indicator_custom_color,
+            "#ABCDEF"
+        );
     }
 }

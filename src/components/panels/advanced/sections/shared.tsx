@@ -142,6 +142,9 @@ export function NumInput({
     return clamped;
   };
 
+  const isOutOfRange = (next: number) =>
+    (min !== undefined && next < min) || (max !== undefined && next > max);
+
   const displayValue = allowDecimal
     ? (draft ?? formatDecimalLocale(value))
     : (draft ?? String(Math.trunc(value)));
@@ -170,7 +173,12 @@ export function NumInput({
       }
       setDraft(null);
       const val = parseDecimalLocale(normalized);
-      onChange(Number.isNaN(val) ? (min ?? 0) : val);
+      const parsed = Number.isNaN(val) ? (min ?? 0) : val;
+      if (isOutOfRange(parsed)) {
+        setDraft(normalized);
+        return;
+      }
+      onChange(parsed);
       return;
     }
     if (normalized === "" || normalized === "-") {
@@ -179,7 +187,12 @@ export function NumInput({
     }
     setDraft(null);
     const val = Number(normalized);
-    onChange(Number.isNaN(val) ? (min ?? 0) : val);
+    const parsed = Number.isNaN(val) ? (min ?? 0) : val;
+    if (isOutOfRange(parsed)) {
+      setDraft(normalized);
+      return;
+    }
+    onChange(parsed);
   };
 
   const handleBlur = (e: FocusEvent<HTMLInputElement>) => {

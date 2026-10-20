@@ -591,8 +591,8 @@ struct ClickerContext {
     batch_size: usize,
     has_position: bool,
     use_smoothing: bool,
-    single_plan: ClickCyclePlan,
-    double_plan: ClickCyclePlan,
+    duty: f64,
+    double_click_gap_ms: u32,
 }
 
 fn get_keyboard_repeat_settings() -> (u32, u32) {
@@ -666,10 +666,6 @@ impl ClickerContext {
         } else {
             config.duty
         };
-        let cycle_ms = (config.interval_secs * 1000.0).max(1.0) as u32;
-        let hold_ms =
-            ((config.interval_secs * duty.max(0.0) / 100.0 * 1000.0) as u32).min(cycle_ms);
-
         // Keyboard hold mode: 100% duty cycle = emulate Windows auto-repeat
         let keyboard_hold_mode = is_keyboard && duty >= 100.0;
         let (keyboard_repeat_delay_ms, keyboard_repeat_interval_ms) = if keyboard_hold_mode {
@@ -690,10 +686,23 @@ impl ClickerContext {
             batch_size,
             has_position: config.use_click_points(),
             use_smoothing: config.smoothing == 1 && cps < 50.0,
-            single_plan: ClickCyclePlan::single(hold_ms),
-            double_plan: ClickCyclePlan::double(hold_ms, cycle_ms, config.double_click_gap_ms),
+            duty,
+            double_click_gap_ms: config.double_click_gap_ms,
         }
     }
+}
+
+pub fn plans_for_cycle(
+    cycle_secs: f64,
+    duty: f64,
+    double_click_gap_ms: u32,
+) -> (ClickCyclePlan, ClickCyclePlan) {
+    let cycle_ms = (cycle_secs * 1000.0).max(1.0) as u32;
+    let hold_ms = ((cycle_secs * duty.max(0.0) / 100.0 * 1000.0) as u32).min(cycle_ms);
+    (
+        ClickCyclePlan::single(hold_ms),
+        ClickCyclePlan::double(hold_ms, cycle_ms, double_click_gap_ms),
+    )
 }
 
 struct LoopState {
@@ -830,10 +839,35 @@ fn run_batch(
     // longer overflow a `Duration`. Staying fallible here keeps a panic out of the
     // click loop whatever the config happens to hold.
     let batch_dur = batch_dur.max(0.001);
+    let (single_plan, double_plan) = plans_for_cycle(
+        batch_dur / batch.cycles as f64,
+        ctx.duty,
+        ctx.double_click_gap_ms,
+    );
     st.next_batch_time += Duration::try_from_secs_f64(batch_dur).unwrap_or_else(|_| {
         log::error!("[engine] batch duration {batch_dur} does not fit a Duration, using 1s");
         Duration::from_secs(1)
     });
+
+    if control.is_active() {
+        let hold_ms = single_plan.first_hold_ms.max(double_plan.second_hold_ms);
+        let (pulse_x, pulse_y) = if ctx.has_position {
+            (st.target_x, st.target_y)
+        } else {
+            get_cursor_pos()
+        };
+        crate::indicator::pulse(hold_ms, pulse_x, pulse_y);
+        let cycle_start_ms = now_epoch_ms();
+        let to_next = st
+            .next_batch_time
+            .saturating_duration_since(Instant::now())
+            .as_millis() as u64;
+        crate::indicator::schedule(
+            cycle_start_ms,
+            hold_ms as u64,
+            to_next.saturating_sub(hold_ms as u64),
+        );
+    }
 
     if ctx.is_keyboard {
         if batch.double_cycles > 0 {
@@ -841,7 +875,7 @@ fn run_batch(
                 config.key_code,
                 batch.double_cycles,
                 config.keyboard_uppercase,
-                ctx.double_plan,
+                double_plan,
                 control,
                 should_abort,
             );
@@ -851,7 +885,7 @@ fn run_batch(
                 config.key_code,
                 batch.single_cycles,
                 config.keyboard_uppercase,
-                ctx.single_plan,
+                single_plan,
                 control,
                 should_abort,
             );
@@ -862,7 +896,7 @@ fn run_batch(
                 ctx.down_flag,
                 ctx.up_flag,
                 batch.double_cycles,
-                ctx.double_plan,
+                double_plan,
                 control,
                 should_abort,
             );
@@ -872,7 +906,7 @@ fn run_batch(
                 ctx.down_flag,
                 ctx.up_flag,
                 batch.single_cycles,
-                ctx.single_plan,
+                single_plan,
                 control,
                 should_abort,
             );
@@ -1040,6 +1074,8 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             let repeat_interval =
                 Duration::from_millis(ctx.keyboard_repeat_interval_ms.max(1) as u64);
             if last_repeat.elapsed() >= repeat_interval {
+                let (pulse_x, pulse_y) = get_cursor_pos();
+                crate::indicator::pulse(ctx.keyboard_repeat_interval_ms.max(1), pulse_x, pulse_y);
                 send_key_down(ctx.key_code, ctx.keyboard_uppercase);
                 st.click_count += 1;
                 CLICK_COUNT.store(st.click_count, Ordering::Relaxed);
@@ -1308,6 +1344,22 @@ mod tests {
                 radius: 0
             }
         );
+    }
+
+    #[test]
+    fn plans_scale_the_hold_with_the_actual_cycle() {
+        let (single, double) = plans_for_cycle(5.0, 50.0, 40);
+        assert_eq!(single.first_hold_ms, 2_500);
+        assert_eq!(double.second_hold_ms, 2_500);
+
+        let (single, _) = plans_for_cycle(2.0, 50.0, 40);
+        assert_eq!(single.first_hold_ms, 1_000);
+
+        let (single, _) = plans_for_cycle(1.0, 100.0, 40);
+        assert_eq!(single.first_hold_ms, 1_000);
+
+        let (single, _) = plans_for_cycle(0.01, 50.0, 40);
+        assert_eq!(single.first_hold_ms, 5);
     }
 
     #[test]

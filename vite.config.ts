@@ -16,6 +16,7 @@ export default defineConfig({
       input: {
         main: "./index.html",
         overlay: "./overlay.html",
+        indicator: "./indicator.html",
       },
       output: {
         manualChunks(id: string) {

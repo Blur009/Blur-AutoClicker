@@ -59,6 +59,10 @@ export async function initAppVersion(): Promise<void> {
 export type {
   ClickInterval,
   ClickMode,
+  IndicatorBackgroundMode,
+  IndicatorColorMode,
+  IndicatorCorner,
+  IndicatorCountdownMode,
   InputType,
   KeyboardKeyCase,
   MouseButton,
