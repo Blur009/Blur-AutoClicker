@@ -732,6 +732,22 @@ export default function App() {
     let mounted = true;
     mountedRef.current = true;
 
+    const readyTimers: number[] = [];
+    for (let attempt = 1; attempt <= 8; attempt += 1) {
+      readyTimers.push(
+        window.setTimeout(() => {
+          emit("frontend-ready", {}).catch((err) =>
+            error(
+              JSON.stringify({
+                source: "App.frontendReadyRetry",
+                error: String(err),
+              }),
+            ),
+          );
+        }, attempt * 400),
+      );
+    }
+
     invoke<number>("get_text_scale_factor")
       .then((textScale) =>
         invoke("set_webview_zoom", { factor: 1.0 / textScale }),
@@ -858,6 +874,7 @@ export default function App() {
     return () => {
       mountedRef.current = false;
       mounted = false;
+      readyTimers.forEach((timer) => window.clearTimeout(timer));
       if (hotkeyTimer.current !== null) {
         window.clearTimeout(hotkeyTimer.current);
       }

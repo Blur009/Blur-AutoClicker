@@ -25,7 +25,7 @@ use crate::engine::worker::emit_status;
 use crate::error::poisoned_inner;
 use crate::hotkeys::register_hotkey_inner;
 use crate::hotkeys::start_hotkey_listener;
-use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -410,10 +410,15 @@ fn setup_hotkeys(app: &AppHandle) -> Result<(), std::io::Error> {
     Ok(())
 }
 
+static FRONTEND_HANDLED: AtomicBool = AtomicBool::new(false);
+
 fn setup_frontend_listener(app: &AppHandle) {
     let overlay_init_handle = app.clone();
     app.listen("frontend-ready", move |_| {
         crate::webview_guard::frontend_ready();
+        if FRONTEND_HANDLED.swap(true, Ordering::SeqCst) {
+            return;
+        }
         log::info!("[Window] Frontend ready, initializing overlay...");
         if let Err(e) = overlay::init_overlay(&overlay_init_handle) {
             log::error!("[Window] Overlay init failed: {e}");
@@ -612,6 +617,7 @@ pub fn run() {
             ui_commands::get_app_info,
             ui_commands::get_portable_info,
             ui_commands::get_stats,
+            ui_commands::get_stats_overview,
             ui_commands::reset_stats,
             updates::update_checker::check_for_updates,
             updates::update_checker::fetch_changelog,

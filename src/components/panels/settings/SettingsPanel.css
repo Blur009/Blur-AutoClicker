@@ -311,9 +311,24 @@
 
 .settings-section-heading {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0 0.25rem;
+}
+
+.settings-section-heading-text {
+  display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  padding: 0 0 0.25rem;
+  min-width: 0;
+}
+
+.settings-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
 }
 
 .settings-section-title {
@@ -410,6 +425,14 @@
   align-items: stretch;
 }
 
+.settings-card .settings-row--inline {
+  align-items: center;
+}
+
+.settings-card .settings-row--reveal {
+  padding-bottom: 0;
+}
+
 .settings-card .settings-row:first-child {
   padding-top: 0.5rem;
 }
@@ -442,6 +465,34 @@
 
 .changelog-arrow.open {
   transform: rotate(90deg);
+}
+
+.changelog-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s 0.2s;
+}
+
+.changelog-reveal--open {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s;
+}
+
+.changelog-reveal-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .changelog-reveal {
+    transition: none;
+  }
 }
 
 .settings-seg-group {
@@ -856,48 +907,6 @@
 }
 
 /* -- Usage Stats -- */
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem 1rem;
-  padding: 0.5rem 0;
-}
-
-.stats-grid--compact {
-  gap: 0.25rem 1rem;
-  padding: 0.25rem 0 0.5rem;
-}
-
-.stats-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.stats-cell-label {
-  font-size: 0.75rem;
-  font-weight: var(--font-weight-md);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-dim);
-}
-
-.stats-cell-value {
-  font-size: 1rem;
-  font-weight: var(--font-weight-md);
-  color: var(--text-primary);
-}
-
-.stats-section-label {
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--text-dim);
-  padding: 0.5rem 0 0.25rem;
-  border-top: 1px solid var(--border-subtle);
-  margin-top: 0.25rem;
-}
 
 .stats-empty {
   font-size: 0.75rem;

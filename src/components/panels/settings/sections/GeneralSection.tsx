@@ -1,9 +1,6 @@
 import {
-  memo,
   useCallback,
   useEffect,
-  useMemo,
-  useRef,
   useState,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
@@ -14,46 +11,9 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppInfo } from "../../../../store";
 import { changelogEntries } from "../../../../changelog";
 import ChangelogContent from "../../../ChangelogContent";
+import UsageCard from "./UsageStats";
+import type { StatsOverview } from "./usageSeries";
 import { SettingsCard } from "./shared";
-
-interface CumulativeStats {
-  totalClicks: number;
-  totalTimeSecs: number;
-  totalSessions: number;
-  avgCpu: number;
-}
-
-function formatTime(totalSeconds: number, language: string): string {
-  if (totalSeconds < 0.01) return "0s";
-  if (totalSeconds < 60) {
-    return `${Math.floor(totalSeconds).toLocaleString(language)}s`;
-  }
-  if (totalSeconds < 3600) {
-    const m = Math.floor(totalSeconds / 60);
-    const s = Math.floor(totalSeconds % 60);
-    return `${m.toLocaleString(language)}m ${s.toLocaleString(language)}s`;
-  }
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = Math.floor(totalSeconds % 60);
-  return `${h.toLocaleString(language)}h ${m.toLocaleString(language)}m ${s.toLocaleString(language)}s`;
-}
-
-function formatNumber(n: number, language: string): string {
-  return Math.floor(n).toLocaleString(language);
-}
-
-function formatCpu(
-  cpu: number,
-  language: string,
-  notAvailable: string,
-): string {
-  if (!Number.isFinite(cpu) || cpu < 0) return notAvailable;
-  return `${cpu.toLocaleString(language, {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  })}%`;
-}
 
 interface Props {
   appInfo: AppInfo;
@@ -77,81 +37,25 @@ const GITHUB_URL = "https://github.com/Blur009/Blur-AutoClicker";
 
 const KOFI_IMG_STYLE: CSSProperties = { border: 0, height: "28px" };
 
-const UsageStatsGrid = memo(function UsageStatsGrid({
-  formatted,
-}: {
-  formatted: {
-    totalClicks: string;
-    totalTime: string;
-    avgCpu: string;
-    sessions: string;
-  };
-}) {
-  return (
-    <div className="stats-grid">
-      <div className="stats-cell">
-        <span className="stats-cell-label">Total Clicks</span>
-        <span className="stats-cell-value">{formatted.totalClicks}</span>
-      </div>
-      <div className="stats-cell">
-        <span className="stats-cell-label">Total Clicking Time</span>
-        <span className="stats-cell-value">{formatted.totalTime}</span>
-      </div>
-      <div className="stats-cell">
-        <span className="stats-cell-label">Average CPU Usage</span>
-        <span className="stats-cell-value">{formatted.avgCpu}</span>
-      </div>
-      <div className="stats-cell">
-        <span className="stats-cell-label">Clicking Sessions</span>
-        <span className="stats-cell-value">{formatted.sessions}</span>
-      </div>
-    </div>
-  );
-});
-
-function useAnimatedNumber(target: number, duration = 600) {
-  const [display, setDisplay] = useState(target);
-  const displayRef = useRef(target);
-  useEffect(() => {
-    const from = displayRef.current;
-    if (from === target) return;
-    const instant =
-      duration <= 0 ||
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let raf = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = instant ? 1 : Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      const current = from + (target - from) * eased;
-      displayRef.current = current;
-      setDisplay(current);
-      if (t < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, duration]);
-  return display;
-}
-
 export default function GeneralSection({
   appInfo,
   updateCheckStatus,
   onCheckForUpdate,
 }: Props) {
-  const [stats, setStats] = useState<CumulativeStats | null>(null);
+  const [overview, setOverview] = useState<StatsOverview | null>(null);
   const [showChangelog, setShowChangelog] = useState(false);
-  const language = "en";
 
   useEffect(() => {
-    invoke<CumulativeStats>("get_stats")
-      .then(setStats)
-      .catch(() => {});
+    const load = () => {
+      invoke<StatsOverview>("get_stats_overview")
+        .then(setOverview)
+        .catch(() => {});
+    };
+
+    load();
 
     let cleanup: (() => void) | undefined;
-    listen<CumulativeStats>("stats-updated", (event) => {
-      setStats(event.payload);
-    })
+    listen("stats-updated", load)
       .then((unlisten) => {
         cleanup = unlisten;
       })
@@ -161,30 +65,6 @@ export default function GeneralSection({
       cleanup?.();
     };
   }, []);
-
-  const hasStats = stats !== null && stats.totalSessions > 0;
-
-  const animatedClicks = useAnimatedNumber(stats?.totalClicks ?? 0);
-  const animatedTime = useAnimatedNumber(stats?.totalTimeSecs ?? 0);
-  const animatedCpu = useAnimatedNumber(stats?.avgCpu ?? 0);
-  const animatedSessions = useAnimatedNumber(stats?.totalSessions ?? 0);
-
-  const formattedStats = useMemo(() => {
-    if (stats === null || stats.totalSessions <= 0) return null;
-    return {
-      totalClicks: formatNumber(animatedClicks, language),
-      totalTime: formatTime(animatedTime, language),
-      avgCpu: formatCpu(animatedCpu, language, "N/A"),
-      sessions: formatNumber(animatedSessions, language),
-    };
-  }, [
-    stats,
-    language,
-    animatedClicks,
-    animatedTime,
-    animatedCpu,
-    animatedSessions,
-  ]);
 
   const updateButtonLabel = UPDATE_BUTTON_LABELS[updateCheckStatus];
 
@@ -209,7 +89,7 @@ export default function GeneralSection({
 
   return (
     <>
-      <SettingsCard title="About" description="Version and project links.">
+      <SettingsCard>
         <div className="social-links">
           <span className="settings-label">Support Me</span>
           <div className="social-icons">
@@ -273,7 +153,7 @@ export default function GeneralSection({
             </a>
           </div>
         </div>
-        <div className="settings-row">
+        <div className="settings-row settings-row--inline settings-row--reveal">
           <div className="settings-label-group settings-label-group--inline">
             <span className="settings-label">Version</span>
             <span className="settings-value">
@@ -285,6 +165,7 @@ export default function GeneralSection({
             <button
               className="settings-btn-secondary changelog-toggle-btn"
               onClick={toggleChangelog}
+              aria-expanded={showChangelog}
             >
               <svg
                 className={`changelog-arrow${showChangelog ? " open" : ""}`}
@@ -312,19 +193,16 @@ export default function GeneralSection({
             </button>
           </div>
         </div>
-        {showChangelog && <ChangelogContent entries={changelogEntries} />}
+        <div
+          className={`changelog-reveal${showChangelog ? " changelog-reveal--open" : ""}`}
+        >
+          <div className="changelog-reveal-inner">
+            <ChangelogContent entries={changelogEntries} />
+          </div>
+        </div>
       </SettingsCard>
 
-      <SettingsCard
-        title="Usage"
-        description="Clicking statistics for all sessions (only stored locally)."
-      >
-        {hasStats && formattedStats ? (
-          <UsageStatsGrid formatted={formattedStats} />
-        ) : (
-          <div className="stats-empty">No session data yet.</div>
-        )}
-      </SettingsCard>
+      <UsageCard overview={overview} />
     </>
   );
 }

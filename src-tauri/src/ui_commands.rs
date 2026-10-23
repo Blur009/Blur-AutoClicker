@@ -6,7 +6,7 @@ use tauri::AppHandle;
 
 use crate::app_state::AppInfoPayload;
 use crate::app_state::PositionPayload;
-use crate::engine::stats::CumulativeStats;
+use crate::engine::stats::{CumulativeStats, StatsOverview};
 use crate::error::poisoned_inner;
 use crate::error::AppError;
 use crate::error::AppResult;
@@ -226,6 +226,11 @@ pub fn get_portable_info() -> crate::app_state::PortableInfo {
 #[tauri::command]
 pub fn get_stats() -> AppResult<CumulativeStats> {
     crate::engine::stats::get_stats()
+}
+
+#[tauri::command]
+pub fn get_stats_overview() -> AppResult<StatsOverview> {
+    crate::engine::stats::get_overview()
 }
 
 #[tauri::command]

@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
+use chrono::{Local, NaiveDate, TimeZone};
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 
@@ -32,6 +34,38 @@ pub struct CumulativeStats {
     pub total_time_secs: f64,
     pub total_sessions: i64,
     pub avg_cpu: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DayStat {
+    pub day: String,
+    pub clicks: i64,
+    pub time_secs: f64,
+    pub sessions: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunHighlight {
+    pub clicks: i64,
+    pub time_secs: f64,
+    pub started_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatsOverview {
+    pub totals: CumulativeStats,
+    pub clicks_per_sec: f64,
+    pub active_days: i64,
+    pub legacy_runs: i64,
+    pub legacy_clicks: i64,
+    pub longest_run: Option<RunHighlight>,
+    pub current_streak_days: i64,
+    pub longest_streak_days: i64,
+    pub clicked_today: bool,
+    pub daily: Vec<DayStat>,
 }
 
 fn round2(v: f64) -> f64 {
@@ -243,6 +277,103 @@ pub fn get_stats() -> AppResult<CumulativeStats> {
     read_stats(&conn)
 }
 
+fn streak_summary(days: &[NaiveDate], today: NaiveDate) -> (i64, i64, bool) {
+    let mut longest = 0i64;
+    let mut run = 0i64;
+    let mut prev: Option<NaiveDate> = None;
+
+    for day in days {
+        run = if prev.and_then(|p| p.succ_opt()) == Some(*day) {
+            run + 1
+        } else {
+            1
+        };
+        longest = longest.max(run);
+        prev = Some(*day);
+    }
+
+    let clicked_today = days.last() == Some(&today);
+    let current = match days.last() {
+        Some(last) if *last == today || last.succ_opt() == Some(today) => run,
+        _ => 0,
+    };
+
+    (current, longest, clicked_today)
+}
+
+fn read_overview(conn: &Connection, today: NaiveDate) -> AppResult<StatsOverview> {
+    let totals = read_stats(conn)?;
+    let mut days: BTreeMap<NaiveDate, DayStat> = BTreeMap::new();
+    let mut longest_run: Option<RunHighlight> = None;
+
+    let mut stmt = conn
+        .prepare("SELECT started_at, clicks, time_secs, sessions FROM runs WHERE started_at > 0")?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let started_at: i64 = row.get(0)?;
+        let clicks: i64 = row.get(1)?;
+        let time_secs: f64 = row.get(2)?;
+        let sessions: i64 = row.get(3)?;
+        let Some(stamp) = Local.timestamp_opt(started_at, 0).single() else {
+            continue;
+        };
+
+        let day = stamp.date_naive();
+        let entry = days.entry(day).or_insert_with(|| DayStat {
+            day: day.format("%Y-%m-%d").to_string(),
+            clicks: 0,
+            time_secs: 0.0,
+            sessions: 0,
+        });
+        entry.clicks += clicks;
+        entry.time_secs += time_secs;
+        entry.sessions += sessions;
+
+        if sessions == 1 && longest_run.as_ref().is_none_or(|r| time_secs > r.time_secs) {
+            longest_run = Some(RunHighlight {
+                clicks,
+                time_secs,
+                started_at,
+            });
+        }
+    }
+    drop(rows);
+    drop(stmt);
+
+    let (legacy_runs, legacy_clicks): (i64, i64) = conn.query_row(
+        "SELECT COUNT(*), COALESCE(SUM(clicks), 0) FROM runs WHERE started_at = 0",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+
+    let tracked_days: Vec<NaiveDate> = days.keys().copied().collect();
+    let (current_streak_days, longest_streak_days, clicked_today) =
+        streak_summary(&tracked_days, today);
+    let clicks_per_sec = if totals.total_time_secs > 0.0 {
+        round2(totals.total_clicks as f64 / totals.total_time_secs)
+    } else {
+        -1.0
+    };
+
+    Ok(StatsOverview {
+        totals,
+        clicks_per_sec,
+        active_days: tracked_days.len() as i64,
+        legacy_runs,
+        legacy_clicks,
+        longest_run,
+        current_streak_days,
+        longest_streak_days,
+        clicked_today,
+        daily: days.into_values().collect(),
+    })
+}
+
+pub fn get_overview() -> AppResult<StatsOverview> {
+    let conn = db()?.lock().unwrap_or_else(poisoned_inner);
+    read_overview(&conn, Local::now().date_naive())
+}
+
 pub fn reset_stats() -> AppResult<CumulativeStats> {
     let conn = db()?.lock().unwrap_or_else(poisoned_inner);
     conn.execute("DELETE FROM runs", [])?;
@@ -274,6 +405,86 @@ mod tests {
         let mut conn = Connection::open_in_memory().expect("open in-memory db");
         MIGRATIONS.to_latest(&mut conn).expect("run migrations");
         conn
+    }
+
+    fn day(value: &str) -> NaiveDate {
+        NaiveDate::parse_from_str(value, "%Y-%m-%d").expect("valid date")
+    }
+
+    #[test]
+    fn streak_summary_counts_consecutive_days() {
+        let today = day("2026-10-12");
+        let days = vec![
+            day("2026-10-08"),
+            day("2026-10-09"),
+            day("2026-10-11"),
+            day("2026-10-12"),
+        ];
+        assert_eq!(streak_summary(&days, today), (2, 2, true));
+    }
+
+    #[test]
+    fn streak_survives_until_the_day_ends() {
+        let today = day("2026-10-12");
+        let days = vec![day("2026-10-10"), day("2026-10-11")];
+        assert_eq!(streak_summary(&days, today), (2, 2, false));
+    }
+
+    #[test]
+    fn a_gap_breaks_the_current_streak() {
+        let today = day("2026-10-12");
+        let days = vec![day("2026-10-01"), day("2026-10-02"), day("2026-10-03")];
+        assert_eq!(streak_summary(&days, today), (0, 3, false));
+    }
+
+    #[test]
+    fn empty_history_has_no_streak() {
+        assert_eq!(streak_summary(&[], day("2026-10-12")), (0, 0, false));
+    }
+
+    #[test]
+    fn overview_skips_legacy_rows_for_charts_and_records() {
+        let conn = temp_conn();
+        conn.execute(
+            "INSERT INTO runs (clicks, time_secs, avg_cpu, sessions, started_at)
+             VALUES (2891660, 190439.48, 2.29, 2080, 0)",
+            [],
+        )
+        .expect("legacy row");
+        insert_run(&conn, 300, 30.0, 1.0, 1_760_000_000).expect("long run");
+        insert_run(&conn, 100, 10.0, 1.0, 1_760_003_600).expect("short run");
+
+        let overview = read_overview(&conn, day("2026-10-12")).expect("overview");
+
+        assert_eq!(overview.totals.total_clicks, 2_892_060);
+        assert_eq!(
+            overview.daily.iter().map(|d| d.clicks).sum::<i64>(),
+            400,
+            "legacy rows must not leak into the daily series"
+        );
+        assert_eq!(overview.active_days, overview.daily.len() as i64);
+        assert_eq!(overview.longest_run.as_ref().map(|r| r.clicks), Some(300));
+        assert_eq!(overview.clicks_per_sec, 15.18);
+    }
+
+    #[test]
+    fn overview_without_timed_runs_stays_empty() {
+        let conn = temp_conn();
+        conn.execute(
+            "INSERT INTO runs (clicks, time_secs, avg_cpu, sessions, started_at)
+             VALUES (1000, 100.0, 1.0, 1, 0)",
+            [],
+        )
+        .expect("legacy row");
+
+        let overview = read_overview(&conn, day("2026-10-12")).expect("overview");
+
+        assert_eq!(overview.active_days, 0);
+        assert!(overview.daily.is_empty());
+        assert!(overview.longest_run.is_none());
+        assert_eq!(overview.totals.total_clicks, 1000);
+        assert_eq!(overview.legacy_runs, 1);
+        assert_eq!(overview.legacy_clicks, 1000);
     }
 
     #[test]

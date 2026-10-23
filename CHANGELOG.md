@@ -2,12 +2,18 @@
 
 ## New
 
-- Added an overlay to show when the clicker is active. Settings → Overlay. On by default. 
+- Added an overlay to show when the clicker is active. Settings → Overlay. On by default.
 
 ## Changed
 
-- Small perforance improvements.
 - Converted statistics to be stored without compression.
+- Made the statistics screen much more informative with the time point earned from the above change.
+- Small UI improvements to the settings general page:
+  - Removed the header from the first card in the general settings page.
+  - Added a smooth scroll animation to the changelog expantion.
+  - Removed scroll fade from non-expanded changelog.
+- Added Changelog sub-points like above.
+- Small performance improvements.
 
 ## Fixed
 
