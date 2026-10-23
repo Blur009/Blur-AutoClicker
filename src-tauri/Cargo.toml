@@ -38,7 +38,7 @@ tauri-plugin-persisted-scope = { version = "2", features = ["protocol-asset"] }
 log = "0.4.33"
 serde_json = "1.0.151"
 raw-window-handle = "0.6.2"
-tauri-plugin-updater = "2.13"
+tauri-plugin-updater = "2.14"
 hmac = "0.13.0"
 sha2 = "0.11"
 hex = "0.4"
