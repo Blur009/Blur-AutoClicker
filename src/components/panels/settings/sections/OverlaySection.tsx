@@ -13,6 +13,7 @@ import type {
 } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
 import { AdvDropdown, NumInput } from "../../advanced/sections/shared";
+import ColorPicker from "../../../ColorPicker";
 import { SettingsCard } from "./shared";
 
 const INDICATOR_CORNER_LABELS: Record<IndicatorCorner, string> = {
@@ -97,9 +98,9 @@ export default memo(function OverlaySection({ settings, update }: Props) {
   );
 
   const handleIndicatorCustomColorChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
+    (nextColor: string) => {
       if (!indicatorEnabled) return;
-      patchIndicator({ indicatorCustomColor: event.target.value });
+      patchIndicator({ indicatorCustomColor: nextColor });
     },
     [patchIndicator, indicatorEnabled],
   );
@@ -238,13 +239,11 @@ export default memo(function OverlaySection({ settings, update }: Props) {
             </span>
           </div>
           <div className="settings-color-controls">
-            <label className="settings-color-picker">
-              <input
-                type="color"
-                value={settings.indicatorCustomColor}
-                onChange={handleIndicatorCustomColorChange}
-              />
-            </label>
+            <ColorPicker
+              value={settings.indicatorCustomColor}
+              onChange={handleIndicatorCustomColorChange}
+              label="Indicator custom color"
+            />
             <span className="settings-value settings-value--mono">
               {settings.indicatorCustomColor.toUpperCase()}
             </span>

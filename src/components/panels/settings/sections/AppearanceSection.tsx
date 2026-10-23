@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, type CSSProperties } from "react";
 import { error } from "@tauri-apps/plugin-log";
 import { open } from "@tauri-apps/plugin-dialog";
+import { applyAccentTheme } from "../../../../accentTheme";
 import {
   getExtension,
   IMAGE_EXTENSIONS,
@@ -11,6 +12,7 @@ import {
 import { DEFAULT_ACCENT_COLOR } from "../../../../settingsSchema";
 import type { IconColor, IconTheme } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
+import ColorPicker from "../../../ColorPicker";
 import { SettingsCard } from "./shared";
 
 const MEDIA_FILTERS = [
@@ -293,9 +295,12 @@ const ThemeAccentCard = memo(function ThemeAccentCard({
     [update],
   );
   const handleAccentChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) =>
-      update({ accentColor: event.target.value }),
+    (nextColor: string) => update({ accentColor: nextColor }),
     [update],
+  );
+  const handleAccentPreview = useCallback(
+    (nextColor: string) => applyAccentTheme(nextColor, theme),
+    [theme],
   );
   const handleAccentReset = useCallback(
     () => update({ accentColor: DEFAULT_ACCENT_COLOR }),
@@ -328,13 +333,12 @@ const ThemeAccentCard = memo(function ThemeAccentCard({
           <span className="settings-sublabel">The primary accent color.</span>
         </div>
         <div className="settings-color-controls">
-          <label className="settings-color-picker">
-            <input
-              type="color"
-              value={accentColor}
-              onChange={handleAccentChange}
-            />
-          </label>
+          <ColorPicker
+            value={accentColor}
+            onChange={handleAccentChange}
+            onPreview={handleAccentPreview}
+            label="Accent color"
+          />
           <span className="settings-value settings-value--mono">
             {accentColor.toUpperCase()}
           </span>

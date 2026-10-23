@@ -631,25 +631,6 @@
   flex-wrap: wrap;
 }
 
-.settings-color-picker {
-  width: 2.5rem;
-  height: 2.5rem;
-  padding: 0.25rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
-  cursor: pointer;
-}
-
-.settings-color-picker input {
-  width: 100%;
-  height: 100%;
-  border: none;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
 .preset-compose {
   display: flex;
   gap: 0.5rem;

@@ -21,7 +21,13 @@ function rgba({ r, g, b }: RGB, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+let appliedAccent = "";
+
 export function applyAccentTheme(accentColor: string, theme: Theme) {
+  const key = `${accentColor}|${theme}`;
+  if (key === appliedAccent) return;
+  appliedAccent = key;
+
   const root = document.documentElement;
   const rgb = hexToRgb(accentColor);
   const accentAlpha = theme === "light" ? 0.9 : 0.75;

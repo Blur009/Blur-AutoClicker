@@ -14,6 +14,7 @@
   - Removed scroll fade from non-expanded changelog.
 - Added Changelog sub-points like above.
 - Small performance improvements.
+- New color picker for theme color
 
 ## Fixed
 

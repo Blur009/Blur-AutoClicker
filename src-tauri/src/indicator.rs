@@ -235,7 +235,8 @@ static START: OnceLock<Instant> = OnceLock::new();
 static CURRENT_MONITOR: Mutex<Option<VirtualScreenRect>> = Mutex::new(None);
 static MONITORS: Mutex<Vec<VirtualScreenRect>> = Mutex::new(Vec::new());
 static MONITORS_AT: AtomicU64 = AtomicU64::new(0);
-static PREVIEW_GEN: AtomicU64 = AtomicU64::new(0);
+static PREVIEW_DEADLINE_MS: AtomicU64 = AtomicU64::new(0);
+static PREVIEW_TIMER_ACTIVE: AtomicBool = AtomicBool::new(false);
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static FLASH_ENABLED: AtomicBool = AtomicBool::new(false);
 static COUNTDOWN: AtomicBool = AtomicBool::new(false);
@@ -394,7 +395,6 @@ pub fn apply_config(config: IndicatorConfig) {
     };
 
     if !config.enabled {
-        PREVIEW_GEN.fetch_add(1, Ordering::SeqCst);
         hide(app);
         return;
     }
@@ -422,6 +422,9 @@ pub fn set_active(active: bool) {
         return;
     };
     if !active {
+        if now_ms() < PREVIEW_DEADLINE_MS.load(Ordering::SeqCst) {
+            return;
+        }
         hide(app);
         return;
     }
@@ -432,7 +435,6 @@ pub fn set_active(active: bool) {
         return;
     }
 
-    PREVIEW_GEN.fetch_add(1, Ordering::SeqCst);
     log::info!("[indicator] activate");
     emit_config(&config);
     present(app, &config);
@@ -448,24 +450,46 @@ fn present(app: &AppHandle, config: &IndicatorConfig) {
 }
 
 fn start_preview_timer(app: &AppHandle) {
-    let generation = PREVIEW_GEN.fetch_add(1, Ordering::SeqCst) + 1;
+    PREVIEW_DEADLINE_MS.store(now_ms() + PREVIEW_HOLD.as_millis() as u64, Ordering::SeqCst);
+    if PREVIEW_TIMER_ACTIVE.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
     let handle = app.clone();
-    std::thread::spawn(move || {
-        std::thread::sleep(PREVIEW_HOLD);
-        if PREVIEW_GEN.load(Ordering::SeqCst) != generation {
+    let spawned = std::thread::Builder::new()
+        .name("indicator-preview".into())
+        .spawn(move || loop {
+            std::thread::sleep(Duration::from_millis(50));
+            if now_ms() < PREVIEW_DEADLINE_MS.load(Ordering::SeqCst) {
+                continue;
+            }
+
+            let hide_handle = handle.clone();
+            let _ = handle.run_on_main_thread(move || {
+                if now_ms() < PREVIEW_DEADLINE_MS.load(Ordering::SeqCst) {
+                    return;
+                }
+                if is_clicker_running(&hide_handle) {
+                    PREVIEW_DEADLINE_MS.store(0, Ordering::SeqCst);
+                    return;
+                }
+                hide(&hide_handle);
+            });
+
+            PREVIEW_TIMER_ACTIVE.store(false, Ordering::SeqCst);
+            if now_ms() < PREVIEW_DEADLINE_MS.load(Ordering::SeqCst) {
+                if PREVIEW_TIMER_ACTIVE.swap(true, Ordering::SeqCst) {
+                    return;
+                }
+                continue;
+            }
             return;
-        }
-        let hide_handle = handle.clone();
-        let _ = handle.run_on_main_thread(move || {
-            if PREVIEW_GEN.load(Ordering::SeqCst) != generation {
-                return;
-            }
-            if is_clicker_running(&hide_handle) {
-                return;
-            }
-            hide(&hide_handle);
         });
-    });
+
+    if spawned.is_err() {
+        PREVIEW_TIMER_ACTIVE.store(false, Ordering::SeqCst);
+        PREVIEW_DEADLINE_MS.store(0, Ordering::SeqCst);
+    }
 }
 
 fn is_clicker_running(app: &AppHandle) -> bool {
