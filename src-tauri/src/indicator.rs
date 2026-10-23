@@ -417,10 +417,10 @@ pub fn apply_config(config: IndicatorConfig) {
     }
 }
 
-pub fn set_active(active: bool) {
-    let Some(app) = APP.get() else {
-        return;
-    };
+pub fn set_active(app: &AppHandle, active: bool) {
+    if active && APP.get().is_none() {
+        init(app);
+    }
     if !active {
         if now_ms() < PREVIEW_DEADLINE_MS.load(Ordering::SeqCst) {
             return;

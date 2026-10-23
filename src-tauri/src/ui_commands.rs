@@ -279,6 +279,20 @@ pub fn was_autostart_launch() -> bool {
 }
 
 #[tauri::command]
+pub fn prepare_main_window(app: AppHandle) -> AppResult<()> {
+    #[cfg(target_os = "windows")]
+    if let Some(window) = app.get_webview_window("main") {
+        crate::apply_ws_ex_noactivate(&window, false);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn report_startup_ready(visible: bool, frontend_boot_ms: u64, boot_phases: String) {
+    crate::startup::report_ui_ready(visible, frontend_boot_ms, &boot_phases);
+}
+
+#[tauri::command]
 pub fn get_diagnostics_info() -> AppResult<crate::diagnostics::DiagnosticsInfo> {
     crate::diagnostics::get_diagnostics_info()
         .ok_or_else(|| AppError::State("Failed to resolve diagnostics info".into()))

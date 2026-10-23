@@ -14,6 +14,7 @@ mod hotkeys;
 mod icon;
 mod indicator;
 mod overlay;
+mod startup;
 mod ui_commands;
 mod updates;
 mod webview_guard;
@@ -412,6 +413,15 @@ fn setup_hotkeys(app: &AppHandle) -> Result<(), std::io::Error> {
 
 static FRONTEND_HANDLED: AtomicBool = AtomicBool::new(false);
 
+fn run_after(app: &AppHandle, delay_ms: u64, task: impl FnOnce(AppHandle) + Send + 'static) {
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+        let inner = handle.clone();
+        let _ = handle.run_on_main_thread(move || task(inner));
+    });
+}
+
 fn setup_frontend_listener(app: &AppHandle) {
     let overlay_init_handle = app.clone();
     app.listen("frontend-ready", move |_| {
@@ -420,17 +430,21 @@ fn setup_frontend_listener(app: &AppHandle) {
             return;
         }
         log::info!("[Window] Frontend ready, initializing overlay...");
-        if let Err(e) = overlay::init_overlay(&overlay_init_handle) {
-            log::error!("[Window] Overlay init failed: {e}");
-        }
         #[cfg(target_os = "windows")]
         if let Some(window) = overlay_init_handle.get_webview_window("main") {
-            apply_ws_ex_noactivate(&window, false);
-            log::info!("[Window] Cleared WS_EX_NOACTIVATE on main window");
             // Apply here (not at window creation) so CoreWebView2 is guaranteed
             // to exist — applying earlier can silently no-op and leave F6 crashing.
             disable_browser_accelerator_keys(&window);
         }
+        run_after(&overlay_init_handle, 350, |handle| {
+            crate::indicator::init(&handle);
+            sync_indicator_config(&handle);
+        });
+        run_after(&overlay_init_handle, 600, |handle| {
+            if let Err(e) = overlay::init_overlay(&handle) {
+                log::error!("[Window] Overlay init failed: {e}");
+            }
+        });
     });
 }
 
@@ -443,7 +457,7 @@ fn setup_close_handler(app: &AppHandle) {
 }
 
 fn create_clicker_state() -> ClickerState {
-    ClickerState {
+    let state = ClickerState {
         running: Arc::new(AtomicBool::new(false)),
         run_generation: AtomicU64::new(0),
         settings: Mutex::new(ClickerSettings::default()),
@@ -474,8 +488,11 @@ fn create_clicker_state() -> ClickerState {
             icon_enabled: true,
             icon_theme: String::from("auto"),
             icon_color: String::from("theme"),
+            icons_applied: false,
         }),
-    }
+    };
+    crate::startup::mark_state_ready();
+    state
 }
 
 pub fn sync_indicator_config(app: &AppHandle) {
@@ -507,6 +524,7 @@ pub fn sync_indicator_config(app: &AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    crate::startup::mark_start();
     crate::portable::init();
     setup_panic_hook();
 
@@ -528,10 +546,6 @@ pub fn run() {
             setup_logging(&handle);
             #[cfg(windows)]
             set_app_aumid();
-
-            if let Err(e) = crate::engine::stats::init() {
-                log::error!("[stats] Failed to initialize stats database: {e}");
-            }
 
             if !crate::portable::is_portable() {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
@@ -571,6 +585,12 @@ pub fn run() {
                 log::info!("[Window] Applied WS_EX_NOACTIVATE to main window");
             }
 
+            crate::startup::mark_webview_ready();
+
+            setup_tray(&handle)?;
+            setup_frontend_listener(&handle);
+            crate::webview_guard::spawn_watchdog();
+
             if rtss_detected {
                 log::warn!(
                     "[RTSS] RivaTuner Statistics Server detected. \
@@ -578,22 +598,21 @@ pub fn run() {
                      To fix permanently, exclude 'msedgewebview2.exe' in RTSS settings."
                 );
             }
-            if let Err(e) = crate::crash_handler::initialize_crashpad() {
-                log::warn!("[Crashpad] Failed to initialize: {e}");
-            }
-            setup_tray(&handle)?;
-            crate::icon::set_icon_theme(
-                &handle, "#22c55e", "dark", true, "auto", "theme",
-            );
-            crate::indicator::init(&handle);
+
+            std::thread::spawn(|| {
+                if let Err(e) = crate::engine::stats::init() {
+                    log::error!("[stats] Failed to initialize stats database: {e}");
+                }
+            });
+            crate::crash_handler::initialize_crashpad_async();
+
             sync_indicator_config(&handle);
             spawn_overlay_auto_hide(&handle);
             spawn_start_zone_monitor(&handle);
             window_lifecycle::start_periodic_trimming(30);
             setup_hotkeys(&handle)?;
-            setup_frontend_listener(&handle);
-            crate::webview_guard::spawn_watchdog();
             setup_close_handler(&handle);
+            crate::startup::mark_setup_done();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -628,6 +647,8 @@ pub fn run() {
             ui_commands::set_autostart_enabled,
             ui_commands::list_processes,
             ui_commands::was_autostart_launch,
+            ui_commands::prepare_main_window,
+            ui_commands::report_startup_ready,
             ui_commands::get_diagnostics_info,
             ui_commands::open_diagnostics_folder,
             ui_commands::export_diagnostics_bundle,

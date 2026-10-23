@@ -161,10 +161,6 @@ async function registerHotkeyCandidate(hotkey: string) {
   return invoke<string>("register_hotkey", { hotkey: canonicalHotkey });
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
 type UpdateCheckResult = {
   updateAvailable: boolean;
   currentVersion: string;
@@ -222,6 +218,8 @@ export default function App() {
   const lastValidHotkeyRef = useRef(DEFAULT_SETTINGS.hotkey);
   const launchWindowPlacementDone = useRef(false);
   const pendingShowWindowRef = useRef(false);
+  const bootTextScaleRef = useRef<number | null>(null);
+  const bootPhasesRef = useRef("");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resizeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toggleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -731,6 +729,12 @@ export default function App() {
   useEffect(() => {
     let mounted = true;
     mountedRef.current = true;
+    const phaseStart = performance.now();
+    const phases: string[] = [];
+    const recordPhase = (label: string) => {
+      phases.push(`${label} ${Math.round(performance.now() - phaseStart)}`);
+      bootPhasesRef.current = phases.join(", ");
+    };
 
     const readyTimers: number[] = [];
     for (let attempt = 1; attempt <= 8; attempt += 1) {
@@ -749,9 +753,10 @@ export default function App() {
     }
 
     invoke<number>("get_text_scale_factor")
-      .then((textScale) =>
-        invoke("set_webview_zoom", { factor: 1.0 / textScale }),
-      )
+      .then((textScale) => {
+        bootTextScaleRef.current = textScale;
+        return invoke("set_webview_zoom", { factor: 1.0 / textScale });
+      })
       .catch((err) =>
         error(JSON.stringify({ source: "App.setZoom", error: String(err) })),
       );
@@ -770,6 +775,7 @@ export default function App() {
           autostartLaunch,
         ]) => {
           if (!mounted) return;
+          recordPhase("load");
 
           let hydratedSettings = loadedSettings;
 
@@ -787,6 +793,7 @@ export default function App() {
             );
             registeredHotkey = lastValidHotkeyRef.current;
           }
+          recordPhase("hotkey");
 
           if (registeredHotkey !== hydratedSettings.hotkey) {
             hydratedSettings = {
@@ -839,9 +846,12 @@ export default function App() {
           }
           setAppInfo(loadedAppInfo);
           setStatus(loadedStatus);
+          pendingShowWindowRef.current = !autostartLaunch;
           setSettingsLoaded(true);
+          recordPhase("hydrate");
 
           await syncSettingsToBackend(hydratedSettings);
+          recordPhase("sync");
 
           if (
             hydratedSettings.hotkey !== loadedSettings.hotkey ||
@@ -849,8 +859,8 @@ export default function App() {
           ) {
             await saveSettings(hydratedSettings);
           }
+          recordPhase("save");
 
-          pendingShowWindowRef.current = !autostartLaunch;
           emit("frontend-ready", {}).catch((err) =>
             error(
               JSON.stringify({
@@ -948,7 +958,10 @@ export default function App() {
 
     void (async () => {
       try {
-        const textScale = await invoke<number>("get_text_scale_factor");
+        const bootTextScale = bootTextScaleRef.current;
+        bootTextScaleRef.current = null;
+        const textScale =
+          bootTextScale ?? (await invoke<number>("get_text_scale_factor"));
         document.documentElement.style.fontSize = `${16 * textScale}px`;
 
         const preferredSize = getPanelSize(tab, !!updateInfo);
@@ -972,12 +985,23 @@ export default function App() {
           root.style.width = `${width}px`;
           root.style.height = `${appHeight}px`;
 
-          await wait(30);
           if (cancelled) return;
           await applyStartupWindowPlacement();
           if (pendingShowWindowRef.current) {
-            await appWindow.show();
             pendingShowWindowRef.current = false;
+            await invoke("prepare_main_window").catch(() => {});
+            await appWindow.show();
+            invoke("report_startup_ready", {
+              visible: true,
+              frontendBootMs: Math.round(performance.now()),
+              bootPhases: bootPhasesRef.current,
+            }).catch(() => {});
+          } else {
+            invoke("report_startup_ready", {
+              visible: false,
+              frontendBootMs: Math.round(performance.now()),
+              bootPhases: bootPhasesRef.current,
+            }).catch(() => {});
           }
           launchWindowPlacementDone.current = true;
           return;

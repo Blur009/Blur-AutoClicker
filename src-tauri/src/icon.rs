@@ -471,7 +471,7 @@ pub fn set_app_icons(app: &AppHandle) {
     if let Err(e) = app.run_on_main_thread(move || {
         let state = handle.state::<ClickerState>();
         let running = state.running.load(Ordering::SeqCst);
-        crate::indicator::set_active(running);
+        crate::indicator::set_active(&handle, running);
 
         let (icon_enabled, is_dark) = {
             let icon_state = state.icon_state.lock().unwrap_or_else(poisoned_inner);
@@ -494,6 +494,22 @@ pub fn set_app_icons(app: &AppHandle) {
     }
 }
 
+fn same_icon_args(
+    state: &IconState,
+    hex_color: &str,
+    theme: &str,
+    icon_enabled: bool,
+    icon_theme: &str,
+    icon_color: &str,
+) -> bool {
+    state.icons_applied
+        && state.accent_color == hex_color
+        && state.theme == theme
+        && state.icon_enabled == icon_enabled
+        && state.icon_theme == icon_theme
+        && state.icon_color == icon_color
+}
+
 pub fn set_icon_theme(
     app: &AppHandle,
     hex_color: &str,
@@ -503,6 +519,20 @@ pub fn set_icon_theme(
     icon_color: &str,
 ) {
     let state = app.state::<ClickerState>();
+
+    {
+        let icon_state = state.icon_state.lock().unwrap_or_else(poisoned_inner);
+        if same_icon_args(
+            &icon_state,
+            hex_color,
+            theme,
+            icon_enabled,
+            icon_theme,
+            icon_color,
+        ) {
+            return;
+        }
+    }
 
     let (dark, light) = recompute_tint(icon_enabled, icon_color, hex_color);
 
@@ -514,6 +544,7 @@ pub fn set_icon_theme(
         icon_state.icon_enabled = icon_enabled;
         icon_state.icon_theme = icon_theme.to_string();
         icon_state.icon_color = icon_color.to_string();
+        icon_state.icons_applied = true;
     }
 
     {
@@ -536,6 +567,43 @@ pub fn set_icon_theme(
 mod tests {
     use super::*;
     use image::ImageEncoder;
+
+    #[test]
+    fn same_icon_args_requires_an_applied_set() {
+        let mut state = IconState {
+            accent_color: String::from("#22c55e"),
+            theme: String::from("dark"),
+            icon_enabled: true,
+            icon_theme: String::from("auto"),
+            icon_color: String::from("theme"),
+            icons_applied: false,
+        };
+
+        assert!(!same_icon_args(
+            &state, "#22c55e", "dark", true, "auto", "theme"
+        ));
+
+        state.icons_applied = true;
+
+        assert!(same_icon_args(
+            &state, "#22c55e", "dark", true, "auto", "theme"
+        ));
+        assert!(!same_icon_args(
+            &state, "#16a34a", "dark", true, "auto", "theme"
+        ));
+        assert!(!same_icon_args(
+            &state, "#22c55e", "light", true, "auto", "theme"
+        ));
+        assert!(!same_icon_args(
+            &state, "#22c55e", "dark", false, "auto", "theme"
+        ));
+        assert!(!same_icon_args(
+            &state, "#22c55e", "dark", true, "dark", "theme"
+        ));
+        assert!(!same_icon_args(
+            &state, "#22c55e", "dark", true, "auto", "default"
+        ));
+    }
 
     #[test]
     fn compute_tinted_declines_a_colour_that_splits_a_character() {

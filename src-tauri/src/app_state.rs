@@ -11,6 +11,7 @@ pub struct IconState {
     pub icon_enabled: bool,
     pub icon_theme: String,
     pub icon_color: String,
+    pub icons_applied: bool,
 }
 
 pub struct ClickerState {

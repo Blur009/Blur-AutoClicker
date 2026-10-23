@@ -13,6 +13,9 @@ use crashpad_rs::CrashpadClient;
 static CRASHPAD_CLIENT: Mutex<Option<CrashpadClient>> = Mutex::new(None);
 
 #[cfg(feature = "crashpad")]
+static CRASHPAD_INIT: Mutex<Option<std::thread::JoinHandle<()>>> = Mutex::new(None);
+
+#[cfg(feature = "crashpad")]
 pub fn initialize_crashpad() -> Result<(), Box<dyn std::error::Error>> {
     let client = crashpad_rs::CrashpadClient::new()?;
 
@@ -40,7 +43,24 @@ pub fn initialize_crashpad() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(feature = "crashpad")]
+pub fn initialize_crashpad_async() {
+    let handle = std::thread::spawn(|| {
+        if let Err(e) = initialize_crashpad() {
+            log::warn!("[Crashpad] Failed to initialize: {e}");
+        }
+    });
+    *CRASHPAD_INIT.lock().unwrap_or_else(|e| e.into_inner()) = Some(handle);
+}
+
+#[cfg(feature = "crashpad")]
 pub fn shutdown_crashpad() {
+    if let Some(handle) = CRASHPAD_INIT
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .take()
+    {
+        let _ = handle.join();
+    }
     let mut slot = CRASHPAD_CLIENT.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(client) = slot.take() {
         // Dropping the client calls crashpad_client_delete, which tells the
@@ -128,6 +148,11 @@ pub fn initialize_crashpad() -> Result<(), Box<dyn std::error::Error>> {
         "[Crashpad] Not available — compile with 'crashpad' feature for out-of-process crash dumps."
     );
     Ok(())
+}
+
+#[cfg(not(feature = "crashpad"))]
+pub fn initialize_crashpad_async() {
+    let _ = initialize_crashpad();
 }
 
 #[cfg(not(feature = "crashpad"))]

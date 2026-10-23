@@ -15,6 +15,7 @@
 - Added Changelog sub-points like above.
 - Small performance improvements.
 - New color picker for theme color
+- Improved startup time by ~54.6%
 
 ## Fixed
 
