@@ -183,7 +183,7 @@
 
 .simple-mouse-btn {
   height: 1.75rem;
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 3%;
@@ -222,7 +222,7 @@
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-dim);
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-weight: 800;
   line-height: 1;
   cursor: pointer;

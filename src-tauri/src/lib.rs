@@ -618,6 +618,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ui_commands::set_webview_zoom,
             ui_commands::get_text_scale_factor,
+            ui_commands::list_font_families,
             ui_commands::start_clicker,
             ui_commands::stop_clicker,
             ui_commands::toggle_clicker,

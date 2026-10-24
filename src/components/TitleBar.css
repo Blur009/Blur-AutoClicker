@@ -64,6 +64,13 @@
     text-shadow 0.2s ease;
 }
 
+[data-fancy-title="true"] .window-title {
+  font-family: var(--title-font-family, "Pristina"), "Segoe Script", cursive;
+  font-weight: 400;
+  font-size: 1.375rem;
+  letter-spacing: 0;
+}
+
 .window-title-background[data-running="true"] .window-title {
   color: var(--accent-strong);
   text-shadow:

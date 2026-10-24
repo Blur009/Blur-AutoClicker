@@ -34,7 +34,7 @@
 }
 
 .update-preview-title {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -114,7 +114,7 @@
 }
 
 .update-preview-status {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.8125rem;
   font-weight: 400;
   color: var(--text-muted);
@@ -128,7 +128,7 @@
 }
 
 .update-preview-github-btn {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.8125rem;
   font-weight: 600;
   padding: 0.3125rem 0.875rem;

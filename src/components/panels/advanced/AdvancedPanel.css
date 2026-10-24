@@ -1,7 +1,7 @@
 .adv-seg-btn-dynamic {
   flex: 1;
   height: calc(var(--adv-control-height) - 2px);
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 1rem;
   font-weight: var(--font-weight-md);
   line-height: 1.125rem;
@@ -100,7 +100,7 @@
 }
 
 .adv-conversion-display {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.6875rem;
   color: var(--text-dim);
   white-space: nowrap;
@@ -115,7 +115,7 @@
 }
 
 .adv-desc {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.6875rem;
   font-weight: var(--font-weight-li);
   color: var(--text-dim);
@@ -138,7 +138,7 @@
 }
 
 .adv-label {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.875rem;
   font-weight: var(--font-weight-hv);
   color: var(--text-dim);
@@ -162,7 +162,7 @@
 }
 
 .adv-textbox-text {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 1rem;
   line-height: 1.125rem;
   padding: 0 0.625rem;
@@ -190,7 +190,7 @@
   border-left: 1px solid var(--border-subtle);
   background: transparent;
   color: var(--text-dim);
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-weight: 800;
   line-height: 1;
   cursor: pointer;
@@ -231,7 +231,7 @@
 }
 
 .adv-pick-btn {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.6875rem;
   font-weight: var(--font-weight-hv);
   padding: 0.25rem 0.5rem;
@@ -302,7 +302,7 @@
   padding: 0 0.5rem;
   flex-shrink: 0;
   color: var(--text-dim);
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.8rem;
 }
 

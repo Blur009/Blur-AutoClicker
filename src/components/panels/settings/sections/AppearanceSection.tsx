@@ -1,4 +1,12 @@
-import { memo, useCallback, useMemo, type CSSProperties } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { error } from "@tauri-apps/plugin-log";
 import { open } from "@tauri-apps/plugin-dialog";
 import { applyAccentTheme } from "../../../../accentTheme";
@@ -9,10 +17,15 @@ import {
   PLAYABLE_VIDEO_EXTENSIONS,
   VIDEO_EXTENSIONS,
 } from "../../../../backgroundMedia";
-import { DEFAULT_ACCENT_COLOR } from "../../../../settingsSchema";
+import {
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_TITLE_FONT,
+} from "../../../../settingsSchema";
 import type { IconColor, IconTheme } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
 import ColorPicker from "../../../ColorPicker";
+import { AdvDropdown } from "../../advanced/sections/shared";
 import { SettingsCard } from "./shared";
 
 const MEDIA_FILTERS = [
@@ -281,15 +294,113 @@ const PageAppearanceControls = memo(function PageAppearanceControls({
   );
 });
 
+let fontFamiliesPromise: Promise<string[] | null> | null = null;
+
+function loadFontFamilies(): Promise<string[] | null> {
+  if (!fontFamiliesPromise) {
+    fontFamiliesPromise = invoke<string[]>("list_font_families").catch(
+      (err) => {
+        error(
+          JSON.stringify({
+            source: "AppearanceSection.loadFontFamilies",
+            error: String(err),
+          }),
+        );
+        fontFamiliesPromise = null;
+        return null;
+      },
+    );
+  }
+  return fontFamiliesPromise;
+}
+
+const FontPicker = memo(function FontPicker({
+  value,
+  fallback,
+  onChange,
+}: {
+  value: string;
+  fallback: string;
+  onChange: (next: string) => void;
+}) {
+  const [families, setFamilies] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    loadFontFamilies().then((list) => {
+      if (alive) setFamilies(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const options = useMemo(() => {
+    const installed = families ?? [];
+    const entries = [{ value: fallback, label: "Default" }];
+    if (value !== fallback && !installed.includes(value)) {
+      entries.push({
+        value,
+        label: `${value} (not installed)`,
+      });
+    }
+    for (const family of installed) {
+      if (family !== fallback) {
+        entries.push({ value: family, label: family });
+      }
+    }
+    return entries;
+  }, [families, fallback, value]);
+
+  return (
+    <>
+      <div className="font-dropdown">
+        <AdvDropdown
+          value={value}
+          options={options}
+          onChange={onChange}
+          searchable
+          hoverWheel={false}
+        />
+      </div>
+      {value !== fallback && (
+        <button
+          type="button"
+          className="settings-btn-secondary font-reset-btn"
+          onClick={() => onChange(fallback)}
+          aria-label="Reset font"
+          title="Reset to default font"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="lucide lucide-rotate-ccw"
+          >
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        </button>
+      )}
+    </>
+  );
+});
+
 const ThemeAccentCard = memo(function ThemeAccentCard({
-  theme,
-  accentColor,
+  settings,
   update,
 }: {
-  theme: Settings["theme"];
-  accentColor: string;
+  settings: Settings;
   update: (patch: Partial<Settings>) => void;
 }) {
+  const theme = settings.theme;
+  const accentColor = settings.accentColor;
   const handleThemeSelect = useCallback(
     (next: Settings["theme"]) => update({ theme: next }),
     [update],
@@ -299,8 +410,8 @@ const ThemeAccentCard = memo(function ThemeAccentCard({
     [update],
   );
   const handleAccentPreview = useCallback(
-    (nextColor: string) => applyAccentTheme(nextColor, theme),
-    [theme],
+    (nextColor: string) => applyAccentTheme(nextColor, settings.theme),
+    [settings.theme],
   );
   const handleAccentReset = useCallback(
     () => update({ accentColor: DEFAULT_ACCENT_COLOR }),
@@ -351,6 +462,21 @@ const ThemeAccentCard = memo(function ThemeAccentCard({
           </button>
         </div>
       </div>
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">App Font</span>
+          <span className="settings-sublabel">
+            Any font installed on this PC. Some fonts may cause visual bugs.
+          </span>
+        </div>
+        <div className="settings-row-actions">
+          <FontPicker
+            value={settings.fontFamily}
+            fallback={DEFAULT_FONT_FAMILY}
+            onChange={(next) => update({ fontFamily: next })}
+          />
+        </div>
+      </div>
     </SettingsCard>
   );
 });
@@ -385,13 +511,19 @@ export default function AppearanceSection({ settings, update }: Props) {
     [update, settings.statusBarEnabled],
   );
 
+  const handleFancyTitleToggle = useCallback(
+    () => update({ fancyTitle: !settings.fancyTitle }),
+    [update, settings.fancyTitle],
+  );
+
+  const handleTitleFontChange = useCallback(
+    (next: string) => update({ titleFont: next }),
+    [update],
+  );
+
   return (
     <>
-      <ThemeAccentCard
-        theme={settings.theme}
-        accentColor={settings.accentColor}
-        update={update}
-      />
+      <ThemeAccentCard settings={settings} update={update} />
 
       <SettingsCard
         title="Appearance Mode"
@@ -525,6 +657,42 @@ export default function AppearanceSection({ settings, update }: Props) {
             </button>
           </div>
         </div>
+      </SettingsCard>
+
+      <SettingsCard title="Fun">
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Fancy Title</span>
+            <span className="settings-sublabel">
+              Give the title bar a font of its own.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.fancyTitle ? "on" : "off"}`}
+              onClick={handleFancyTitleToggle}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+        {settings.fancyTitle && (
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">Title Font</span>
+              <span className="settings-sublabel">
+                Pristina by default, any installed font works.
+              </span>
+            </div>
+            <div className="settings-row-actions">
+              <FontPicker
+                value={settings.titleFont}
+                fallback={DEFAULT_TITLE_FONT}
+                onChange={handleTitleFontChange}
+              />
+            </div>
+          </div>
+        )}
       </SettingsCard>
     </>
   );

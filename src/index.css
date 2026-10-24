@@ -6,7 +6,8 @@
 }
 
 :root {
-  --font-family-base: "RobotoFlex", sans-serif;
+  --font-fallback: "RobotoFlex", sans-serif;
+  --font-family-base: var(--font-fallback);
 
   --bg-base: rgb(12, 12, 14);
   --bg-surface: rgb(26, 26, 26);

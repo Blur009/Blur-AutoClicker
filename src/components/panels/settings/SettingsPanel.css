@@ -573,6 +573,31 @@
   color: var(--text-primary);
 }
 
+.font-dropdown {
+  width: 11rem;
+  min-width: 0;
+}
+
+.font-dropdown .adv-dropdown {
+  width: 100%;
+  min-width: 0;
+}
+
+.font-dropdown .adv-dropdown-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.font-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4375rem;
+  line-height: 0;
+}
+
 .settings-btn-secondary:hover,
 .settings-btn-quiet:hover {
   background: var(--bg-elevated);
@@ -1074,7 +1099,7 @@
 }
 
 .settings-proc-search {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.75rem;
   height: 32px;
   width: 100%;
@@ -1103,7 +1128,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.75rem;
   color: var(--text-warning, #b8860b);
   background: color-mix(in srgb, var(--text-warning, #b8860b) 10%, transparent);
@@ -1206,14 +1231,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.8125rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .settings-proc-exe {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.6875rem;
   color: var(--text-dim);
   flex-shrink: 0;

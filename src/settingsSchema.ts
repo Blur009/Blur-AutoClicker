@@ -44,6 +44,8 @@ export interface StopZone {
 }
 
 export const DEFAULT_ACCENT_COLOR = "#22c55e";
+export const DEFAULT_FONT_FAMILY = "RobotoFlex";
+export const DEFAULT_TITLE_FONT = "Pristina";
 export const PRESET_NAME_MAX_LENGTH = 40;
 export const DEFAULT_MAX_CLICK_SPEED = 500;
 export const EXTENDED_MAX_CLICK_SPEED = 1000;
@@ -309,6 +311,18 @@ const PRESET_FIELDS = {
 
 //All Other settings that do not need to be saved by presets go here.
 const SETTINGS_ONLY_FIELDS = {
+  fancyTitle: {
+    default: false,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  titleFont: {
+    default: DEFAULT_TITLE_FONT,
+    ui: { section: "appearance", control: "select" },
+  },
+  fontFamily: {
+    default: DEFAULT_FONT_FAMILY,
+    ui: { section: "appearance", control: "select" },
+  },
   rateInputMode: {
     default: "rate" as RateInputMode,
     ui: { section: "core", control: "select" },
@@ -993,6 +1007,20 @@ export function sanitizeHexColor(value: unknown, fallback: string): string {
   return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : fallback;
 }
 
+export function sanitizeFontFamily(value: unknown, fallback: string): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const cleaned = value
+    .split("")
+    .filter((char) => char.charCodeAt(0) > 31)
+    .join("")
+    .replace(/["`;\\]/g, "")
+    .trim();
+  return cleaned ? cleaned.slice(0, 128) : fallback;
+}
+
 export function sanitizePresetName(value: unknown): string {
   if (typeof value !== "string") {
     return "";
@@ -1464,6 +1492,18 @@ export function sanitizeSettings(
   settingsOnly.accentColor = sanitizeHexColor(
     saved.accentColor,
     defaults.accentColor,
+  );
+  settingsOnly.fancyTitle = sanitizeBoolean(
+    saved.fancyTitle,
+    defaults.fancyTitle,
+  );
+  settingsOnly.titleFont = sanitizeFontFamily(
+    saved.titleFont,
+    defaults.titleFont,
+  );
+  settingsOnly.fontFamily = sanitizeFontFamily(
+    saved.fontFamily,
+    defaults.fontFamily,
   );
   settingsOnly.indicatorCorner = sanitizeEnum(
     saved.indicatorCorner,

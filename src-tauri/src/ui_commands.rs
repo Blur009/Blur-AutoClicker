@@ -24,6 +24,68 @@ use crate::hotkeys::register_hotkey_inner;
 use crate::hotkeys::register_master_inner;
 
 #[tauri::command]
+pub fn list_font_families() -> Vec<String> {
+    #[cfg(target_os = "windows")]
+    {
+        enumerate_font_families()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Vec::new()
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn enumerate_font_families() -> Vec<String> {
+    use std::collections::HashSet;
+    use windows_sys::Win32::Foundation::LPARAM;
+    use windows_sys::Win32::Graphics::Gdi::{
+        EnumFontFamiliesExW, GetDC, ReleaseDC, DEFAULT_CHARSET, LOGFONTW, TEXTMETRICW,
+    };
+
+    unsafe extern "system" fn collect(
+        logfont: *const LOGFONTW,
+        _metric: *const TEXTMETRICW,
+        _font_type: u32,
+        lparam: LPARAM,
+    ) -> i32 {
+        let names = &mut *(lparam as *mut HashSet<String>);
+        let wide = &(*logfont).lfFaceName;
+        let end = wide
+            .iter()
+            .position(|unit| *unit == 0)
+            .unwrap_or(wide.len());
+        let name = String::from_utf16_lossy(&wide[..end]);
+        if !name.is_empty() && !name.starts_with('@') {
+            names.insert(name);
+        }
+        1
+    }
+
+    let mut names: HashSet<String> = HashSet::new();
+    unsafe {
+        let hdc = GetDC(std::ptr::null_mut());
+        if hdc.is_null() {
+            return Vec::new();
+        }
+        let mut logfont: LOGFONTW = std::mem::zeroed();
+        logfont.lfCharSet = DEFAULT_CHARSET;
+        EnumFontFamiliesExW(
+            hdc,
+            &logfont,
+            Some(collect),
+            &mut names as *mut _ as LPARAM,
+            0,
+        );
+        ReleaseDC(std::ptr::null_mut(), hdc);
+    }
+
+    let mut families: Vec<String> = names.into_iter().collect();
+    families.sort_by_key(|name| name.to_lowercase());
+    families
+}
+
+#[tauri::command]
 pub fn get_text_scale_factor() -> f64 {
     #[cfg(target_os = "windows")]
     {

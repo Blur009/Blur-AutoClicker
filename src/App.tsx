@@ -1194,6 +1194,23 @@ export default function App() {
     settings.taskbarIconColor,
   ]);
 
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty(
+      "--font-family-base",
+      `"${settings.fontFamily}", var(--font-fallback)`,
+    );
+  }, [settings.fontFamily]);
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.fancyTitle = settings.fancyTitle
+      ? "true"
+      : "false";
+    document.documentElement.style.setProperty(
+      "--title-font-family",
+      `"${settings.titleFont}"`,
+    );
+  }, [settings.fancyTitle, settings.titleFont]);
+
   useEffect(() => {
     document.documentElement.lang = "en";
     document.documentElement.dir = "ltr";

@@ -3,6 +3,8 @@
 ## New
 
 - Added an overlay to show when the clicker is active. Settings → Overlay. On by default.
+- Added ability to change font in Settings → Appearance.
+- Added a "Fancy Title" toggle in Settings → Appearance that lets you choose your own title font.
 
 ## Changed
 
