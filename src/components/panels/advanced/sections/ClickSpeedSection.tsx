@@ -86,16 +86,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
       INTERVAL_OPTIONS.find((o) => o.value === converted.clickInterval)
         ?.label || "Second";
     return `${formatDecimalLocale(converted.clickSpeed)} clicks per ${unitLabel.toLowerCase()}`;
-  }, [
-    settings.rateInputMode,
-    settings.clickInterval,
-    settings.clickSpeed,
-    settings.durationHours,
-    settings.durationMinutes,
-    settings.durationSeconds,
-    settings.durationMilliseconds,
-    settings.extendedClickSpeedLimit,
-  ]);
+  }, [settings]);
 
   const handleClickSpeedUpdate = useCallback(
     (next: number) => update({ clickSpeed: next }),

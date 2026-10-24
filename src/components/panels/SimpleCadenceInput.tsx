@@ -164,12 +164,21 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
     [updateSimpleCadence],
   );
 
-  const durationSnapshot = {
-    durationHours: settings.durationHours,
-    durationMinutes: settings.durationMinutes,
-    durationSeconds: settings.durationSeconds,
-    durationMilliseconds: settings.durationMilliseconds,
-  } as CadenceDurationFields;
+  const durationSnapshot = useMemo(
+    () =>
+      ({
+        durationHours: settings.durationHours,
+        durationMinutes: settings.durationMinutes,
+        durationSeconds: settings.durationSeconds,
+        durationMilliseconds: settings.durationMilliseconds,
+      }) as CadenceDurationFields,
+    [
+      settings.durationHours,
+      settings.durationMinutes,
+      settings.durationSeconds,
+      settings.durationMilliseconds,
+    ],
+  );
 
   const handleDurationHoursBlur = useCallback(
     (event: FocusEvent<HTMLInputElement>) =>
@@ -181,13 +190,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
         durationSnapshot,
         updateSimpleCadence,
       ),
-    [
-      durationSnapshot.durationHours,
-      durationSnapshot.durationMinutes,
-      durationSnapshot.durationSeconds,
-      durationSnapshot.durationMilliseconds,
-      updateSimpleCadence,
-    ],
+    [durationSnapshot, updateSimpleCadence],
   );
 
   const handleDurationHoursWheel = useCallback(
@@ -200,13 +203,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
         999,
         updateSimpleCadence,
       ),
-    [
-      durationSnapshot.durationHours,
-      durationSnapshot.durationMinutes,
-      durationSnapshot.durationSeconds,
-      durationSnapshot.durationMilliseconds,
-      updateSimpleCadence,
-    ],
+    [durationSnapshot, updateSimpleCadence],
   );
 
   const handleDurationMinutesBlur = useCallback(
@@ -219,13 +216,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
         durationSnapshot,
         updateSimpleCadence,
       ),
-    [
-      durationSnapshot.durationHours,
-      durationSnapshot.durationMinutes,
-      durationSnapshot.durationSeconds,
-      durationSnapshot.durationMilliseconds,
-      updateSimpleCadence,
-    ],
+    [durationSnapshot, updateSimpleCadence],
   );
 
   const handleDurationMinutesWheel = useCallback(
@@ -238,13 +229,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
         59,
         updateSimpleCadence,
       ),
-    [
-      durationSnapshot.durationHours,
-      durationSnapshot.durationMinutes,
-      durationSnapshot.durationSeconds,
-      durationSnapshot.durationMilliseconds,
-      updateSimpleCadence,
-    ],
+    [durationSnapshot, updateSimpleCadence],
   );
 
   const handleDurationSecondsBlur = useCallback(
@@ -257,13 +242,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
         durationSnapshot,
         updateSimpleCadence,
       ),
-    [
-      durationSnapshot.durationHours,
-      durationSnapshot.durationMinutes,
-      durationSnapshot.durationSeconds,
-      durationSnapshot.durationMilliseconds,
-      updateSimpleCadence,
-    ],
+    [durationSnapshot, updateSimpleCadence],
   );
 
   const handleDurationSecondsWheel = useCallback(
@@ -276,13 +255,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
         59,
         updateSimpleCadence,
       ),
-    [
-      durationSnapshot.durationHours,
-      durationSnapshot.durationMinutes,
-      durationSnapshot.durationSeconds,
-      durationSnapshot.durationMilliseconds,
-      updateSimpleCadence,
-    ],
+    [durationSnapshot, updateSimpleCadence],
   );
 
   const handleDurationMsBlur = useCallback(
@@ -295,14 +268,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
         durationSnapshot,
         updateSimpleCadence,
       ),
-    [
-      durationSnapshot.durationHours,
-      durationSnapshot.durationMinutes,
-      durationSnapshot.durationSeconds,
-      durationSnapshot.durationMilliseconds,
-      minIntervalMs,
-      updateSimpleCadence,
-    ],
+    [durationSnapshot, minIntervalMs, updateSimpleCadence],
   );
 
   const handleDurationMsWheel = useCallback(
@@ -315,14 +281,7 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
         999,
         updateSimpleCadence,
       ),
-    [
-      durationSnapshot.durationHours,
-      durationSnapshot.durationMinutes,
-      durationSnapshot.durationSeconds,
-      durationSnapshot.durationMilliseconds,
-      minIntervalMs,
-      updateSimpleCadence,
-    ],
+    [durationSnapshot, minIntervalMs, updateSimpleCadence],
   );
 
   const hoursStyle = useMemo(

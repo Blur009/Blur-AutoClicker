@@ -1265,35 +1265,7 @@ export default function App() {
       root.style.removeProperty("--bg-panel-blur");
       root.style.removeProperty("--bg-image-blur");
     };
-  }, [
-    settings.windowOpacity,
-    settings.panelOpacity,
-    settings.panelBlur,
-    settings.backgroundBlur,
-    settings.theme,
-    settings.perPageAppearance,
-    settings.panelOpacitySimple,
-    settings.panelOpacityAdvanced,
-    settings.panelOpacityZones,
-    settings.panelOpacityClickPoints,
-    settings.panelOpacitySettings,
-    settings.panelBlurSimple,
-    settings.panelBlurAdvanced,
-    settings.panelBlurZones,
-    settings.panelBlurClickPoints,
-    settings.panelBlurSettings,
-    settings.backgroundBlurSimple,
-    settings.backgroundBlurAdvanced,
-    settings.backgroundBlurZones,
-    settings.backgroundBlurClickPoints,
-    settings.backgroundBlurSettings,
-    settings.windowOpacitySimple,
-    settings.windowOpacityAdvanced,
-    settings.windowOpacityZones,
-    settings.windowOpacityClickPoints,
-    settings.windowOpacitySettings,
-    tab,
-  ]);
+  }, [settings, tab]);
 
   useEffect(() => {
     const cleanup = listen<boolean>("minimized-changed", (event) => {
@@ -1375,16 +1347,7 @@ export default function App() {
       `backgroundOpacity${sfx}`,
     );
     root.style.setProperty("--bg-opacity", String(bgOp));
-  }, [
-    settings.backgroundOpacity,
-    settings.perPageAppearance,
-    settings.backgroundOpacitySimple,
-    settings.backgroundOpacityAdvanced,
-    settings.backgroundOpacityZones,
-    settings.backgroundOpacityClickPoints,
-    settings.backgroundOpacitySettings,
-    tab,
-  ]);
+  }, [settings, tab]);
 
   const handleTabChange = useCallback(
     (nextTab: Tab) => {
