@@ -32,6 +32,10 @@ pub struct ClickerState {
     pub master_hold_mode: AtomicBool,
     pub master_enabled: AtomicBool,
     pub master_allowed: AtomicBool,
+    pub elevation_blocked: AtomicBool,
+    pub engine_busy: AtomicBool,
+    pub elevation_suppressed: Mutex<Vec<(isize, u32)>>,
+    pub elevation_notice_enabled: AtomicBool,
     pub last_master_allowed: AtomicBool,
     pub settings_initialized: AtomicBool,
     pub paused: Arc<AtomicBool>,
@@ -54,6 +58,7 @@ pub struct ClickerStatusPayload {
     pub active_click_point_index: Option<usize>,
     pub active_click_point_tick: u64,
     pub master_allowed: bool,
+    pub elevation_blocked: bool,
 }
 
 #[derive(Clone, serde::Serialize)]

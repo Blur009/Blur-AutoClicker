@@ -12,6 +12,7 @@ use crate::ClickerState;
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
+use std::time::Instant;
 use tauri::Manager;
 use windows_sys::Win32::Foundation::{GetLastError, LRESULT, POINT};
 use windows_sys::Win32::System::Threading::GetCurrentProcessId;
@@ -28,6 +29,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 const PM_REMOVE: u32 = 0x0001;
 
 const POLL_INTERVAL_MS: u32 = 16;
+const FOREGROUND_PROMPT_INTERVAL: Duration = Duration::from_millis(400);
 
 const MAX_CHORD_MAINS: usize = 5;
 
@@ -475,6 +477,7 @@ pub fn start_hotkey_listener(app: AppHandle) {
         let mut was_pressed = false;
         let mut was_suppressed = false;
         let mut master_was_pressed = false;
+        let mut last_foreground_check = Instant::now();
         let mut msg: MSG = std::mem::zeroed();
 
         'outer: loop {
@@ -489,6 +492,31 @@ pub fn start_hotkey_listener(app: AppHandle) {
             while PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) != 0 {
                 if msg.message == WM_QUIT {
                     break 'outer;
+                }
+            }
+
+            let tick_now = Instant::now();
+            if tick_now.duration_since(last_foreground_check) >= FOREGROUND_PROMPT_INTERVAL
+                && state.elevation_notice_enabled.load(Ordering::SeqCst)
+                && !state.elevation_blocked.load(Ordering::SeqCst)
+            {
+                last_foreground_check = tick_now;
+                let suppressed = state
+                    .elevation_suppressed
+                    .lock()
+                    .unwrap_or_else(poisoned_inner)
+                    .clone();
+                if let Some(entry) = crate::elevation::foreground_needs_prompt(&suppressed) {
+                    crate::elevation::remember_suppressed(
+                        &mut state
+                            .elevation_suppressed
+                            .lock()
+                            .unwrap_or_else(poisoned_inner),
+                        entry,
+                    );
+                    state.elevation_blocked.store(true, Ordering::SeqCst);
+                    crate::notifications::elevation_blocked(&app);
+                    emit_status(&app);
                 }
             }
 

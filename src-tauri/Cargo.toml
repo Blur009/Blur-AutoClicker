@@ -32,6 +32,7 @@ tauri-plugin-log = "2.10"
 tauri-plugin-fs = "2.6"
 tauri-plugin-process = "2.4"
 tauri-plugin-store = "2.5"
+tauri-plugin-notification = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-dialog = "2.7.2"
 tauri-plugin-persisted-scope = { version = "2", features = ["protocol-asset"] }

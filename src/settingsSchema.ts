@@ -311,6 +311,14 @@ const PRESET_FIELDS = {
 
 //All Other settings that do not need to be saved by presets go here.
 const SETTINGS_ONLY_FIELDS = {
+  elevationNoticeEnabled: {
+    default: true,
+    ui: { section: "behavior", control: "toggle" },
+  },
+  alwaysRunAsAdmin: {
+    default: false,
+    ui: { section: "startup", control: "toggle" },
+  },
   fancyTitle: {
     default: false,
     ui: { section: "appearance", control: "toggle" },
@@ -1492,6 +1500,14 @@ export function sanitizeSettings(
   settingsOnly.accentColor = sanitizeHexColor(
     saved.accentColor,
     defaults.accentColor,
+  );
+  settingsOnly.elevationNoticeEnabled = sanitizeBoolean(
+    saved.elevationNoticeEnabled,
+    defaults.elevationNoticeEnabled,
+  );
+  settingsOnly.alwaysRunAsAdmin = sanitizeBoolean(
+    saved.alwaysRunAsAdmin,
+    defaults.alwaysRunAsAdmin,
   );
   settingsOnly.fancyTitle = sanitizeBoolean(
     saved.fancyTitle,

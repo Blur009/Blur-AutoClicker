@@ -130,6 +130,16 @@ export default function BehaviorSection({
     [update, settings.rememberWindowPosition],
   );
 
+  const handleAlwaysRunAsAdminToggle = useCallback(
+    () => update({ alwaysRunAsAdmin: !settings.alwaysRunAsAdmin }),
+    [update, settings.alwaysRunAsAdmin],
+  );
+
+  const handleElevationNoticeToggle = useCallback(
+    () => update({ elevationNoticeEnabled: !settings.elevationNoticeEnabled }),
+    [update, settings.elevationNoticeEnabled],
+  );
+
   const handleAutostartToggle = useCallback(() => {
     const newValue = !autostartEnabled;
     invoke("set_autostart_enabled", { enabled: newValue })
@@ -308,6 +318,24 @@ export default function BehaviorSection({
       <SettingsCard title="Startup" description="Behavior when the app opens.">
         <div className="settings-row">
           <div className="settings-label-group">
+            <span className="settings-label">Run as Administrator</span>
+            <span className="settings-sublabel">
+              Relaunch with administrator rights so elevated windows accept
+              clicks.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.alwaysRunAsAdmin ? "on" : "off"}`}
+              onClick={handleAlwaysRunAsAdminToggle}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
             <span className="settings-label">Minimize to Tray</span>
             <span className="settings-sublabel">
               Minimize to the system tray instead of the taskbar.
@@ -359,6 +387,25 @@ export default function BehaviorSection({
             </div>
           </div>
         )}
+      </SettingsCard>
+
+      <SettingsCard title="Notices">
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Administrator Window Notice</span>
+            <span className="settings-sublabel">
+              Warn when an elevated window takes focus.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.elevationNoticeEnabled ? "on" : "off"}`}
+              onClick={handleElevationNoticeToggle}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
       </SettingsCard>
 
       <ConfirmDialog

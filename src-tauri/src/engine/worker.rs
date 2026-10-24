@@ -164,6 +164,7 @@ impl RunFlagsGuard {
             return;
         }
         state.running.store(false, Ordering::SeqCst);
+        state.engine_busy.store(false, Ordering::SeqCst);
         state.active_click_point_index.store(-1, Ordering::SeqCst);
         state.active_click_point_tick.store(0, Ordering::SeqCst);
         crate::icon::set_app_icons(&self.app);
@@ -215,7 +216,6 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
             }
         }
     }
-
     if state
         .running
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -223,7 +223,7 @@ pub fn start_clicker_inner(app: &AppHandle) -> AppResult<ClickerStatusPayload> {
     {
         return Err(AppError::AlreadyRunning);
     }
-
+    state.engine_busy.store(true, Ordering::SeqCst);
     {
         *state.last_error.lock().unwrap_or_else(poisoned_inner) = None;
         *state.stop_reason.lock().unwrap_or_else(poisoned_inner) = None;
@@ -511,6 +511,7 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
         },
         active_click_point_tick,
         master_allowed: state.master_allowed.load(Ordering::SeqCst),
+        elevation_blocked: state.elevation_blocked.load(Ordering::SeqCst),
     }
 }
 

@@ -1,5 +1,6 @@
 mod crash_handler;
 mod diagnostics;
+mod elevation;
 mod error;
 mod portable;
 mod settings;
@@ -13,6 +14,7 @@ mod engine;
 mod hotkeys;
 mod icon;
 mod indicator;
+mod notifications;
 mod overlay;
 mod startup;
 mod ui_commands;
@@ -77,6 +79,43 @@ pub static ZONE_MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
 const STATUS_EVENT: &str = "clicker-status";
 
 #[cfg(target_os = "windows")]
+pub(crate) fn force_foreground(window: &tauri::WebviewWindow) {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow,
+    };
+
+    let Ok(handle) = window.window_handle() else {
+        return;
+    };
+    let RawWindowHandle::Win32(raw) = handle.as_raw() else {
+        return;
+    };
+
+    let hwnd = raw.hwnd.get() as *mut std::ffi::c_void;
+    apply_ws_ex_noactivate(window, false);
+    unsafe {
+        let foreground = GetForegroundWindow();
+        if foreground == hwnd {
+            return;
+        }
+        let mut pid: u32 = 0;
+        let foreground_thread = GetWindowThreadProcessId(foreground, &mut pid);
+        let current_thread = GetCurrentThreadId();
+        let attached = foreground_thread != 0
+            && foreground_thread != current_thread
+            && AttachThreadInput(foreground_thread, current_thread, 1) != 0;
+        SetForegroundWindow(hwnd);
+        if attached {
+            AttachThreadInput(foreground_thread, current_thread, 0);
+        }
+        if GetForegroundWindow() != hwnd {
+            let _ = window.request_user_attention(Some(tauri::UserAttentionType::Critical));
+        }
+    }
+}
+
 fn apply_ws_ex_noactivate(window: &tauri::WebviewWindow, enable: bool) {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -406,7 +445,15 @@ fn setup_hotkeys(app: &AppHandle) -> Result<(), std::io::Error> {
     };
 
     start_hotkey_listener(app.clone());
-    register_hotkey_inner(app, initial_hotkey).map_err(std::io::Error::other)?;
+    if let Err(err) = register_hotkey_inner(app, initial_hotkey) {
+        log::warn!("[Hotkeys] startup registration failed: {err}");
+        *app.state::<ClickerState>()
+            .warning
+            .lock()
+            .unwrap_or_else(poisoned_inner) = Some(String::from(
+            "Hotkey could not be registered. Pick another one.",
+        ));
+    }
     emit_status(app);
     Ok(())
 }
@@ -470,6 +517,10 @@ fn create_clicker_state() -> ClickerState {
         master_hold_mode: AtomicBool::new(false),
         master_enabled: AtomicBool::new(true),
         master_allowed: AtomicBool::new(true),
+        elevation_blocked: AtomicBool::new(false),
+        engine_busy: AtomicBool::new(false),
+        elevation_suppressed: Mutex::new(Vec::new()),
+        elevation_notice_enabled: AtomicBool::new(false),
         last_master_allowed: AtomicBool::new(true),
         suppress_hotkey_until_ms: AtomicU64::new(0),
         suppress_hotkey_until_release: AtomicBool::new(false),
@@ -535,6 +586,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
@@ -619,6 +671,11 @@ pub fn run() {
             ui_commands::set_webview_zoom,
             ui_commands::get_text_scale_factor,
             ui_commands::list_font_families,
+            ui_commands::get_elevation_state,
+            ui_commands::relaunch_as_admin,
+            ui_commands::focus_main_window,
+            ui_commands::clear_elevation_blocked,
+            ui_commands::set_elevation_notice_enabled,
             ui_commands::start_clicker,
             ui_commands::stop_clicker,
             ui_commands::toggle_clicker,

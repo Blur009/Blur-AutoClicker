@@ -1,6 +1,7 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { error, warn } from "@tauri-apps/plugin-log";
+import { exit } from "@tauri-apps/plugin-process";
 import {
   currentMonitor,
   getCurrentWindow,
@@ -23,6 +24,7 @@ import {
   isLegacyVideoExtension,
   resolveBackgroundSource,
 } from "./backgroundMedia";
+import ElevationPrompt from "./components/ElevationPrompt";
 import UpdateBanner from "./components/Updatebanner";
 import {
   buildHotkeyWithHeld,
@@ -138,6 +140,7 @@ const DEFAULT_STATUS: ClickerStatus = {
   activeClickPointIndex: null,
   activeClickPointTick: 0,
   masterAllowed: true,
+  elevationBlocked: false,
 };
 
 const DEFAULT_APP_INFO: AppInfo = {
@@ -198,6 +201,13 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [status, setStatus] = useState<ClickerStatus>(DEFAULT_STATUS);
+  const [elevation, setElevation] = useState({
+    elevated: false,
+    canElevate: false,
+  });
+  const [elevationLoaded, setElevationLoaded] = useState(false);
+  const [promptBusy, setPromptBusy] = useState(false);
+  const elevationRelaunchedRef = useRef(false);
   const [appInfo, setAppInfo] = useState<AppInfo>(DEFAULT_APP_INFO);
   const [updateInfo, setUpdateInfo] = useState<{
     currentVersion: string;
@@ -405,6 +415,7 @@ export default function App() {
       await saveSettings(next);
     }
     if (uiSettingsRef.current.minimizeToTray) {
+      await invoke("clear_elevation_blocked").catch(() => {});
       await invoke("hide_main_window");
     } else {
       await invoke("quit_app");
@@ -846,6 +857,9 @@ export default function App() {
           }
           setAppInfo(loadedAppInfo);
           setStatus(loadedStatus);
+          if (loadedStatus.elevationBlocked) {
+            setTab((current) => (current === "simple" ? "advanced" : current));
+          }
           pendingShowWindowRef.current = !autostartLaunch;
           setSettingsLoaded(true);
           recordPhase("hydrate");
@@ -907,6 +921,9 @@ export default function App() {
 
     listen<ClickerStatus>("clicker-status", (event) => {
       setStatus(event.payload);
+      if (event.payload.elevationBlocked) {
+        setTab((current) => (current === "simple" ? "advanced" : current));
+      }
     })
       .then((unlisten) => {
         cleanup = unlisten;
@@ -1714,6 +1731,86 @@ export default function App() {
     (p) => p.id === settings.activePresetId,
   );
 
+  const elevationPromptOpen = status.elevationBlocked && !elevation.elevated;
+
+  useEffect(() => {
+    invoke<{ elevated: boolean; canElevate: boolean }>("get_elevation_state")
+      .then((state) => {
+        setElevation(state);
+        setElevationLoaded(true);
+      })
+      .catch((err) => {
+        error(
+          JSON.stringify({
+            source: "App.elevationState",
+            error: String(err),
+          }),
+        );
+        setElevationLoaded(true);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!status.elevationBlocked || elevation.elevated) return;
+    invoke("focus_main_window").catch(() => {});
+  }, [status.elevationBlocked, elevation.elevated]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    invoke("set_elevation_notice_enabled", {
+      enabled: settings.elevationNoticeEnabled,
+    }).catch(() => {});
+  }, [settingsLoaded, settings.elevationNoticeEnabled]);
+
+  useEffect(() => {
+    if (!settingsLoaded || !elevationLoaded) return;
+    if (elevationRelaunchedRef.current) return;
+    elevationRelaunchedRef.current = true;
+    if (!settings.alwaysRunAsAdmin || elevation.elevated) return;
+    if (!elevation.canElevate) return;
+    invoke<boolean>("relaunch_as_admin")
+      .then((relaunched) => {
+        if (relaunched) return exit(0);
+        return undefined;
+      })
+      .catch((err) =>
+        error(
+          JSON.stringify({
+            source: "App.relaunchAdmin",
+            error: String(err),
+          }),
+        ),
+      );
+  }, [settingsLoaded, elevationLoaded, settings.alwaysRunAsAdmin, elevation]);
+
+  const handleElevationRestart = useCallback(async () => {
+    setPromptBusy(true);
+    try {
+      const relaunched = await invoke<boolean>("relaunch_as_admin");
+      if (relaunched) {
+        await exit(0);
+        return;
+      }
+    } catch (err) {
+      error(
+        JSON.stringify({
+          source: "App.elevationRestart",
+          error: String(err),
+        }),
+      );
+    }
+    setPromptBusy(false);
+  }, []);
+
+  const handleAlwaysRunAsAdmin = useCallback(
+    (next: boolean) => updateSettings({ alwaysRunAsAdmin: next }),
+    [updateSettings],
+  );
+
+  const handleElevationDismiss = useCallback(() => {
+    invoke("clear_elevation_blocked").catch(() => {});
+  }, []);
+
   function computeTimeLimitMs(): number {
     if (!settings.timeLimitEnabled) return 0;
     const unit = settings.timeLimitUnit;
@@ -1731,7 +1828,11 @@ export default function App() {
   }
 
   return (
-    <div className="app-root" data-tab={tab}>
+    <div
+      className="app-root"
+      data-tab={tab}
+      data-elevation-prompt={elevationPromptOpen}
+    >
       {backgroundMedia.videoSrc && (
         <video
           key={backgroundMedia.videoSrc}
@@ -1782,7 +1883,7 @@ export default function App() {
           portable={appInfo.portable}
         />
       )}
-      <main className="panel-area">
+      <main className="panel-area" inert={elevationPromptOpen}>
         {tab === "simple" && (
           <SimplePanel settings={settings} update={updateSettings} />
         )}
@@ -1847,6 +1948,15 @@ export default function App() {
           onGoToVersionInfo={handleGoToVersionInfo}
         />
       )}
+      <ElevationPrompt
+        open={elevationPromptOpen}
+        canElevate={elevation.canElevate}
+        alwaysRunAsAdmin={settings.alwaysRunAsAdmin}
+        busy={promptBusy}
+        onRestart={handleElevationRestart}
+        onAlwaysRunChange={handleAlwaysRunAsAdmin}
+        onDismiss={handleElevationDismiss}
+      />
     </div>
   );
 }

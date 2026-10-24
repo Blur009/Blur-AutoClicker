@@ -1,0 +1,139 @@
+.app-root[data-elevation-prompt="true"] > .elevation-prompt {
+  position: absolute;
+  inset: 0;
+  z-index: 1100;
+  border-radius: inherit;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.elevation-prompt-card {
+  width: min(26rem, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--container-shadow);
+}
+
+.elevation-prompt-icon {
+  color: var(--accent);
+}
+
+.elevation-prompt-title {
+  font-family: var(--font-family-base);
+  font-size: 1.0625rem;
+  font-weight: var(--font-weight-hv);
+  color: var(--text-primary);
+}
+
+.elevation-prompt-body {
+  font-family: var(--font-family-base);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.elevation-prompt-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-family-base);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.elevation-prompt-switch {
+  position: relative;
+  width: 2rem;
+  height: 1.125rem;
+  border-radius: 999px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.elevation-prompt-toggle.on .elevation-prompt-switch {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.elevation-prompt-knob {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--text-primary);
+  transform: translateY(-50%);
+  transition: transform 0.15s ease;
+}
+
+.elevation-prompt-toggle.on .elevation-prompt-knob {
+  transform: translate(0.875rem, -50%);
+  background: var(--bg-base);
+}
+
+.elevation-prompt-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-self: stretch;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.elevation-prompt-btn {
+  padding: 0.4375rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-family-base);
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-md);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.elevation-prompt-btn:hover {
+  background: var(--bg-input);
+  border-color: var(--border-focus);
+}
+
+.elevation-prompt-btn--primary {
+  color: var(--accent-strong);
+}
+
+.elevation-prompt-btn--primary:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.elevation-prompt-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.app-root[data-elevation-prompt="true"] .window-title-background {
+  z-index: 1110;
+}
+
+.app-root[data-elevation-prompt="true"]
+  .window-title-background
+  > *:not(:last-child) {
+  opacity: 0.35;
+  pointer-events: none;
+}

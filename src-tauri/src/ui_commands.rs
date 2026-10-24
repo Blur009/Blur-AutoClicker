@@ -24,6 +24,58 @@ use crate::hotkeys::register_hotkey_inner;
 use crate::hotkeys::register_master_inner;
 
 #[tauri::command]
+pub fn get_elevation_state() -> crate::elevation::ElevationState {
+    crate::elevation::state()
+}
+
+#[tauri::command]
+pub fn relaunch_as_admin(app: AppHandle) -> bool {
+    let state = crate::elevation::state();
+    if state.elevated || !state.can_elevate {
+        return false;
+    }
+    let clicker = app.state::<ClickerState>();
+    if clicker.engine_busy.load(Ordering::SeqCst) {
+        let _ = stop_clicker_inner(&app, Some(String::from("Restarting as administrator")));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while clicker.engine_busy.load(Ordering::SeqCst) && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(25));
+        }
+    }
+    crate::elevation::relaunch_elevated()
+}
+
+#[tauri::command]
+pub fn set_elevation_notice_enabled(app: AppHandle, enabled: bool) {
+    let state = app.state::<ClickerState>();
+    state
+        .elevation_notice_enabled
+        .store(enabled, Ordering::SeqCst);
+    if !enabled && state.elevation_blocked.swap(false, Ordering::SeqCst) {
+        emit_status(&app);
+    }
+}
+
+#[tauri::command]
+pub fn clear_elevation_blocked(app: AppHandle) {
+    let state = app.state::<ClickerState>();
+    state.elevation_blocked.store(false, Ordering::SeqCst);
+    emit_status(&app);
+}
+
+#[tauri::command]
+pub fn focus_main_window(app: AppHandle) -> AppResult<()> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        #[cfg(target_os = "windows")]
+        crate::force_foreground(&window);
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn list_font_families() -> Vec<String> {
     #[cfg(target_os = "windows")]
     {

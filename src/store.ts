@@ -88,6 +88,7 @@ export interface ClickerStatus {
   activeClickPointIndex: number | null;
   activeClickPointTick: number;
   masterAllowed: boolean;
+  elevationBlocked: boolean;
 }
 
 export interface AppInfo {
