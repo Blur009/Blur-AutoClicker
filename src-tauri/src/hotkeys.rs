@@ -12,23 +12,22 @@ use crate::ClickerState;
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
-use std::time::Instant;
 use tauri::Manager;
 use windows_sys::Win32::Foundation::{GetLastError, LRESULT, POINT};
 use windows_sys::Win32::System::Threading::GetCurrentProcessId;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, GetAncestor, GetCursorPos, GetWindowThreadProcessId, PeekMessageW,
-    SetWindowsHookExW, UnhookWindowsHookEx, WaitMessage, WindowFromPoint, GA_ROOT, KBDLLHOOKSTRUCT,
-    LLKHF_EXTENDED, MSG, MSLLHOOKSTRUCT, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_LBUTTONDOWN,
+    CallNextHookEx, GetAncestor, GetCursorPos, GetWindowThreadProcessId,
+    MsgWaitForMultipleObjectsEx, PeekMessageW, SetWindowsHookExW, UnhookWindowsHookEx,
+    WindowFromPoint, GA_ROOT, KBDLLHOOKSTRUCT, LLKHF_EXTENDED, MSG, MSLLHOOKSTRUCT,
+    MWMO_INPUTAVAILABLE, QS_ALLINPUT, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_LBUTTONDOWN,
     WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP,
     WM_SYSKEYDOWN, WM_XBUTTONDOWN, WM_XBUTTONUP,
 };
 
 const PM_REMOVE: u32 = 0x0001;
-const PM_NOREMOVE: u32 = 0x0000;
 
-const POLL_INTERVAL: Duration = Duration::from_millis(4);
+const POLL_INTERVAL_MS: u32 = 16;
 
 const MAX_CHORD_MAINS: usize = 5;
 
@@ -476,173 +475,166 @@ pub fn start_hotkey_listener(app: AppHandle) {
         let mut was_pressed = false;
         let mut was_suppressed = false;
         let mut master_was_pressed = false;
-        let mut last_check = Instant::now();
         let mut msg: MSG = std::mem::zeroed();
 
         'outer: loop {
+            MsgWaitForMultipleObjectsEx(
+                0,
+                std::ptr::null(),
+                POLL_INTERVAL_MS,
+                QS_ALLINPUT,
+                MWMO_INPUTAVAILABLE,
+            );
+
             while PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) != 0 {
                 if msg.message == WM_QUIT {
                     break 'outer;
                 }
             }
 
-            let tick_now = Instant::now();
-            if tick_now.duration_since(last_check) >= POLL_INTERVAL {
-                last_check = tick_now;
+            let (binding, strict) = {
+                let binding = state
+                    .registered_hotkey
+                    .lock()
+                    .unwrap_or_else(poisoned_inner)
+                    .clone();
+                let strict = state
+                    .settings
+                    .lock()
+                    .unwrap_or_else(poisoned_inner)
+                    .strict_hotkey_modifiers;
+                (binding, strict)
+            };
 
-                let (binding, strict) = {
-                    let binding = state
-                        .registered_hotkey
-                        .lock()
-                        .unwrap_or_else(poisoned_inner)
-                        .clone();
-                    let strict = state
-                        .settings
-                        .lock()
-                        .unwrap_or_else(poisoned_inner)
-                        .strict_hotkey_modifiers;
-                    (binding, strict)
-                };
-
-                let running = state.running.load(Ordering::SeqCst);
-                let currently_pressed = binding
-                    .as_ref()
-                    .map(|b| {
-                        if HOOKS_ACTIVE.load(Ordering::Relaxed) {
-                            let physical = is_hotkey_binding_pressed_physical(b, strict);
-                            physical || (!running && is_hotkey_binding_pressed(b, strict))
-                        } else {
-                            is_hotkey_binding_pressed(b, strict)
-                        }
-                    })
-                    .unwrap_or(false);
-
-                let master_binding = {
-                    state
-                        .master_key
-                        .lock()
-                        .unwrap_or_else(poisoned_inner)
-                        .clone()
-                };
-                let master_hold = state.master_hold_mode.load(Ordering::SeqCst);
-                let mut master_enabled = state.master_enabled.load(Ordering::SeqCst);
-
-                let master_binding_pressed = match master_binding {
-                    None => false,
-                    Some(ref b) => {
-                        if HOOKS_ACTIVE.load(Ordering::Relaxed) {
-                            is_hotkey_binding_pressed_physical(b, strict)
-                                || (!running && is_hotkey_binding_pressed(b, strict))
-                        } else {
-                            is_hotkey_binding_pressed(b, strict)
-                        }
-                    }
-                };
-
-                if !master_hold && master_binding_pressed && !master_was_pressed {
-                    master_enabled = !master_enabled;
-                    state.master_enabled.store(master_enabled, Ordering::SeqCst);
-                }
-                master_was_pressed = master_binding_pressed;
-
-                let master_allowed = match master_binding {
-                    None => true,
-                    Some(_) => {
-                        if master_hold {
-                            master_binding_pressed
-                        } else {
-                            master_enabled
-                        }
-                    }
-                };
-
-                if master_allowed != state.last_master_allowed.load(Ordering::SeqCst) {
-                    state.master_allowed.store(master_allowed, Ordering::SeqCst);
-                    state
-                        .last_master_allowed
-                        .store(master_allowed, Ordering::SeqCst);
-                    emit_status(&app);
-                }
-
-                if running && !master_allowed {
-                    let _ =
-                        stop_clicker_inner(&app, Some(String::from("Stopped by master switch")));
-                }
-
-                let suppress_until = state.suppress_hotkey_until_ms.load(Ordering::SeqCst);
-                let suppress_until_release =
-                    state.suppress_hotkey_until_release.load(Ordering::SeqCst);
-                let hotkey_capture_active = state.hotkey_capture_active.load(Ordering::SeqCst);
-                let click_point_pick_active = state.click_point_pick_active.load(Ordering::SeqCst);
-                let custom_stop_zone_pick_active =
-                    state.custom_stop_zone_pick_active.load(Ordering::SeqCst);
-
-                if hotkey_capture_active || click_point_pick_active || custom_stop_zone_pick_active
-                {
-                    if currently_pressed && !was_pressed && hotkey_capture_active {
-                        let needs_emit = {
-                            let mut warning = state.warning.lock().unwrap_or_else(poisoned_inner);
-                            if warning.is_none() {
-                                *warning = Some(String::from("Finish setting hotkey first"));
-                                true
-                            } else {
-                                false
-                            }
-                        };
-                        if needs_emit {
-                            emit_status(&app);
-                        }
-                    }
-                    was_pressed = currently_pressed;
-                    continue;
-                }
-
-                if suppress_until_release {
-                    if currently_pressed {
-                        was_pressed = true;
-                        continue;
-                    }
-                    state
-                        .suppress_hotkey_until_release
-                        .store(false, Ordering::SeqCst);
-                    was_pressed = false;
-                    was_suppressed = false;
-                    continue;
-                }
-
-                if suppress_until != 0 && now_epoch_ms() < suppress_until {
-                    was_pressed = currently_pressed;
-                    continue;
-                }
-
-                let suppress_mouse_on_own_window =
-                    binding.as_ref().is_some_and(is_mouse_hotkey_binding)
-                        && is_cursor_over_own_window();
-
-                if currently_pressed && !was_pressed {
-                    if suppress_mouse_on_own_window {
-                        was_suppressed = true;
+            let running = state.running.load(Ordering::SeqCst);
+            let currently_pressed = binding
+                .as_ref()
+                .map(|b| {
+                    if HOOKS_ACTIVE.load(Ordering::Relaxed) {
+                        let physical = is_hotkey_binding_pressed_physical(b, strict);
+                        physical || (!running && is_hotkey_binding_pressed(b, strict))
                     } else {
-                        was_suppressed = false;
-                        if master_allowed {
-                            handle_hotkey_pressed(&app);
-                        }
+                        is_hotkey_binding_pressed(b, strict)
                     }
-                } else if !currently_pressed && was_pressed {
-                    if !was_suppressed {
-                        handle_hotkey_released(&app);
-                    }
-                    was_suppressed = false;
-                }
+                })
+                .unwrap_or(false);
 
-                was_pressed = currently_pressed;
-            } else if HOOKS_ACTIVE.load(Ordering::Relaxed) {
-                if PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_NOREMOVE) == 0 {
-                    WaitMessage();
+            let master_binding = {
+                state
+                    .master_key
+                    .lock()
+                    .unwrap_or_else(poisoned_inner)
+                    .clone()
+            };
+            let master_hold = state.master_hold_mode.load(Ordering::SeqCst);
+            let mut master_enabled = state.master_enabled.load(Ordering::SeqCst);
+
+            let master_binding_pressed = match master_binding {
+                None => false,
+                Some(ref b) => {
+                    if HOOKS_ACTIVE.load(Ordering::Relaxed) {
+                        is_hotkey_binding_pressed_physical(b, strict)
+                            || (!running && is_hotkey_binding_pressed(b, strict))
+                    } else {
+                        is_hotkey_binding_pressed(b, strict)
+                    }
                 }
-            } else {
-                std::thread::sleep(POLL_INTERVAL);
+            };
+
+            if !master_hold && master_binding_pressed && !master_was_pressed {
+                master_enabled = !master_enabled;
+                state.master_enabled.store(master_enabled, Ordering::SeqCst);
             }
+            master_was_pressed = master_binding_pressed;
+
+            let master_allowed = match master_binding {
+                None => true,
+                Some(_) => {
+                    if master_hold {
+                        master_binding_pressed
+                    } else {
+                        master_enabled
+                    }
+                }
+            };
+
+            if master_allowed != state.last_master_allowed.load(Ordering::SeqCst) {
+                state.master_allowed.store(master_allowed, Ordering::SeqCst);
+                state
+                    .last_master_allowed
+                    .store(master_allowed, Ordering::SeqCst);
+                emit_status(&app);
+            }
+
+            if running && !master_allowed {
+                let _ = stop_clicker_inner(&app, Some(String::from("Stopped by master switch")));
+            }
+
+            let suppress_until = state.suppress_hotkey_until_ms.load(Ordering::SeqCst);
+            let suppress_until_release = state.suppress_hotkey_until_release.load(Ordering::SeqCst);
+            let hotkey_capture_active = state.hotkey_capture_active.load(Ordering::SeqCst);
+            let click_point_pick_active = state.click_point_pick_active.load(Ordering::SeqCst);
+            let custom_stop_zone_pick_active =
+                state.custom_stop_zone_pick_active.load(Ordering::SeqCst);
+
+            if hotkey_capture_active || click_point_pick_active || custom_stop_zone_pick_active {
+                if currently_pressed && !was_pressed && hotkey_capture_active {
+                    let needs_emit = {
+                        let mut warning = state.warning.lock().unwrap_or_else(poisoned_inner);
+                        if warning.is_none() {
+                            *warning = Some(String::from("Finish setting hotkey first"));
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    if needs_emit {
+                        emit_status(&app);
+                    }
+                }
+                was_pressed = currently_pressed;
+                continue;
+            }
+
+            if suppress_until_release {
+                if currently_pressed {
+                    was_pressed = true;
+                    continue;
+                }
+                state
+                    .suppress_hotkey_until_release
+                    .store(false, Ordering::SeqCst);
+                was_pressed = false;
+                was_suppressed = false;
+                continue;
+            }
+
+            if suppress_until != 0 && now_epoch_ms() < suppress_until {
+                was_pressed = currently_pressed;
+                continue;
+            }
+
+            let suppress_mouse_on_own_window =
+                binding.as_ref().is_some_and(is_mouse_hotkey_binding)
+                    && is_cursor_over_own_window();
+
+            if currently_pressed && !was_pressed {
+                if suppress_mouse_on_own_window {
+                    was_suppressed = true;
+                } else {
+                    was_suppressed = false;
+                    if master_allowed {
+                        handle_hotkey_pressed(&app);
+                    }
+                }
+            } else if !currently_pressed && was_pressed {
+                if !was_suppressed {
+                    handle_hotkey_released(&app);
+                }
+                was_suppressed = false;
+            }
+
+            was_pressed = currently_pressed;
         }
 
         if !mouse_hook.is_null() {

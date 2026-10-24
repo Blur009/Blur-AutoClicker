@@ -20,6 +20,7 @@
 ## Fixed
 
 - Clicking stats now update without needing to leave and re-enter the settings page.
+- Fixed the master switch and hotkeys sometimes ignoring a press.
 
 # v3.9.6 - 24.08.2026 (d.m.y)
 
