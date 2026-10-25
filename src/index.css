@@ -177,7 +177,8 @@ body {
   z-index: 1;
 }
 
-.app-root > .confirm-dialog-backdrop {
+.app-root > .confirm-dialog-backdrop,
+.app-root > .update-preview-backdrop {
   position: absolute;
   inset: 0;
   border-radius: inherit;

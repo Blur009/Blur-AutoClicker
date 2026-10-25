@@ -22,6 +22,7 @@ interface UpdateBannerProps {
   currentVersion: string;
   latestVersion: string;
   portable?: boolean;
+  testMarker?: string;
 }
 
 type UpdateStage = "ready" | "installing" | "restart-required" | "error";
@@ -30,7 +31,9 @@ export default function UpdateBanner({
   currentVersion,
   latestVersion,
   portable = false,
+  testMarker,
 }: UpdateBannerProps) {
+  const previewMode = Boolean(testMarker);
   const [stage, setStage] = useState<UpdateStage>("ready");
   const [statusText, setStatusText] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -42,6 +45,7 @@ export default function UpdateBanner({
   const previewFetchedRef = useRef(false);
 
   const handlePreview = async () => {
+    if (previewMode) return;
     if (previewOpen) {
       setPreviewOpen(false);
       return;
@@ -82,6 +86,7 @@ export default function UpdateBanner({
   };
 
   const handleUpdate = async () => {
+    if (previewMode) return;
     if (portable) {
       await openReleasePage();
       return;
@@ -140,6 +145,7 @@ export default function UpdateBanner({
   };
 
   const handleRestart = async () => {
+    if (previewMode) return;
     try {
       await relaunch();
     } catch (err) {
@@ -162,6 +168,9 @@ export default function UpdateBanner({
 
   return (
     <div className="update-banner">
+      {testMarker ? (
+        <span className="dialog-test-marker">{testMarker}</span>
+      ) : null}
       <span className="update-banner-text-old-version">v{currentVersion}</span>
       <span className="update-banner-text">to</span>
       {/* does not need v for version, gets it from gitHub ↓  */}

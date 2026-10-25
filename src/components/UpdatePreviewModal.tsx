@@ -16,6 +16,7 @@ interface Props {
   loading: boolean;
   error: boolean;
   entries: ChangelogEntry[] | null;
+  testMarker?: string;
   onClose: () => void;
 }
 
@@ -26,6 +27,7 @@ export default function UpdatePreviewModal({
   loading,
   error,
   entries,
+  testMarker,
   onClose,
 }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -63,6 +65,9 @@ export default function UpdatePreviewModal({
         aria-modal="true"
         aria-labelledby="update-preview-title"
       >
+        {testMarker ? (
+          <span className="dialog-test-marker">{testMarker}</span>
+        ) : null}
         <div className="update-preview-header">
           <h2 id="update-preview-title" className="update-preview-title">
             Updates from v{currentVersion} to {latestVersion}

@@ -1,5 +1,5 @@
 import "./SettingsPanel.css";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppInfo, PresetId, Settings } from "../../../store";
 import type { RestartOutcome } from "../../../restart";
@@ -13,6 +13,10 @@ import MaintenanceSection from "./sections/MaintenanceSection";
 import KeybindsSection from "./sections/KeybindsSection";
 import ProcessListSection from "./sections/ProcessListSection";
 
+const DevToolsSection = import.meta.env.DEV
+  ? lazy(() => import("./sections/DevToolsSection"))
+  : null;
+
 type SettingsTab =
   | "general"
   | "behavior"
@@ -21,7 +25,8 @@ type SettingsTab =
   | "keybinds"
   | "process-list"
   | "presets"
-  | "maintenance";
+  | "maintenance"
+  | "dev";
 
 interface Props {
   settings: Settings;
@@ -302,6 +307,30 @@ export default function SettingsPanel({
           </span>
           Maintenance
         </button>
+        {DevToolsSection && (
+          <button
+            className={`sidebar-tab ${activeTab === "dev" ? "active" : ""}`}
+            onClick={() => setActiveTab("dev")}
+          >
+            <span className="tab-icon tab-icon-dev">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="4 17 10 11 4 5" />
+                <line x1="12" x2="20" y1="19" y2="19" />
+              </svg>
+            </span>
+            Dev tools
+          </button>
+        )}
         <a
           className="sidebar-kofi"
           href="#"
@@ -365,6 +394,11 @@ export default function SettingsPanel({
         )}
         {activeTab === "maintenance" && (
           <MaintenanceSection onReset={onReset} />
+        )}
+        {DevToolsSection && activeTab === "dev" && (
+          <Suspense fallback={null}>
+            <DevToolsSection />
+          </Suspense>
         )}
       </div>
       <div

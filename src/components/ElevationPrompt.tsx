@@ -8,6 +8,7 @@ interface Props {
   windowName: string;
   windowTitle: string;
   busy: boolean;
+  testMarker?: string;
   onRestart: () => void;
   onAlwaysRunChange: (next: boolean) => void;
   onDismiss: () => void;
@@ -20,6 +21,7 @@ const ElevationPrompt = memo(function ElevationPrompt({
   windowName,
   windowTitle,
   busy,
+  testMarker,
   onRestart,
   onAlwaysRunChange,
   onDismiss,
@@ -74,6 +76,9 @@ const ElevationPrompt = memo(function ElevationPrompt({
       aria-labelledby="elevation-prompt-title"
     >
       <div className="elevation-prompt-card" ref={cardRef} tabIndex={-1}>
+        {testMarker ? (
+          <span className="dialog-test-marker">{testMarker}</span>
+        ) : null}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="36"

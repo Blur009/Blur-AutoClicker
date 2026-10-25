@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { logDiagnostic } from "../../../../diagnostics";
-import ConfirmDialog from "../../../ConfirmDialog";
+import { ResetSettingsDialog, ResetUsageDialog } from "../settingsDialogs";
 import { SettingsCard } from "./shared";
 
 interface CumulativeStats {
@@ -139,20 +139,14 @@ export default function MaintenanceSection({ onReset }: Props) {
         )}
       </SettingsCard>
 
-      <ConfirmDialog
+      <ResetSettingsDialog
         open={pendingAction === "reset-settings"}
-        title="Reset all settings"
-        message="Every setting returns to its default, saved presets are replaced, and Run on Startup is turned off. This cannot be undone."
-        confirmLabel="Reset"
         busy={busy}
         onConfirm={handleConfirmResetSettings}
         onCancel={() => setPendingAction(null)}
       />
-      <ConfirmDialog
+      <ResetUsageDialog
         open={pendingAction === "reset-usage"}
-        title="Reset usage data"
-        message="Every recorded session is deleted, so the usage charts and totals start over. This cannot be undone."
-        confirmLabel="Reset"
         busy={busy}
         onConfirm={handleConfirmResetUsage}
         onCancel={() => setPendingAction(null)}

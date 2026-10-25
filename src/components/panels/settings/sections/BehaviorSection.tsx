@@ -5,7 +5,7 @@ import { DEFAULT_MAX_CLICK_SPEED } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
 import type { RestartOutcome } from "../../../../restart";
 import { NumInput } from "../../advanced/sections/shared";
-import ConfirmDialog from "../../../ConfirmDialog";
+import { ExtendedSpeedDialog, RestartAdminDialog } from "../settingsDialogs";
 import { SettingsCard } from "./shared";
 
 interface Props {
@@ -477,22 +477,15 @@ export default function BehaviorSection({
         </div>
       </SettingsCard>
 
-      <ConfirmDialog
+      <RestartAdminDialog
         open={pendingAction === "restart-as-admin"}
-        title="Restart as administrator?"
-        message="The app closes and reopens with administrator rights. Skip the restart and the setting applies next launch."
-        confirmLabel="Restart now"
-        cancelLabel="Not now"
         busy={restarting}
         onConfirm={handleConfirmRestartAsAdmin}
         onCancel={handleCancelPending}
       />
 
-      <ConfirmDialog
+      <ExtendedSpeedDialog
         open={pendingAction === "extended-click-speed-limit"}
-        title="Enable extended click speed limit?"
-        message="The limit goes from 500 to 1000 clicks per interval. High speeds can stutter on slower PCs."
-        confirmLabel="Enable"
         onConfirm={handleConfirmExtendedClickSpeedLimit}
         onCancel={handleCancelPending}
       />
