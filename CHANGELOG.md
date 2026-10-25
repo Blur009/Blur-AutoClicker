@@ -1,4 +1,4 @@
-# v3.9.7 - 12.10.2026 (d.m.y)
+# v3.10.0 - 25.10.2026 (d.m.y)
 
 ## New
 
@@ -21,6 +21,8 @@
 - New color picker for theme color
 - Improved startup time by ~54.6%
 - The administrator window notice now names the app that is blocking clicks instead of saying "this window".
+- Overhauled animated Icons.
+- Overhauled settings tab highlighting.
 
 ## Fixed
 

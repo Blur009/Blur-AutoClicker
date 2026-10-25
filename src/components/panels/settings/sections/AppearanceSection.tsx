@@ -421,11 +421,11 @@ const ThemeAccentCard = memo(function ThemeAccentCard({
             Switch the app between dark and light.
           </span>
         </div>
-        <div className="settings-seg-group">
+        <div className="settings-seg-group settings-seg-group--theme">
           {THEME_SEG_OPTIONS.map((option) => (
             <button
               key={option}
-              className={`settings-seg-btn ${theme === option ? "active" : ""}`}
+              className={`settings-seg-btn settings-seg-btn--${option} ${theme === option ? "active" : ""}`}
               onClick={() => handleThemeSelect(option)}
             >
               {option === "dark" ? "Dark" : "Light"}

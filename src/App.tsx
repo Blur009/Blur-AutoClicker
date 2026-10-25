@@ -1284,6 +1284,7 @@ export default function App() {
       `rgba(${colors.surface}, ${panelOpacity})`,
     );
     root.style.setProperty("--bg-surface-solid", `rgb(${colors.surface})`);
+    root.style.setProperty("--panel-alpha", String(panelOpacity));
     root.style.setProperty(
       "--bg-elevated",
       `rgba(${colors.elevated}, ${panelOpacity})`,
@@ -1310,6 +1311,7 @@ export default function App() {
       root.style.removeProperty("--bg-base");
       root.style.removeProperty("--bg-surface");
       root.style.removeProperty("--bg-surface-solid");
+      root.style.removeProperty("--panel-alpha");
       root.style.removeProperty("--bg-elevated");
       root.style.removeProperty("--bg-elevated-solid");
       root.style.removeProperty("--bg-input");

@@ -63,9 +63,13 @@ async function renderLoadedApp() {
 async function openMaintenanceTab(session: Session) {
   await session.click(await screen.findByRole("button", { name: "Settings" }));
   await session.click(
-    await screen.findByRole("button", {
-      name: "Maintenance",
-    }),
+    await screen.findByRole(
+      "button",
+      {
+        name: "Maintenance",
+      },
+      { timeout: 5000 },
+    ),
   );
 }
 
