@@ -36,7 +36,6 @@
 - Fixed the first overlay after launch sometimes drawing nothing.
 - Fixed stop zones loaded from an older or damaged settings file keeping an invalid size, position or action.
 - Fixed dialogs being clipped inside the settings panel and turning see-through with panel opacity.
-- Fixed the restart-as-administrator flow stopping a running click session when the UAC prompt was declined.
 
 # v3.9.6 - 24.08.2026 (d.m.y)
 
