@@ -62,6 +62,7 @@ import {
   saveSettings,
   settingsRecoveryWarning,
 } from "./store";
+import { restartAsAdministrator } from "./restart";
 
 void initAppVersion();
 
@@ -146,6 +147,7 @@ const DEFAULT_STATUS: ClickerStatus = {
   activeClickPointTick: 0,
   masterAllowed: true,
   elevationBlocked: false,
+  elevationBlockedWindow: null,
 };
 
 const DEFAULT_APP_INFO: AppInfo = {
@@ -1270,10 +1272,12 @@ export default function App() {
       "--bg-surface",
       `rgba(${colors.surface}, ${panelOpacity})`,
     );
+    root.style.setProperty("--bg-surface-solid", `rgb(${colors.surface})`);
     root.style.setProperty(
       "--bg-elevated",
       `rgba(${colors.elevated}, ${panelOpacity})`,
     );
+    root.style.setProperty("--bg-elevated-solid", `rgb(${colors.elevated})`);
     root.style.setProperty(
       "--bg-input",
       `rgba(${colors.input}, ${panelOpacity})`,
@@ -1294,7 +1298,9 @@ export default function App() {
     return () => {
       root.style.removeProperty("--bg-base");
       root.style.removeProperty("--bg-surface");
+      root.style.removeProperty("--bg-surface-solid");
       root.style.removeProperty("--bg-elevated");
+      root.style.removeProperty("--bg-elevated-solid");
       root.style.removeProperty("--bg-input");
       root.style.removeProperty("--bg-input-off");
       root.style.removeProperty("--bg-panel-blur");
@@ -1818,21 +1824,39 @@ export default function App() {
       );
   }, [settingsLoaded, elevationLoaded, settings.alwaysRunAsAdmin, elevation]);
 
+  const flushPendingSettingsSave = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    try {
+      await saveSettings(committedSettingsRef.current);
+      return true;
+    } catch (err) {
+      logDiagnostic("App.flushSettings", {
+        error: String(err),
+      });
+      return false;
+    }
+  }, []);
+
+  const handleRestartAsAdmin = useCallback(
+    () => restartAsAdministrator(flushPendingSettingsSave),
+    [flushPendingSettingsSave],
+  );
+
   const handleElevationRestart = useCallback(async () => {
     setPromptBusy(true);
     try {
-      const relaunched = await invoke<boolean>("relaunch_as_admin");
-      if (relaunched) {
-        await exit(0);
-        return;
-      }
+      const outcome = await handleRestartAsAdmin();
+      if (outcome === "relaunched") return;
     } catch (err) {
       logDiagnostic("App.elevationRestart", {
         error: String(err),
       });
     }
     setPromptBusy(false);
-  }, []);
+  }, [handleRestartAsAdmin]);
 
   const handleAlwaysRunAsAdmin = useCallback(
     (next: boolean) => updateSettings({ alwaysRunAsAdmin: next }),
@@ -1951,6 +1975,7 @@ export default function App() {
             onExportPreset={handleExportPreset}
             onImportPreset={handleImportPreset}
             onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
+            onRestartAsAdmin={handleRestartAsAdmin}
             onReset={handleResetSettings}
             updateCheckStatus={updateCheckStatus}
             onCheckForUpdate={handleCheckForUpdate}
@@ -1981,6 +2006,8 @@ export default function App() {
         open={elevationPromptOpen}
         canElevate={elevation.canElevate}
         alwaysRunAsAdmin={settings.alwaysRunAsAdmin}
+        windowName={status.elevationBlockedWindow?.name ?? ""}
+        windowTitle={status.elevationBlockedWindow?.title ?? ""}
         busy={promptBusy}
         onRestart={handleElevationRestart}
         onAlwaysRunChange={handleAlwaysRunAsAdmin}

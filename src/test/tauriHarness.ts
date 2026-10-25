@@ -16,7 +16,7 @@ export type WindowRecord = {
 };
 
 export type SequenceEntry = {
-  kind: "invoke" | "emit" | "window";
+  kind: "invoke" | "emit" | "window" | "exit";
   name: string;
 };
 
@@ -24,6 +24,7 @@ type InvokeHandler = (args: Record<string, unknown> | undefined) => unknown;
 
 type HarnessState = {
   invokes: InvokeRecord[];
+  exits: number[];
   emits: EmitRecord[];
   sequence: SequenceEntry[];
   windowCalls: WindowRecord[];
@@ -52,6 +53,7 @@ const CLICKER_STATUS = {
   activeClickPointTick: 0,
   masterAllowed: true,
   elevationBlocked: false,
+  elevationBlockedWindow: null,
 };
 
 const STATS_OVERVIEW = {
@@ -94,6 +96,7 @@ const DEFAULT_INVOKE_RESULTS: Record<string, unknown> = {
 function initialState(): HarnessState {
   return {
     invokes: [],
+    exits: [],
     emits: [],
     sequence: [],
     windowCalls: [],
@@ -228,6 +231,7 @@ export async function monitorFromPoint() {
 export function reset() {
   const fresh = initialState();
   state.invokes = fresh.invokes;
+  state.exits = fresh.exits;
   state.emits = fresh.emits;
   state.sequence = fresh.sequence;
   state.windowCalls = fresh.windowCalls;
@@ -290,6 +294,7 @@ export const tauri = {
   setInvokeResult,
   setInvokeHandler,
   invokes,
+  exits: () => [...state.exits],
   emits,
   firstIndexOf,
   windowCalls,
@@ -332,7 +337,10 @@ export const dialogModule = {
 };
 
 export const processModule = {
-  exit: async () => {},
+  exit: async (code?: number) => {
+    state.exits.push(code ?? 0);
+    state.sequence.push({ kind: "exit", name: "exit" });
+  },
 };
 
 export const storeModule = {

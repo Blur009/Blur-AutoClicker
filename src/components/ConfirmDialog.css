@@ -11,7 +11,7 @@
 }
 
 .confirm-dialog {
-  background: var(--bg-surface);
+  background: var(--bg-surface-solid, var(--bg-surface));
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: 1.25rem 1.375rem 1rem;

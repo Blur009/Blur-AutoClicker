@@ -177,6 +177,13 @@ body {
   z-index: 1;
 }
 
+.app-root > .confirm-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1000;
+}
+
 .app-root > .app-bg-video {
   position: absolute;
   z-index: 0;

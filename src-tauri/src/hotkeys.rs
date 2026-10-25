@@ -637,25 +637,48 @@ pub fn start_hotkey_listener(app: AppHandle) {
 
             if tick_now.duration_since(last_foreground_check) >= FOREGROUND_PROMPT_INTERVAL
                 && state.elevation_notice_enabled.load(Ordering::SeqCst)
-                && !state.elevation_blocked.load(Ordering::SeqCst)
+                && state
+                    .elevation_blocked_window
+                    .lock()
+                    .unwrap_or_else(poisoned_inner)
+                    .is_none()
             {
                 last_foreground_check = tick_now;
+                let generation = state.elevation_prompt_generation.load(Ordering::SeqCst);
                 let suppressed = state
                     .elevation_suppressed
                     .lock()
                     .unwrap_or_else(poisoned_inner)
                     .clone();
-                if let Some(entry) = crate::elevation::foreground_needs_prompt(&suppressed) {
-                    crate::elevation::remember_suppressed(
-                        &mut state
-                            .elevation_suppressed
+                if let Some((handle, pid)) = crate::elevation::foreground_needs_prompt(&suppressed)
+                {
+                    let stored = {
+                        let mut blocked = state
+                            .elevation_blocked_window
                             .lock()
-                            .unwrap_or_else(poisoned_inner),
-                        entry,
-                    );
-                    state.elevation_blocked.store(true, Ordering::SeqCst);
-                    crate::notifications::elevation_blocked(&app);
-                    emit_status(&app);
+                            .unwrap_or_else(poisoned_inner);
+                        let generation_matches =
+                            state.elevation_prompt_generation.load(Ordering::SeqCst) == generation;
+                        let notices_enabled = state.elevation_notice_enabled.load(Ordering::SeqCst);
+                        crate::app_state::claim_blocked_window(
+                            &mut blocked,
+                            generation_matches,
+                            notices_enabled,
+                            handle,
+                            pid,
+                        )
+                    };
+                    if stored {
+                        crate::elevation::remember_suppressed(
+                            &mut state
+                                .elevation_suppressed
+                                .lock()
+                                .unwrap_or_else(poisoned_inner),
+                            (handle, pid),
+                        );
+                        emit_status(&app);
+                        resolve_blocked_window_label(&app, handle, pid, generation);
+                    }
                 }
             }
 
@@ -812,6 +835,33 @@ pub fn start_hotkey_listener(app: AppHandle) {
         }
         if !kb_hook.is_null() {
             UnhookWindowsHookEx(kb_hook);
+        }
+    });
+}
+
+fn resolve_blocked_window_label(app: &AppHandle, handle: isize, pid: u32, generation: u64) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let window = crate::elevation::describe_window(handle, pid);
+        let state = app.state::<ClickerState>();
+        let matched = {
+            let mut blocked = state
+                .elevation_blocked_window
+                .lock()
+                .unwrap_or_else(poisoned_inner);
+            let generation_matches =
+                state.elevation_prompt_generation.load(Ordering::SeqCst) == generation;
+            crate::app_state::apply_blocked_window_label(
+                &mut blocked,
+                generation_matches,
+                handle,
+                pid,
+                &window,
+            )
+        };
+        if matched {
+            crate::notifications::elevation_blocked(&app, &window);
+            emit_status(&app);
         }
     });
 }

@@ -1,10 +1,12 @@
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
 import "./ElevationPrompt.css";
 
 interface Props {
   open: boolean;
   canElevate: boolean;
   alwaysRunAsAdmin: boolean;
+  windowName: string;
+  windowTitle: string;
   busy: boolean;
   onRestart: () => void;
   onAlwaysRunChange: (next: boolean) => void;
@@ -15,12 +17,54 @@ const ElevationPrompt = memo(function ElevationPrompt({
   open,
   canElevate,
   alwaysRunAsAdmin,
+  windowName,
+  windowTitle,
   busy,
   onRestart,
   onAlwaysRunChange,
   onDismiss,
 }: Props) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const focusable = () =>
+      Array.from(
+        cardRef.current?.querySelectorAll<HTMLButtonElement>(
+          "button:not(:disabled)",
+        ) ?? [],
+      );
+    cardRef.current?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const card = cardRef.current;
+      const active = document.activeElement;
+      if (!card || active === card || !card.contains(active)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [open]);
+
   if (!open) return null;
+
+  const showWindowTitle =
+    windowTitle.length > 0 &&
+    windowTitle.toLowerCase() !== windowName.toLowerCase();
 
   return (
     <div
@@ -29,7 +73,7 @@ const ElevationPrompt = memo(function ElevationPrompt({
       aria-modal="true"
       aria-labelledby="elevation-prompt-title"
     >
-      <div className="elevation-prompt-card">
+      <div className="elevation-prompt-card" ref={cardRef} tabIndex={-1}>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="36"
@@ -47,9 +91,20 @@ const ElevationPrompt = memo(function ElevationPrompt({
           <circle cx="9" cy="7" r="4" />
         </svg>
 
-        <h2 id="elevation-prompt-title" className="elevation-prompt-title">
-          This window runs as administrator
+        <h2
+          id="elevation-prompt-title"
+          className="elevation-prompt-title"
+          title={windowName || undefined}
+        >
+          {windowName
+            ? `${windowName} is running as administrator`
+            : "An administrator window has focus"}
         </h2>
+        {showWindowTitle ? (
+          <span className="elevation-prompt-window" title={windowTitle}>
+            {windowTitle}
+          </span>
+        ) : null}
         <p className="elevation-prompt-body">
           Windows blocks normal apps from clicking or typing into an
           administrator window. Restart Blur Auto Clicker as administrator to

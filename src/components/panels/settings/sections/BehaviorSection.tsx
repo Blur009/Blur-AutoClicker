@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { logDiagnostic } from "../../../../diagnostics";
 import { DEFAULT_MAX_CLICK_SPEED } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
+import type { RestartOutcome } from "../../../../restart";
 import { NumInput } from "../../advanced/sections/shared";
 import ConfirmDialog from "../../../ConfirmDialog";
 import { SettingsCard } from "./shared";
@@ -11,6 +12,7 @@ interface Props {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
   onToggleAlwaysOnTop: () => Promise<void>;
+  onRestartAsAdmin: () => Promise<RestartOutcome>;
   portable: boolean;
 }
 
@@ -36,19 +38,38 @@ export default function BehaviorSection({
   settings,
   update,
   onToggleAlwaysOnTop,
+  onRestartAsAdmin,
   portable,
 }: Props) {
   const [pendingAction, setPendingAction] = useState<
-    "extended-click-speed-limit" | null
+    "extended-click-speed-limit" | "restart-as-admin" | null
   >(null);
   const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(
     null,
   );
+  const [elevation, setElevation] = useState<{
+    elevated: boolean;
+    canElevate: boolean;
+  } | null>(null);
+  const [restarting, setRestarting] = useState(false);
+  const [restartError, setRestartError] = useState<string | null>(null);
+  const [elevationFailed, setElevationFailed] = useState(false);
 
   useEffect(() => {
     invoke<boolean>("get_autostart_enabled")
       .then(setAutostartEnabled)
       .catch(() => setAutostartEnabled(false));
+  }, []);
+
+  useEffect(() => {
+    invoke<{ elevated: boolean; canElevate: boolean }>("get_elevation_state")
+      .then(setElevation)
+      .catch((err) => {
+        logDiagnostic("BehaviorSection.elevationState", {
+          error: String(err),
+        });
+        setElevationFailed(true);
+      });
   }, []);
 
   const handleAlwaysOnTopChange = useCallback(
@@ -130,10 +151,37 @@ export default function BehaviorSection({
     [update, settings.rememberWindowPosition],
   );
 
-  const handleAlwaysRunAsAdminToggle = useCallback(
-    () => update({ alwaysRunAsAdmin: !settings.alwaysRunAsAdmin }),
-    [update, settings.alwaysRunAsAdmin],
-  );
+  const handleAlwaysRunAsAdminToggle = useCallback(() => {
+    const next = !settings.alwaysRunAsAdmin;
+    setRestartError(null);
+    update({ alwaysRunAsAdmin: next });
+    if (next && elevation && !elevation.elevated && elevation.canElevate) {
+      setPendingAction("restart-as-admin");
+    }
+  }, [update, settings.alwaysRunAsAdmin, elevation]);
+
+  const handleConfirmRestartAsAdmin = useCallback(async () => {
+    setRestarting(true);
+    let outcome: RestartOutcome = "refused";
+    try {
+      outcome = await onRestartAsAdmin();
+    } catch (err) {
+      logDiagnostic("BehaviorSection.restartAsAdmin", {
+        error: String(err),
+      });
+    }
+    if (outcome === "unsaved") {
+      setRestartError(
+        "Could not save the setting. Nothing was restarted, so the next launch stays unelevated.",
+      );
+    } else if (outcome === "refused") {
+      setRestartError(
+        "Could not restart. It starts as administrator on the next launch.",
+      );
+    }
+    setRestarting(false);
+    setPendingAction(null);
+  }, [onRestartAsAdmin]);
 
   const handleElevationNoticeToggle = useCallback(
     () => update({ elevationNoticeEnabled: !settings.elevationNoticeEnabled }),
@@ -150,6 +198,26 @@ export default function BehaviorSection({
         }),
       );
   }, [autostartEnabled]);
+
+  const elevationNote = () => {
+    if (elevation === null) {
+      return elevationFailed
+        ? "Could not read administrator status. The setting still applies on the next launch."
+        : "Checking administrator status…";
+    }
+    if (elevation.elevated) {
+      return settings.alwaysRunAsAdmin
+        ? "Running as administrator. Turn this off and reopen to drop the rights."
+        : "Running as administrator now. Quit and reopen to drop the rights.";
+    }
+    if (restartError) return restartError;
+    if (settings.alwaysRunAsAdmin) {
+      return elevation.canElevate
+        ? "Starts as administrator on the next launch."
+        : "This account cannot elevate automatically. Start it as administrator from Windows.";
+    }
+    return "Not running as administrator.";
+  };
 
   return (
     <>
@@ -322,10 +390,12 @@ export default function BehaviorSection({
             <span className="settings-sublabel">
               Start as administrator so elevated windows accept clicks.
             </span>
+            <span className="settings-note">{elevationNote()}</span>
           </div>
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.alwaysRunAsAdmin ? "on" : "off"}`}
+              disabled={elevation === null && !elevationFailed}
               onClick={handleAlwaysRunAsAdminToggle}
             >
               <span className="settings-toggle-knob" />
@@ -406,6 +476,17 @@ export default function BehaviorSection({
           </div>
         </div>
       </SettingsCard>
+
+      <ConfirmDialog
+        open={pendingAction === "restart-as-admin"}
+        title="Restart as administrator?"
+        message="The app closes and reopens with administrator rights. Skip the restart and the setting applies next launch."
+        confirmLabel="Restart now"
+        cancelLabel="Not now"
+        busy={restarting}
+        onConfirm={handleConfirmRestartAsAdmin}
+        onCancel={handleCancelPending}
+      />
 
       <ConfirmDialog
         open={pendingAction === "extended-click-speed-limit"}

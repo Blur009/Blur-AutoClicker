@@ -18,6 +18,7 @@ use crate::engine::mouse::current_cursor_position;
 use crate::engine::worker::current_status;
 use crate::engine::worker::emit_status;
 use crate::engine::worker::now_epoch_ms;
+use crate::engine::worker::start_clicker_from_start_zone;
 use crate::engine::worker::start_clicker_inner;
 use crate::engine::worker::stop_clicker_inner;
 use crate::hotkeys::register_hotkey_inner;
@@ -35,31 +36,66 @@ pub fn relaunch_as_admin(app: AppHandle) -> bool {
         return false;
     }
     let clicker = app.state::<ClickerState>();
-    if clicker.engine_busy.load(Ordering::SeqCst) {
+    let was_running = clicker.running.load(Ordering::SeqCst);
+    let zone_started = clicker.zone_started_generation.load(Ordering::SeqCst) != 0;
+    if was_running || clicker.engine_busy.load(Ordering::SeqCst) {
         let _ = stop_clicker_inner(&app, Some(String::from("Restarting as administrator")));
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
         while clicker.engine_busy.load(Ordering::SeqCst) && std::time::Instant::now() < deadline {
             std::thread::sleep(std::time::Duration::from_millis(25));
         }
     }
-    crate::elevation::relaunch_elevated()
+    if !crate::elevation::relaunch_elevated() {
+        if was_running {
+            let resumed = if zone_started {
+                start_clicker_from_start_zone(&app)
+            } else {
+                start_clicker_inner(&app)
+            };
+            if let Err(error) = resumed {
+                log::warn!(
+                    "[Elevation] Could not resume clicking after a refused restart: {error}"
+                );
+            }
+        }
+        return false;
+    }
+    true
 }
 
 #[tauri::command]
 pub fn set_elevation_notice_enabled(app: AppHandle, enabled: bool) {
     let state = app.state::<ClickerState>();
-    state
+    let previous = state
         .elevation_notice_enabled
-        .store(enabled, Ordering::SeqCst);
-    if !enabled && state.elevation_blocked.swap(false, Ordering::SeqCst) {
-        emit_status(&app);
+        .swap(enabled, Ordering::SeqCst);
+    if previous != enabled {
+        state
+            .elevation_prompt_generation
+            .fetch_add(1, Ordering::SeqCst);
+    }
+    if !enabled {
+        let cleared = state
+            .elevation_blocked_window
+            .lock()
+            .unwrap_or_else(poisoned_inner)
+            .take();
+        if cleared.is_some() {
+            emit_status(&app);
+        }
     }
 }
 
 #[tauri::command]
 pub fn clear_elevation_blocked(app: AppHandle) {
     let state = app.state::<ClickerState>();
-    state.elevation_blocked.store(false, Ordering::SeqCst);
+    state
+        .elevation_prompt_generation
+        .fetch_add(1, Ordering::SeqCst);
+    *state
+        .elevation_blocked_window
+        .lock()
+        .unwrap_or_else(poisoned_inner) = None;
     emit_status(&app);
 }
 

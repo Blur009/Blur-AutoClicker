@@ -3,6 +3,7 @@
 ## New
 
 - Added a notice when an administrator window takes focus, with a restart-as-administrator prompt.
+- Added a Run as Administrator row that reports the live elevation state and offers a restart when it is enabled.
 - Added an overlay to show when the clicker is active. Settings → Overlay. On by default.
 - Added ability to change font in Settings → Appearance.
 - Added a "Fancy Title" toggle in Settings → Appearance that lets you choose your own title font.
@@ -19,6 +20,7 @@
 - Small performance improvements.
 - New color picker for theme color
 - Improved startup time by ~54.6%
+- The administrator window notice now names the app that is blocking clicks instead of saying "this window".
 
 ## Fixed
 
@@ -33,6 +35,8 @@
 - Fixed the pick prompt sitting too far from the cursor and clipping at the screen edge.
 - Fixed the first overlay after launch sometimes drawing nothing.
 - Fixed stop zones loaded from an older or damaged settings file keeping an invalid size, position or action.
+- Fixed dialogs being clipped inside the settings panel and turning see-through with panel opacity.
+- Fixed the restart-as-administrator flow stopping a running click session when the UAC prompt was declined.
 
 # v3.9.6 - 24.08.2026 (d.m.y)
 

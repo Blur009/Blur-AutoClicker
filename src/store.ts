@@ -81,6 +81,11 @@ export type {
   TimeLimitUnit,
 } from "./settingsSchema";
 
+export interface BlockedWindowLabel {
+  name: string;
+  title: string;
+}
+
 export interface ClickerStatus {
   running: boolean;
   paused: boolean;
@@ -92,6 +97,7 @@ export interface ClickerStatus {
   activeClickPointTick: number;
   masterAllowed: boolean;
   elevationBlocked: boolean;
+  elevationBlockedWindow: BlockedWindowLabel | null;
 }
 
 export interface AppInfo {

@@ -2,6 +2,7 @@ import "./SettingsPanel.css";
 import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppInfo, PresetId, Settings } from "../../../store";
+import type { RestartOutcome } from "../../../restart";
 
 import GeneralSection from "./sections/GeneralSection";
 import BehaviorSection from "./sections/BehaviorSection";
@@ -36,6 +37,7 @@ interface Props {
   onExportPreset: (presetId: PresetId) => Promise<boolean>;
   onImportPreset: () => Promise<boolean | null>;
   onToggleAlwaysOnTop: () => Promise<void>;
+  onRestartAsAdmin: () => Promise<RestartOutcome>;
   onReset: () => Promise<void>;
   updateCheckStatus:
     "idle" | "checking" | "available" | "unavailable" | "error";
@@ -58,6 +60,7 @@ export default function SettingsPanel({
   onExportPreset,
   onImportPreset,
   onToggleAlwaysOnTop,
+  onRestartAsAdmin,
   onReset,
   updateCheckStatus,
   onCheckForUpdate,
@@ -328,6 +331,7 @@ export default function SettingsPanel({
             settings={settings}
             update={update}
             onToggleAlwaysOnTop={onToggleAlwaysOnTop}
+            onRestartAsAdmin={onRestartAsAdmin}
             portable={appInfo.portable}
           />
         )}

@@ -587,6 +587,11 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
     );
     let active_click_point_index = state.active_click_point_index.load(Ordering::SeqCst);
     let active_click_point_tick = state.active_click_point_tick.load(Ordering::SeqCst);
+    let blocked_window = state
+        .elevation_blocked_window
+        .lock()
+        .unwrap_or_else(poisoned_inner)
+        .clone();
 
     ClickerStatusPayload {
         running: state.running.load(Ordering::SeqCst),
@@ -602,7 +607,8 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
         },
         active_click_point_tick,
         master_allowed: state.master_allowed.load(Ordering::SeqCst),
-        elevation_blocked: state.elevation_blocked.load(Ordering::SeqCst),
+        elevation_blocked: blocked_window.is_some(),
+        elevation_blocked_window: blocked_window,
     }
 }
 
