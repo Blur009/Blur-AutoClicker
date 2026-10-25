@@ -126,7 +126,7 @@ export default function ClickerTypeSection({ settings, update }: Props) {
   const doubleClickDisabledReason = useMemo(
     () =>
       doubleClickDisabled
-        ? `Double Click is unavailable at ${formatClicksPerSecond(currentClicksPerSecond)} clicks/sec. Lower the click speed below 10 clicks/sec to turn it on.`
+        ? `Double Click is unavailable at ${formatClicksPerSecond(currentClicksPerSecond)} clicks/sec. Lower the click speed below 11 clicks/sec to turn it on.`
         : undefined,
     [doubleClickDisabled, currentClicksPerSecond],
   );
@@ -143,9 +143,9 @@ export default function ClickerTypeSection({ settings, update }: Props) {
               viewBox="0 0 24 24"
               fill="currentColor"
               stroke="currentColor"
-              stroke-width="0"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="0"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
               <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />
             </svg>
@@ -169,7 +169,7 @@ export default function ClickerTypeSection({ settings, update }: Props) {
       </div>
       <CardDivider />
       <div className="adv-card-desc">
-        Select the mouse button or keyboard key the autoclicker clicks.
+        Choose the mouse button or keyboard key the autoclicker presses.
       </div>
       <div className="adv-row adv-target-row" style={TARGET_ROW_STYLE}>
         {settings.inputType === "mouse" ? (
@@ -230,7 +230,11 @@ export default function ClickerTypeSection({ settings, update }: Props) {
                     : "Send letters as lowercase"
                 }
                 aria-pressed={keyboardKeyCaseIsUpper}
-                title="Toggle keyboard key case"
+                title={
+                  canToggleKeyboardKeyCase
+                    ? "Toggle keyboard key case"
+                    : "Key case applies to letters only"
+                }
                 disabled={!canToggleKeyboardKeyCase}
                 onClick={toggleKeyboardKeyCase}
               >

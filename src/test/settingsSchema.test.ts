@@ -1,8 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
+  FACTORY_PRESETS,
   SETTINGS_LIMITS,
+  buildPresetSnapshot,
   createDefaultSettings,
+  getMaxClickSpeed,
+  sanitizePresetSnapshot,
   sanitizeSettings,
+  withFactoryPresets,
 } from "../settingsSchema";
 import type { Settings } from "../settingsSchema";
 
@@ -64,5 +69,254 @@ describe("background blur settings", () => {
     );
     expect(sanitized.backgroundBlurSimple).toBe(20);
     expect(sanitized.backgroundBlurSettings).toBe(0);
+  });
+});
+
+describe("extended click speed limit", () => {
+  it("raises the maximum click speed only when the extended limit is on", () => {
+    expect(getMaxClickSpeed(true)).toBe(1000);
+    expect(getMaxClickSpeed(false)).toBe(500);
+  });
+
+  it("clamps click speed to the extended maximum only when the extended limit is on", () => {
+    const extended = sanitizeSettings(
+      { clickSpeed: 800, extendedClickSpeedLimit: true },
+      VERSION,
+    );
+    expect(extended.clickSpeed).toBe(800);
+
+    const standard = sanitizeSettings(
+      { clickSpeed: 800, extendedClickSpeedLimit: false },
+      VERSION,
+    );
+    expect(standard.clickSpeed).toBe(500);
+
+    const aboveExtended = sanitizeSettings(
+      { clickSpeed: 1500, extendedClickSpeedLimit: true },
+      VERSION,
+    );
+    expect(aboveExtended.clickSpeed).toBe(1000);
+  });
+});
+
+describe("factory preset restore", () => {
+  it("returns the factory presets and clears the active preset", () => {
+    const reset = withFactoryPresets({
+      ...createDefaultSettings(VERSION),
+      presets: [],
+      activePresetId: "user-preset",
+    });
+
+    expect(reset.presets.map((preset) => preset.name)).toEqual([
+      "Standard Clicking",
+      "Rapid Fire",
+      "Precision Mode",
+    ]);
+    expect(reset.activePresetId).toBeNull();
+  });
+
+  it("keeps every other field of the settings passed in", () => {
+    const reset = withFactoryPresets({
+      ...createDefaultSettings(VERSION),
+      clickSpeed: 40,
+      presets: [],
+    });
+
+    expect(reset.clickSpeed).toBe(40);
+    expect(reset.presets).toEqual(FACTORY_PRESETS);
+  });
+
+  it("hands back copies so edits cannot reach the factory list", () => {
+    const reset = withFactoryPresets(createDefaultSettings(VERSION));
+    const first = reset.presets[0];
+    first.name = "Renamed";
+    first.settings.clickSpeed = 999;
+
+    expect(FACTORY_PRESETS[0].name).toBe("Standard Clicking");
+    expect(FACTORY_PRESETS[0].settings.clickSpeed).toBe(25);
+  });
+});
+
+const PRESET_SNAPSHOT_DEFAULTS = buildPresetSnapshot(
+  createDefaultSettings(VERSION),
+);
+
+describe("legacy preset sequence flag stored as a string", () => {
+  it("turns a stored string sequenceEnabled into a real boolean", () => {
+    const snapshot = sanitizePresetSnapshot(
+      { clickSpeed: 25, sequenceEnabled: "true" },
+      PRESET_SNAPSHOT_DEFAULTS,
+    );
+
+    expect(snapshot.clickPointsEnabled).toBe(true);
+  });
+
+  it("reads a stored string sequenceEnabled of false as disabled", () => {
+    const snapshot = sanitizePresetSnapshot(
+      { sequenceEnabled: "false" },
+      PRESET_SNAPSHOT_DEFAULTS,
+    );
+
+    expect(snapshot.clickPointsEnabled).toBe(false);
+  });
+
+  it("keeps the modern clickPointsEnabled when the preset already has it", () => {
+    const snapshot = sanitizePresetSnapshot(
+      { clickPointsEnabled: false, sequenceEnabled: "true" },
+      PRESET_SNAPSHOT_DEFAULTS,
+    );
+
+    expect(snapshot.clickPointsEnabled).toBe(false);
+  });
+});
+
+describe("legacy preset speed randomisation", () => {
+  it("keeps the variation and its toggle from an old preset", () => {
+    const snapshot = sanitizePresetSnapshot(
+      { speedVariation: 55, speedVariationEnabled: "false" },
+      PRESET_SNAPSHOT_DEFAULTS,
+    );
+
+    expect(snapshot.speedRandomization).toBe(55);
+    expect(snapshot.speedRandomizationEnabled).toBe(false);
+  });
+
+  it("uses the old maximum variation when only that field is saved", () => {
+    const snapshot = sanitizePresetSnapshot(
+      { speedRandomizationMax: 80 },
+      PRESET_SNAPSHOT_DEFAULTS,
+    );
+
+    expect(snapshot.speedRandomization).toBe(80);
+    expect(snapshot.speedRandomizationEnabled).toBe(true);
+  });
+
+  it("prefers the modern speed randomisation fields over the old ones", () => {
+    const snapshot = sanitizePresetSnapshot(
+      {
+        speedRandomization: 12,
+        speedRandomizationEnabled: false,
+        speedVariation: 90,
+        speedVariationEnabled: true,
+      },
+      PRESET_SNAPSHOT_DEFAULTS,
+    );
+
+    expect(snapshot.speedRandomization).toBe(12);
+    expect(snapshot.speedRandomizationEnabled).toBe(false);
+  });
+});
+
+describe("legacy sequence flag in the saved settings file", () => {
+  it("turns a saved sequenceEnabled into enabled click points", () => {
+    const legacy = {
+      version: "3.8.0",
+      sequenceEnabled: true,
+    } as unknown as Partial<Settings>;
+
+    const settings = sanitizeSettings(legacy, VERSION);
+
+    expect(settings.clickPointsEnabled).toBe(true);
+  });
+
+  it("prefers the modern clickPointsEnabled when the file has both keys", () => {
+    const saved = {
+      version: "3.8.0",
+      clickPointsEnabled: false,
+      sequenceEnabled: true,
+    } as unknown as Partial<Settings>;
+
+    const settings = sanitizeSettings(saved, VERSION);
+
+    expect(settings.clickPointsEnabled).toBe(false);
+  });
+});
+
+describe("legacy custom stop zone on a monitor left of the primary", () => {
+  it("keeps the saved negative x and y instead of collapsing to 0", () => {
+    const legacy = {
+      customStopZoneEnabled: true,
+      customStopZoneX: -1920,
+      customStopZoneY: -240,
+      customStopZoneWidth: 400,
+      customStopZoneHeight: 300,
+    } as unknown as Partial<Settings>;
+
+    const settings = sanitizeSettings(legacy, VERSION);
+
+    expect(settings.stopZones).toEqual([
+      expect.objectContaining({
+        x: -1920,
+        y: -240,
+        width: 400,
+        height: 300,
+        action: "stop",
+      }),
+    ]);
+  });
+
+  it("keeps a minimum size of 1 for a degenerate legacy zone", () => {
+    const legacy = {
+      customStopZoneEnabled: true,
+      customStopZoneX: -1920,
+      customStopZoneY: 0,
+      customStopZoneWidth: 0,
+      customStopZoneHeight: -50,
+    } as unknown as Partial<Settings>;
+
+    const settings = sanitizeSettings(legacy, VERSION);
+
+    expect(settings.stopZones).toEqual([
+      expect.objectContaining({ x: -1920, width: 1, height: 1 }),
+    ]);
+  });
+
+  it("migrates an enabled legacy zone into an enabled stop zone list", () => {
+    const legacy = {
+      customStopZoneEnabled: true,
+      customStopZoneX: 100,
+      customStopZoneY: 200,
+      customStopZoneWidth: 300,
+      customStopZoneHeight: 400,
+    } as unknown as Partial<Settings>;
+
+    const settings = sanitizeSettings(legacy, VERSION);
+
+    expect(settings.stopZonesEnabled).toBe(true);
+    expect(settings.stopZones).toEqual([
+      expect.objectContaining({ action: "stop", width: 300, height: 400 }),
+    ]);
+  });
+
+  it("keeps the migrated zone enabled after a save and reload", () => {
+    const legacy = {
+      customStopZoneEnabled: true,
+      customStopZoneX: 100,
+      customStopZoneY: 200,
+      customStopZoneWidth: 300,
+      customStopZoneHeight: 400,
+    } as unknown as Partial<Settings>;
+
+    const saved = sanitizeSettings(legacy, VERSION);
+    const reloaded = sanitizeSettings(saved, VERSION);
+
+    expect(reloaded.stopZonesEnabled).toBe(true);
+    expect(reloaded.stopZones).toHaveLength(1);
+    expect(reloaded.stopZones[0].action).toBe("stop");
+  });
+
+  it("leaves stop zones disabled for a legacy zone that was switched off", () => {
+    const legacy = {
+      customStopZoneEnabled: false,
+      customStopZoneX: 100,
+      customStopZoneY: 200,
+      customStopZoneWidth: 300,
+      customStopZoneHeight: 400,
+    } as unknown as Partial<Settings>;
+
+    const settings = sanitizeSettings(legacy, VERSION);
+
+    expect(settings.stopZonesEnabled).toBe(false);
+    expect(settings.stopZones).toEqual([]);
   });
 });

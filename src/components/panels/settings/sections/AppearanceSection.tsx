@@ -7,7 +7,7 @@ import {
   type CSSProperties,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { error } from "@tauri-apps/plugin-log";
+import { logDiagnostic } from "../../../../diagnostics";
 import { open } from "@tauri-apps/plugin-dialog";
 import { applyAccentTheme } from "../../../../accentTheme";
 import {
@@ -95,12 +95,9 @@ const PageAppearanceControls = memo(function PageAppearanceControls({
         update({ [bgImageKey]: selected as string });
       }
     } catch (err) {
-      error(
-        JSON.stringify({
-          source: "SettingsPanel.pickImage",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("SettingsPanel.pickImage", {
+        error: String(err),
+      });
     }
   }, [bgImageKey, update]);
 
@@ -163,8 +160,7 @@ const PageAppearanceControls = memo(function PageAppearanceControls({
         <div className="settings-label-group">
           <span className="settings-label">Background Media</span>
           <span className="settings-sublabel">
-            Path or URL to an image or video. Images support transparency.
-            Videos auto-loop muted.
+            Path or URL to an image or video. Videos loop muted.
           </span>
         </div>
         <div className="settings-bg-image-row">
@@ -195,7 +191,7 @@ const PageAppearanceControls = memo(function PageAppearanceControls({
         <div className="settings-label-group">
           <span className="settings-label">Background Opacity</span>
           <span className="settings-sublabel">
-            Transparency of the app window background.
+            How much of the desktop shows through the window.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -215,7 +211,7 @@ const PageAppearanceControls = memo(function PageAppearanceControls({
         <div className="settings-label-group">
           <span className="settings-label">Background Media Opacity</span>
           <span className="settings-sublabel">
-            Transparency of the background image or video.
+            Fade the image or video behind the panels.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -235,7 +231,9 @@ const PageAppearanceControls = memo(function PageAppearanceControls({
       <div className="settings-row">
         <div className="settings-label-group">
           <span className="settings-label">Panel Opacity</span>
-          <span className="settings-sublabel">Transparency of the panel.</span>
+          <span className="settings-sublabel">
+            Fade the panels, cards and inputs.
+          </span>
         </div>
         <div className="settings-opacity-controls">
           <input
@@ -254,7 +252,7 @@ const PageAppearanceControls = memo(function PageAppearanceControls({
         <div className="settings-label-group">
           <span className="settings-label">Background Blur</span>
           <span className="settings-sublabel">
-            Blur the background media itself, across the whole UI.
+            Blur the image or video itself.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -275,7 +273,7 @@ const PageAppearanceControls = memo(function PageAppearanceControls({
         <div className="settings-label-group">
           <span className="settings-label">Panel Blur</span>
           <span className="settings-sublabel">
-            Blur effect behind the panel.
+            Blur what sits behind the panels.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -300,12 +298,9 @@ function loadFontFamilies(): Promise<string[] | null> {
   if (!fontFamiliesPromise) {
     fontFamiliesPromise = invoke<string[]>("list_font_families").catch(
       (err) => {
-        error(
-          JSON.stringify({
-            source: "AppearanceSection.loadFontFamilies",
-            error: String(err),
-          }),
-        );
+        logDiagnostic("AppearanceSection.loadFontFamilies", {
+          error: String(err),
+        });
         fontFamiliesPromise = null;
         return null;
       },
@@ -423,7 +418,7 @@ const ThemeAccentCard = memo(function ThemeAccentCard({
         <div className="settings-label-group">
           <span className="settings-label">Theme</span>
           <span className="settings-sublabel">
-            Choose between dark and light mode.
+            Switch the app between dark and light.
           </span>
         </div>
         <div className="settings-seg-group">
@@ -441,7 +436,9 @@ const ThemeAccentCard = memo(function ThemeAccentCard({
       <div className="settings-row">
         <div className="settings-label-group">
           <span className="settings-label">Accent Color</span>
-          <span className="settings-sublabel">The primary accent color.</span>
+          <span className="settings-sublabel">
+            Color of toggles, sliders and active tabs.
+          </span>
         </div>
         <div className="settings-color-controls">
           <ColorPicker
@@ -466,7 +463,7 @@ const ThemeAccentCard = memo(function ThemeAccentCard({
         <div className="settings-label-group">
           <span className="settings-label">App Font</span>
           <span className="settings-sublabel">
-            Any font installed on this PC. Some fonts may cause visual bugs.
+            Any font on this PC, though some break the layout.
           </span>
         </div>
         <div className="settings-row-actions">
@@ -575,13 +572,13 @@ export default function AppearanceSection({ settings, update }: Props) {
 
       <SettingsCard
         title="Taskbar Icon"
-        description="Control how the taskbar and tray icon looks."
+        description="Change the icon in the taskbar and the tray."
       >
         <div className="settings-row">
           <div className="settings-label-group">
             <span className="settings-label">Active Icon</span>
             <span className="settings-sublabel">
-              Show different icon when clicker is active.
+              Use a different icon while clicking.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -598,7 +595,7 @@ export default function AppearanceSection({ settings, update }: Props) {
           <div className="settings-label-group">
             <span className="settings-label">Icon Theme</span>
             <span className="settings-sublabel">
-              Which themed icons to use. Auto follows app theme.
+              Auto follows the app theme.
             </span>
           </div>
           <div className="settings-seg-group">
@@ -620,7 +617,7 @@ export default function AppearanceSection({ settings, update }: Props) {
           <div className="settings-label-group">
             <span className="settings-label">Icon Color</span>
             <span className="settings-sublabel">
-              Use accent color or default icon colors.
+              Tint the active icon with your accent color.
             </span>
           </div>
           <div className="settings-seg-group">
@@ -643,9 +640,9 @@ export default function AppearanceSection({ settings, update }: Props) {
       >
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Footer</span>
+            <span className="settings-label">Enable</span>
             <span className="settings-sublabel">
-              Shows active preset, version, and stop reasons.
+              Shows active preset, version and stop reason.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -664,7 +661,7 @@ export default function AppearanceSection({ settings, update }: Props) {
           <div className="settings-label-group">
             <span className="settings-label">Fancy Title</span>
             <span className="settings-sublabel">
-              Give the title bar a font of its own.
+              Give the window title a script font.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -681,7 +678,7 @@ export default function AppearanceSection({ settings, update }: Props) {
             <div className="settings-label-group">
               <span className="settings-label">Title Font</span>
               <span className="settings-sublabel">
-                Pristina by default, any installed font works.
+                Pristina by default, any installed font.
               </span>
             </div>
             <div className="settings-row-actions">

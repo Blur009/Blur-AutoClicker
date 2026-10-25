@@ -1,3 +1,12 @@
+fn windows_msvc_target() -> bool {
+    let env_matches = |key: &str, expected: &str| {
+        std::env::var(key)
+            .map(|value| value == expected)
+            .unwrap_or(false)
+    };
+    env_matches("CARGO_CFG_TARGET_OS", "windows") && env_matches("CARGO_CFG_TARGET_ENV", "msvc")
+}
+
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=CRASHPAD_HANDLER_PATH");
@@ -76,5 +85,27 @@ fn main() {
             }
         }
     }
-    tauri_build::build()
+    if windows_msvc_target() {
+        let app_manifest = std::path::PathBuf::from(
+            std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set"),
+        )
+        .join("app.manifest");
+        println!("cargo:rerun-if-changed={}", app_manifest.display());
+        if app_manifest.is_file() {
+            println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
+            println!(
+                "cargo:rustc-link-arg=/MANIFESTINPUT:{}",
+                app_manifest.display()
+            );
+            tauri_build::try_build(
+                tauri_build::Attributes::new()
+                    .windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest()),
+            )
+            .expect("tauri-build failed");
+        } else {
+            tauri_build::build()
+        }
+    } else {
+        tauri_build::build()
+    }
 }

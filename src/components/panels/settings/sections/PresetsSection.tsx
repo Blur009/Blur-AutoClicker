@@ -185,8 +185,9 @@ function PresetRowView({
                 className="settings-btn-secondary"
                 onClick={() => onUpdate(preset.id)}
                 disabled={running}
+                title="Save the current settings into this preset"
               >
-                Update
+                Overwrite
               </button>
               <button
                 className="settings-btn-secondary"
@@ -484,12 +485,15 @@ export default function PresetsSection({
   );
 
   return (
-    <SettingsCard title="Presets" description="Save and load presets.">
+    <SettingsCard
+      title="Presets"
+      description="Saved setups you can switch between."
+    >
       <div className="settings-row settings-row--stacked">
         <div className="settings-label-group">
           <span className="settings-label">Presets</span>
           <span className="settings-sublabel">
-            Save and restore to quickly switch configurations.
+            Save your clicking setup and switch back to it later.
           </span>
         </div>
         <div className="preset-compose">

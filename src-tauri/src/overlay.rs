@@ -8,7 +8,7 @@ use crate::error::AppResult;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Listener, Manager};
 
 static LAST_ZONE_SHOW: Mutex<Option<Instant>> = Mutex::new(None);
 static CLICK_POINT_PICK_OVERLAY_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -128,6 +128,27 @@ fn invalidate_overlay_caches() {
         .unwrap_or_else(poisoned_inner) = None;
 }
 
+fn cached_payload_json(
+    cache: &Mutex<Option<(VirtualScreenRect, Vec<u8>)>>,
+) -> Option<serde_json::Value> {
+    let last = cache.lock().unwrap_or_else(poisoned_inner);
+    let (_, bytes) = last.as_ref()?;
+    serde_json::from_slice(bytes).ok()
+}
+
+fn resend_cached_payloads(app: &AppHandle) {
+    let window = match app.get_webview_window("overlay") {
+        Some(window) => window,
+        None => return,
+    };
+    if let Some(payload) = cached_payload_json(&LAST_ZONE_PAYLOAD) {
+        let _ = window.emit("zone-data", payload);
+    }
+    if let Some(payload) = cached_payload_json(&LAST_CLICK_POINTS_PAYLOAD) {
+        let _ = window.emit("click-points-data", payload);
+    }
+}
+
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetWindowLongW, SetWindowLongW, SetWindowPos, ShowWindow, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST,
@@ -138,6 +159,11 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMNCRP_DISABLED};
 
 pub fn init_overlay(app: &AppHandle) -> AppResult<()> {
+    let ready_handle = app.clone();
+    app.listen("overlay-ready", move |_| {
+        resend_cached_payloads(&ready_handle);
+    });
+
     let window = match app.get_webview_window("overlay") {
         Some(w) => w,
         None => {
@@ -488,7 +514,6 @@ pub fn check_auto_hide(app: &AppHandle) {
     if let Some(instant) = *last {
         if instant.elapsed() >= Duration::from_secs(3) {
             // ↑ auto-hide after timer
-
             *last = None;
             if let Some(window) = app.get_webview_window("overlay") {
                 log::info!("[Overlay] Auto-hide: hiding window");

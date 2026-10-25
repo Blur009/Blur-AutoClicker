@@ -56,8 +56,14 @@ describe("UsageStats", () => {
   });
 
   it("shows the average next to the chart title", () => {
-    const { container } = render(<UsageStats overview={overview()} />);
-    expect(within(container).getByText(/avg \d/)).toBeInTheDocument();
+    const daily = [7, 11, 13, 4, 9, 21, 50].map((clicks, index) => ({
+      day: dayOffset(6 - index),
+      clicks,
+      timeSecs: 0,
+      sessions: 1,
+    }));
+    const { container } = render(<UsageStats overview={overview({ daily })} />);
+    expect(within(container).getByText("avg 16/day")).toBeInTheDocument();
   });
 
   it("switches to weekly totals for long ranges", async () => {

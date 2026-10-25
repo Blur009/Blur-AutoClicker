@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { error } from "@tauri-apps/plugin-log";
+import { logDiagnostic } from "../diagnostics";
 import {
   buildChordHotkey,
   captureHotkey,
@@ -55,12 +55,9 @@ const HotkeyCaptureInput = forwardRef<HotkeyCaptureInputHandle, Props>(
         setListening(true);
         inputRef.current?.focus();
         invoke("stop_clicker").catch((err) => {
-          error(
-            JSON.stringify({
-              source: "HotkeyCaptureInput.startListening",
-              error: String(err),
-            }),
-          );
+          logDiagnostic("HotkeyCaptureInput.startListening", {
+            error: String(err),
+          });
         });
       },
     }));
@@ -114,22 +111,16 @@ const HotkeyCaptureInput = forwardRef<HotkeyCaptureInputHandle, Props>(
       if (!listening) return;
 
       invoke("set_hotkey_capture_active", { active: true }).catch((err) => {
-        error(
-          JSON.stringify({
-            source: "HotkeyCaptureInput.toggle",
-            error: String(err),
-          }),
-        );
+        logDiagnostic("HotkeyCaptureInput.toggle", {
+          error: String(err),
+        });
       });
 
       return () => {
         invoke("set_hotkey_capture_active", { active: false }).catch((err) => {
-          error(
-            JSON.stringify({
-              source: "HotkeyCaptureInput.clear",
-              error: String(err),
-            }),
-          );
+          logDiagnostic("HotkeyCaptureInput.clear", {
+            error: String(err),
+          });
         });
       };
     }, [listening]);
@@ -451,12 +442,9 @@ const HotkeyCaptureInput = forwardRef<HotkeyCaptureInputHandle, Props>(
             ignorePrimaryInputMouseUntilRef.current = performance.now() + 150;
             setListening(true);
             invoke("stop_clicker").catch((err) => {
-              error(
-                JSON.stringify({
-                  source: "HotkeyCaptureInput.stopClicker",
-                  error: String(err),
-                }),
-              );
+              logDiagnostic("HotkeyCaptureInput.stopClicker", {
+                error: String(err),
+              });
             });
           }}
           onBlur={() => {
@@ -475,12 +463,9 @@ const HotkeyCaptureInput = forwardRef<HotkeyCaptureInputHandle, Props>(
             onClick={(e) => {
               e.stopPropagation();
               invoke("stop_clicker").catch((err) => {
-                error(
-                  JSON.stringify({
-                    source: "HotkeyCaptureInput.clearStopClicker",
-                    error: String(err),
-                  }),
-                );
+                logDiagnostic("HotkeyCaptureInput.clearStopClicker", {
+                  error: String(err),
+                });
               });
               onChange("");
             }}

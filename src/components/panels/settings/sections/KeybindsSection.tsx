@@ -36,7 +36,7 @@ const TOGGLE_GROUPS: {
       {
         key: "keybindDoubleClick",
         label: "Double Click",
-        sublabel: "Toggle on or off.",
+        sublabel: "Toggle double click on or off.",
       },
       {
         key: "keybindDutyCycleMode",
@@ -46,7 +46,7 @@ const TOGGLE_GROUPS: {
       {
         key: "keybindSpeedRandomization",
         label: "Speed Randomization",
-        sublabel: "Toggle on or off.",
+        sublabel: "Toggle speed randomization on or off.",
       },
       {
         key: "keybindLimits",
@@ -61,17 +61,17 @@ const TOGGLE_GROUPS: {
       {
         key: "keybindCornerStop",
         label: "Corner Stop",
-        sublabel: "Toggle on or off.",
+        sublabel: "Toggle corner stop on or off.",
       },
       {
         key: "keybindEdgeStop",
         label: "Edge Stop",
-        sublabel: "Toggle on or off.",
+        sublabel: "Toggle edge stop on or off.",
       },
       {
         key: "keybindStopZones",
         label: "Custom Stop Zones",
-        sublabel: "Toggle on or off.",
+        sublabel: "Toggle custom stop zones on or off.",
       },
     ],
   },
@@ -81,12 +81,12 @@ const TOGGLE_GROUPS: {
       {
         key: "keybindToggleClickPoints",
         label: "Click Points",
-        sublabel: "Toggle on or off.",
+        sublabel: "Toggle click points on or off.",
       },
       {
         key: "keybindStopWhenComplete",
         label: "Stop When Complete",
-        sublabel: "Toggle on or off.",
+        sublabel: "Toggle stop when complete on or off.",
       },
     ],
   },
@@ -160,11 +160,11 @@ export default function KeybindsSection({ settings, update }: Props) {
     <>
       <SettingsCard
         title="Master Switch"
-        description="Bind a key that globally enables or disables the autoclicker. When off, the main activation keybind will not start it. Empty by default (always allowed)."
+        description="A key that turns clicking on and off anywhere in Windows. Empty means clicking is always allowed."
       >
         <KeybindRow
           label="Master Key"
-          sublabel="Toggle disables/enables on press. Hold keeps it enabled while held."
+          sublabel="Key that turns clicking on and off."
           value={settings.keybindMaster}
           onChange={handleMasterKeyChange}
         />
@@ -172,7 +172,7 @@ export default function KeybindsSection({ settings, update }: Props) {
           <div className="settings-label-group">
             <span className="settings-label">Master Key Mode</span>
             <span className="settings-sublabel">
-              Toggle: press to flip. Hold: autoclicker runs only while held.
+              Toggle flips it. Hold allows clicking only while held.
             </span>
           </div>
           <div className="settings-seg-group">

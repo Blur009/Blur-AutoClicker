@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { error } from "@tauri-apps/plugin-log";
+import { logDiagnostic } from "../../../../diagnostics";
 import { DEFAULT_MAX_CLICK_SPEED } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
 import { NumInput } from "../../advanced/sections/shared";
@@ -145,12 +145,9 @@ export default function BehaviorSection({
     invoke("set_autostart_enabled", { enabled: newValue })
       .then(() => setAutostartEnabled(newValue))
       .catch((err) =>
-        error(
-          JSON.stringify({
-            source: "SettingsPanel.setAutostart",
-            error: String(err),
-          }),
-        ),
+        logDiagnostic("SettingsPanel.setAutostart", {
+          error: String(err),
+        }),
       );
   }, [autostartEnabled]);
 
@@ -179,9 +176,9 @@ export default function BehaviorSection({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Stop Hitbox Overlay</span>
+            <span className="settings-label">Stop Zone Overlay</span>
             <span className="settings-sublabel">
-              Show the stop zone boundaries.
+              Draw the stop zones on screen when they change.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -215,7 +212,7 @@ export default function BehaviorSection({
           <div className="settings-label-group">
             <span className="settings-label">Strict Hotkey Modifiers</span>
             <span className="settings-sublabel">
-              Require exact modifier keys for hotkeys.
+              Hotkeys ignore presses with extra modifiers held.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -232,7 +229,7 @@ export default function BehaviorSection({
           <div className="settings-label-group">
             <span className="settings-label">Stop on Alt+Tab</span>
             <span className="settings-sublabel">
-              Stop clicking when switching to another window.
+              End the run when the task switcher opens.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -249,7 +246,7 @@ export default function BehaviorSection({
           <div className="settings-label-group">
             <span className="settings-label">Extended Click Speed Limit</span>
             <span className="settings-sublabel">
-              Allow click speeds up to 1000 CPS (may affect performance).
+              Raise the click speed limit from 500 to 1000.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -268,14 +265,14 @@ export default function BehaviorSection({
       </SettingsCard>
 
       <SettingsCard
-        title="Click Points Defaults"
+        title="Click Point Defaults"
         description="Default values for newly picked click points."
       >
         <div className="settings-row">
           <div className="settings-label-group">
             <span className="settings-label">Default Clicks</span>
             <span className="settings-sublabel">
-              Clicks per point for new entries.
+              Clicks each new point starts with.
             </span>
           </div>
           <div className="adv-numbox-sm" style={UNIT_ROW_STYLE}>
@@ -296,7 +293,7 @@ export default function BehaviorSection({
           <div className="settings-label-group">
             <span className="settings-label">Default Radius</span>
             <span className="settings-sublabel">
-              Randomization radius for new entries.
+              How far new points scatter their clicks, in pixels.
             </span>
           </div>
           <div className="adv-numbox-sm" style={UNIT_ROW_STYLE}>
@@ -315,13 +312,15 @@ export default function BehaviorSection({
         </div>
       </SettingsCard>
 
-      <SettingsCard title="Startup" description="Behavior when the app opens.">
+      <SettingsCard
+        title="Startup"
+        description="How the app starts, and what closing it does."
+      >
         <div className="settings-row">
           <div className="settings-label-group">
             <span className="settings-label">Run as Administrator</span>
             <span className="settings-sublabel">
-              Relaunch with administrator rights so elevated windows accept
-              clicks.
+              Start as administrator so elevated windows accept clicks.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -336,9 +335,9 @@ export default function BehaviorSection({
 
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Minimize to Tray</span>
+            <span className="settings-label">Close to Tray</span>
             <span className="settings-sublabel">
-              Minimize to the system tray instead of the taskbar.
+              Hide the window to the tray instead of quitting.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -355,7 +354,7 @@ export default function BehaviorSection({
           <div className="settings-label-group">
             <span className="settings-label">Remember Window Position</span>
             <span className="settings-sublabel">
-              Open the window at its last position on startup.
+              Reopen the window where you left it.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -373,7 +372,7 @@ export default function BehaviorSection({
             <div className="settings-label-group">
               <span className="settings-label">Run on Startup</span>
               <span className="settings-sublabel">
-                Start clicking when the app opens.
+                Start with Windows, hidden in the tray.
               </span>
             </div>
             <div className="settings-toggle-wrapper">
@@ -394,7 +393,7 @@ export default function BehaviorSection({
           <div className="settings-label-group">
             <span className="settings-label">Administrator Window Notice</span>
             <span className="settings-sublabel">
-              Warn when an elevated window takes focus.
+              Warn and offer a restart when an admin window takes focus.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
@@ -411,7 +410,7 @@ export default function BehaviorSection({
       <ConfirmDialog
         open={pendingAction === "extended-click-speed-limit"}
         title="Enable extended click speed limit?"
-        message="This will allow click speeds beyond the default limit. This may affect performance."
+        message="The limit goes from 500 to 1000 clicks per interval. High speeds can stutter on slower PCs."
         confirmLabel="Enable"
         onConfirm={handleConfirmExtendedClickSpeedLimit}
         onCancel={handleCancelPending}

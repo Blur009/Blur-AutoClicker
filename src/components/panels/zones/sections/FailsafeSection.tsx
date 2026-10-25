@@ -50,12 +50,12 @@ export default function FailsafeSection({ settings, update }: Props) {
         </div>
         <CardDivider />
         <div className="adv-card-desc">
-          Stops the clicker when your cursor enters a screen corner. Keep this
-          enabled as a safety net.
+          Stops the clicker when the cursor enters a corner of a monitor. Each
+          value sets the corner box size in pixels.
         </div>
         <Disableable
           enabled={settings.cornerStopEnabled}
-          disabledReason="Enable Corner Stop to edit the corner failsafe hitboxes."
+          disabledReason="Enable Corner Stop to change the corner sizes."
         >
           <div className="adv-row" style={{ gap: 8 }}>
             <div className="adv-corner-grid">
@@ -100,12 +100,12 @@ export default function FailsafeSection({ settings, update }: Props) {
         </div>
         <CardDivider />
         <div className="adv-card-desc">
-          Stops the clicker when your cursor reaches a screen edge. Keep this
-          enabled as a safety net.
+          Stops the clicker when the cursor reaches an edge of a monitor. Each
+          value sets the edge strip width in pixels.
         </div>
         <Disableable
           enabled={settings.edgeStopEnabled}
-          disabledReason="Enable Edge Stop to edit the edge failsafe hitboxes."
+          disabledReason="Enable Edge Stop to change the edge widths."
         >
           <div className="adv-row" style={{ gap: 8 }}>
             <div className="adv-corner-grid">

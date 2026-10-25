@@ -20,6 +20,9 @@ export type IndicatorBackgroundMode = "off" | "card" | "shadow";
 
 const INT32_MIN: number = -2147483648;
 const INT32_MAX: number = 2147483647;
+const STOP_ZONE_OFFSET_LIMIT = 99999;
+const STOP_ZONE_SIZE_LIMIT = 99999;
+export const STOP_ZONE_MAX_COUNT = 64;
 
 export interface ProcessListEntry {
   name: string;
@@ -1006,6 +1009,12 @@ export function sanitizeBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
+function sanitizeLegacyBoolean(value: unknown, fallback: boolean): boolean {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return sanitizeBoolean(value, fallback);
+}
+
 export function sanitizeHexColor(value: unknown, fallback: string): string {
   if (typeof value !== "string") {
     return fallback;
@@ -1081,6 +1090,38 @@ function sanitizeFields<F extends Record<string, FieldDef<unknown>>>(
   }
 
   return result as DefaultValues<F>;
+}
+
+type SpeedRandomizationFields = {
+  speedRandomization: number;
+  speedRandomizationEnabled: boolean;
+};
+
+function migrateSpeedRandomization(
+  target: SpeedRandomizationFields,
+  saved: Record<string, unknown>,
+  defaults: SpeedRandomizationFields,
+): void {
+  const legacyMax = clampNumber(
+    saved.speedRandomizationMax,
+    defaults.speedRandomization,
+    SETTINGS_LIMITS.speedRandomization.min,
+    SETTINGS_LIMITS.speedRandomization.max,
+  );
+
+  target.speedRandomization = clampNumber(
+    saved.speedRandomization ?? saved.speedVariation,
+    legacyMax,
+    SETTINGS_LIMITS.speedRandomization.min,
+    SETTINGS_LIMITS.speedRandomization.max,
+  );
+
+  if (saved.speedRandomizationEnabled === undefined) {
+    target.speedRandomizationEnabled = sanitizeLegacyBoolean(
+      saved.speedVariationEnabled,
+      defaults.speedRandomizationEnabled,
+    );
+  }
 }
 
 function createFallbackPresetId(index: number) {
@@ -1187,6 +1228,7 @@ function sanitizeStopZones(value: unknown): StopZone[] {
   if (!Array.isArray(value)) return [];
 
   return value
+    .slice(0, STOP_ZONE_MAX_COUNT)
     .map((zone) => {
       if (!zone || typeof zone !== "object") return null;
       const candidate = zone as Partial<StopZone>;
@@ -1196,11 +1238,21 @@ function sanitizeStopZones(value: unknown): StopZone[] {
           : createStopZoneId();
       const x =
         typeof candidate.x === "number" && Number.isFinite(candidate.x)
-          ? clampNumber(Math.trunc(candidate.x), 0, INT32_MIN, INT32_MAX)
+          ? clampNumber(
+              Math.trunc(candidate.x),
+              0,
+              -STOP_ZONE_OFFSET_LIMIT,
+              STOP_ZONE_OFFSET_LIMIT,
+            )
           : 0;
       const y =
         typeof candidate.y === "number" && Number.isFinite(candidate.y)
-          ? clampNumber(Math.trunc(candidate.y), 0, INT32_MIN, INT32_MAX)
+          ? clampNumber(
+              Math.trunc(candidate.y),
+              0,
+              -STOP_ZONE_OFFSET_LIMIT,
+              STOP_ZONE_OFFSET_LIMIT,
+            )
           : 0;
       const width =
         typeof candidate.width === "number" && Number.isFinite(candidate.width)
@@ -1208,7 +1260,7 @@ function sanitizeStopZones(value: unknown): StopZone[] {
               Math.max(1, Math.trunc(candidate.width)),
               100,
               1,
-              INT32_MAX,
+              STOP_ZONE_SIZE_LIMIT,
             )
           : 100;
       const height =
@@ -1218,7 +1270,7 @@ function sanitizeStopZones(value: unknown): StopZone[] {
               Math.max(1, Math.trunc(candidate.height)),
               100,
               1,
-              INT32_MAX,
+              STOP_ZONE_SIZE_LIMIT,
             )
           : 100;
       const action =
@@ -1238,6 +1290,17 @@ export function createDefaultSettings(version: string): Settings {
     version,
     ...PRESET_DEFAULTS,
     ...SETTINGS_ONLY_DEFAULTS,
+  };
+}
+
+export function withFactoryPresets(settings: Settings): Settings {
+  return {
+    ...settings,
+    presets: FACTORY_PRESETS.map((preset) => ({
+      ...preset,
+      settings: { ...preset.settings },
+    })),
+    activePresetId: null,
   };
 }
 
@@ -1344,13 +1407,16 @@ export function sanitizePresetSnapshot(
   snapshot.clickPoints = sanitizeClickPoints(
     saved.clickPoints ?? (saved.sequencePoints as ClickPoint[] | undefined),
   );
-  if (snapshot.clickPointsEnabled === undefined) {
-    snapshot.clickPointsEnabled =
-      (saved.sequenceEnabled as boolean | undefined) ?? false;
+  if (saved.clickPointsEnabled === undefined) {
+    snapshot.clickPointsEnabled = sanitizeLegacyBoolean(
+      saved.sequenceEnabled,
+      false,
+    );
   }
   snapshot.processListEntries = sanitizeProcessListEntries(
     saved.processListEntries,
   );
+  migrateSpeedRandomization(snapshot, saved, defaults);
 
   return snapshot;
 }
@@ -1413,13 +1479,6 @@ export function sanitizeSettings(
   const presetSettings = sanitizeFields(PRESET_FIELDS, savedRecord);
   const settingsOnly = sanitizeFields(SETTINGS_ONLY_FIELDS, savedRecord);
 
-  const legacySpeedRandomization = clampNumber(
-    saved.speedRandomizationMax,
-    defaults.speedRandomization,
-    SETTINGS_LIMITS.speedRandomization.min,
-    SETTINGS_LIMITS.speedRandomization.max,
-  );
-
   presetSettings.clickInterval = sanitizeEnum(
     saved.clickInterval,
     defaults.clickInterval,
@@ -1459,25 +1518,16 @@ export function sanitizeSettings(
     saved.clickPoints ??
       (savedRecord.sequencePoints as ClickPoint[] | undefined),
   );
-  if (presetSettings.clickPointsEnabled === undefined) {
-    presetSettings.clickPointsEnabled =
-      (savedRecord.sequenceEnabled as boolean | undefined) ?? false;
+  if (savedRecord.clickPointsEnabled === undefined) {
+    presetSettings.clickPointsEnabled = sanitizeLegacyBoolean(
+      savedRecord.sequenceEnabled,
+      false,
+    );
   }
   presetSettings.processListEntries = sanitizeProcessListEntries(
     saved.processListEntries,
   );
-  presetSettings.speedRandomization = clampNumber(
-    saved.speedRandomization ??
-      (savedRecord.speedVariation as number | undefined),
-    legacySpeedRandomization,
-    SETTINGS_LIMITS.speedRandomization.min,
-    SETTINGS_LIMITS.speedRandomization.max,
-  );
-  if (presetSettings.speedRandomizationEnabled === undefined) {
-    presetSettings.speedRandomizationEnabled =
-      (savedRecord.speedVariationEnabled as boolean | undefined) ??
-      defaults.speedRandomizationEnabled;
-  }
+  migrateSpeedRandomization(presetSettings, savedRecord, defaults);
 
   settingsOnly.rateInputMode = sanitizeRateInputMode(
     saved.rateInputMode,
@@ -1583,26 +1633,20 @@ export function sanitizeSettings(
   if (settingsOnly.stopZones.length === 0) {
     const oldEnabled = savedRecord.customStopZoneEnabled as boolean | undefined;
     if (oldEnabled) {
-      const oldX = clampNumber(savedRecord.customStopZoneX, 0, 0);
-      const oldY = clampNumber(savedRecord.customStopZoneY, 0, 0);
-      const oldW = Math.max(
-        1,
-        clampNumber(savedRecord.customStopZoneWidth, 100, 1),
-      );
-      const oldH = Math.max(
-        1,
-        clampNumber(savedRecord.customStopZoneHeight, 100, 1),
-      );
-      settingsOnly.stopZones = [
+      const migratedZones = sanitizeStopZones([
         {
           id: createStopZoneId(),
-          x: oldX,
-          y: oldY,
-          width: oldW,
-          height: oldH,
+          x: savedRecord.customStopZoneX,
+          y: savedRecord.customStopZoneY,
+          width: savedRecord.customStopZoneWidth,
+          height: savedRecord.customStopZoneHeight,
           action: "stop",
         },
-      ];
+      ]);
+      settingsOnly.stopZones = migratedZones;
+      if (migratedZones.length > 0) {
+        presetSettings.stopZonesEnabled = true;
+      }
     }
   }
   presetSettings.clickSpeed = clampNumber(

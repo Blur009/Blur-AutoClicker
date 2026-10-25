@@ -310,7 +310,11 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
                     : "Send letters as lowercase"
                 }
                 aria-pressed={keyboardKeyCaseIsUpper}
-                title="Toggle keyboard key case"
+                title={
+                  canToggleKeyboardKeyCase
+                    ? "Toggle keyboard key case"
+                    : "Key case applies to letters only"
+                }
                 disabled={!canToggleKeyboardKeyCase}
                 onClick={toggleKeyboardKeyCase}
               >

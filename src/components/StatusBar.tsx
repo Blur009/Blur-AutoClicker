@@ -34,6 +34,8 @@ const STOP_REASON_TEXTS: Record<string, string> = {
   "Left edge failsafe": "Left edge failsafe",
   "Blocked by Alt+Tab": "Blocked by Alt+Tab",
   "Blocked by process list": "Blocked by process list",
+  "Blocked by process list: foreground application could not be identified":
+    "Could not identify the app in front",
 };
 
 function translateStopReason(stopReason: string | null | undefined): string {

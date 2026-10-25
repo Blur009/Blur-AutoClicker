@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { error } from "@tauri-apps/plugin-log";
+import { logDiagnostic } from "../../../diagnostics";
 import { getEffectiveIntervalMs } from "../../../cadence";
 import type { ClickPoint, Settings } from "../../../store";
 
@@ -196,12 +196,9 @@ export default function ClickPointsContent({
       await invoke("start_click_point_pick");
     } catch (err) {
       setPicking(false);
-      error(
-        JSON.stringify({
-          source: "ClickPointsContent.startPick",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("ClickPointsContent.startPick", {
+        error: String(err),
+      });
     }
   }, []);
 
@@ -210,12 +207,9 @@ export default function ClickPointsContent({
     try {
       await invoke("cancel_click_point_pick");
     } catch (err) {
-      error(
-        JSON.stringify({
-          source: "ClickPointsContent.cancelPick",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("ClickPointsContent.cancelPick", {
+        error: String(err),
+      });
     }
   }, []);
 
@@ -507,9 +501,8 @@ export default function ClickPointsContent({
       </div>
       <CardDivider />
       <div className="adv-card-desc">
-        Choose a list of spots on your screen to click one after another. Each
-        spot will use the speed and settings you chose. Choose just one spot if
-        you want to click the exact same place over and over.
+        Clicks the spots in the list in order, using your current click speed.
+        Add a single point to click the same place repeatedly.
       </div>
       <Disableable enabled={settings.clickPointsEnabled}>
         <div className="adv-click-points-body">
@@ -535,9 +528,9 @@ export default function ClickPointsContent({
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                         className="lucide lucide-spline-pointer-icon lucide-spline-pointer"
                       >
                         <path d="M12.034 12.681a.498.498 0 0 1 .647-.647l9 3.5a.5.5 0 0 1-.033.943l-3.444 1.068a1 1 0 0 0-.66.66l-1.067 3.443a.5.5 0 0 1-.943.033z" />

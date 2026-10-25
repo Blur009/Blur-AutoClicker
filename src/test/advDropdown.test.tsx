@@ -16,18 +16,21 @@ function renderedLabels() {
   );
 }
 
-async function openDropdown(searchable = true) {
+async function openDropdown(
+  searchable = true,
+  options: { value: string; label: string }[] = OPTIONS,
+) {
   const onChange = vi.fn();
   render(
     <AdvDropdown
-      value="alpha"
-      options={OPTIONS}
+      value={options[0].value}
+      options={options}
       onChange={onChange}
       searchable={searchable}
     />,
   );
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Alpha" }));
+  await user.click(screen.getByRole("button", { name: options[0].label }));
   const input = screen.queryByPlaceholderText("Search");
   if (input) {
     await waitFor(() => expect(input).toHaveFocus());
@@ -48,9 +51,16 @@ describe("AdvDropdown search", () => {
   });
 
   it("matches the option value as well as the label", async () => {
-    const { user, input } = await openDropdown();
-    await user.type(input!, "bet");
-    expect(renderedLabels()).toEqual(["Beta"]);
+    const { user, input, onChange } = await openDropdown(true, [
+      { value: "alpha", label: "Alpha" },
+      { value: "beta", label: "Beta" },
+      { value: "cps-750", label: "Fast" },
+    ]);
+    await user.type(input!, "750");
+    expect(renderedLabels()).toEqual(["Fast"]);
+
+    await user.click(screen.getByRole("button", { name: "Fast" }));
+    expect(onChange).toHaveBeenCalledWith("cps-750");
   });
 
   it("selects the first match on Enter and closes the menu", async () => {

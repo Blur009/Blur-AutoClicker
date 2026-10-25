@@ -31,7 +31,7 @@ const INDICATOR_COLOR_MODE_LABELS: Record<IndicatorColorMode, string> = {
 };
 
 const INDICATOR_COUNTDOWN_LABELS: Record<IndicatorCountdownMode, string> = {
-  plain: "None",
+  plain: "Time",
   short: "H/W",
   words: "Hold/Wait",
 };
@@ -182,7 +182,7 @@ export default memo(function OverlaySection({ settings, update }: Props) {
         <div className="settings-label-group">
           <span className="settings-label">Show While Clicking</span>
           <span className="settings-sublabel">
-            Only appears while the clicker is actively clicking.
+            Appears when a session starts and hides when it stops.
           </span>
         </div>
         <div className="settings-toggle-wrapper">

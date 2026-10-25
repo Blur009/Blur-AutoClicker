@@ -25,6 +25,14 @@
 - Clicking stats now update without needing to leave and re-enter the settings page.
 - Fixed the master switch and hotkeys sometimes ignoring a press.
 - Fixed hotkeys not working after locking Windows until the app was restarted.
+- Fixed Double Click ignoring the duty cycle and sending near-zero holds above 2 CPS.
+- Fixed decimal fields turning a typed 1.05 into 15.
+- Fixed holding a toggle hotkey flipping the setting repeatedly.
+- Fixed Reset Settings deleting the factory presets.
+- Fixed the stop zone and click point pickers staying broken after a failed overlay.
+- Fixed the pick prompt sitting too far from the cursor and clipping at the screen edge.
+- Fixed the first overlay after launch sometimes drawing nothing.
+- Fixed stop zones loaded from an older or damaged settings file keeping an invalid size, position or action.
 
 # v3.9.6 - 24.08.2026 (d.m.y)
 

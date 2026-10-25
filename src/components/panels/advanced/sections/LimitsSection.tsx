@@ -44,8 +44,8 @@ export default function LimitsSection({ settings, update }: Props) {
     ? settings.clickLimitEnabled
     : settings.timeLimitEnabled;
   const activeUnavailableReason = isClicksMode
-    ? "Enable Click Limit to stop automatically after a set number of clicks."
-    : "Enable Time Limit to stop automatically after a set amount of time.";
+    ? "Enable Limits to stop after this many clicks."
+    : "Enable Limits to stop after this much time.";
 
   const handleModeChange = (nextMode: "clicks" | "time") => {
     const wasEnabled = activeEnabled;
@@ -95,9 +95,9 @@ export default function LimitsSection({ settings, update }: Props) {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
               <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
             </svg>
@@ -112,7 +112,7 @@ export default function LimitsSection({ settings, update }: Props) {
         disabledReason={activeUnavailableReason}
       >
         <div className="adv-card-desc">
-          Stop automatically after a set number of clicks or time.
+          Stops the clicker after a set number of clicks or a set time.
         </div>
         <div
           className="adv-row"

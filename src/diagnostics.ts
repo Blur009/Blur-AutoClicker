@@ -1,4 +1,4 @@
-import { error as logError } from "@tauri-apps/plugin-log";
+import { error as logError, warn as logWarn } from "@tauri-apps/plugin-log";
 
 export function serializeDiagnosticValue(value: unknown) {
   if (value instanceof Error) {
@@ -19,6 +19,15 @@ export function logDiagnostic(
   details: Record<string, unknown>,
 ) {
   logError(
+    JSON.stringify({
+      source,
+      ...details,
+    }),
+  );
+}
+
+export function logWarning(source: string, details: Record<string, unknown>) {
+  logWarn(
     JSON.stringify({
       source,
       ...details,

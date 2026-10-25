@@ -7,7 +7,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   {
-    ignores: ["src-tauri/**", "node_modules/**", "dist/**"]
+    ignores: ["src-tauri/**", "node_modules/**", "dist/**", ".audit/**"]
   },
   globalIgnores(['dist']),
   {

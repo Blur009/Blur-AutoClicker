@@ -60,6 +60,70 @@ const SHIFTED_SYMBOL_BASE_MAP: Record<string, string> = {
   ">": "<",
 };
 
+const PHYSICAL_KEY_CODES = [
+  "Backquote",
+  "Minus",
+  "Equal",
+  "BracketLeft",
+  "BracketRight",
+  "Backslash",
+  "Semicolon",
+  "Quote",
+  "Comma",
+  "Period",
+  "Slash",
+  "IntlBackslash",
+];
+
+const PHYSICAL_KEY_CODE_SET = new Set(PHYSICAL_KEY_CODES);
+
+const PHYSICAL_KEY_CODE_BY_LOWER: Record<string, string> = Object.fromEntries(
+  PHYSICAL_KEY_CODES.map((code): [string, string] => [
+    code.toLowerCase(),
+    code,
+  ]),
+);
+
+const PHYSICAL_KEY_DISPLAY_FALLBACK: Record<string, string> = {
+  Backquote: "`",
+  Minus: "-",
+  Equal: "=",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Backslash: "\\",
+  Semicolon: ";",
+  Quote: "'",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  IntlBackslash: "<",
+};
+
+const SYMBOL_TO_PHYSICAL_KEY_CODE: Record<string, string> = {
+  "`": "Backquote",
+  "~": "Backquote",
+  "-": "Minus",
+  _: "Minus",
+  "=": "Equal",
+  "+": "Equal",
+  "[": "BracketLeft",
+  "{": "BracketLeft",
+  "]": "BracketRight",
+  "}": "BracketRight",
+  "\\": "Backslash",
+  "|": "Backslash",
+  ";": "Semicolon",
+  ":": "Semicolon",
+  "'": "Quote",
+  '"': "Quote",
+  ",": "Comma",
+  ".": "Period",
+  "/": "Slash",
+  "?": "Slash",
+  "<": "IntlBackslash",
+  ">": "IntlBackslash",
+};
+
 const NUMPAD_CODE_MAP: Record<string, string> = {
   Numpad0: "numpad0",
   Numpad1: "numpad1",
@@ -405,8 +469,8 @@ function mainKeyFromCode(
   key: string,
   location?: number,
 ): string | null {
-  if (code === "IntlBackslash") {
-    return "IntlBackslash";
+  if (PHYSICAL_KEY_CODE_SET.has(code)) {
+    return code;
   }
 
   if (/^Key[A-Z]$/.test(code)) {
@@ -602,8 +666,12 @@ function displayTokenFromStoredValue(
   const trimmed = token.trim();
   if (!trimmed) return trimmed;
 
-  if (trimmed === "IntlBackslash") {
-    return layoutMap?.get("IntlBackslash") ?? "<";
+  const physicalCode = PHYSICAL_KEY_CODE_BY_LOWER[trimmed.toLowerCase()];
+  if (physicalCode) {
+    return (
+      layoutMap?.get(physicalCode) ??
+      PHYSICAL_KEY_DISPLAY_FALLBACK[physicalCode]
+    );
   }
 
   if (/^Key[A-Z]$/.test(trimmed)) {
@@ -637,7 +705,15 @@ function displayTokenFromStoredValue(
   return trimmed;
 }
 
-function normalizeStoredMainKey(
+function physicalKeyCodeForToken(token: string): string | null {
+  return (
+    PHYSICAL_KEY_CODE_BY_LOWER[token.toLowerCase()] ??
+    SYMBOL_TO_PHYSICAL_KEY_CODE[token] ??
+    null
+  );
+}
+
+export function normalizeStoredMainKey(
   token: string,
   layoutMap: LayoutMapLike | null,
 ): string {
@@ -650,7 +726,8 @@ function normalizeStoredMainKey(
 
   if (/^Key[A-Z]$/.test(trimmed)) {
     const mapped = layoutMap?.get(trimmed);
-    return mapped ? mapped.toLowerCase() : trimmed.slice(3).toLowerCase();
+    if (!mapped) return trimmed.slice(3).toLowerCase();
+    return physicalKeyCodeForToken(mapped) ?? mapped.toLowerCase();
   }
 
   if (/^Digit[0-9]$/.test(trimmed)) {
@@ -661,20 +738,16 @@ function normalizeStoredMainKey(
     return `numpad${trimmed.slice(6)}`;
   }
 
-  const lower = trimmed.toLowerCase();
-  if (lower === "<" || lower === ">" || lower === "intlbackslash") {
-    return "IntlBackslash";
-  }
-
-  if (SHIFTED_SYMBOL_BASE_MAP[trimmed]) {
-    return SHIFTED_SYMBOL_BASE_MAP[trimmed];
+  const physicalCode = physicalKeyCodeForToken(trimmed);
+  if (physicalCode) {
+    return physicalCode;
   }
 
   return (
     normalizeMouseToken(trimmed) ??
     normalizeNumpadToken(trimmed) ??
     normalizeNamedKey(trimmed) ??
-    lower
+    trimmed.toLowerCase()
   );
 }
 
@@ -777,7 +850,9 @@ export function formatHotkeyForDisplay(
         layoutMap,
         labels,
       );
-      return display.length === 1 ? display.toUpperCase() : display;
+      return /^[a-z0-9]$/.test(aliasCanonical)
+        ? display.toUpperCase()
+        : display;
     })
     .join(" + ");
 }
@@ -903,9 +978,11 @@ export function conflictsWithAutoPressKey(
   keyboardKeyCaseIsUpper: boolean,
 ): boolean {
   if (!hotkey || !keyboardKey) return false;
-  const mains = hotkeyMainKeys(hotkey);
+  const mains = hotkeyMainKeys(hotkey).map((main) =>
+    normalizeStoredMainKey(main, null),
+  );
   const modifiers = hotkeyModifiers(hotkey);
-  const kbKey = keyboardKey.toLowerCase();
+  const kbKey = normalizeStoredMainKey(keyboardKey, null);
   // chord hotkeys need both mains, single auto key never triggers loop
   if (mains.length !== 1 || mains[0] !== kbKey) return false;
   if (modifiers.length === 0) return true;

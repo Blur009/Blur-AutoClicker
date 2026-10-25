@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import {
   buildHeatmap,
   buildWindow,
+  dayKey,
   formatDay,
   formatFullDay,
   formatMonth,
@@ -205,8 +206,8 @@ function UsageNotices({ overview }: { overview: StatsOverview }) {
       <span className="usage-notice" tabIndex={0}>
         {INFO_ICON}
         <span className="usage-notice-card" role="tooltip">
-          Everything here is written to a database on this computer. Nothing is
-          uploaded, sent, or shared.
+          Everything here is stored in a database on this computer. Nothing is
+          uploaded or shared.
         </span>
       </span>
     </div>
@@ -246,12 +247,46 @@ const UsageStats = memo(function UsageStats({
   const [metric, setMetric] = useState<MetricKey>("clicks");
   const [range, setRange] = useState<RangeKey>("30");
   const [hovered, setHovered] = useState<number | null>(null);
-  const [today] = useState(() => new Date());
+  const [today, setToday] = useState(() => new Date());
   const [tip, setTip] = useState<{ text: string; x: number; y: number } | null>(
     null,
   );
   const tipRef = useRef<HTMLDivElement>(null);
   const hoveredRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let timer = 0;
+    const refresh = () => {
+      const now = new Date();
+      setToday((previous) =>
+        dayKey(previous) === dayKey(now) ? previous : now,
+      );
+    };
+    const schedule = () => {
+      const now = new Date();
+      const midnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+      );
+      timer = window.setTimeout(
+        () => {
+          refresh();
+          schedule();
+        },
+        Math.max(1000, midnight.getTime() - now.getTime()),
+      );
+    };
+    schedule();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
 
   const clearHover = useCallback(() => {
     if (hoveredRef.current !== null) {
@@ -476,9 +511,8 @@ const UsageStats = memo(function UsageStats({
 
       {overview.daily.length === 0 ? (
         <p className="usage-empty">
-          Nothing here carries a date yet. History from before v3.9.7 still
-          counts in the totals above, and the charts fill in from your next
-          session.
+          No dated sessions yet. History from before v3.9.7 still counts in the
+          totals above, and the charts fill in from your next session.
         </p>
       ) : (
         <>

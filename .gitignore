@@ -62,3 +62,5 @@ src/tauri-mock-setup.ts
 vite.test.config.ts
 .claude/settings.local.json
 piolium/
+.audit/
+.ruff_cache/

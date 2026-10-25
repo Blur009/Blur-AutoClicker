@@ -212,9 +212,8 @@ pub fn update_settings(
             || old.click_points != settings.click_points;
         *old = settings.clone();
     }
-    *state.warning.lock().unwrap_or_else(poisoned_inner) = None;
+    crate::app_state::clear_transient_warning(&state.warning);
     crate::sync_indicator_config(&app);
-
     if !was_initialized {
         state.settings_initialized.store(true, Ordering::SeqCst);
         log::info!("[Settings] First update_settings — initialized, skipping overlay");
@@ -302,7 +301,7 @@ pub fn start_click_point_pick(app: AppHandle) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn cancel_click_point_pick(app: AppHandle) -> AppResult<()> {
+pub async fn cancel_click_point_pick(app: AppHandle) -> AppResult<()> {
     crate::click_point_picker::cancel_click_point_pick_inner(&app);
     Ok(())
 }
@@ -313,7 +312,7 @@ pub fn start_custom_stop_zone_pick(app: AppHandle) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn cancel_custom_stop_zone_pick(app: AppHandle) -> AppResult<()> {
+pub async fn cancel_custom_stop_zone_pick(app: AppHandle) -> AppResult<()> {
     crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(&app);
     Ok(())
 }
@@ -327,6 +326,85 @@ pub fn get_app_info(app: AppHandle) -> AppResult<AppInfoPayload> {
         screenshot_protection_supported: false,
         portable: crate::portable::is_portable(),
     })
+}
+
+fn settings_file_path(app: &AppHandle) -> AppResult<std::path::PathBuf> {
+    if crate::portable::is_portable() {
+        if let Some(dir) = crate::portable::data_dir() {
+            return Ok(dir.join("settings.json"));
+        }
+    }
+
+    app.path()
+        .app_data_dir()
+        .map(|dir| dir.join("settings.json"))
+        .map_err(|err| AppError::State(format!("app data directory unavailable: {err}")))
+}
+
+fn backup_unparseable_settings_file(path: &std::path::Path) -> AppResult<Option<String>> {
+    if !path.is_file() {
+        return Ok(None);
+    }
+
+    let bytes = std::fs::read(path)?;
+    if bytes.iter().all(u8::is_ascii_whitespace) {
+        return Ok(None);
+    }
+
+    if matches!(
+        serde_json::from_slice::<serde_json::Value>(&bytes),
+        Ok(serde_json::Value::Object(_))
+    ) {
+        return Ok(None);
+    }
+
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let backup = path.with_file_name(format!("settings.recovered-{stamp}.json"));
+    std::fs::copy(path, &backup)?;
+    Ok(Some(backup.to_string_lossy().to_string()))
+}
+
+#[tauri::command]
+pub fn backup_unreadable_settings(app: AppHandle) -> AppResult<Option<String>> {
+    let path = settings_file_path(&app)?;
+    backup_unparseable_settings_file(&path)
+}
+
+#[tauri::command]
+pub fn allow_background_media(app: AppHandle, path: String) -> AppResult<()> {
+    app.asset_protocol_scope()
+        .allow_file(&path)
+        .map_err(|err| AppError::InvalidSetting(format!("background media path rejected: {err}")))
+}
+
+#[tauri::command]
+pub fn export_preset_file(path: String, preset: serde_json::Value) -> AppResult<()> {
+    let payload = serde_json::json!({
+        "type": "blur-autoclicker-preset",
+        "version": 1,
+        "preset": preset,
+    });
+    let body = serde_json::to_string_pretty(&payload)
+        .map_err(|err| AppError::InvalidSetting(format!("preset could not be written: {err}")))?;
+    std::fs::write(&path, body)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn import_preset_file(path: String) -> AppResult<serde_json::Value> {
+    let body = std::fs::read_to_string(&path)?;
+    serde_json::from_str(&body)
+        .map_err(|err| AppError::InvalidSetting(format!("preset file could not be parsed: {err}")))
+}
+
+fn record_settings_recovery_notice(warning: Option<String>) {
+    crate::app_state::set_recovery_notice(warning);
+}
+
+#[tauri::command]
+pub fn set_settings_warning(app: AppHandle, warning: Option<String>) {
+    record_settings_recovery_notice(warning);
+    emit_status(&app);
 }
 
 #[tauri::command]
@@ -369,6 +447,12 @@ pub fn set_autostart_enabled(enabled: bool) -> AppResult<()> {
 
 #[tauri::command]
 pub fn hide_main_window(app: AppHandle) -> AppResult<()> {
+    if !crate::TRAY_AVAILABLE.load(Ordering::SeqCst) {
+        log::warn!("[Window] No tray icon available, quitting instead of hiding");
+        app.exit(0);
+        return Ok(());
+    }
+
     crate::window_lifecycle::on_hide(&app);
     if let Some(window) = app.get_webview_window("main") {
         window.hide()?;
@@ -389,7 +473,7 @@ pub fn list_processes() -> AppResult<Vec<crate::engine::process::ProcessInfo>> {
 
 #[tauri::command]
 pub fn was_autostart_launch() -> bool {
-    std::env::args().any(|a| a == "--autostart")
+    std::env::args().any(|a| a == "--autostart") && crate::TRAY_AVAILABLE.load(Ordering::SeqCst)
 }
 
 #[tauri::command]
@@ -596,5 +680,117 @@ pub fn debug_trigger_crash() -> AppResult<()> {
         Err(AppError::State(
             "Crash trigger is only available in debug builds".into(),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recovery_notice_survives_a_settings_update() {
+        let notice = String::from(
+            "Settings could not be read and were reset. Your old file is saved as settings.recovered-20240101-120000.json.",
+        );
+        record_settings_recovery_notice(Some(notice.clone()));
+
+        let warning =
+            std::sync::Mutex::new(Some(String::from("Whitelist mode has no entries selected")));
+        crate::app_state::clear_transient_warning(&warning);
+
+        assert_eq!(
+            crate::app_state::status_warning(warning.into_inner().unwrap_or_else(poisoned_inner)),
+            Some(notice)
+        );
+
+        record_settings_recovery_notice(None);
+    }
+
+    fn write_settings(dir: &std::path::Path, body: &[u8]) -> std::path::PathBuf {
+        let path = dir.join("settings.json");
+        std::fs::write(&path, body).expect("write settings");
+        path
+    }
+
+    fn recoveries(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+        std::fs::read_dir(dir)
+            .expect("read dir")
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with("settings.recovered-"))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn valid_settings_are_not_backed_up() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = write_settings(temp.path(), br#"{"settings":{"cps":12}}"#);
+
+        assert!(backup_unparseable_settings_file(&path)
+            .expect("backup decision")
+            .is_none());
+        assert!(recoveries(temp.path()).is_empty());
+    }
+
+    #[test]
+    fn unparseable_settings_are_copied_to_a_timestamped_backup() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = write_settings(temp.path(), br#"{"settings":{"cps":"#);
+
+        let backup = backup_unparseable_settings_file(&path)
+            .expect("backup decision")
+            .expect("backup path");
+
+        let backup = std::path::PathBuf::from(backup);
+        assert!(backup.starts_with(temp.path()));
+        assert_eq!(
+            std::fs::read(&backup).expect("read backup"),
+            std::fs::read(&path).expect("read settings")
+        );
+        assert_eq!(recoveries(temp.path()).len(), 1);
+    }
+
+    #[test]
+    fn missing_settings_file_is_not_backed_up() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = temp.path().join("settings.json");
+
+        assert!(backup_unparseable_settings_file(&path)
+            .expect("backup decision")
+            .is_none());
+        assert!(recoveries(temp.path()).is_empty());
+    }
+
+    #[test]
+    fn non_object_json_settings_are_copied_to_a_timestamped_backup() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = write_settings(temp.path(), br#"[{"cps":12}]"#);
+
+        let backup = backup_unparseable_settings_file(&path)
+            .expect("backup decision")
+            .expect("backup path");
+
+        let backup = std::path::PathBuf::from(backup);
+        assert!(backup.starts_with(temp.path()));
+        assert_eq!(
+            std::fs::read(&backup).expect("read backup"),
+            std::fs::read(&path).expect("read settings")
+        );
+        assert_eq!(recoveries(temp.path()).len(), 1);
+    }
+
+    #[test]
+    fn empty_settings_file_is_not_backed_up() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = write_settings(temp.path(), b"");
+
+        assert!(backup_unparseable_settings_file(&path)
+            .expect("backup decision")
+            .is_none());
+        assert!(recoveries(temp.path()).is_empty());
     }
 }

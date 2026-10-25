@@ -38,6 +38,21 @@ const HOTKEY_HEALTH_INTERVAL: Duration = Duration::from_millis(400);
 
 const MAX_CHORD_MAINS: usize = 5;
 
+const PHYSICAL_CODE_KEYS: [(&str, u16, i32); 12] = [
+    ("Backquote", 0x29, VK_OEM_3 as i32),
+    ("Minus", 0x0C, VK_OEM_MINUS as i32),
+    ("Equal", 0x0D, VK_OEM_PLUS as i32),
+    ("BracketLeft", 0x1A, VK_OEM_4 as i32),
+    ("BracketRight", 0x1B, VK_OEM_6 as i32),
+    ("Backslash", 0x2B, VK_OEM_5 as i32),
+    ("Semicolon", 0x27, VK_OEM_1 as i32),
+    ("Quote", 0x28, VK_OEM_7 as i32),
+    ("Comma", 0x33, VK_OEM_COMMA as i32),
+    ("Period", 0x34, VK_OEM_PERIOD as i32),
+    ("Slash", 0x35, VK_OEM_2 as i32),
+    ("IntlBackslash", 0x56, VK_OEM_102 as i32),
+];
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HotkeyBinding {
     pub ctrl: bool,
@@ -268,6 +283,10 @@ pub fn parse_hotkey_binding(hotkey: &str) -> AppResult<HotkeyBinding> {
 pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> AppResult<(i32, String)> {
     let lower = token.trim().to_ascii_lowercase();
 
+    if let Some(binding) = parse_physical_code_token(&lower) {
+        return Ok(binding);
+    }
+
     if let Some(binding) = parse_named_key_token(&lower) {
         return Ok(binding);
     }
@@ -296,14 +315,29 @@ pub fn parse_hotkey_main_key(token: &str, original_hotkey: &str) -> AppResult<(i
         }
     }
 
-    if lower.len() == 1 {
-        let ch = lower.as_bytes()[0];
+    let mut chars = lower.chars();
+    if let (Some(ch), None) = (chars.next(), chars.next()) {
         if ch.is_ascii_lowercase() {
             return Ok((ch.to_ascii_uppercase() as i32, lower));
         }
         if ch.is_ascii_digit() {
             return Ok((ch as i32, lower));
         }
+        if let Ok(wide) = u16::try_from(ch as u32) {
+            let scan = unsafe { VkKeyScanW(wide) };
+            if scan != -1 {
+                let raw = scan as u16;
+                if raw >> 8 != 0 {
+                    return Err(AppError::Hotkey(format!(
+                        "Invalid hotkey '{original_hotkey}': '{token}' is only reachable with a modifier on this keyboard layout"
+                    )));
+                }
+                return Ok(((raw & 0xFF) as i32, lower));
+            }
+        }
+        return Err(AppError::Hotkey(format!(
+            "Invalid hotkey '{original_hotkey}': '{token}' isn't reachable on the current keyboard layout"
+        )));
     }
 
     Err(AppError::Hotkey(format!(
@@ -1098,6 +1132,15 @@ fn binding(vk: i32, token: &str) -> (i32, String) {
     (vk, token.to_string())
 }
 
+fn parse_physical_code_token(token: &str) -> Option<(i32, String)> {
+    let (name, scan, fallback_vk) = *PHYSICAL_CODE_KEYS
+        .iter()
+        .find(|(name, _, _)| name.eq_ignore_ascii_case(token))?;
+    let mapped = unsafe { MapVirtualKeyW(scan as u32, MAPVK_VSC_TO_VK_EX) } as i32;
+    let vk = if mapped == 0 { fallback_vk } else { mapped };
+    Some(binding(vk, name))
+}
+
 fn parse_named_key_token(token: &str) -> Option<(i32, String)> {
     match token {
         "<" | ">" | "intlbackslash" | "oem102" | "nonusbackslash" => {
@@ -1220,8 +1263,105 @@ fn parse_function_key_token(token: &str) -> Option<(i32, String)> {
 mod tests {
     use super::{
         format_hotkey_binding, is_mouse_hotkey_binding, modifiers_match, parse_hotkey_binding,
-        DownState,
+        parse_hotkey_main_key, parse_physical_code_token, DownState, PHYSICAL_CODE_KEYS,
     };
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_OEM_102;
+
+    #[test]
+    fn physical_code_tokens_round_trip() {
+        for token in [
+            "Backquote",
+            "Minus",
+            "Equal",
+            "BracketLeft",
+            "BracketRight",
+            "Backslash",
+            "Semicolon",
+            "Quote",
+            "Comma",
+            "Period",
+            "Slash",
+            "IntlBackslash",
+        ] {
+            let hotkey = format!("ctrl+shift+{token}");
+            let binding = parse_hotkey_binding(&hotkey).expect("token should parse");
+            assert!(
+                binding.main_vk().unwrap_or(0) > 0,
+                "token {token} should resolve a virtual key"
+            );
+            assert_eq!(binding.key_token(), token, "token {token}");
+            assert_eq!(format_hotkey_binding(&binding), hotkey, "token {token}");
+        }
+        let intl = parse_hotkey_binding("IntlBackslash").expect("intl backslash should parse");
+        assert_eq!(intl.main_vk(), Some(VK_OEM_102 as i32));
+        assert_eq!(intl.key_token(), "IntlBackslash");
+        for alias in ["<", ">", "oem102", "nonusbackslash"] {
+            let aliased = parse_hotkey_binding(alias).expect("alias should parse");
+            assert_eq!(aliased.main_vk(), Some(VK_OEM_102 as i32), "alias {alias}");
+            assert_eq!(aliased.key_token(), "IntlBackslash", "alias {alias}");
+            assert_eq!(
+                format_hotkey_binding(&aliased),
+                "IntlBackslash",
+                "alias {alias}"
+            );
+        }
+    }
+
+    #[test]
+    fn physical_code_table_covers_every_shared_code_token() {
+        let tokens = [
+            "Backquote",
+            "Minus",
+            "Equal",
+            "BracketLeft",
+            "BracketRight",
+            "Backslash",
+            "Semicolon",
+            "Quote",
+            "Comma",
+            "Period",
+            "Slash",
+            "IntlBackslash",
+        ];
+        assert_eq!(tokens.len(), PHYSICAL_CODE_KEYS.len());
+        for token in tokens {
+            assert!(
+                PHYSICAL_CODE_KEYS.iter().any(|(name, _, _)| *name == token),
+                "{token} is missing from the scan code table"
+            );
+            let (vk, parsed_token) =
+                parse_physical_code_token(token).expect("scan code table should resolve the token");
+            assert!(vk > 0, "token {token} should resolve a virtual key");
+            let binding = parse_hotkey_binding(token).expect("token should parse as a hotkey");
+            assert_eq!(binding.key_token(), parsed_token, "token {token}");
+            assert_eq!(format_hotkey_binding(&binding), token, "token {token}");
+        }
+    }
+
+    #[test]
+    fn multi_byte_single_character_reaches_the_layout_lookup() {
+        assert_eq!("ä".len(), 2);
+        let message = match parse_hotkey_main_key("ä", "ä") {
+            Ok(binding) => panic!("multibyte character was accepted as {binding:?}"),
+            Err(error) => error.to_string(),
+        };
+        assert_eq!(
+            message,
+            "Invalid hotkey 'ä': 'ä' isn't reachable on the current keyboard layout"
+        );
+    }
+
+    #[test]
+    fn character_that_needs_a_modifier_is_rejected_by_name() {
+        let message = match parse_hotkey_main_key("!", "!") {
+            Ok(binding) => panic!("shifted character was accepted as {binding:?}"),
+            Err(error) => error.to_string(),
+        };
+        assert_eq!(
+            message,
+            "Invalid hotkey '!': '!' is only reachable with a modifier on this keyboard layout"
+        );
+    }
 
     #[test]
     fn numpad_tokens_round_trip() {

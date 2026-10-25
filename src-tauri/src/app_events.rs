@@ -18,7 +18,7 @@ struct AppEventRecord {
 pub fn create_app_events_target() -> fern::Dispatch {
     let (tx, rx) = mpsc::sync_channel::<AppEventRecord>(1024);
 
-    std::thread::Builder::new()
+    let writer = std::thread::Builder::new()
         .name("app-events-writer".into())
         .spawn(move || {
             let dir = match crate::diagnostics::app_events_dir() {
@@ -59,8 +59,11 @@ pub fn create_app_events_target() -> fern::Dispatch {
             if !batch.is_empty() {
                 flush_telemetry_batch(&dir, &batch);
             }
-        })
-        .expect("failed to spawn telemetry writer thread");
+        });
+
+    if let Err(err) = writer {
+        eprintln!("[telemetry] writer thread unavailable, file logging disabled: {err}");
+    }
 
     fern::Dispatch::new()
         .filter(telemetry_filter)

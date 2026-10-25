@@ -142,6 +142,17 @@ fn is_rtss_running() -> bool {
     crate::engine::process::is_process_running("RTSS.exe")
 }
 
+const DEFAULT_BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
+
+fn debug_browser_args() -> Option<String> {
+    let extra = std::env::var("BLUR_WEBVIEW_ARGS").ok()?;
+    let extra = extra.trim();
+    if extra.is_empty() {
+        return None;
+    }
+    Some(format!("{DEFAULT_BROWSER_ARGS} {extra}"))
+}
+
 fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
     let mut builder =
         tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
@@ -165,6 +176,10 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
     if let Some(dir) = crate::portable::webview_dir("main") {
         log::info!("[Window] Main window webview data dir: {}", dir.display());
         builder = builder.data_directory(dir);
+    }
+
+    if let Some(args) = debug_browser_args() {
+        builder = builder.additional_browser_args(&args);
     }
 
     let window = builder.build()?;
@@ -281,29 +296,38 @@ fn setup_logging(app: &AppHandle) {
     );
 }
 
+fn show_main_window(app: &AppHandle) {
+    crate::window_lifecycle::on_show(app);
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    #[cfg(target_os = "windows")]
+    apply_ws_ex_noactivate(&window, false);
+    let _ = window.unminimize();
+    if window.show().is_ok() {
+        let _ = app.emit("minimized-changed", false);
+    }
+    crate::icon::set_app_icons(app);
+    let _ = window.set_focus();
+}
+
 fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
     let show_item = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
-    TrayIconBuilder::with_id("main")
-        .icon(
-            crate::icon::default_icon_image()
-                .or_else(|| app.default_window_icon().cloned())
-                .expect("no window icon available for tray"),
-        )
+    let icon = crate::icon::default_icon_image().or_else(|| app.default_window_icon().cloned());
+    let mut builder = TrayIconBuilder::with_id("main")
         .menu(&menu)
-        .tooltip("BlurAutoClicker")
+        .tooltip("BlurAutoClicker");
+    if let Some(image) = icon {
+        builder = builder.icon(image);
+    }
+
+    builder
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
-                crate::window_lifecycle::on_show(app);
-                if let Some(window) = app.get_webview_window("main") {
-                    #[cfg(target_os = "windows")]
-                    apply_ws_ex_noactivate(&window, false);
-                    let _ = window.show();
-                    crate::icon::set_app_icons(app);
-                    let _ = window.set_focus();
-                }
+                show_main_window(app);
             }
             "quit" => {
                 crate::app_events::APP_EVENTS_SHUTDOWN
@@ -324,17 +348,12 @@ fn setup_tray(app: &AppHandle) -> Result<(), tauri::Error> {
             } = event
             {
                 let app = tray.app_handle();
-                crate::window_lifecycle::on_show(app);
-                if let Some(window) = app.get_webview_window("main") {
-                    #[cfg(target_os = "windows")]
-                    apply_ws_ex_noactivate(&window, false);
-                    let _ = window.show();
-                    crate::icon::set_app_icons(app);
-                    let _ = window.set_focus();
-                }
+                show_main_window(app);
             }
         })
         .build(app)?;
+
+    TRAY_AVAILABLE.store(true, std::sync::atomic::Ordering::SeqCst);
 
     Ok(())
 }
@@ -398,33 +417,29 @@ fn spawn_start_zone_monitor(app: &AppHandle) {
             prev_has_start_zones = true;
 
             let running = state.running.load(std::sync::atomic::Ordering::SeqCst);
-            let zone_started = state
-                .zone_started_clicker
-                .load(std::sync::atomic::Ordering::SeqCst);
+            let zone_owns_run = crate::engine::worker::zone_claim_matches(
+                state
+                    .zone_started_generation
+                    .load(std::sync::atomic::Ordering::SeqCst),
+                state
+                    .run_generation
+                    .load(std::sync::atomic::Ordering::SeqCst),
+            );
 
             // Transition: outside → inside, start clicker if off
             if in_start_zone && !prev_in_start_zone && !running {
-                if let Err(e) = crate::engine::worker::start_clicker_inner(&handle) {
+                if let Err(e) = crate::engine::worker::start_clicker_from_start_zone(&handle) {
                     log::error!("[ZoneMonitor] start failed: {e}");
-                } else {
-                    state
-                        .zone_started_clicker
-                        .store(true, std::sync::atomic::Ordering::SeqCst);
                 }
             }
             // Transition: inside → outside, stop clicker if we started it
-            else if !in_start_zone && prev_in_start_zone && zone_started {
-                if running {
-                    if let Err(e) = crate::engine::worker::stop_clicker_inner(
-                        &handle,
-                        Some(String::from("Left start zone")),
-                    ) {
-                        log::error!("[ZoneMonitor] stop failed: {e}");
-                    }
+            else if !in_start_zone && prev_in_start_zone && zone_owns_run && running {
+                if let Err(e) = crate::engine::worker::stop_clicker_inner(
+                    &handle,
+                    Some(String::from("Left start zone")),
+                ) {
+                    log::error!("[ZoneMonitor] stop failed: {e}");
                 }
-                state
-                    .zone_started_clicker
-                    .store(false, std::sync::atomic::Ordering::SeqCst);
             }
 
             prev_in_start_zone = in_start_zone;
@@ -459,6 +474,7 @@ fn setup_hotkeys(app: &AppHandle) -> Result<(), std::io::Error> {
 }
 
 static FRONTEND_HANDLED: AtomicBool = AtomicBool::new(false);
+pub static TRAY_AVAILABLE: AtomicBool = AtomicBool::new(false);
 
 fn run_after(app: &AppHandle, delay_ms: u64, task: impl FnOnce(AppHandle) + Send + 'static) {
     let handle = app.clone();
@@ -496,10 +512,17 @@ fn setup_frontend_listener(app: &AppHandle) {
 }
 
 fn setup_close_handler(app: &AppHandle) {
-    if std::env::args().any(|a| a == "--autostart") {
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.hide();
-        }
+    if !std::env::args().any(|a| a == "--autostart") {
+        return;
+    }
+    if !TRAY_AVAILABLE.load(Ordering::SeqCst) {
+        log::warn!(
+            "[Window] Autostart launch without a tray icon; leaving the main window visible so it stays closable"
+        );
+        return;
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
     }
 }
 
@@ -530,7 +553,7 @@ fn create_clicker_state() -> ClickerState {
         settings_initialized: AtomicBool::new(false),
         paused: Arc::new(AtomicBool::new(false)),
         paused_by_zone: AtomicBool::new(false),
-        zone_started_clicker: AtomicBool::new(false),
+        zone_started_generation: AtomicU64::new(0),
         warning: Mutex::new(None),
         icon_cache: Mutex::new(crate::icon::init_icon_cache()),
         icon_state: Mutex::new(IconState {
@@ -581,7 +604,13 @@ pub fn run() {
 
     let rtss_detected = is_rtss_running();
     if rtss_detected {
-        std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--disable-gpu");
+        let existing = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").unwrap_or_default();
+        let merged = if existing.trim().is_empty() {
+            String::from("--disable-gpu")
+        } else {
+            format!("{} --disable-gpu", existing.trim())
+        };
+        std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", merged);
     }
 
     tauri::Builder::default()
@@ -639,8 +668,9 @@ pub fn run() {
 
             crate::startup::mark_webview_ready();
 
-            setup_tray(&handle)?;
-            setup_frontend_listener(&handle);
+            if let Err(e) = setup_tray(&handle) {
+                log::error!("[Window] Tray setup failed, continuing without tray: {e}");
+            }            setup_frontend_listener(&handle);
             crate::webview_guard::spawn_watchdog();
 
             if rtss_detected {
@@ -693,6 +723,11 @@ pub fn run() {
             ui_commands::cancel_custom_stop_zone_pick,
             ui_commands::get_app_info,
             ui_commands::get_portable_info,
+            ui_commands::backup_unreadable_settings,
+            ui_commands::set_settings_warning,
+            ui_commands::export_preset_file,
+            ui_commands::import_preset_file,
+            ui_commands::allow_background_media,
             ui_commands::get_stats,
             ui_commands::get_stats_overview,
             ui_commands::reset_stats,
@@ -729,6 +764,26 @@ pub fn run() {
                 tauri::RunEvent::WindowEvent { event, label, .. } => match event {
                     tauri::WindowEvent::CloseRequested { api, .. } if label == "main" => {
                         api.prevent_close();
+                        let minimize_to_tray = app_handle
+                            .state::<ClickerState>()
+                            .settings
+                            .lock()
+                            .unwrap_or_else(poisoned_inner)
+                            .minimize_to_tray;
+                        if minimize_to_tray && TRAY_AVAILABLE.load(Ordering::SeqCst) {
+                            crate::window_lifecycle::on_hide(app_handle);
+                            if let Some(window) = app_handle.get_webview_window("main") {
+                                match window.hide() {
+                                    Ok(()) => {
+                                        let _ = app_handle.emit("minimized-changed", true);
+                                    }
+                                    Err(e) => {
+                                        log::warn!("[Window] Failed to hide the main window: {e}");
+                                    }
+                                }
+                            }
+                            return;
+                        }
                         crate::app_events::APP_EVENTS_SHUTDOWN
                             .store(true, std::sync::atomic::Ordering::SeqCst);
                         crate::overlay::OVERLAY_THREAD_RUNNING

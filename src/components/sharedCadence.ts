@@ -44,6 +44,34 @@ export function parseDecimalRaw(raw: string) {
   return Number.isNaN(value) ? 0 : value;
 }
 
+export function draftDecimalValue(text: string) {
+  const body = text.replace(/[.,]$/, "");
+  if (!/\d/.test(body)) return null;
+  const parsed = Number(body.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function inRangeDecimalValue(
+  text: string,
+  min: number | undefined,
+  max: number | undefined,
+) {
+  const typed = draftDecimalValue(text);
+  if (typed === null) return null;
+  if (min !== undefined && typed < min) return null;
+  if (max !== undefined && typed > max) return null;
+  return typed;
+}
+
+export function wheelBaseValue(
+  draft: string | null,
+  value: number,
+  min: number,
+) {
+  const typed = draft === null ? null : draftDecimalValue(draft);
+  return typed ?? (Number.isFinite(value) ? value : min);
+}
+
 export function clamp(value: number, min: number, max?: number) {
   const minClamped = Math.max(min, value);
   return max === undefined ? minClamped : Math.min(max, minClamped);
@@ -112,6 +140,35 @@ export function switchCadenceMode(
   });
 }
 
+export function commitIntegerText(
+  raw: string,
+  min: number,
+  max: number | undefined,
+  apply: (next: number) => void,
+) {
+  apply(clamp(parseIntegerRaw(raw), min, max));
+}
+
+export function commitDecimalText(
+  raw: string,
+  min: number,
+  max: number | undefined,
+  apply: (next: number) => void,
+) {
+  apply(clamp(parseDecimalRaw(raw), min, max));
+}
+
+export function commitDecimalLocaleText(
+  raw: string,
+  min: number,
+  max: number | undefined,
+  apply: (next: number) => void,
+) {
+  apply(
+    clamp(parseNormalizedDecimalLocale(normalizeDecimalLocale(raw)), min, max),
+  );
+}
+
 export function handleNumberBlur(
   event: FocusEvent<HTMLInputElement>,
   min: number,
@@ -122,7 +179,7 @@ export function handleNumberBlur(
   if (normalized !== event.target.value) {
     event.target.value = normalized;
   }
-  apply(clamp(parseIntegerRaw(normalized), min, max));
+  commitIntegerText(normalized, min, max, apply);
 }
 
 export function handleDecimalBlur(
@@ -135,7 +192,7 @@ export function handleDecimalBlur(
   if (normalized !== event.target.value) {
     event.target.value = normalized;
   }
-  apply(clamp(parseDecimalRaw(normalized), min, max));
+  commitDecimalText(normalized, min, max, apply);
 }
 
 export function handleDecimalBlurLocale(
@@ -148,7 +205,7 @@ export function handleDecimalBlurLocale(
   if (normalized !== event.target.value) {
     event.target.value = normalized;
   }
-  apply(clamp(parseNormalizedDecimalLocale(normalized), min, max));
+  commitDecimalLocaleText(normalized, min, max, apply);
 }
 
 export function handleDurationBlur(

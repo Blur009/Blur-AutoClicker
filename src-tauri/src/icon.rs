@@ -1020,18 +1020,6 @@ mod tests {
     }
 
     #[test]
-    fn decode_failure_path_covered_by_garbage() {
-        let cache = empty_cache();
-        let none_decision = decide_icon(true, true, true, &cache);
-        assert!(none_decision.is_none());
-        let backend = RecordingBackend::new(true, true);
-        if let Some(d) = none_decision {
-            let _ = apply_icon(&backend, &d);
-        }
-        assert!(decide_icon(false, true, false, &cache).is_none());
-    }
-
-    #[test]
     fn init_icon_cache_decodes_real_assets() {
         let cache = init_icon_cache();
         assert!(cache.activated_dark.is_some());

@@ -165,11 +165,11 @@ describe("indicator countdown", () => {
     vi.setSystemTime(1_000_000);
     send("indicator-schedule", {
       cycleStartMs: 1_000_000,
-      holdMs: 450,
-      waitMs: 550,
+      holdMs: 800,
+      waitMs: 1_200,
     });
     vi.advanceTimersByTime(32);
-    expect(countdown.textContent).toMatch(/^H \d\.\ds$/);
+    expect(countdown.textContent).toBe("H 0.8s");
   });
 
   it("moves to the waiting phase after the hold, using the cycle anchor", async () => {

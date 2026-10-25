@@ -21,6 +21,7 @@ import {
   parseDecimalLocale,
   formatDecimalLocale,
 } from "../../../../numberInput";
+import { inRangeDecimalValue, wheelBaseValue } from "../../../sharedCadence";
 import UnavailableReason from "../../../UnavailableReason";
 import { dropdownLeft } from "./dropdownPlacement";
 
@@ -128,15 +129,16 @@ export function NumInput({
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const wheelRef = useRef(false);
-  const latestRef = useRef({ value, min, max, onChange, hoverWheel });
+  const [draft, setDraft] = useState<string | null>(null);
+  const latestRef = useRef({ value, min, max, onChange, hoverWheel, draft });
   useLayoutEffect(() => {
     latestRef.current.value = value;
     latestRef.current.min = min;
     latestRef.current.max = max;
     latestRef.current.onChange = onChange;
     latestRef.current.hoverWheel = hoverWheel;
+    latestRef.current.draft = draft;
   });
-  const [draft, setDraft] = useState<string | null>(null);
   const normalize = allowDecimal ? normalizeDecimalLocale : normalizeIntegerRaw;
   const clampValue = (next: number) => {
     let clamped = next;
@@ -145,12 +147,16 @@ export function NumInput({
     return clamped;
   };
 
-  const isOutOfRange = (next: number) =>
-    (min !== undefined && next < min) || (max !== undefined && next > max);
-
   const displayValue = allowDecimal
     ? (draft ?? formatDecimalLocale(value))
     : (draft ?? String(Math.trunc(value)));
+
+  const commit = (raw: string) => {
+    setDraft(null);
+    const parsed = allowDecimal ? parseDecimalLocale(raw) : Number(raw);
+    const val = Number.isNaN(parsed) ? (min ?? 0) : parsed;
+    onChange(clampValue(val));
+  };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (wheelRef.current) {
@@ -160,55 +166,26 @@ export function NumInput({
     const raw = e.target.value;
     const normalized = normalize(raw);
     if (normalized !== raw) e.target.value = normalized;
-    if (allowDecimal) {
-      if (
-        normalized === "" ||
-        normalized === "-" ||
-        normalized === "." ||
-        normalized === "," ||
-        normalized === "-." ||
-        normalized === "-," ||
-        normalized.endsWith(".") ||
-        normalized.endsWith(",")
-      ) {
-        setDraft(normalized);
-        return;
-      }
-      setDraft(null);
-      const val = parseDecimalLocale(normalized);
-      const parsed = Number.isNaN(val) ? (min ?? 0) : val;
-      if (isOutOfRange(parsed)) {
-        setDraft(normalized);
-        return;
-      }
-      onChange(parsed);
-      return;
-    }
-    if (normalized === "" || normalized === "-") {
-      setDraft(normalized);
-      return;
-    }
-    setDraft(null);
-    const val = Number(normalized);
-    const parsed = Number.isNaN(val) ? (min ?? 0) : val;
-    if (isOutOfRange(parsed)) {
-      setDraft(normalized);
-      return;
-    }
-    onChange(parsed);
+    setDraft(normalized);
+    const typed = inRangeDecimalValue(normalized, min, max);
+    if (typed !== null) onChange(typed);
   };
 
   const handleBlur = (e: FocusEvent<HTMLInputElement>) => {
-    setDraft(null);
     const raw = normalize(e.target.value);
     if (raw !== e.target.value) {
       e.target.value = raw;
     }
-    const parsed = allowDecimal
-      ? parseDecimalLocale(raw || e.target.value)
-      : Number(raw || e.target.value);
-    const val = Number.isNaN(parsed) ? (min ?? 0) : parsed;
-    onChange(clampValue(val));
+    commit(raw);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    const raw = normalize(e.currentTarget.value);
+    if (raw !== e.currentTarget.value) {
+      e.currentTarget.value = raw;
+    }
+    commit(raw);
   };
 
   useEffect(() => {
@@ -219,9 +196,11 @@ export function NumInput({
       if (!latest.hoverWheel && e.target !== el) return;
       e.preventDefault();
       const direction = e.deltaY < 0 ? 1 : -1;
-      const current = Number.isFinite(latest.value)
-        ? latest.value
-        : (latest.min ?? 0);
+      const current = wheelBaseValue(
+        latest.draft,
+        latest.value,
+        latest.min ?? 0,
+      );
       let step = 1;
       if (e.shiftKey && e.ctrlKey) step = 100;
       else if (e.ctrlKey) step = 25;
@@ -254,6 +233,7 @@ export function NumInput({
       max={max}
       onChange={handleChange}
       onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
       style={{
         background: "transparent",
         border: "none",

@@ -150,7 +150,7 @@ export default function ProcessListSection({ settings, update }: Props) {
         <div className="settings-label-group">
           <span className="settings-label">Enable</span>
           <span className="settings-sublabel">
-            Stop clicking based on the active application.
+            Turn the per-app stop rules on or off.
           </span>
         </div>
         <div className="settings-toggle-wrapper">
@@ -208,7 +208,7 @@ export default function ProcessListSection({ settings, update }: Props) {
           <input
             type="text"
             className="settings-proc-search"
-            placeholder={`search in ${processes.length} applications`}
+            placeholder={`Search ${processes.length} applications`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -221,11 +221,11 @@ export default function ProcessListSection({ settings, update }: Props) {
             onScroll={handleListScroll}
           >
             {loading ? (
-              <div className="adv-click-points-empty">Refreshing...</div>
-            ) : processes.length === 0 ? (
               <div className="adv-click-points-empty">
-                No processes found. Click Refresh.
+                Loading applications...
               </div>
+            ) : processes.length === 0 ? (
+              <div className="adv-click-points-empty">No processes found.</div>
             ) : searchQuery.length >= 1 &&
               checkedProcesses.length === 0 &&
               uncheckedProcesses.length === 0 ? (
@@ -233,7 +233,7 @@ export default function ProcessListSection({ settings, update }: Props) {
                 className="adv-click-points-empty"
                 style={PROC_EMPTY_SEARCH_STYLE}
               >
-                no process named &quot;{searchQuery}&quot;
+                No process named &quot;{searchQuery}&quot;
               </div>
             ) : (
               <>

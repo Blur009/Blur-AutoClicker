@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { error } from "@tauri-apps/plugin-log";
+import { logDiagnostic } from "../../../../diagnostics";
 import ConfirmDialog from "../../../ConfirmDialog";
 import { SettingsCard } from "./shared";
 
@@ -57,7 +57,7 @@ export default function MaintenanceSection({ onReset }: Props) {
           <div className="settings-label-group">
             <span className="settings-label">Reset All Settings</span>
             <span className="settings-sublabel">
-              Reset all settings to their defaults.
+              Every setting back to default, saved presets included.
             </span>
           </div>
           <button
@@ -71,7 +71,7 @@ export default function MaintenanceSection({ onReset }: Props) {
           <div className="settings-label-group">
             <span className="settings-label">Reset Usage Data</span>
             <span className="settings-sublabel">
-              Clear all session statistics and usage history.
+              Delete the sessions behind the Usage card.
             </span>
           </div>
           <button
@@ -83,12 +83,15 @@ export default function MaintenanceSection({ onReset }: Props) {
         </div>
       </SettingsCard>
 
-      <SettingsCard title="Diagnostics" description="Your logs & crash reports">
+      <SettingsCard
+        title="Diagnostics"
+        description="Logs and crash reports kept on this PC."
+      >
         <div className="settings-row">
           <div className="settings-label-group">
             <span className="settings-label">Diagnostics</span>
             <span className="settings-sublabel">
-              View or export your diagnostics.
+              Open the folder or export a copy.
             </span>
           </div>
           <div className="settings-row-actions">
@@ -98,12 +101,9 @@ export default function MaintenanceSection({ onReset }: Props) {
                 try {
                   await invoke("open_diagnostics_folder");
                 } catch (err) {
-                  error(
-                    JSON.stringify({
-                      source: "SettingsPanel.openDiagnostics",
-                      error: String(err),
-                    }),
-                  );
+                  logDiagnostic("SettingsPanel.openDiagnostics", {
+                    error: String(err),
+                  });
                 }
               }}
             >
@@ -122,12 +122,9 @@ export default function MaintenanceSection({ onReset }: Props) {
                   setDiagnosticsStatus(`Exported to ${path}`);
                 } catch (err) {
                   setDiagnosticsStatus("Export failed");
-                  error(
-                    JSON.stringify({
-                      source: "SettingsPanel.exportDiagnostics",
-                      error: String(err),
-                    }),
-                  );
+                  logDiagnostic("SettingsPanel.exportDiagnostics", {
+                    error: String(err),
+                  });
                 } finally {
                   setExporting(false);
                 }
@@ -145,7 +142,7 @@ export default function MaintenanceSection({ onReset }: Props) {
       <ConfirmDialog
         open={pendingAction === "reset-settings"}
         title="Reset all settings"
-        message="This will reset all settings to their default values. This action cannot be undone."
+        message="Every setting returns to its default, saved presets are replaced, and Run on Startup is turned off. This cannot be undone."
         confirmLabel="Reset"
         busy={busy}
         onConfirm={handleConfirmResetSettings}
@@ -154,7 +151,7 @@ export default function MaintenanceSection({ onReset }: Props) {
       <ConfirmDialog
         open={pendingAction === "reset-usage"}
         title="Reset usage data"
-        message="This will clear all session statistics and usage history. This action cannot be undone."
+        message="Every recorded session is deleted, so the usage charts and totals start over. This cannot be undone."
         confirmLabel="Reset"
         busy={busy}
         onConfirm={handleConfirmResetUsage}

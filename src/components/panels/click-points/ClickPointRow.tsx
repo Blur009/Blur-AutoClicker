@@ -107,7 +107,7 @@ function ClickPointRow({
         <button
           type="button"
           className="adv-click-points-drag-handle"
-          aria-label="Up / Down"
+          aria-label="Reorder click point"
           onPointerDown={(event) => {
             event.preventDefault();
             const handle = event.currentTarget;
@@ -180,8 +180,12 @@ function ClickPointRow({
         className="adv-numbox-sm adv-click-points-coord adv-click-points-radius"
         style={LABEL_STYLE}
       >
-        <span className="adv-unit" style={UNIT_R_STYLE}>
-          r
+        <span
+          className="adv-unit"
+          style={UNIT_R_STYLE}
+          title="Random offset radius in pixels"
+        >
+          px
         </span>
         <NumInput
           hoverWheel={false}
@@ -197,8 +201,8 @@ function ClickPointRow({
           type="button"
           className="adv-click-points-delete"
           onClick={() => onDelete(index)}
-          aria-label="Delete"
-          title="Delete"
+          aria-label="Delete click point"
+          title="Delete click point"
         >
           <svg
             width="16"

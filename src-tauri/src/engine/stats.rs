@@ -256,16 +256,38 @@ fn read_stats(conn: &Connection) -> AppResult<CumulativeStats> {
     })
 }
 
+fn run_started_at(finished_secs: i64, elapsed_secs: f64) -> i64 {
+    let elapsed = if elapsed_secs.is_finite() {
+        elapsed_secs.max(0.0).round() as i64
+    } else {
+        0
+    };
+    finished_secs.saturating_sub(elapsed)
+}
+
+fn record_run_ending_at(
+    conn: &Connection,
+    finished_secs: i64,
+    click_count: i64,
+    elapsed_secs: f64,
+    avg_cpu: f64,
+) -> AppResult<i64> {
+    let started_at = run_started_at(finished_secs, elapsed_secs);
+    insert_run(conn, click_count, elapsed_secs, avg_cpu, started_at)?;
+    Ok(started_at)
+}
+
 pub fn record_run(click_count: i64, elapsed_secs: f64, avg_cpu: f64) {
     let result = (|| -> AppResult<()> {
         let conn = db()?.lock().unwrap_or_else(poisoned_inner);
-        insert_run(
+        record_run_ending_at(
             &conn,
+            chrono::Utc::now().timestamp(),
             click_count,
             elapsed_secs,
             avg_cpu,
-            chrono::Utc::now().timestamp(),
-        )
+        )?;
+        Ok(())
     })();
     if let Err(e) = result {
         log::error!("[stats] Failed to record run: {e}");
@@ -374,8 +396,7 @@ pub fn get_overview() -> AppResult<StatsOverview> {
     read_overview(&conn, Local::now().date_naive())
 }
 
-pub fn reset_stats() -> AppResult<CumulativeStats> {
-    let conn = db()?.lock().unwrap_or_else(poisoned_inner);
+fn reset_runs(conn: &Connection) -> AppResult<CumulativeStats> {
     conn.execute("DELETE FROM runs", [])?;
     Ok(CumulativeStats {
         total_clicks: 0,
@@ -383,6 +404,11 @@ pub fn reset_stats() -> AppResult<CumulativeStats> {
         total_sessions: 0,
         avg_cpu: -1.0,
     })
+}
+
+pub fn reset_stats() -> AppResult<CumulativeStats> {
+    let conn = db()?.lock().unwrap_or_else(poisoned_inner);
+    reset_runs(&conn)
 }
 
 pub fn print_run_stats(click_count: i64, elapsed_secs: f64, avg_cpu: f64) {
@@ -468,6 +494,37 @@ mod tests {
     }
 
     #[test]
+    fn run_is_bucketed_to_the_day_it_started() {
+        assert_eq!(run_started_at(1_760_000_000, 5400.0), 1_759_994_600);
+        assert_eq!(run_started_at(1_760_000_000, -30.0), 1_760_000_000);
+        assert_eq!(run_started_at(1_760_000_000, f64::NAN), 1_760_000_000);
+
+        let finished = Local
+            .with_ymd_and_hms(2026, 3, 15, 1, 0, 0)
+            .single()
+            .expect("local 01:00 exists");
+        let conn = temp_conn();
+        let started_at = record_run_ending_at(&conn, finished.timestamp(), 1200, 5400.0, 1.0)
+            .expect("crossing run");
+
+        assert_eq!(started_at, finished.timestamp() - 5400);
+        let stored: i64 = conn
+            .query_row("SELECT started_at FROM runs", [], |row| row.get(0))
+            .expect("stored start stamp");
+        assert_eq!(stored, finished.timestamp() - 5400);
+
+        let overview = read_overview(&conn, day("2026-03-15")).expect("overview");
+
+        assert_eq!(overview.daily.len(), 1);
+        assert_eq!(overview.daily[0].day, "2026-03-14");
+        assert_eq!(overview.daily[0].clicks, 1200);
+        assert_eq!(
+            overview.longest_run.as_ref().map(|run| run.started_at),
+            Some(started_at)
+        );
+    }
+
+    #[test]
     fn overview_without_timed_runs_stays_empty() {
         let conn = temp_conn();
         conn.execute(
@@ -490,10 +547,35 @@ mod tests {
     #[test]
     fn migrations_apply_to_fresh_database() {
         let conn = temp_conn();
-        let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM runs", [], |row| row.get(0))
-            .expect("count");
-        assert_eq!(count, 0);
+
+        let mut columns_stmt = conn.prepare("PRAGMA table_info(runs)").expect("table_info");
+        let columns: Vec<String> = columns_stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .expect("column rows")
+            .collect::<Result<Vec<String>, _>>()
+            .expect("column names");
+        assert_eq!(
+            columns,
+            vec![
+                "id",
+                "clicks",
+                "time_secs",
+                "avg_cpu",
+                "sessions",
+                "started_at"
+            ]
+        );
+
+        let mut indexes_stmt = conn.prepare("PRAGMA index_list(runs)").expect("index_list");
+        let indexes: Vec<String> = indexes_stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .expect("index rows")
+            .collect::<Result<Vec<String>, _>>()
+            .expect("index names");
+        assert!(
+            indexes.iter().any(|name| name == "idx_runs_started_at"),
+            "missing idx_runs_started_at, found {indexes:?}"
+        );
     }
 
     #[test]
@@ -565,11 +647,44 @@ mod tests {
     #[test]
     fn reset_clears_every_row() {
         let conn = temp_conn();
-        insert_run(&conn, 10, 1.0, 1.0, 1_760_000_000).expect("row");
-        conn.execute("DELETE FROM runs", []).expect("delete");
-        let stats = read_stats(&conn).expect("stats");
+        insert_run(&conn, 100, 10.0, 1.0, 1_760_000_000).expect("row");
+        insert_run(&conn, 200, 20.0, 2.0, 1_760_003_600).expect("row");
+        insert_run(&conn, 300, 30.0, 3.0, 1_760_007_200).expect("row");
+
+        let seeded: i64 = conn
+            .query_row("SELECT COUNT(*) FROM runs", [], |row| row.get(0))
+            .expect("count seeded");
+        assert_eq!(seeded, 3);
+
+        let stats = reset_runs(&conn).expect("reset");
         assert_eq!(stats.total_clicks, 0);
+        assert_eq!(stats.total_time_secs, 0.0);
+        assert_eq!(stats.total_sessions, 0);
         assert_eq!(stats.avg_cpu, -1.0);
+
+        let remaining: i64 = conn
+            .query_row("SELECT COUNT(*) FROM runs", [], |row| row.get(0))
+            .expect("count after reset");
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn open_db_creates_the_database_file_under_the_given_directory() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("nested").join("stats.db");
+
+        let conn = open_db(&path).expect("open db");
+        let columns: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('runs')",
+                [],
+                |row| row.get(0),
+            )
+            .expect("runs table exists");
+        drop(conn);
+
+        assert_eq!(columns, 6);
+        assert!(path.exists(), "stats db not created at {}", path.display());
     }
 
     #[test]

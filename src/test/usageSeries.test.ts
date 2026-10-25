@@ -46,6 +46,28 @@ describe("buildWindow", () => {
     const window = buildWindow([day("2026-09-01", 999)], 2, TODAY);
     expect(window.map((entry) => entry.clicks)).toEqual([0, 0]);
   });
+
+  it("shows a run dated today only once the provided day reaches it", () => {
+    const run = day("2026-10-12", 80);
+    const yesterday = new Date(2026, 9, 11);
+
+    expect(
+      buildWindow([run], 2, yesterday).map((entry) => entry.clicks),
+    ).toEqual([0, 0]);
+    expect(buildWindow([run], 2, TODAY)).toEqual([day("2026-10-11"), run]);
+  });
+
+  it("marks a run dated after a stale today as future in the heatmap", () => {
+    const run = day("2026-10-14", 80);
+    const cell = (today: Date) =>
+      buildHeatmap([run], today)
+        .flat()
+        .find((entry) => entry.day === "2026-10-14");
+
+    expect(cell(TODAY)?.future).toBe(true);
+    expect(cell(TODAY)?.clicks).toBe(80);
+    expect(cell(parseDay("2026-10-14"))?.future).toBe(false);
+  });
 });
 
 describe("spanDays", () => {

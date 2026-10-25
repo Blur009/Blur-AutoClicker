@@ -163,6 +163,8 @@ pub struct ClickerSettings {
     pub show_stop_reason: bool,
     pub show_stop_overlay: bool,
     pub strict_hotkey_modifiers: bool,
+    #[serde(default)]
+    pub minimize_to_tray: bool,
 
     #[serde(default = "default_true")]
     pub indicator_enabled: bool,
@@ -268,6 +270,7 @@ impl Default for ClickerSettings {
             show_stop_reason: true,
             show_stop_overlay: true,
             strict_hotkey_modifiers: false,
+            minimize_to_tray: false,
 
             indicator_enabled: true,
             indicator_corner: default_indicator_corner(),
@@ -307,6 +310,10 @@ mod limits {
     pub const INDICATOR_COLOR_MODES: [&str; 4] = ["theme", "black", "white", "custom"];
     pub const INDICATOR_COUNTDOWN_MODES: [&str; 3] = ["plain", "words", "short"];
     pub const INDICATOR_BACKGROUND_MODES: [&str; 3] = ["off", "card", "shadow"];
+    pub const STOP_ZONE_OFFSET: (i32, i32) = (-99_999, 99_999);
+    pub const STOP_ZONE_SIZE: (i32, i32) = (1, 99_999);
+    pub const STOP_ZONE_ACTIONS: [&str; 3] = ["stop", "pause", "start"];
+    pub const STOP_ZONE_MAX_COUNT: usize = 64;
 }
 
 /// Non-finite input falls back to `min`: `f64::clamp` propagates NaN, and an
@@ -403,6 +410,31 @@ impl ClickerSettings {
             );
         }
 
+        for zone in &mut self.stop_zones {
+            clamp_i32("stopZones[].x", &mut zone.x, limits::STOP_ZONE_OFFSET);
+            clamp_i32("stopZones[].y", &mut zone.y, limits::STOP_ZONE_OFFSET);
+            clamp_i32("stopZones[].width", &mut zone.width, limits::STOP_ZONE_SIZE);
+            clamp_i32(
+                "stopZones[].height",
+                &mut zone.height,
+                limits::STOP_ZONE_SIZE,
+            );
+            sanitize_choice(
+                "stopZones[].action",
+                &mut zone.action,
+                &limits::STOP_ZONE_ACTIONS,
+                "stop",
+            );
+        }
+        if self.stop_zones.len() > limits::STOP_ZONE_MAX_COUNT {
+            log::warn!(
+                "[Settings] stopZones has {} entries, keeping the first {}",
+                self.stop_zones.len(),
+                limits::STOP_ZONE_MAX_COUNT
+            );
+            self.stop_zones.truncate(limits::STOP_ZONE_MAX_COUNT);
+        }
+
         clamp_u32(
             "indicatorSize",
             &mut self.indicator_size,
@@ -469,6 +501,17 @@ impl ClickerSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn zone(id: &str, x: i32, y: i32, width: i32, height: i32, action: &str) -> StopZoneConfig {
+        StopZoneConfig {
+            id: id.into(),
+            x,
+            y,
+            width,
+            height,
+            action: action.into(),
+        }
+    }
 
     fn sanitized(mutate: impl FnOnce(&mut ClickerSettings)) -> ClickerSettings {
         let mut settings = ClickerSettings::default();
@@ -568,6 +611,36 @@ mod tests {
     }
 
     #[test]
+    fn minimize_to_tray_survives_a_round_trip() {
+        for value in [true, false] {
+            let settings = ClickerSettings {
+                minimize_to_tray: value,
+                ..ClickerSettings::default()
+            };
+            let json = serde_json::to_string(&settings).unwrap();
+            let restored: ClickerSettings = serde_json::from_str(&json).unwrap();
+            assert_eq!(restored.minimize_to_tray, value);
+        }
+    }
+
+    #[test]
+    fn a_payload_without_minimize_to_tray_gets_the_default() {
+        let mut payload = serde_json::to_value(ClickerSettings::default()).unwrap();
+        let removed = payload.as_object_mut().unwrap().remove("minimizeToTray");
+        assert_eq!(removed, Some(serde_json::Value::Bool(false)));
+
+        let restored: ClickerSettings = serde_json::from_value(payload).unwrap();
+        assert!(!restored.minimize_to_tray);
+        assert_eq!(restored.click_speed, 25.0);
+    }
+
+    #[test]
+    fn sanitize_leaves_the_minimize_to_tray_choice_alone() {
+        assert!(!ClickerSettings::default().minimize_to_tray);
+        assert!(sanitized(|s| s.minimize_to_tray = true).minimize_to_tray);
+    }
+
+    #[test]
     fn sanitize_leaves_the_indicator_defaults_alone() {
         let settings = sanitized(|_| {});
         assert!(settings.indicator_enabled);
@@ -650,6 +723,86 @@ mod tests {
         assert_eq!(
             sanitized(|s| s.indicator_custom_color = "#ABCDEF".into()).indicator_custom_color,
             "#ABCDEF"
+        );
+    }
+
+    #[test]
+    fn sanitize_repairs_an_unknown_stop_zone_action() {
+        let settings = sanitized(|s| {
+            s.stop_zones = vec![
+                zone("a", 10, 20, 100, 200, "explode"),
+                zone("b", 10, 20, 100, 200, ""),
+                zone("c", 10, 20, 100, 200, "Start"),
+                zone("d", 10, 20, 100, 200, "pause"),
+                zone("e", 10, 20, 100, 200, "start"),
+            ];
+        });
+        assert_eq!(
+            settings.stop_zones,
+            vec![
+                zone("a", 10, 20, 100, 200, "stop"),
+                zone("b", 10, 20, 100, 200, "stop"),
+                zone("c", 10, 20, 100, 200, "stop"),
+                zone("d", 10, 20, 100, 200, "pause"),
+                zone("e", 10, 20, 100, 200, "start"),
+            ]
+        );
+    }
+
+    #[test]
+    fn sanitize_raises_a_zero_stop_zone_size_to_one() {
+        let settings = sanitized(|s| {
+            s.stop_zones = vec![zone("a", 5, 6, 0, 0, "stop")];
+        });
+        assert_eq!(settings.stop_zones, vec![zone("a", 5, 6, 1, 1, "stop")]);
+    }
+
+    #[test]
+    fn sanitize_raises_a_negative_stop_zone_size_to_one() {
+        let settings = sanitized(|s| {
+            s.stop_zones = vec![zone("a", -40, 7, -500, -1, "pause")];
+        });
+        assert_eq!(settings.stop_zones, vec![zone("a", -40, 7, 1, 1, "pause")]);
+    }
+
+    #[test]
+    fn sanitize_clamps_stop_zone_coordinates_to_the_editable_range() {
+        let settings = sanitized(|s| {
+            s.stop_zones = vec![
+                zone("a", i32::MAX, i32::MIN, 100_000, 1, "stop"),
+                zone("b", -100_000, 100_000, 1, 100_000, "stop"),
+                zone("c", 99_999, -99_999, 99_999, 99_999, "stop"),
+            ];
+        });
+        assert_eq!(
+            settings.stop_zones,
+            vec![
+                zone("a", 99_999, -99_999, 99_999, 1, "stop"),
+                zone("b", -99_999, 99_999, 1, 99_999, "stop"),
+                zone("c", 99_999, -99_999, 99_999, 99_999, "stop"),
+            ]
+        );
+        for zone in &settings.stop_zones {
+            assert!(zone.x.checked_add(zone.width).is_some());
+            assert!(zone.y.checked_add(zone.height).is_some());
+        }
+    }
+
+    #[test]
+    fn sanitize_caps_the_stop_zone_count() {
+        let settings = sanitized(|s| {
+            s.stop_zones = (0..(limits::STOP_ZONE_MAX_COUNT as i32 + 6))
+                .map(|i| zone(&format!("z{i}"), i, i, 10, 10, "stop"))
+                .collect();
+        });
+        assert_eq!(settings.stop_zones.len(), limits::STOP_ZONE_MAX_COUNT);
+        assert_eq!(
+            settings.stop_zones.first(),
+            Some(&zone("z0", 0, 0, 10, 10, "stop"))
+        );
+        assert_eq!(
+            settings.stop_zones.last(),
+            Some(&zone("z63", 63, 63, 10, 10, "stop"))
         );
     }
 }

@@ -3,6 +3,7 @@ import {
   useMemo,
   useState,
   type CSSProperties,
+  type ChangeEvent,
   type WheelEvent,
   type FocusEvent,
 } from "react";
@@ -10,7 +11,6 @@ import type { Settings } from "../../../../store";
 import {
   formatDecimalLocale,
   normalizeDecimalLocale,
-  parseDecimalLocale,
 } from "../../../../numberInput";
 import {
   convertDurationToRate,
@@ -21,6 +21,15 @@ import {
 import {
   switchCadenceMode,
   SIMPLE_RATE_INPUT_MODE_OPTIONS,
+  commitDecimalLocaleText,
+  inRangeDecimalValue,
+  handleDurationBlur,
+  handleDurationWheelStep,
+  handleDecimalBlurLocale,
+  handleNumberChange,
+  handleWheelStep,
+  INTERVAL_OPTIONS,
+  wheelBaseValue,
 } from "../../../sharedCadence";
 import {
   getMaxClickSpeed,
@@ -28,14 +37,6 @@ import {
   type ClickInterval,
 } from "../../../../settingsSchema";
 import { AdvDropdown, CardDivider, Disableable } from "./shared";
-import {
-  INTERVAL_OPTIONS,
-  handleDurationBlur,
-  handleDurationWheelStep,
-  handleDecimalBlurLocale,
-  handleNumberChange,
-  handleWheelStep,
-} from "../../../sharedCadence";
 
 interface Props {
   settings: Settings;
@@ -109,6 +110,30 @@ export default function ClickSpeedSection({ settings, update }: Props) {
     [settings, update],
   );
 
+  const handleCpsChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const raw = event.target.value;
+      const normalized = normalizeDecimalLocale(raw);
+      if (normalized !== raw) event.target.value = normalized;
+      setDraftCps(normalized);
+      const typed = inRangeDecimalValue(normalized, 1, maxClickSpeed);
+      if (typed !== null) handleClickSpeedUpdate(typed);
+    },
+    [maxClickSpeed, handleClickSpeedUpdate],
+  );
+
+  const handleCpsWheel = useCallback(
+    (event: WheelEvent<HTMLInputElement>) =>
+      handleWheelStep(
+        event,
+        wheelBaseValue(draftCps, settings.clickSpeed, 1),
+        1,
+        maxClickSpeed,
+        handleClickSpeedUpdate,
+      ),
+    [draftCps, settings.clickSpeed, maxClickSpeed, handleClickSpeedUpdate],
+  );
+
   return (
     <div className="adv-sectioncontainer adv-basic-card">
       <div className="adv-card-header">
@@ -141,11 +166,13 @@ export default function ClickSpeedSection({ settings, update }: Props) {
       </div>
       <Disableable
         enabled={settings.dutyCycleMode !== "Hold"}
-        disabledReason="Click speed is disabled in Hold mode"
+        disabledReason="Hold mode holds the button or key down, so click speed does not apply."
       >
         <CardDivider />
         <div className="adv-card-desc">
-          Changes how fast the autoclicker clicks.
+          {settings.rateInputMode === "rate"
+            ? "Sets how many clicks happen per second, minute, hour, or day."
+            : "Sets the delay between one click and the next."}
         </div>
         <div className="adv-cadence-block">
           <div className="adv-row adv-cadence-main-row">
@@ -161,26 +188,16 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                         draftCps ?? formatDecimalLocale(settings.clickSpeed)
                       }
                       style={CPS_INPUT_STYLE}
-                      onChange={(event) => {
-                        const raw = event.target.value;
-                        const normalized = normalizeDecimalLocale(raw);
-                        if (normalized !== raw) event.target.value = normalized;
-                        if (
-                          normalized === "" ||
-                          normalized === "-" ||
-                          normalized === "." ||
-                          normalized === "," ||
-                          normalized === "-." ||
-                          normalized === "-," ||
-                          normalized.endsWith(".") ||
-                          normalized.endsWith(",")
-                        ) {
-                          setDraftCps(normalized);
-                          return;
-                        }
+                      onChange={handleCpsChange}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter") return;
                         setDraftCps(null);
-                        const val = parseDecimalLocale(normalized);
-                        update({ clickSpeed: Number.isNaN(val) ? 1 : val });
+                        commitDecimalLocaleText(
+                          event.currentTarget.value,
+                          1,
+                          maxClickSpeed,
+                          handleClickSpeedUpdate,
+                        );
                       }}
                       onBlur={(event) => {
                         setDraftCps(null);
@@ -191,15 +208,7 @@ export default function ClickSpeedSection({ settings, update }: Props) {
                           handleClickSpeedUpdate,
                         );
                       }}
-                      onWheel={(event) =>
-                        handleWheelStep(
-                          event,
-                          settings.clickSpeed,
-                          1,
-                          maxClickSpeed,
-                          handleClickSpeedUpdate,
-                        )
-                      }
+                      onWheel={handleCpsWheel}
                     />
                   </div>
                   <div className="adv-vdivider" />

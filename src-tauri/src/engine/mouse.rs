@@ -1,9 +1,10 @@
 use super::cycle::{execute_click_cycle, ClickCycleKind, ClickCyclePlan};
 use super::worker::{sleep_interruptible, RunControl};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use std::time::Instant;
 
-use super::AUTOCLICKER_EXTRA_INFO;
+use super::{SendResult, AUTOCLICKER_EXTRA_INFO};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
     MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN,
@@ -211,24 +212,35 @@ pub fn make_input(flags: u32, time: u32) -> INPUT {
 }
 
 #[inline]
-pub fn send_mouse_event(flags: u32) {
+pub fn send_mouse_event(flags: u32) -> bool {
     let input = make_input(flags, 0);
-    unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
+    let sent = unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
+    sent == 1
 }
 
-pub fn send_batch(down: u32, up: u32, n: usize) {
+static PARTIAL_MOUSE_INSERT_WARNED: AtomicBool = AtomicBool::new(false);
+
+pub fn send_batch(down: u32, up: u32, n: usize) -> bool {
     let mut inputs: Vec<INPUT> = Vec::with_capacity(n * 2);
     for _ in 0..n {
         inputs.push(make_input(down, 0));
         inputs.push(make_input(up, 0));
     }
-    unsafe {
+    let expected = inputs.len() as u32;
+    let sent = unsafe {
         SendInput(
-            inputs.len() as u32,
+            expected,
             inputs.as_ptr(),
             std::mem::size_of::<INPUT>() as i32,
         )
     };
+    let accepted = sent == expected;
+    if accepted {
+        PARTIAL_MOUSE_INSERT_WARNED.store(false, Ordering::Relaxed);
+    } else if !PARTIAL_MOUSE_INSERT_WARNED.swap(true, Ordering::Relaxed) {
+        log::warn!("[engine] Windows accepted {sent} of {expected} mouse input events");
+    }
+    accepted
 }
 
 pub fn send_clicks(
@@ -238,45 +250,76 @@ pub fn send_clicks(
     plan: ClickCyclePlan,
     control: &RunControl,
     should_abort: &dyn Fn() -> bool,
-) {
+) -> SendResult {
+    let result = send_clicks_inner(down, up, count, plan, control, should_abort);
+    if result.is_blocked() {
+        let _ = send_mouse_event(up);
+    }
+    result
+}
+
+fn send_clicks_inner(
+    down: u32,
+    up: u32,
+    count: usize,
+    plan: ClickCyclePlan,
+    control: &RunControl,
+    should_abort: &dyn Fn() -> bool,
+) -> SendResult {
     if count == 0 {
-        return;
+        return SendResult::Sent;
     }
 
     if should_abort() {
-        return;
+        return SendResult::Sent;
     }
 
     if plan.kind == ClickCycleKind::Single && plan.first_hold_ms == 0 {
         if count > 1 {
-            send_batch(down, up, count);
-            return;
+            return batch_result(send_batch(down, up, count));
         }
-        if count == 1 {
-            if !control.is_active() {
-                return;
-            }
-            send_batch(down, up, 1);
-            return;
+        if !control.is_active() {
+            return SendResult::Sent;
         }
+        return batch_result(send_batch(down, up, 1));
     }
 
+    let blocked = std::cell::Cell::new(false);
     let is_active = || control.is_active() && !should_abort();
     let mut sleep_for = |duration| sleep_interruptible(duration, control, should_abort);
 
     for _ in 0..count {
         if should_abort() {
-            return;
+            break;
         }
-        if !execute_click_cycle(
-            plan,
-            &mut || send_mouse_event(down),
-            &mut || send_mouse_event(up),
-            &mut sleep_for,
-            &is_active,
-        ) {
-            return;
+        let mut press = || {
+            if !send_mouse_event(down) {
+                blocked.set(true);
+            }
+        };
+        let mut release = || {
+            if !send_mouse_event(up) {
+                blocked.set(true);
+            }
+        };
+        if !execute_click_cycle(plan, &mut press, &mut release, &mut sleep_for, &is_active) {
+            break;
         }
+    }
+
+    if blocked.get() {
+        SendResult::Blocked
+    } else {
+        SendResult::Sent
+    }
+}
+
+#[inline]
+fn batch_result(sent: bool) -> SendResult {
+    if sent {
+        SendResult::Sent
+    } else {
+        SendResult::Blocked
     }
 }
 
@@ -430,4 +473,53 @@ pub fn smooth_move(
         screen_rect,
     };
     smooth_move_inner(start_x, start_y, end_x, end_y, duration_ms, &mut ctx);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn contains_includes_left_and_top_edges_but_excludes_right_and_bottom() {
+        let rects = [
+            VirtualScreenRect::new(0, 0, 1920, 1080),
+            VirtualScreenRect::new(-1920, -200, 1280, 1024),
+        ];
+
+        for rect in rects {
+            assert!(rect.contains(rect.left, rect.top));
+            assert!(rect.contains(rect.left + 1, rect.top + 1));
+            assert!(rect.contains(rect.right() - 1, rect.top));
+            assert!(rect.contains(rect.left, rect.bottom() - 1));
+            assert!(!rect.contains(rect.right(), rect.top));
+            assert!(!rect.contains(rect.left, rect.bottom()));
+            assert!(!rect.contains(rect.right(), rect.bottom()));
+            assert!(!rect.contains(rect.left - 1, rect.top));
+            assert!(!rect.contains(rect.left, rect.top - 1));
+        }
+    }
+
+    #[test]
+    fn button_flags_map_right_and_middle_and_default_to_left() {
+        assert_eq!(
+            get_button_flags(1),
+            (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP)
+        );
+        assert_eq!(
+            get_button_flags(2),
+            (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP)
+        );
+        assert_eq!(
+            get_button_flags(3),
+            (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP)
+        );
+        assert_eq!(
+            get_button_flags(0),
+            (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP)
+        );
+        assert_eq!(
+            get_button_flags(99),
+            (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP)
+        );
+    }
 }

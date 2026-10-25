@@ -73,8 +73,8 @@ pub struct ClickerConfig {
     pub stop_zones_enabled: bool,
     pub stop_when_complete: bool,
     pub click_points: Vec<ClickPointTarget>,
-    pub offset: f64,
-    pub offset_chance: f64,
+    pub cursor_nudge_px: f64,
+    pub cursor_nudge_chance_pct: f64,
     pub smoothing: i32,
     pub stop_zones: Vec<StopZoneConfig>,
     pub corner_stop_enabled: bool,
@@ -94,6 +94,19 @@ pub struct ClickerConfig {
     pub process_list_mode: ProcessListMode,
     pub process_list_entries: Vec<ProcessListEntry>,
     pub task_switcher_stop_enabled: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SendResult {
+    Sent,
+    Blocked,
+}
+
+impl SendResult {
+    #[inline]
+    pub fn is_blocked(self) -> bool {
+        matches!(self, SendResult::Blocked)
+    }
 }
 
 #[derive(Clone, Debug, serde::Serialize)]

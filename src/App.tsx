@@ -1,6 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
-import { error, warn } from "@tauri-apps/plugin-log";
 import { exit } from "@tauri-apps/plugin-process";
 import {
   currentMonitor,
@@ -19,6 +18,11 @@ import {
   useState,
 } from "react";
 import { applyAccentTheme } from "./accentTheme";
+import {
+  logDiagnostic,
+  logWarning,
+  serializeDiagnosticValue,
+} from "./diagnostics";
 import {
   getExtension,
   isLegacyVideoExtension,
@@ -41,11 +45,11 @@ import {
   sanitizePresetSnapshot,
   sanitizeSettings,
   sanitizePresetName,
+  withFactoryPresets,
   type PresetDefinition,
   type PresetId,
 } from "./settingsSchema";
 import { save, open } from "@tauri-apps/plugin-dialog";
-import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import {
   APP_VERSION,
   DEFAULT_SETTINGS,
@@ -56,6 +60,7 @@ import {
   clearSavedSettings,
   loadSettings,
   saveSettings,
+  settingsRecoveryWarning,
 } from "./store";
 
 void initAppVersion();
@@ -174,14 +179,21 @@ async function checkForUpdates(): Promise<UpdateCheckResult | null> {
   try {
     return await invoke<UpdateCheckResult>("check_for_updates");
   } catch (err) {
-    error(
-      JSON.stringify({
-        source: "App.updateCheck",
-        error: JSON.stringify(err),
-      }),
-    );
+    logDiagnostic("App.updateCheck", {
+      error: serializeDiagnosticValue(err),
+    });
     return null;
   }
+}
+
+const MIN_TEXT_SCALE = 0.5;
+const MAX_TEXT_SCALE = 4;
+
+function sanitizeTextScale(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.min(MAX_TEXT_SCALE, Math.max(MIN_TEXT_SCALE, value));
 }
 
 function tabSuffix(t: Tab): string {
@@ -249,9 +261,9 @@ export default function App() {
     saveTimerRef.current = setTimeout(() => {
       if (!mountedRef.current) return;
       saveSettings(nextSettings).catch((err) => {
-        error(
-          JSON.stringify({ source: "App.saveSettings", error: String(err) }),
-        );
+        logDiagnostic("App.saveSettings", {
+          error: String(err),
+        });
       });
     }, 100);
   };
@@ -268,7 +280,9 @@ export default function App() {
     }
 
     syncSettingsToBackend(nextCommittedSettings).catch((err) => {
-      error(JSON.stringify({ source: "App.syncSettings", error: String(err) }));
+      logDiagnostic("App.syncSettings", {
+        error: String(err),
+      });
     });
     scheduleSave(nextCommittedSettings);
   };
@@ -321,12 +335,9 @@ export default function App() {
             return;
           }
 
-          error(
-            JSON.stringify({
-              source: "App.registerHotkey",
-              error: String(err),
-            }),
-          );
+          logDiagnostic("App.registerHotkey", {
+            error: String(err),
+          });
 
           if (!hotkey) {
             lastValidHotkeyRef.current = "";
@@ -391,12 +402,9 @@ export default function App() {
       // A saved position can land off-screen after a monitor is unplugged or
       // the resolution / scaling changes. Center rather than show a window the
       // user cannot see or reach.
-      warn(
-        JSON.stringify({
-          source: "App.windowPlacement",
-          error: `saved window position (${savedX}, ${savedY}) is off-screen, centering`,
-        }),
-      );
+      logWarning("App.windowPlacement", {
+        error: `saved window position (${savedX}, ${savedY}) is off-screen, centering`,
+      });
     }
 
     await getCurrentWindow().center();
@@ -431,7 +439,9 @@ export default function App() {
         alwaysOnTop: nextValue,
       });
     } catch (err) {
-      error(JSON.stringify({ source: "App.alwaysOnTop", error: String(err) }));
+      logDiagnostic("App.alwaysOnTop", {
+        error: String(err),
+      });
     }
   }, [updateSettings]);
 
@@ -654,14 +664,10 @@ export default function App() {
         return false;
       }
 
-      const data = JSON.stringify(
-        { type: "blur-autoclicker-preset", version: 1, preset },
-        null,
-        2,
-      );
-      await writeTextFile(filePath, data);
+      await invoke("export_preset_file", { path: filePath, preset });
       return true;
-    } catch {
+    } catch (err) {
+      logDiagnostic("App.exportPreset", { error: String(err) });
       return false;
     }
   };
@@ -676,12 +682,11 @@ export default function App() {
         return null;
       }
 
-      const content = await readTextFile(filePath as string);
-      const parsed = JSON.parse(content) as {
+      const parsed = await invoke<{
         type?: string;
         version?: number;
         preset?: PresetDefinition;
-      };
+      }>("import_preset_file", { path: filePath });
 
       if (parsed.type !== "blur-autoclicker-preset" || !parsed.preset) {
         return null;
@@ -732,7 +737,8 @@ export default function App() {
 
       persistCommittedSettings(nextCommittedSettings, nextUiSettings);
       return true;
-    } catch {
+    } catch (err) {
+      logDiagnostic("App.importPreset", { error: String(err) });
       return null;
     }
   };
@@ -752,24 +758,26 @@ export default function App() {
       readyTimers.push(
         window.setTimeout(() => {
           emit("frontend-ready", {}).catch((err) =>
-            error(
-              JSON.stringify({
-                source: "App.frontendReadyRetry",
-                error: String(err),
-              }),
-            ),
+            logDiagnostic("App.frontendReadyRetry", { error: String(err) }),
           );
         }, attempt * 400),
       );
     }
 
+    emit("frontend-ready", {}).catch((err) =>
+      logDiagnostic("App.frontendReady", { error: String(err) }),
+    );
+
     invoke<number>("get_text_scale_factor")
-      .then((textScale) => {
+      .then((rawScale) => {
+        const textScale = sanitizeTextScale(rawScale);
         bootTextScaleRef.current = textScale;
         return invoke("set_webview_zoom", { factor: 1.0 / textScale });
       })
       .catch((err) =>
-        error(JSON.stringify({ source: "App.setZoom", error: String(err) })),
+        logDiagnostic("App.setZoom", {
+          error: String(err),
+        }),
       );
 
     void Promise.all([
@@ -796,12 +804,9 @@ export default function App() {
               loadedSettings.hotkey,
             );
           } catch (err) {
-            error(
-              JSON.stringify({
-                source: "App.registerSavedHotkey",
-                error: String(err),
-              }),
-            );
+            logDiagnostic("App.registerSavedHotkey", {
+              error: String(err),
+            });
             registeredHotkey = lastValidHotkeyRef.current;
           }
           recordPhase("hotkey");
@@ -818,12 +823,9 @@ export default function App() {
               hydratedSettings.alwaysOnTop,
             );
           } catch (err) {
-            error(
-              JSON.stringify({
-                source: "App.restoreAlwaysOnTop",
-                error: String(err),
-              }),
-            );
+            logDiagnostic("App.restoreAlwaysOnTop", {
+              error: String(err),
+            });
             hydratedSettings = {
               ...hydratedSettings,
               alwaysOnTop: false,
@@ -847,12 +849,9 @@ export default function App() {
               iconTheme: hydratedSettings.taskbarIconTheme,
               iconColor: hydratedSettings.taskbarIconColor,
             }).catch((err) =>
-              warn(
-                JSON.stringify({
-                  source: "App.applyAccentTheme",
-                  error: String(err),
-                }),
-              ),
+              logWarning("App.applyAccentTheme", {
+                error: String(err),
+              }),
             );
           }
           setAppInfo(loadedAppInfo);
@@ -867,6 +866,21 @@ export default function App() {
           await syncSettingsToBackend(hydratedSettings);
           recordPhase("sync");
 
+          const recoveryWarning = settingsRecoveryWarning();
+          if (recoveryWarning) {
+            await invoke("set_settings_warning", {
+              warning: recoveryWarning,
+            }).catch((err) =>
+              logDiagnostic("App.settingsWarning", {
+                error: String(err),
+              }),
+            );
+            setStatus((current) => ({
+              ...current,
+              warning: recoveryWarning,
+            }));
+          }
+
           if (
             hydratedSettings.hotkey !== loadedSettings.hotkey ||
             hydratedSettings.alwaysOnTop !== loadedSettings.alwaysOnTop
@@ -874,24 +888,19 @@ export default function App() {
             await saveSettings(hydratedSettings);
           }
           recordPhase("save");
-
-          emit("frontend-ready", {}).catch((err) =>
-            error(
-              JSON.stringify({
-                source: "App.frontendReady",
-                error: String(err),
-              }),
-            ),
-          );
         },
       )
       .catch((err) => {
-        error(JSON.stringify({ source: "App.boot", error: String(err) }));
+        logDiagnostic("App.boot", {
+          error: String(err),
+        });
         if (!mounted) return;
         setSettingsLoaded(true);
         pendingShowWindowRef.current = true;
         emit("frontend-ready", {}).catch((err) =>
-          error(JSON.stringify({ source: "App.bootEmit", error: String(err) })),
+          logDiagnostic("App.bootEmit", {
+            error: String(err),
+          }),
         );
       });
 
@@ -929,9 +938,9 @@ export default function App() {
         cleanup = unlisten;
       })
       .catch((err) => {
-        error(
-          JSON.stringify({ source: "App.statusListener", error: String(err) }),
-        );
+        logDiagnostic("App.statusListener", {
+          error: String(err),
+        });
       });
 
     return () => {
@@ -977,8 +986,9 @@ export default function App() {
       try {
         const bootTextScale = bootTextScaleRef.current;
         bootTextScaleRef.current = null;
-        const textScale =
-          bootTextScale ?? (await invoke<number>("get_text_scale_factor"));
+        const textScale = sanitizeTextScale(
+          bootTextScale ?? (await invoke<number>("get_text_scale_factor")),
+        );
         document.documentElement.style.fontSize = `${16 * textScale}px`;
 
         const preferredSize = getPanelSize(tab, !!updateInfo);
@@ -1061,12 +1071,9 @@ export default function App() {
                 appWindow
                   .setSize(new LogicalSize(width, windowHeight))
                   .catch((err) => {
-                    error(
-                      JSON.stringify({
-                        source: "App.resizeFinalize",
-                        error: String(err),
-                      }),
-                    );
+                    logDiagnostic("App.resizeFinalize", {
+                      error: String(err),
+                    });
                   });
               }
             }
@@ -1082,12 +1089,9 @@ export default function App() {
               appWindow
                 .setSize(new LogicalSize(width, windowHeight))
                 .catch((err) => {
-                  error(
-                    JSON.stringify({
-                      source: "App.resizeFinalizeTimeout",
-                      error: String(err),
-                    }),
-                  );
+                  logDiagnostic("App.resizeFinalizeTimeout", {
+                    error: String(err),
+                  });
                 });
             }
             resizeTimeout.current = null;
@@ -1106,9 +1110,9 @@ export default function App() {
         }
       } catch (err) {
         if (!cancelled) {
-          error(
-            JSON.stringify({ source: "App.sizeWindow", error: String(err) }),
-          );
+          logDiagnostic("App.sizeWindow", {
+            error: String(err),
+          });
         }
       }
     })();
@@ -1196,12 +1200,9 @@ export default function App() {
       iconTheme: settings.taskbarIconTheme,
       iconColor: settings.taskbarIconColor,
     }).catch((err) =>
-      warn(
-        JSON.stringify({
-          source: "App.applyAccentTheme",
-          error: String(err),
-        }),
-      ),
+      logWarning("App.applyAccentTheme", {
+        error: String(err),
+      }),
     );
   }, [
     settings.accentColor,
@@ -1312,42 +1313,14 @@ export default function App() {
     };
   }, []);
 
-  const backgroundMedia = useMemo(() => {
+  const rawBackgroundPath = useMemo(() => {
     const sfx = tabSuffix(tab);
     const raw = resolvePerPage(
       settings,
       settings.backgroundImage,
       `backgroundImage${sfx}`,
     ) as string;
-    const trimmed = (raw ?? "").trim();
-    if (!trimmed)
-      return { kind: "none" as const, cssUrl: null, videoSrc: null };
-    let converted: string | null = null;
-    const lower = trimmed.toLowerCase();
-    const isRemoteOrData =
-      lower.startsWith("http://") ||
-      lower.startsWith("https://") ||
-      lower.startsWith("data:") ||
-      lower.startsWith("asset://");
-    if (!isRemoteOrData) {
-      try {
-        converted = convertFileSrc(trimmed);
-      } catch {
-        converted = null;
-      }
-    }
-    const resolved = resolveBackgroundSource(trimmed, converted);
-    if (resolved.kind === "image" && resolved.cssUrl) {
-      return {
-        kind: "image" as const,
-        cssUrl: resolved.cssUrl,
-        videoSrc: null,
-      };
-    }
-    if (resolved.kind === "video" && resolved.src) {
-      return { kind: "video" as const, cssUrl: null, videoSrc: resolved.src };
-    }
-    return { kind: "none" as const, cssUrl: null, videoSrc: null };
+    return (raw ?? "").trim();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     settings.backgroundImage,
@@ -1359,6 +1332,71 @@ export default function App() {
     settings.perPageAppearance,
     tab,
   ]);
+
+  const [backgroundMedia, setBackgroundMedia] = useState<{
+    kind: "none" | "image" | "video";
+    cssUrl: string | null;
+    videoSrc: string | null;
+  }>({ kind: "none", cssUrl: null, videoSrc: null });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveMedia = async () => {
+      const trimmed = rawBackgroundPath;
+      if (!trimmed) {
+        if (!cancelled) {
+          setBackgroundMedia({ kind: "none", cssUrl: null, videoSrc: null });
+        }
+        return;
+      }
+
+      const lower = trimmed.toLowerCase();
+      const isRemoteOrData =
+        lower.startsWith("http://") ||
+        lower.startsWith("https://") ||
+        lower.startsWith("data:") ||
+        lower.startsWith("asset://");
+
+      let converted: string | null = null;
+      if (!isRemoteOrData) {
+        try {
+          await invoke("allow_background_media", { path: trimmed });
+          converted = convertFileSrc(trimmed);
+        } catch (err) {
+          logDiagnostic("App.backgroundMedia", { error: String(err) });
+          converted = null;
+        }
+      }
+
+      if (cancelled) return;
+
+      const resolved = resolveBackgroundSource(trimmed, converted);
+      if (resolved.kind === "image" && resolved.cssUrl) {
+        setBackgroundMedia({
+          kind: "image",
+          cssUrl: resolved.cssUrl,
+          videoSrc: null,
+        });
+        return;
+      }
+      if (resolved.kind === "video" && resolved.src) {
+        setBackgroundMedia({
+          kind: "video",
+          cssUrl: null,
+          videoSrc: resolved.src,
+        });
+        return;
+      }
+      setBackgroundMedia({ kind: "none", cssUrl: null, videoSrc: null });
+    };
+
+    void resolveMedia();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rawBackgroundPath]);
 
   useLayoutEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;
@@ -1408,16 +1446,17 @@ export default function App() {
       await invoke("reset_settings");
       await clearSavedSettings();
       await invoke("set_autostart_enabled", { enabled: false }).catch(() => {});
-      await getCurrentWindow().setAlwaysOnTop(DEFAULT_SETTINGS.alwaysOnTop);
+      const resetSettings = withFactoryPresets(DEFAULT_SETTINGS);
+      await getCurrentWindow().setAlwaysOnTop(resetSettings.alwaysOnTop);
 
-      lastValidHotkeyRef.current = DEFAULT_SETTINGS.hotkey;
-      persistCommittedSettings(DEFAULT_SETTINGS, DEFAULT_SETTINGS);
+      lastValidHotkeyRef.current = resetSettings.hotkey;
+      persistCommittedSettings(resetSettings, resetSettings);
       setTab("simple");
       launchWindowPlacementDone.current = false;
     } catch (err) {
-      error(
-        JSON.stringify({ source: "App.resetSettings", error: String(err) }),
-      );
+      logDiagnostic("App.resetSettings", {
+        error: String(err),
+      });
     }
   };
 
@@ -1485,6 +1524,7 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const modifierHit = captureModifierHotkey(e);
       if (modifierHit && !held.includes(modifierHit)) held.push(modifierHit);
+      if (e.repeat) return;
       if (
         e.target instanceof HTMLElement &&
         (e.target.isContentEditable ||
@@ -1672,6 +1712,7 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const modifierHit = captureModifierHotkey(e);
       if (modifierHit && !held.includes(modifierHit)) held.push(modifierHit);
+      if (e.repeat) return;
       if (
         e.target instanceof HTMLElement &&
         (e.target.isContentEditable ||
@@ -1721,9 +1762,9 @@ export default function App() {
       hotkey: settings.keybindMaster,
       holdMode: settings.masterKeybindMode === "hold",
     }).catch((err) => {
-      error(
-        JSON.stringify({ source: "App.registerMaster", error: String(err) }),
-      );
+      logDiagnostic("App.registerMaster", {
+        error: String(err),
+      });
     });
   }, [settings.keybindMaster, settings.masterKeybindMode]);
 
@@ -1740,12 +1781,9 @@ export default function App() {
         setElevationLoaded(true);
       })
       .catch((err) => {
-        error(
-          JSON.stringify({
-            source: "App.elevationState",
-            error: String(err),
-          }),
-        );
+        logDiagnostic("App.elevationState", {
+          error: String(err),
+        });
         setElevationLoaded(true);
       });
   }, []);
@@ -1774,12 +1812,9 @@ export default function App() {
         return undefined;
       })
       .catch((err) =>
-        error(
-          JSON.stringify({
-            source: "App.relaunchAdmin",
-            error: String(err),
-          }),
-        ),
+        logDiagnostic("App.relaunchAdmin", {
+          error: String(err),
+        }),
       );
   }, [settingsLoaded, elevationLoaded, settings.alwaysRunAsAdmin, elevation]);
 
@@ -1792,12 +1827,9 @@ export default function App() {
         return;
       }
     } catch (err) {
-      error(
-        JSON.stringify({
-          source: "App.elevationRestart",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("App.elevationRestart", {
+        error: String(err),
+      });
     }
     setPromptBusy(false);
   }, []);
@@ -1847,12 +1879,9 @@ export default function App() {
           onError={(e) => {
             const ext = getExtension(backgroundMedia.videoSrc ?? "");
             const legacy = isLegacyVideoExtension(ext);
-            error(
-              JSON.stringify({
-                source: "App.backgroundVideo",
-                error: `video load failed ext=${ext} legacy=${legacy}`,
-              }),
-            );
+            logDiagnostic("App.backgroundVideo", {
+              error: `video load failed ext=${ext} legacy=${legacy}`,
+            });
             // Hide broken video so UI not black; user can pick MP4/WebM instead
             const target = e.currentTarget as HTMLVideoElement;
             target.style.display = "none";

@@ -112,9 +112,9 @@ export default function SettingsPanel({
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               aria-hidden="true"
             >
               <circle cx="12" cy="12" r="9" />
@@ -142,9 +142,9 @@ export default function SettingsPanel({
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               aria-hidden="true"
             >
               <rect
@@ -178,9 +178,9 @@ export default function SettingsPanel({
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               aria-hidden="true"
             >
               <circle cx="12" cy="12" r="4.5" />
@@ -219,7 +219,7 @@ export default function SettingsPanel({
               <path d="M8 21h8" />
             </svg>
           </span>
-          Overlay
+          Indicator
         </button>
         <button
           className={`sidebar-tab ${activeTab === "keybinds" ? "active" : ""}`}
@@ -249,9 +249,9 @@ export default function SettingsPanel({
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               aria-hidden="true"
             >
               <rect width="20" height="16" x="2" y="4" rx="2" />

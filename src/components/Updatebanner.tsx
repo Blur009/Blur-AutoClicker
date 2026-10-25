@@ -1,7 +1,7 @@
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { error } from "@tauri-apps/plugin-log";
+import { logDiagnostic } from "../diagnostics";
 import { invoke } from "@tauri-apps/api/core";
 import { useRef, useState } from "react";
 
@@ -60,12 +60,9 @@ export default function UpdateBanner({
       setPreviewEntries(newer.length > 0 ? newer : all.slice(0, 1));
       previewFetchedRef.current = true;
     } catch (err) {
-      error(
-        JSON.stringify({
-          source: "Updatebanner.changelogPreview",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("Updatebanner.changelogPreview", {
+        error: String(err),
+      });
       setPreviewError(true);
     } finally {
       setPreviewLoading(false);
@@ -76,12 +73,9 @@ export default function UpdateBanner({
     try {
       await openUrl(GITHUB_RELEASES_URL);
     } catch (err) {
-      error(
-        JSON.stringify({
-          source: "Updatebanner.openRelease",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("Updatebanner.openRelease", {
+        error: String(err),
+      });
       setStage("error");
       setStatusText("Could not open the download page.");
     }
@@ -101,12 +95,9 @@ export default function UpdateBanner({
         return;
       }
     } catch (err) {
-      error(
-        JSON.stringify({
-          source: "Updatebanner.openRelease",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("Updatebanner.openRelease", {
+        error: String(err),
+      });
       setStage("error");
       setStatusText("Update check failed. Try again.");
       return;
@@ -140,9 +131,9 @@ export default function UpdateBanner({
       setStage("restart-required");
       setStatusText("Update installed. Restart to apply it.");
     } catch (err) {
-      error(
-        JSON.stringify({ source: "Updatebanner.install", error: String(err) }),
-      );
+      logDiagnostic("Updatebanner.install", {
+        error: String(err),
+      });
       setStage("error");
       setStatusText("Update install failed.");
     }
@@ -152,9 +143,9 @@ export default function UpdateBanner({
     try {
       await relaunch();
     } catch (err) {
-      error(
-        JSON.stringify({ source: "Updatebanner.relaunch", error: String(err) }),
-      );
+      logDiagnostic("Updatebanner.relaunch", {
+        error: String(err),
+      });
       setStage("error");
       setStatusText("Restart failed. Please reopen the app manually.");
     }

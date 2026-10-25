@@ -40,7 +40,7 @@ pub struct ClickerState {
     pub settings_initialized: AtomicBool,
     pub paused: Arc<AtomicBool>,
     pub paused_by_zone: AtomicBool,
-    pub zone_started_clicker: AtomicBool,
+    pub zone_started_generation: AtomicU64,
     pub warning: Mutex<Option<String>>,
     pub icon_state: Mutex<IconState>,
     pub icon_cache: Mutex<IconCache>,
@@ -59,6 +59,31 @@ pub struct ClickerStatusPayload {
     pub active_click_point_tick: u64,
     pub master_allowed: bool,
     pub elevation_blocked: bool,
+}
+
+static RECOVERY_NOTICE: Mutex<Option<String>> = Mutex::new(None);
+
+pub fn set_recovery_notice(notice: Option<String>) {
+    *RECOVERY_NOTICE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = notice;
+}
+
+pub fn recovery_notice() -> Option<String> {
+    RECOVERY_NOTICE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+}
+
+pub fn clear_transient_warning(warning: &Mutex<Option<String>>) {
+    *warning
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+}
+
+pub fn status_warning(transient_warning: Option<String>) -> Option<String> {
+    transient_warning.or_else(recovery_notice)
 }
 
 #[derive(Clone, serde::Serialize)]

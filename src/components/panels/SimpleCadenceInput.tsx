@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from "react";
-import type { CSSProperties, FocusEvent, WheelEvent } from "react";
+import type { CSSProperties, ChangeEvent, FocusEvent, WheelEvent } from "react";
 import type { RateInputMode, Settings } from "../../store";
 import {
   convertDurationToRate,
@@ -17,6 +17,8 @@ import "./advanced/AdvancedPanel.css";
 import {
   INTERVAL_OPTIONS,
   SIMPLE_RATE_INPUT_MODE_OPTIONS,
+  commitDecimalText,
+  inRangeDecimalValue,
   dynamicChWidth,
   handleDurationBlur,
   handleDurationWheelStep,
@@ -25,6 +27,7 @@ import {
   handleNumberChange,
   handleWheelStep,
   switchCadenceMode,
+  wheelBaseValue,
 } from "../sharedCadence";
 
 const DurationField = memo(function DurationField({
@@ -135,16 +138,28 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
     [maxClickSpeed, handleClickSpeedUpdate],
   );
 
+  const handleCpsChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const raw = event.target.value;
+      const normalized = normalizeDecimalRaw(raw);
+      if (normalized !== raw) event.target.value = normalized;
+      setDraftCps(normalized);
+      const typed = inRangeDecimalValue(normalized, 1, maxClickSpeed);
+      if (typed !== null) handleClickSpeedUpdate(typed);
+    },
+    [maxClickSpeed, handleClickSpeedUpdate],
+  );
+
   const handleCpsWheel = useCallback(
     (event: WheelEvent<HTMLInputElement>) =>
       handleWheelStep(
         event,
-        settings.clickSpeed,
+        wheelBaseValue(draftCps, settings.clickSpeed, 1),
         1,
         maxClickSpeed,
         handleClickSpeedUpdate,
       ),
-    [settings.clickSpeed, maxClickSpeed, handleClickSpeedUpdate],
+    [draftCps, settings.clickSpeed, maxClickSpeed, handleClickSpeedUpdate],
   );
 
   const handleDurationHoursChange = useCallback(
@@ -327,25 +342,16 @@ export default function SimpleCadenceInput({ settings, update }: Props) {
             className="simple-inline-input simple-cadence-input"
             value={draftCps ?? settings.clickSpeed}
             aria-label="Clicks Per"
-            onChange={(event) => {
-              const raw = event.target.value;
-              const normalized = normalizeDecimalRaw(raw);
-              if (normalized !== raw) event.target.value = normalized;
-              if (
-                normalized === "" ||
-                normalized === "-" ||
-                normalized === "." ||
-                normalized === "-." ||
-                normalized.endsWith(".")
-              ) {
-                setDraftCps(normalized);
-                return;
-              }
+            onChange={handleCpsChange}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
               setDraftCps(null);
-              const val = Number(normalized);
-              updateSimpleCadence({
-                clickSpeed: Number.isNaN(val) ? 1 : val,
-              });
+              commitDecimalText(
+                event.currentTarget.value,
+                1,
+                maxClickSpeed,
+                handleClickSpeedUpdate,
+              );
             }}
             onBlur={handleCpsBlur}
             onWheel={handleCpsWheel}

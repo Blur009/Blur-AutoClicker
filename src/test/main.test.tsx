@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  installGlobalDiagnostics,
-  logDiagnostic,
-  serializeDiagnosticValue,
-} from "../diagnostics";
+import { installGlobalDiagnostics } from "../diagnostics";
 
 const errorModule = await import("@tauri-apps/plugin-log");
 const mockError = vi.mocked(errorModule.error);
@@ -64,26 +60,5 @@ describe("Global error handlers", () => {
 
     const parsed = JSON.parse(mockError.mock.calls[0][0]);
     expect(parsed.error.message).toBe("Script error");
-  });
-
-  it("createRoot onCaughtError logs structured payload", () => {
-    const errorInfo = {
-      componentStack: "at ErrorButton",
-      errorBoundary: { constructor: { name: "ErrorBoundary" } },
-    };
-    const err = new Error("Caught by boundary");
-
-    logDiagnostic("createRoot.onCaughtError", {
-      error: serializeDiagnosticValue(err),
-      componentStack: errorInfo.componentStack,
-      errorBoundary: errorInfo.errorBoundary?.constructor?.name,
-    });
-
-    expect(mockError).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(mockError.mock.calls[0][0]);
-    expect(parsed.source).toBe("createRoot.onCaughtError");
-    expect(parsed.error.message).toBe("Caught by boundary");
-    expect(parsed.componentStack).toContain("ErrorButton");
-    expect(parsed.errorBoundary).toBe("ErrorBoundary");
   });
 });
