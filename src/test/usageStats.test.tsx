@@ -44,14 +44,19 @@ function overview(overrides: Partial<StatsOverview> = {}): StatsOverview {
 }
 
 describe("UsageStats", () => {
-  it("gives every sparkline day a tooltip", async () => {
+  it("shows a tooltip for a day in the heatmap", async () => {
     const user = userEvent.setup();
     const { container } = render(<UsageStats overview={overview()} />);
 
-    const hits = container.querySelectorAll(".usage-spark-hits > div");
-    expect(hits).toHaveLength(30);
+    const cells = Array.from(
+      container.querySelectorAll<HTMLElement>(".usage-heat-cell"),
+    );
+    const todayCell = cells.find((cell) =>
+      cell.dataset.tip?.endsWith("42 clicks"),
+    );
+    expect(todayCell).toBeDefined();
 
-    await user.hover(hits[29]);
+    await user.hover(todayCell!);
     expect(screen.getByText(/42 clicks$/)).toBeInTheDocument();
   });
 

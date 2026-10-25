@@ -154,39 +154,6 @@
   background: var(--accent-strong);
 }
 
-.usage-spark {
-  position: relative;
-  height: 36px;
-}
-
-.usage-spark-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.usage-spark-hits {
-  position: absolute;
-  inset: 0;
-  display: flex;
-}
-
-.usage-spark-hits > div {
-  flex: 1;
-  min-width: 0;
-}
-
-.usage-spark-area {
-  fill: color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-.usage-spark-line {
-  fill: none;
-  stroke: var(--accent-strong);
-  stroke-width: 1.5;
-  stroke-linejoin: round;
-}
-
 .usage-bars {
   position: relative;
   display: flex;

@@ -41,20 +41,18 @@ const METRICS = [
 ] as const;
 
 const RANGES = [
-  { key: "7", label: "7d", heading: "Last 7 days", phrase: "the last 7 days" },
+  { key: "7", label: "7d", phrase: "the last 7 days" },
   {
     key: "30",
     label: "30d",
-    heading: "Last 30 days",
     phrase: "the last 30 days",
   },
   {
     key: "90",
     label: "90d",
-    heading: "Last 90 days",
     phrase: "the last 90 days",
   },
-  { key: "all", label: "All", heading: "All time", phrase: "all time" },
+  { key: "all", label: "All", phrase: "all time" },
 ] as const;
 
 type MetricKey = (typeof METRICS)[number]["key"];
@@ -406,28 +404,6 @@ const UsageStats = memo(function UsageStats({
   const shortValue = (value: number) =>
     metric === "clicks" ? formatNumber(value) : formatTime(value);
 
-  const sparkCurve = useMemo(() => {
-    const values = windowDays.map((day) =>
-      metric === "clicks" ? day.clicks : day.timeSecs,
-    );
-    const sparkPeak = Math.max(1, ...values);
-    return smoothPath(
-      values.map((value, index) => ({
-        x: ((index + 0.5) / values.length) * 100,
-        y: 100 - (value / sparkPeak) * 100,
-      })),
-    );
-  }, [windowDays, metric]);
-
-  const windowTotal = useMemo(
-    () =>
-      windowDays.reduce(
-        (sum, day) => sum + (metric === "clicks" ? day.clicks : day.timeSecs),
-        0,
-      ),
-    [windowDays, metric],
-  );
-
   const trendCurve = smoothPath(
     trend.map((value, index) => ({
       x: ((index + 0.5) / trend.length) * 100,
@@ -529,43 +505,6 @@ const UsageStats = memo(function UsageStats({
               value={range}
               onChange={changeRange}
             />
-          </div>
-
-          <div className="usage-spark-block">
-            <div className="usage-block-head">
-              <span className="usage-block-title">{activeRange.heading}</span>
-              <span className="usage-block-meta">
-                {measure(windowTotal)} total
-              </span>
-            </div>
-            <div className="usage-spark">
-              <svg
-                className="usage-spark-svg"
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <path
-                  className="usage-spark-area"
-                  d={`${sparkCurve} L 100 100 L 0 100 Z`}
-                />
-                <path
-                  className="usage-spark-line"
-                  d={sparkCurve}
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
-              <div className="usage-spark-hits">
-                {windowDays.map((day) => (
-                  <div
-                    key={day.day}
-                    data-tip={`${formatFullDay(day.day)}: ${measure(
-                      metric === "clicks" ? day.clicks : day.timeSecs,
-                    )}`}
-                  />
-                ))}
-              </div>
-            </div>
           </div>
 
           <div className="usage-chart">
