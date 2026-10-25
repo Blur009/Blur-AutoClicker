@@ -320,3 +320,46 @@ describe("legacy custom stop zone on a monitor left of the primary", () => {
     expect(settings.stopZones).toEqual([]);
   });
 });
+
+describe("duty cycle hold mode settings", () => {
+  it("pins one click per day in both representations", () => {
+    const saved = {
+      dutyCycleMode: "Hold",
+      durationHours: 0,
+      durationMinutes: 0,
+      durationSeconds: 2,
+      durationMilliseconds: 500,
+      clickSpeed: 25,
+      clickInterval: "s",
+      dutyCycle: 45,
+    } as unknown as Partial<Settings>;
+
+    const settings = sanitizeSettings(saved, VERSION);
+
+    expect(settings.clickSpeed).toBe(1);
+    expect(settings.clickInterval).toBe("d");
+    expect(settings.dutyCycle).toBe(100);
+    expect(settings.durationHours).toBe(24);
+    expect(settings.durationMinutes).toBe(0);
+    expect(settings.durationSeconds).toBe(0);
+    expect(settings.durationMilliseconds).toBe(0);
+    expect(settings.savedDurationMs).toBe(2500);
+  });
+
+  it("keeps the saved interval used when leaving hold mode", () => {
+    const saved = {
+      dutyCycleMode: "Hold",
+      savedDurationMs: 2500,
+      savedClickSpeed: 12,
+      savedClickInterval: "m",
+      savedDutyCycle: 60,
+    } as unknown as Partial<Settings>;
+
+    const settings = sanitizeSettings(saved, VERSION);
+
+    expect(settings.savedDurationMs).toBe(2500);
+    expect(settings.savedClickSpeed).toBe(12);
+    expect(settings.savedClickInterval).toBe("m");
+    expect(settings.savedDutyCycle).toBe(60);
+  });
+});

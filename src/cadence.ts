@@ -202,3 +202,41 @@ export function formatIntervalMs(ms: number): string {
 export function isDoubleClickSupported(settings: CadenceSettings): boolean {
   return getEffectiveClicksPerSecond(settings) < 11;
 }
+
+export type HoldTransitionFields = Pick<
+  Settings,
+  | "clickSpeed"
+  | "clickInterval"
+  | "dutyCycle"
+  | "savedClickSpeed"
+  | "savedClickInterval"
+  | "savedDutyCycle"
+  | "savedDurationMs"
+> &
+  CadenceDurationFields;
+
+export function holdModePatch(
+  settings: HoldTransitionFields,
+  hold: boolean,
+): Partial<Settings> {
+  if (hold) {
+    return {
+      dutyCycleMode: "Hold",
+      savedClickSpeed: settings.clickSpeed,
+      savedClickInterval: settings.clickInterval,
+      savedDutyCycle: settings.dutyCycle,
+      savedDurationMs: getDurationTotalMs(settings),
+      clickSpeed: 1,
+      clickInterval: "d",
+      dutyCycle: 100,
+      ...decomposeMs(getIntervalMilliseconds("d")),
+    };
+  }
+  return {
+    dutyCycleMode: "Click",
+    clickSpeed: settings.savedClickSpeed,
+    clickInterval: settings.savedClickInterval,
+    dutyCycle: settings.savedDutyCycle,
+    ...decomposeMs(settings.savedDurationMs),
+  };
+}

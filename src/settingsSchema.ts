@@ -372,6 +372,11 @@ const SETTINGS_ONLY_FIELDS = {
     limit: { min: 0, max: 100 },
     ui: { section: "limits", control: "number" },
   },
+  savedDurationMs: {
+    default: 40,
+    limit: { min: 0 },
+    ui: { section: "limits", control: "number" },
+  },
   stopZones: {
     default: [] as StopZone[],
     ui: { section: "failsafe", control: "custom" },
@@ -1663,10 +1668,25 @@ export function sanitizeSettings(
       ? saved.activePresetId
       : null;
 
+  if (
+    presetSettings.dutyCycleMode === "Hold" &&
+    savedRecord.savedDurationMs === undefined
+  ) {
+    settingsOnly.savedDurationMs =
+      settingsOnly.durationHours * 3_600_000 +
+      settingsOnly.durationMinutes * 60_000 +
+      settingsOnly.durationSeconds * 1_000 +
+      settingsOnly.durationMilliseconds;
+  }
+
   if (presetSettings.dutyCycleMode === "Hold") {
     presetSettings.clickSpeed = 1;
     presetSettings.clickInterval = "d";
     presetSettings.dutyCycle = 100;
+    settingsOnly.durationHours = 24;
+    settingsOnly.durationMinutes = 0;
+    settingsOnly.durationSeconds = 0;
+    settingsOnly.durationMilliseconds = 0;
   }
 
   return {

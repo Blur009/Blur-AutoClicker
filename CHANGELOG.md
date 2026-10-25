@@ -36,6 +36,9 @@
 - Fixed the first overlay after launch sometimes drawing nothing.
 - Fixed stop zones loaded from an older or damaged settings file keeping an invalid size, position or action.
 - Fixed dialogs being clipped inside the settings panel and turning see-through with panel opacity.
+- Fixed Duty Cycle hold mode keeping the old interval when the click speed was in Interval mode.
+- Fixed clicks being sent with the toggle hotkey's modifier still held, which some targets ignored.
+- Fixed the click counter only updating after the clicker stopped.
 
 # v3.9.6 - 24.08.2026 (d.m.y)
 

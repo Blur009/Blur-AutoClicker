@@ -63,6 +63,7 @@ import {
   settingsRecoveryWarning,
 } from "./store";
 import { restartAsAdministrator } from "./restart";
+import { holdModePatch } from "./cadence";
 
 void initAppVersion();
 
@@ -485,8 +486,18 @@ export default function App() {
       return false;
     }
 
+    const current = committedSettingsRef.current;
+    const nextMode = preset.settings.dutyCycleMode ?? current.dutyCycleMode;
+    const transition =
+      current.dutyCycleMode === "Hold" && nextMode !== "Hold"
+        ? holdModePatch(current, false)
+        : current.dutyCycleMode !== "Hold" && nextMode === "Hold"
+          ? holdModePatch(current, true)
+          : {};
+
     updateSettings({
       ...preset.settings,
+      ...transition,
       activePresetId: presetId,
     });
     return true;
@@ -1634,24 +1645,7 @@ export default function App() {
           });
           break;
         case "dutyCycleMode":
-          if (s.dutyCycleMode === "Hold") {
-            updateSettings({
-              dutyCycleMode: "Click",
-              clickSpeed: s.savedClickSpeed,
-              clickInterval: s.savedClickInterval,
-              dutyCycle: s.savedDutyCycle,
-            });
-          } else {
-            updateSettings({
-              dutyCycleMode: "Hold",
-              savedClickSpeed: s.clickSpeed,
-              savedClickInterval: s.clickInterval,
-              savedDutyCycle: s.dutyCycle,
-              clickSpeed: 1,
-              clickInterval: "d",
-              dutyCycle: 100,
-            });
-          }
+          updateSettings(holdModePatch(s, s.dutyCycleMode !== "Hold"));
           break;
         case "speedRandomization":
           updateSettings({

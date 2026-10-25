@@ -815,6 +815,7 @@ struct LoopState {
     target_y: i32,
     next_batch_time: Instant,
     moved_click_point_index: Option<usize>,
+    last_progress_emit: Instant,
 }
 
 impl LoopState {
@@ -835,6 +836,7 @@ impl LoopState {
             target_y,
             next_batch_time: Instant::now(),
             moved_click_point_index: None,
+            last_progress_emit: Instant::now(),
         }
     }
 }
@@ -906,6 +908,21 @@ fn update_target(
         move_mouse(st.target_x, st.target_y);
     }
     st.moved_click_point_index = Some(st.click_point_index);
+}
+
+const PROGRESS_EMIT_INTERVAL: Duration = Duration::from_millis(250);
+
+fn should_emit_progress(last: Instant, now: Instant) -> bool {
+    now.saturating_duration_since(last) >= PROGRESS_EMIT_INTERVAL
+}
+
+fn emit_progress(app: &AppHandle, st: &mut LoopState) {
+    let now = Instant::now();
+    if !should_emit_progress(st.last_progress_emit, now) {
+        return;
+    }
+    st.last_progress_emit = now;
+    emit_status(app);
 }
 
 fn run_batch(
@@ -1032,6 +1049,7 @@ fn run_batch(
 
     st.click_count += batch.physical_clicks as i64;
     CLICK_COUNT.store(st.click_count, Ordering::Relaxed);
+    emit_progress(&control.app, st);
 
     let sleep_dur = st.next_batch_time.saturating_duration_since(Instant::now());
     if sleep_dur > Duration::ZERO {
@@ -1246,6 +1264,7 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
                 }
                 st.click_count += 1;
                 CLICK_COUNT.store(st.click_count, Ordering::Relaxed);
+                emit_progress(&control.app, &mut st);
                 last_repeat = Instant::now();
             }
 
@@ -1460,6 +1479,39 @@ mod tests {
         assert_eq!(plan.single_cycles, remaining_clicks);
         assert_eq!(plan.double_cycles, 0);
         assert_eq!(plan.physical_clicks, remaining_clicks);
+    }
+
+    #[test]
+    fn progress_emits_are_throttled() {
+        let start = Instant::now();
+        assert!(!should_emit_progress(start, start));
+        assert!(!should_emit_progress(
+            start,
+            start + Duration::from_millis(249)
+        ));
+        assert!(should_emit_progress(
+            start,
+            start + Duration::from_millis(250)
+        ));
+    }
+
+    #[test]
+    fn duration_mode_interval_uses_the_duration_fields() {
+        let mut settings = sample_settings();
+        settings.rate_input_mode = String::from("duration");
+        settings.duration_hours = 24;
+        settings.duration_minutes = 0;
+        settings.duration_seconds = 0;
+        settings.duration_milliseconds = 0;
+
+        let interval = interval_secs_from_settings(&settings).expect("a day should work");
+        assert!((interval - 86_400.0).abs() < f64::EPSILON);
+
+        settings.rate_input_mode = String::from("rate");
+        settings.click_speed = 1.0;
+        settings.click_interval = String::from("d");
+        let interval = interval_secs_from_settings(&settings).expect("a day should work");
+        assert!((interval - 86_400.0).abs() < f64::EPSILON);
     }
 
     #[test]

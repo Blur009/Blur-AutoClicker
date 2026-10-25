@@ -394,11 +394,17 @@ pub fn format_hotkey_binding(binding: &HotkeyBinding) -> String {
 static PHYSICAL_KEY_STATE: OnceLock<&'static [AtomicBool; 256]> = OnceLock::new();
 static HOOKS_ACTIVE: AtomicBool = AtomicBool::new(false);
 static HOOK_EVENTS: AtomicU64 = AtomicU64::new(0);
+static SYNTHETIC_RELEASE_STATE: OnceLock<&'static [AtomicBool; 256]> = OnceLock::new();
 static OWN_PID: OnceLock<u32> = OnceLock::new();
 static OWN_ROOT_HWND: AtomicIsize = AtomicIsize::new(0);
 
 fn physical_key_state() -> &'static [AtomicBool; 256] {
     PHYSICAL_KEY_STATE
+        .get_or_init(|| Box::leak(Box::new(std::array::from_fn(|_| AtomicBool::new(false)))))
+}
+
+fn synthetic_release_state() -> &'static [AtomicBool; 256] {
+    SYNTHETIC_RELEASE_STATE
         .get_or_init(|| Box::leak(Box::new(std::array::from_fn(|_| AtomicBool::new(false)))))
 }
 
@@ -483,6 +489,7 @@ unsafe extern "system" fn keyboard_ll_proc(n_code: i32, w_param: usize, l_param:
             if (0..256).contains(&vk) {
                 let down = matches!(w_param as u32, WM_KEYDOWN | WM_SYSKEYDOWN);
                 physical_key_state()[vk as usize].store(down, Ordering::Relaxed);
+                synthetic_release_state()[vk as usize].store(false, Ordering::Relaxed);
                 HOOK_EVENTS.fetch_add(1, Ordering::Relaxed);
             }
         }
@@ -572,6 +579,9 @@ fn input_desktop_visible() -> Option<bool> {
 fn resync_physical_key_state() -> bool {
     let mut cleared = false;
     for (vk, latched) in physical_key_state().iter().enumerate() {
+        if synthetic_release_state()[vk].load(Ordering::Relaxed) {
+            continue;
+        }
         if latched.load(Ordering::Relaxed) && !is_vk_down(vk as i32) {
             latched.store(false, Ordering::Relaxed);
             cleared = true;
@@ -627,6 +637,9 @@ pub fn start_hotkey_listener(app: AppHandle) {
                 };
 
                 if resumed {
+                    for flag in synthetic_release_state().iter() {
+                        flag.store(false, Ordering::Relaxed);
+                    }
                     resync_physical_key_state();
                     (mouse_hook, kb_hook) = replace_hooks(mouse_hook, kb_hook);
                     log::info!("[Hotkeys] Session resumed, hooks reinstalled");
@@ -817,6 +830,12 @@ pub fn start_hotkey_listener(app: AppHandle) {
                 } else {
                     was_suppressed = false;
                     if master_allowed {
+                        if should_release_trigger_modifiers(
+                            HOOKS_ACTIVE.load(Ordering::Relaxed),
+                            state.running.load(Ordering::SeqCst),
+                        ) {
+                            release_trigger_modifiers(binding.as_ref());
+                        }
                         handle_hotkey_pressed(&app);
                     }
                 }
@@ -943,6 +962,64 @@ fn is_hotkey_binding_pressed_physical(binding: &HotkeyBinding, strict: bool) -> 
         return true;
     }
     binding.main_vks.iter().all(|vk| is_physical_vk_down(*vk))
+}
+
+fn trigger_modifier_vks(binding: &HotkeyBinding) -> Vec<u16> {
+    let mut keys: Vec<u16> = Vec::new();
+    if binding.ctrl {
+        keys.extend_from_slice(&[VK_LCONTROL, VK_RCONTROL]);
+    }
+    if binding.left_ctrl {
+        keys.push(VK_LCONTROL);
+    }
+    if binding.right_ctrl {
+        keys.push(VK_RCONTROL);
+    }
+    if binding.alt {
+        keys.extend_from_slice(&[VK_LMENU, VK_RMENU]);
+    }
+    if binding.left_alt {
+        keys.push(VK_LMENU);
+    }
+    if binding.right_alt {
+        keys.push(VK_RMENU);
+    }
+    if binding.shift {
+        keys.extend_from_slice(&[VK_LSHIFT, VK_RSHIFT]);
+    }
+    if binding.left_shift {
+        keys.push(VK_LSHIFT);
+    }
+    if binding.right_shift {
+        keys.push(VK_RSHIFT);
+    }
+    if binding.super_key {
+        keys.extend_from_slice(&[VK_LWIN, VK_RWIN]);
+    }
+    if binding.left_super {
+        keys.push(VK_LWIN);
+    }
+    if binding.right_super {
+        keys.push(VK_RWIN);
+    }
+    keys.sort_unstable();
+    keys.dedup();
+    keys
+}
+
+fn should_release_trigger_modifiers(hooks_active: bool, running: bool) -> bool {
+    hooks_active && !running
+}
+
+fn release_trigger_modifiers(binding: Option<&HotkeyBinding>) {
+    let Some(binding) = binding else {
+        return;
+    };
+    for vk in trigger_modifier_vks(binding) {
+        if is_vk_down(vk as i32) && crate::engine::keyboard::send_key_event(vk, KEYEVENTF_KEYUP) {
+            synthetic_release_state()[vk as usize].store(true, Ordering::Relaxed);
+        }
+    }
 }
 
 pub fn handle_hotkey_pressed(app: &AppHandle) {
@@ -1313,9 +1390,66 @@ fn parse_function_key_token(token: &str) -> Option<(i32, String)> {
 mod tests {
     use super::{
         format_hotkey_binding, is_mouse_hotkey_binding, modifiers_match, parse_hotkey_binding,
-        parse_hotkey_main_key, parse_physical_code_token, DownState, PHYSICAL_CODE_KEYS,
+        parse_hotkey_main_key, parse_physical_code_token, should_release_trigger_modifiers,
+        trigger_modifier_vks, DownState, HotkeyBinding, PHYSICAL_CODE_KEYS,
     };
-    use windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_OEM_102;
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        VK_LCONTROL, VK_LMENU, VK_LWIN, VK_OEM_102, VK_RCONTROL, VK_RMENU, VK_RSHIFT,
+    };
+
+    fn bare_binding() -> HotkeyBinding {
+        HotkeyBinding {
+            ctrl: false,
+            alt: false,
+            shift: false,
+            super_key: false,
+            left_ctrl: false,
+            right_ctrl: false,
+            left_alt: false,
+            right_alt: false,
+            left_shift: false,
+            right_shift: false,
+            left_super: false,
+            right_super: false,
+            main_vks: vec![b'Y' as i32],
+            key_tokens: vec![String::from("Y")],
+        }
+    }
+
+    #[test]
+    fn trigger_modifiers_cover_both_sides_of_a_generic_modifier() {
+        let mut binding = bare_binding();
+        binding.ctrl = true;
+        binding.alt = true;
+        assert_eq!(
+            trigger_modifier_vks(&binding),
+            vec![VK_LCONTROL, VK_RCONTROL, VK_LMENU, VK_RMENU]
+        );
+    }
+
+    #[test]
+    fn trigger_modifiers_honour_a_sided_modifier() {
+        let mut binding = bare_binding();
+        binding.left_ctrl = true;
+        binding.right_shift = true;
+        binding.left_super = true;
+        assert_eq!(
+            trigger_modifier_vks(&binding),
+            vec![VK_LWIN, VK_RSHIFT, VK_LCONTROL]
+        );
+    }
+
+    #[test]
+    fn trigger_modifiers_are_released_only_when_starting_with_hooks() {
+        assert!(should_release_trigger_modifiers(true, false));
+        assert!(!should_release_trigger_modifiers(true, true));
+        assert!(!should_release_trigger_modifiers(false, false));
+    }
+
+    #[test]
+    fn trigger_modifiers_are_empty_for_a_plain_key() {
+        assert!(trigger_modifier_vks(&bare_binding()).is_empty());
+    }
 
     #[test]
     fn physical_code_tokens_round_trip() {

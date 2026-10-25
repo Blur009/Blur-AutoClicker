@@ -1,4 +1,5 @@
 import type { Settings } from "../../../../store";
+import { holdModePatch } from "../../../../cadence";
 
 import {
   SETTINGS_LIMITS,
@@ -51,26 +52,12 @@ export default function DutyCycleSection({ settings, update }: Props) {
                   dutyCycleOption === "Hold" &&
                   settings.dutyCycleMode !== "Hold"
                 ) {
-                  update({
-                    dutyCycleMode: "Hold",
-                    savedClickSpeed: settings.clickSpeed,
-                    savedClickInterval: settings.clickInterval,
-                    savedDutyCycle: settings.dutyCycle,
-                    clickSpeed: 1,
-                    clickInterval: "d",
-                    dutyCycle: 100,
-                  });
+                  update(holdModePatch(settings, true));
                 } else if (
                   dutyCycleOption === "Click" &&
                   settings.dutyCycleMode !== "Click"
                 ) {
-                  update({
-                    dutyCycleMode: "Click",
-                    clickSpeed: settings.savedClickSpeed,
-                    clickInterval:
-                      settings.savedClickInterval as Settings["clickInterval"],
-                    dutyCycle: settings.savedDutyCycle,
-                  });
+                  update(holdModePatch(settings, false));
                 }
               }}
             >
