@@ -9,18 +9,22 @@ use crate::error::AppError;
 use crate::error::AppResult;
 use crate::AppHandle;
 use crate::ClickerState;
-use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::Instant;
 use tauri::Manager;
 use windows_sys::Win32::Foundation::{GetLastError, LRESULT, POINT};
-use windows_sys::Win32::System::Threading::GetCurrentProcessId;
+use windows_sys::Win32::System::StationsAndDesktops::{
+    CloseDesktop, GetThreadDesktop, GetUserObjectInformationW, OpenInputDesktop,
+    DESKTOP_READOBJECTS, HDESK, UOI_NAME,
+};
+use windows_sys::Win32::System::Threading::{GetCurrentProcessId, GetCurrentThreadId};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, GetAncestor, GetCursorPos, GetWindowThreadProcessId,
     MsgWaitForMultipleObjectsEx, PeekMessageW, SetWindowsHookExW, UnhookWindowsHookEx,
-    WindowFromPoint, GA_ROOT, KBDLLHOOKSTRUCT, LLKHF_EXTENDED, MSG, MSLLHOOKSTRUCT,
+    WindowFromPoint, GA_ROOT, HHOOK, KBDLLHOOKSTRUCT, LLKHF_EXTENDED, MSG, MSLLHOOKSTRUCT,
     MWMO_INPUTAVAILABLE, QS_ALLINPUT, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_LBUTTONDOWN,
     WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP,
     WM_SYSKEYDOWN, WM_XBUTTONDOWN, WM_XBUTTONUP,
@@ -30,6 +34,7 @@ const PM_REMOVE: u32 = 0x0001;
 
 const POLL_INTERVAL_MS: u32 = 16;
 const FOREGROUND_PROMPT_INTERVAL: Duration = Duration::from_millis(400);
+const HOTKEY_HEALTH_INTERVAL: Duration = Duration::from_millis(400);
 
 const MAX_CHORD_MAINS: usize = 5;
 
@@ -354,6 +359,7 @@ pub fn format_hotkey_binding(binding: &HotkeyBinding) -> String {
 
 static PHYSICAL_KEY_STATE: OnceLock<&'static [AtomicBool; 256]> = OnceLock::new();
 static HOOKS_ACTIVE: AtomicBool = AtomicBool::new(false);
+static HOOK_EVENTS: AtomicU64 = AtomicU64::new(0);
 static OWN_PID: OnceLock<u32> = OnceLock::new();
 static OWN_ROOT_HWND: AtomicIsize = AtomicIsize::new(0);
 
@@ -428,6 +434,7 @@ unsafe extern "system" fn mouse_ll_proc(n_code: i32, w_param: usize, l_param: is
             };
             if vk >= 0 && (vk as usize) < 256 {
                 physical_key_state()[vk as usize].store(down, Ordering::Relaxed);
+                HOOK_EVENTS.fetch_add(1, Ordering::Relaxed);
             }
         }
     }
@@ -442,42 +449,117 @@ unsafe extern "system" fn keyboard_ll_proc(n_code: i32, w_param: usize, l_param:
             if (0..256).contains(&vk) {
                 let down = matches!(w_param as u32, WM_KEYDOWN | WM_SYSKEYDOWN);
                 physical_key_state()[vk as usize].store(down, Ordering::Relaxed);
+                HOOK_EVENTS.fetch_add(1, Ordering::Relaxed);
             }
         }
     }
     CallNextHookEx(std::ptr::null_mut(), n_code, w_param, l_param)
 }
 
+unsafe fn install_hooks() -> (HHOOK, HHOOK) {
+    let mouse_hook = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_ll_proc), std::ptr::null_mut(), 0);
+    let kb_hook = SetWindowsHookExW(
+        WH_KEYBOARD_LL,
+        Some(keyboard_ll_proc),
+        std::ptr::null_mut(),
+        0,
+    );
+
+    if !mouse_hook.is_null() && !kb_hook.is_null() {
+        HOOKS_ACTIVE.store(true, Ordering::SeqCst);
+        return (mouse_hook, kb_hook);
+    }
+
+    let err = GetLastError();
+    if !mouse_hook.is_null() {
+        UnhookWindowsHookEx(mouse_hook);
+    }
+    if !kb_hook.is_null() {
+        UnhookWindowsHookEx(kb_hook);
+    }
+    log::warn!("[Hotkeys] {}", AppError::WindowsSystem(err));
+    (std::ptr::null_mut(), std::ptr::null_mut())
+}
+
+unsafe fn replace_hooks(mouse_hook: HHOOK, kb_hook: HHOOK) -> (HHOOK, HHOOK) {
+    let (new_mouse, new_kb) = install_hooks();
+    if new_mouse.is_null() || new_kb.is_null() {
+        return (mouse_hook, kb_hook);
+    }
+    if !mouse_hook.is_null() {
+        UnhookWindowsHookEx(mouse_hook);
+    }
+    if !kb_hook.is_null() {
+        UnhookWindowsHookEx(kb_hook);
+    }
+    (new_mouse, new_kb)
+}
+
+fn desktop_name(desktop: HDESK) -> Option<Vec<u16>> {
+    unsafe {
+        let mut needed: u32 = 0;
+        GetUserObjectInformationW(desktop, UOI_NAME, std::ptr::null_mut(), 0, &mut needed);
+        if needed == 0 || needed > 512 {
+            return None;
+        }
+        let mut buffer: Vec<u16> = vec![0; needed as usize / 2 + 1];
+        if GetUserObjectInformationW(
+            desktop,
+            UOI_NAME,
+            buffer.as_mut_ptr().cast(),
+            (buffer.len() * 2) as u32,
+            &mut needed,
+        ) == 0
+        {
+            return None;
+        }
+        let len = buffer.iter().position(|c| *c == 0).unwrap_or(buffer.len());
+        buffer.truncate(len);
+        Some(buffer)
+    }
+}
+
+fn input_desktop_visible() -> Option<bool> {
+    unsafe {
+        let desktop = OpenInputDesktop(0, 0, DESKTOP_READOBJECTS);
+        if desktop.is_null() {
+            return None;
+        }
+        let input = desktop_name(desktop);
+        CloseDesktop(desktop);
+        let own = desktop_name(GetThreadDesktop(GetCurrentThreadId()));
+        match (input, own) {
+            (Some(input), Some(own)) => Some(input == own),
+            _ => None,
+        }
+    }
+}
+
+fn resync_physical_key_state() -> bool {
+    let mut cleared = false;
+    for (vk, latched) in physical_key_state().iter().enumerate() {
+        if latched.load(Ordering::Relaxed) && !is_vk_down(vk as i32) {
+            latched.store(false, Ordering::Relaxed);
+            cleared = true;
+        }
+    }
+    cleared
+}
+
 pub fn start_hotkey_listener(app: AppHandle) {
     std::thread::spawn(move || unsafe {
-        // Delay hook installation to let WebView2/windows fully initialise.
-        // Installing WH_KEYBOARD_LL too early can cause Windows to generate
-        // spurious Alt-menu events in other applications. Hotkey detection
-        // falls back to GetAsyncKeyState via the HOOKS_ACTIVE check below
-        // during this window.
         std::thread::sleep(Duration::from_secs(2));
 
-        let mouse_hook =
-            SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_ll_proc), std::ptr::null_mut(), 0);
-        let kb_hook = SetWindowsHookExW(
-            WH_KEYBOARD_LL,
-            Some(keyboard_ll_proc),
-            std::ptr::null_mut(),
-            0,
-        );
-
-        if !mouse_hook.is_null() && !kb_hook.is_null() {
-            HOOKS_ACTIVE.store(true, Ordering::SeqCst);
-        } else {
-            let err = GetLastError();
-            log::warn!("[Hotkeys] {}", AppError::WindowsSystem(err));
-        }
+        let (mut mouse_hook, mut kb_hook) = install_hooks();
 
         let state = app.state::<ClickerState>();
         let mut was_pressed = false;
         let mut was_suppressed = false;
         let mut master_was_pressed = false;
         let mut last_foreground_check = Instant::now();
+        let mut last_health_check = Instant::now();
+        let mut last_hook_events = HOOK_EVENTS.load(Ordering::Relaxed);
+        let mut session_away = false;
         let mut msg: MSG = std::mem::zeroed();
 
         'outer: loop {
@@ -496,6 +578,29 @@ pub fn start_hotkey_listener(app: AppHandle) {
             }
 
             let tick_now = Instant::now();
+            if tick_now.duration_since(last_health_check) >= HOTKEY_HEALTH_INTERVAL {
+                last_health_check = tick_now;
+                let hook_events = HOOK_EVENTS.load(Ordering::Relaxed);
+                let hooks_quiet = hook_events == last_hook_events;
+                last_hook_events = hook_events;
+
+                let resumed = match input_desktop_visible() {
+                    Some(true) => std::mem::take(&mut session_away),
+                    _ => {
+                        session_away = true;
+                        false
+                    }
+                };
+
+                if resumed {
+                    resync_physical_key_state();
+                    (mouse_hook, kb_hook) = replace_hooks(mouse_hook, kb_hook);
+                    log::info!("[Hotkeys] Session resumed, hooks reinstalled");
+                } else if hooks_quiet && resync_physical_key_state() {
+                    (mouse_hook, kb_hook) = replace_hooks(mouse_hook, kb_hook);
+                }
+            }
+
             if tick_now.duration_since(last_foreground_check) >= FOREGROUND_PROMPT_INTERVAL
                 && state.elevation_notice_enabled.load(Ordering::SeqCst)
                 && !state.elevation_blocked.load(Ordering::SeqCst)
@@ -647,6 +752,9 @@ pub fn start_hotkey_listener(app: AppHandle) {
                     && is_cursor_over_own_window();
 
             if currently_pressed && !was_pressed {
+                log::debug!(
+                    "[Hotkeys] press detected (master_allowed={master_allowed}, on_own_window={suppress_mouse_on_own_window})"
+                );
                 if suppress_mouse_on_own_window {
                     was_suppressed = true;
                 } else {

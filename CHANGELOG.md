@@ -24,6 +24,7 @@
 
 - Clicking stats now update without needing to leave and re-enter the settings page.
 - Fixed the master switch and hotkeys sometimes ignoring a press.
+- Fixed hotkeys not working after locking Windows until the app was restarted.
 
 # v3.9.6 - 24.08.2026 (d.m.y)
 
