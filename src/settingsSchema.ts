@@ -1,3 +1,6 @@
+import { DEFAULT_ACCENT_HEX, sanitizeThemeProfiles } from "./themeModel";
+import type { ThemeProfile } from "./themeModel";
+
 export type ClickInterval = "s" | "m" | "h" | "d";
 export type MouseButton = "Left" | "Middle" | "Right";
 export type InputType = "mouse" | "keyboard";
@@ -6,7 +9,7 @@ export type ClickMode = "Toggle" | "Hold";
 export type DutyCycleMode = "Click" | "Hold";
 export type TimeLimitUnit = "s" | "m" | "h";
 export type SavedPanel = "simple" | "advanced" | "zones" | "click-points";
-export type Theme = "dark" | "light";
+export type Theme = "dark" | "light" | "custom";
 export type IconTheme = "auto" | "dark" | "light";
 export type IconColor = "theme" | "default";
 export type PresetId = string;
@@ -46,7 +49,7 @@ export interface StopZone {
   action: "stop" | "pause" | "start";
 }
 
-export const DEFAULT_ACCENT_COLOR = "#22c55e";
+export const DEFAULT_ACCENT_COLOR = DEFAULT_ACCENT_HEX;
 export const DEFAULT_FONT_FAMILY = "RobotoFlex";
 export const DEFAULT_TITLE_FONT = "Pristina";
 export const PRESET_NAME_MAX_LENGTH = 40;
@@ -81,6 +84,7 @@ export const TIME_LIMIT_UNIT_OPTIONS = [
 export const THEME_OPTIONS = [
   "dark",
   "light",
+  "custom",
 ] as const satisfies ReadonlyArray<Theme>;
 export const INDICATOR_CORNER_OPTIONS = [
   "top-right",
@@ -427,6 +431,14 @@ const SETTINGS_ONLY_FIELDS = {
   theme: {
     default: "dark" as Theme,
     ui: { section: "appearance", control: "select" },
+  },
+  themeProfiles: {
+    default: [] as ThemeProfile[],
+    ui: { section: "appearance", control: "custom" },
+  },
+  activeThemeProfileId: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
   },
   alwaysOnTop: {
     default: false,
@@ -788,7 +800,9 @@ function defaultsFromFields<F extends Record<string, FieldDef<unknown>>>(
 ): DefaultValues<F> {
   const output: Record<string, unknown> = {};
   for (const [key, def] of Object.entries(fields)) {
-    output[key] = def.default;
+    output[key] = Array.isArray(def.default)
+      ? def.default.slice()
+      : def.default;
   }
   return output as DefaultValues<F>;
 }
@@ -812,11 +826,8 @@ function limitsFromFields<F extends Record<string, FieldDef<unknown>>>(
   return output;
 }
 
-const PRESET_DEFAULTS = defaultsFromFields(PRESET_FIELDS);
-const SETTINGS_ONLY_DEFAULTS = defaultsFromFields(SETTINGS_ONLY_FIELDS);
-
-type PresetFieldValues = typeof PRESET_DEFAULTS;
-type SettingsOnlyFieldValues = typeof SETTINGS_ONLY_DEFAULTS;
+type PresetFieldValues = DefaultValues<typeof PRESET_FIELDS>;
+type SettingsOnlyFieldValues = DefaultValues<typeof SETTINGS_ONLY_FIELDS>;
 
 export type PresetSnapshot = PresetFieldValues;
 
@@ -1293,8 +1304,8 @@ function sanitizeStopZones(value: unknown): StopZone[] {
 export function createDefaultSettings(version: string): Settings {
   return {
     version,
-    ...PRESET_DEFAULTS,
-    ...SETTINGS_ONLY_DEFAULTS,
+    ...defaultsFromFields(PRESET_FIELDS),
+    ...defaultsFromFields(SETTINGS_ONLY_FIELDS),
   };
 }
 
@@ -1543,6 +1554,20 @@ export function sanitizeSettings(
     defaults.lastPanel,
   );
   settingsOnly.theme = sanitizeTheme(saved.theme, defaults.theme);
+  const themeProfiles = sanitizeThemeProfiles(saved.themeProfiles);
+  const savedActiveThemeProfileId =
+    typeof saved.activeThemeProfileId === "string"
+      ? saved.activeThemeProfileId
+      : "";
+  settingsOnly.themeProfiles = themeProfiles;
+  settingsOnly.activeThemeProfileId = themeProfiles.some(
+    (profile) => profile.id === savedActiveThemeProfileId,
+  )
+    ? savedActiveThemeProfileId
+    : "";
+  if (settingsOnly.theme === "custom" && !settingsOnly.activeThemeProfileId) {
+    settingsOnly.theme = "dark";
+  }
   settingsOnly.masterKeybindMode = sanitizeEnum(
     saved.masterKeybindMode,
     defaults.masterKeybindMode,

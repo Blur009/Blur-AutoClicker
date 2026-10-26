@@ -2,6 +2,7 @@
 
 ## New
 
+- Added custom theme support and a custom theme editor.
 - Added a notice when an administrator window takes focus, with a restart-as-administrator prompt.
 - Added a Run as Administrator row that reports the live elevation state and offers a restart when it is enabled.
 - Added an overlay to show when the clicker is active. Settings → Overlay. On by default.

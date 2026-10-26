@@ -17,6 +17,7 @@ mod indicator;
 mod notifications;
 mod overlay;
 mod startup;
+mod theme_window;
 mod ui_commands;
 mod updates;
 mod webview_guard;
@@ -735,6 +736,8 @@ pub fn run() {
             updates::update_checker::check_for_updates,
             updates::update_checker::fetch_changelog,
             overlay::hide_overlay,
+            theme_window::open_theme_window,
+            theme_window::close_theme_window,
             ui_commands::hide_main_window,
             ui_commands::quit_app,
             ui_commands::get_autostart_enabled,

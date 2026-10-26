@@ -37,6 +37,7 @@ function renderPanel() {
       onImportPreset={async () => null}
       onToggleAlwaysOnTop={async () => {}}
       onRestartAsAdmin={async () => "refused"}
+      onOpenCustomizer={() => {}}
       onReset={async () => {}}
       updateCheckStatus="idle"
       onCheckForUpdate={() => {}}

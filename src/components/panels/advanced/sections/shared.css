@@ -456,7 +456,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .adv-dropdown-list::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  background: var(--scrollbar-hover, #777777);
 }
 
 .adv-dropdown-menu--portal {

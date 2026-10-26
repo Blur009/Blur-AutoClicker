@@ -121,6 +121,7 @@ interface Props {
   onImportPreset: () => Promise<boolean | null>;
   onToggleAlwaysOnTop: () => Promise<void>;
   onRestartAsAdmin: () => Promise<RestartOutcome>;
+  onOpenCustomizer: () => void;
   onReset: () => Promise<void>;
   updateCheckStatus:
     "idle" | "checking" | "available" | "unavailable" | "error";
@@ -144,6 +145,7 @@ export default function SettingsPanel({
   onImportPreset,
   onToggleAlwaysOnTop,
   onRestartAsAdmin,
+  onOpenCustomizer,
   onReset,
   updateCheckStatus,
   onCheckForUpdate,
@@ -351,7 +353,11 @@ export default function SettingsPanel({
           />
         )}
         {activeTab === "appearance" && (
-          <AppearanceSection settings={settings} update={update} />
+          <AppearanceSection
+            settings={settings}
+            update={update}
+            onOpenCustomizer={onOpenCustomizer}
+          />
         )}
         {activeTab === "overlay" && (
           <OverlaySection settings={settings} update={update} />

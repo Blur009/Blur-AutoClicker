@@ -17,7 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { applyAccentTheme } from "./accentTheme";
+import { useThemeRuntime } from "./themeRuntime";
 import {
   logDiagnostic,
   logWarning,
@@ -159,9 +159,14 @@ const DEFAULT_APP_INFO: AppInfo = {
 };
 
 async function syncSettingsToBackend(settings: Settings) {
+  const backendSettings = Object.fromEntries(
+    Object.entries(settings).filter(
+      ([key]) => key !== "themeProfiles" && key !== "activeThemeProfileId",
+    ),
+  );
   await invoke("update_settings", {
     settings: {
-      ...settings,
+      ...backendSettings,
       version: BACKEND_SETTINGS_SCHEMA_VERSION,
     },
   });
@@ -271,6 +276,8 @@ export default function App() {
     }, 100);
   };
 
+  const scheduleSaveRef = useRef(scheduleSave);
+
   const persistCommittedSettings = (
     nextCommittedSettings: Settings,
     nextUiSettings: Settings,
@@ -359,6 +366,7 @@ export default function App() {
     persistCommittedSettingsRef.current = persistCommittedSettings;
     setUiSettingsRef.current = setUiSettings;
     queueHotkeyRegistrationRef.current = queueHotkeyRegistration;
+    scheduleSaveRef.current = scheduleSave;
   });
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
@@ -851,22 +859,6 @@ export default function App() {
 
           setTab(hydratedSettings.lastPanel);
           setSettings(hydratedSettings);
-          {
-            const theme = hydratedSettings.theme ?? "dark";
-            document.documentElement.dataset.theme = theme;
-            applyAccentTheme(hydratedSettings.accentColor, theme);
-            invoke("set_accent_color", {
-              color: hydratedSettings.accentColor,
-              theme,
-              iconEnabled: hydratedSettings.taskbarIconEnabled,
-              iconTheme: hydratedSettings.taskbarIconTheme,
-              iconColor: hydratedSettings.taskbarIconColor,
-            }).catch((err) =>
-              logWarning("App.applyAccentTheme", {
-                error: String(err),
-              }),
-            );
-          }
           setAppInfo(loadedAppInfo);
           setStatus(loadedStatus);
           if (loadedStatus.elevationBlocked) {
@@ -1201,30 +1193,6 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    const theme = settings.theme ?? "dark";
-    document.documentElement.dataset.theme = theme;
-    applyAccentTheme(settings.accentColor, theme);
-
-    invoke("set_accent_color", {
-      color: settings.accentColor,
-      theme,
-      iconEnabled: settings.taskbarIconEnabled,
-      iconTheme: settings.taskbarIconTheme,
-      iconColor: settings.taskbarIconColor,
-    }).catch((err) =>
-      logWarning("App.applyAccentTheme", {
-        error: String(err),
-      }),
-    );
-  }, [
-    settings.accentColor,
-    settings.theme,
-    settings.taskbarIconEnabled,
-    settings.taskbarIconTheme,
-    settings.taskbarIconColor,
-  ]);
-
   useLayoutEffect(() => {
     document.documentElement.style.setProperty(
       "--font-family-base",
@@ -1246,80 +1214,6 @@ export default function App() {
     document.documentElement.lang = "en";
     document.documentElement.dir = "ltr";
   }, []);
-
-  useLayoutEffect(() => {
-    const root = document.querySelector(".app-root") as HTMLElement | null;
-    if (!root) return;
-
-    const sfx = tabSuffix(tab);
-    const panelOpacity =
-      resolvePerPage(settings, settings.panelOpacity, `panelOpacity${sfx}`) /
-      100;
-    const windowOpacity =
-      resolvePerPage(settings, settings.windowOpacity, `windowOpacity${sfx}`) /
-      100;
-    const colors =
-      settings.theme === "light"
-        ? {
-            base: "229, 223, 231",
-            surface: "255, 255, 255",
-            elevated: "242, 242, 242",
-            input: "217, 217, 217",
-            inputOff: "217, 217, 217",
-          }
-        : {
-            base: "12, 12, 14",
-            surface: "26, 26, 26",
-            elevated: "38, 38, 38",
-            input: "59, 59, 59",
-            inputOff: "51, 51, 51",
-          };
-
-    root.style.setProperty(
-      "--bg-base",
-      `rgba(${colors.base}, ${windowOpacity})`,
-    );
-    root.style.setProperty(
-      "--bg-surface",
-      `rgba(${colors.surface}, ${panelOpacity})`,
-    );
-    root.style.setProperty("--bg-surface-solid", `rgb(${colors.surface})`);
-    root.style.setProperty("--panel-alpha", String(panelOpacity));
-    root.style.setProperty(
-      "--bg-elevated",
-      `rgba(${colors.elevated}, ${panelOpacity})`,
-    );
-    root.style.setProperty("--bg-elevated-solid", `rgb(${colors.elevated})`);
-    root.style.setProperty(
-      "--bg-input",
-      `rgba(${colors.input}, ${panelOpacity})`,
-    );
-    root.style.setProperty(
-      "--bg-input-off",
-      `rgba(${colors.inputOff}, ${panelOpacity})`,
-    );
-    root.style.setProperty(
-      "--bg-panel-blur",
-      `${resolvePerPage(settings, settings.panelBlur, `panelBlur${sfx}`)}px`,
-    );
-    root.style.setProperty(
-      "--bg-image-blur",
-      `${resolvePerPage(settings, settings.backgroundBlur, `backgroundBlur${sfx}`)}px`,
-    );
-
-    return () => {
-      root.style.removeProperty("--bg-base");
-      root.style.removeProperty("--bg-surface");
-      root.style.removeProperty("--bg-surface-solid");
-      root.style.removeProperty("--panel-alpha");
-      root.style.removeProperty("--bg-elevated");
-      root.style.removeProperty("--bg-elevated-solid");
-      root.style.removeProperty("--bg-input");
-      root.style.removeProperty("--bg-input-off");
-      root.style.removeProperty("--bg-panel-blur");
-      root.style.removeProperty("--bg-image-blur");
-    };
-  }, [settings, tab]);
 
   useEffect(() => {
     const cleanup = listen<boolean>("minimized-changed", (event) => {
@@ -1836,6 +1730,65 @@ export default function App() {
     }
   }, []);
 
+  const handleOpenCustomizer = useCallback(() => {
+    void flushPendingSettingsSave().then((saved) => {
+      if (!saved) {
+        scheduleSaveRef.current(committedSettingsRef.current);
+      }
+      return invoke("open_theme_window").catch((err) =>
+        logDiagnostic("App.openThemeWindow", {
+          error: String(err),
+        }),
+      );
+    });
+  }, [flushPendingSettingsSave]);
+
+  const readCommittedSettings = useCallback(
+    () => committedSettingsRef.current,
+    [],
+  );
+
+  const commitThemeSettings = useCallback((nextSettings: Settings) => {
+    committedSettingsRef.current = nextSettings;
+    setUiSettingsRef.current({
+      ...nextSettings,
+      hotkey: uiSettingsRef.current.hotkey,
+    });
+    scheduleSaveRef.current(nextSettings);
+  }, []);
+
+  const themeTabSuffix = tabSuffix(tab);
+
+  useThemeRuntime({
+    settings,
+    settingsLoaded,
+    windowOpacity:
+      resolvePerPage(
+        settings,
+        settings.windowOpacity,
+        `windowOpacity${themeTabSuffix}`,
+      ) / 100,
+    panelOpacity:
+      resolvePerPage(
+        settings,
+        settings.panelOpacity,
+        `panelOpacity${themeTabSuffix}`,
+      ) / 100,
+    panelBlur: resolvePerPage(
+      settings,
+      settings.panelBlur,
+      `panelBlur${themeTabSuffix}`,
+    ),
+    backgroundBlur: resolvePerPage(
+      settings,
+      settings.backgroundBlur,
+      `backgroundBlur${themeTabSuffix}`,
+    ),
+    readCommittedSettings,
+    commitSettings: commitThemeSettings,
+    openCustomizer: handleOpenCustomizer,
+  });
+
   const handleRestartAsAdmin = useCallback(
     () => restartAsAdministrator(flushPendingSettingsSave),
     [flushPendingSettingsSave],
@@ -1972,6 +1925,7 @@ export default function App() {
             onImportPreset={handleImportPreset}
             onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
             onRestartAsAdmin={handleRestartAsAdmin}
+            onOpenCustomizer={handleOpenCustomizer}
             onReset={handleResetSettings}
             updateCheckStatus={updateCheckStatus}
             onCheckForUpdate={handleCheckForUpdate}

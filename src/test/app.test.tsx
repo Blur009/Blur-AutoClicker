@@ -10,6 +10,8 @@ import {
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import type { Settings } from "../settingsSchema";
+import { createThemeProfile } from "../themeModel";
+import type { ThemeApplyMessage, ThemeStateMessage } from "../themeBridge";
 import {
   installBrowserGlobals,
   registerHotkeyEcho,
@@ -42,6 +44,25 @@ vi.mock(
 );
 
 vi.mock("../store", async () => (await import("./tauriHarness")).storeModule);
+
+const themeBridgeMock = vi.hoisted(() => ({
+  apply: null as ((message: ThemeApplyMessage) => void) | null,
+  states: [] as ThemeStateMessage[],
+}));
+
+vi.mock("../themeBridge", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../themeBridge")>();
+  return {
+    ...actual,
+    onThemeApply: (handler: (message: ThemeApplyMessage) => void) => {
+      themeBridgeMock.apply = handler;
+      return Promise.resolve(() => {});
+    },
+    emitThemeState: async (message: ThemeStateMessage) => {
+      themeBridgeMock.states.push(message);
+    },
+  };
+});
 
 type Session = ReturnType<typeof userEvent.setup>;
 
@@ -85,6 +106,8 @@ beforeEach(() => {
   tauri.reset();
   installBrowserGlobals();
   tauri.setInvokeHandler("register_hotkey", registerHotkeyEcho);
+  themeBridgeMock.apply = null;
+  themeBridgeMock.states.length = 0;
 });
 
 describe("App boot", () => {
@@ -230,6 +253,294 @@ describe("App reset settings", () => {
 
     await waitFor(() =>
       expect(screen.getByLabelText("Clicks Per")).toHaveValue("25"),
+    );
+  });
+});
+
+function customThemeProfile() {
+  const profile = createThemeProfile(
+    "dark",
+    "#22c55e",
+    "Custom 1",
+    "theme-1",
+    1,
+  );
+  profile.tokens.bgSurface = { hex: "#123456", alpha: 1 };
+  return profile;
+}
+
+async function openAppearanceTab(session: Session) {
+  await session.click(await screen.findByRole("button", { name: "Settings" }));
+  await session.click(
+    await screen.findByRole(
+      "button",
+      { name: "Appearance" },
+      { timeout: 5000 },
+    ),
+  );
+}
+
+describe("App custom themes", () => {
+  it("writes custom theme tokens to the document element", async () => {
+    tauri.setStoredSettings({
+      theme: "custom",
+      themeProfiles: [customThemeProfile()],
+      activeThemeProfileId: "theme-1",
+    });
+
+    await renderLoadedApp();
+
+    await waitFor(() =>
+      expect(
+        document.documentElement.style.getPropertyValue("--bg-surface-solid"),
+      ).toBe("rgb(18, 52, 86)"),
+    );
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    const appRoot = document.querySelector(".app-root") as HTMLElement | null;
+    expect(appRoot?.style.getPropertyValue("--bg-surface-solid")).toBe("");
+  });
+
+  it("clears custom tokens and restores the dark dataset when switching to dark", async () => {
+    const profile = createThemeProfile(
+      "light",
+      "#22c55e",
+      "Custom 1",
+      "theme-1",
+      1,
+    );
+    profile.tokens.bgSurface = { hex: "#123456", alpha: 1 };
+    tauri.setStoredSettings({
+      theme: "custom",
+      themeProfiles: [profile],
+      activeThemeProfileId: "theme-1",
+    });
+
+    await renderLoadedApp();
+
+    await waitFor(() =>
+      expect(
+        document.documentElement.style.getPropertyValue("--bg-surface-solid"),
+      ).toBe("rgb(18, 52, 86)"),
+    );
+    expect(document.documentElement.dataset.theme).toBe("light");
+
+    const session = userEvent.setup();
+    await openAppearanceTab(session);
+    const themeGroup = document.querySelector<HTMLElement>(
+      ".settings-seg-group--theme",
+    )!;
+    await session.click(
+      within(themeGroup).getByRole("button", { name: "Dark" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        document.documentElement.style.getPropertyValue("--bg-surface-solid"),
+      ).toBe(""),
+    );
+    expect(document.documentElement.dataset.theme).toBe("dark");
+  });
+
+  it("sends the custom profile accent and base to the desktop accent", async () => {
+    const profile = createThemeProfile(
+      "light",
+      "#abcdef",
+      "Custom 1",
+      "theme-1",
+      1,
+    );
+    tauri.setStoredSettings({
+      theme: "custom",
+      themeProfiles: [profile],
+      activeThemeProfileId: "theme-1",
+    });
+
+    await renderLoadedApp();
+
+    await waitFor(() => {
+      const calls = tauri.invokes("set_accent_color");
+      const last = calls[calls.length - 1];
+      expect(last?.args?.color).toBe("#abcdef");
+      expect(last?.args?.theme).toBe("light");
+    });
+  });
+
+  it("persists a theme apply message and answers with the new state", async () => {
+    await renderLoadedApp();
+    const session = userEvent.setup();
+    await waitFor(() => expect(themeBridgeMock.apply).not.toBeNull());
+
+    const incoming = createThemeProfile(
+      "light",
+      "#ff0000",
+      "Incoming",
+      "theme-new",
+      2,
+    );
+
+    await act(async () => {
+      themeBridgeMock.apply!({
+        kind: "upsert",
+        sessionId: "session-1",
+        seq: 1,
+        profile: incoming,
+        activateCustom: true,
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const state = themeBridgeMock.states.at(-1);
+      expect(state?.sessionId).toBe("session-1");
+      expect(state?.ackSeq).toBe(1);
+      expect(state?.theme).toBe("custom");
+      expect(state?.activeProfileId).toBe("theme-new");
+      expect(state?.profiles.map((entry) => entry.id)).toEqual(["theme-new"]);
+      expect(state?.activeProfile?.id).toBe("theme-new");
+    });
+
+    await act(async () => {
+      themeBridgeMock.apply!({
+        kind: "upsert",
+        sessionId: "session-1",
+        seq: 1,
+        profile: createThemeProfile(
+          "dark",
+          "#000000",
+          "Stale",
+          "theme-stale",
+          3,
+        ),
+        activateCustom: true,
+      });
+      await Promise.resolve();
+    });
+
+    expect(
+      themeBridgeMock.states.at(-1)?.profiles.map((entry) => entry.id),
+    ).toEqual(["theme-new"]);
+
+    const speedInput = screen.getByLabelText("Clicks Per");
+    await session.clear(speedInput);
+    await session.type(speedInput, "30");
+
+    await waitFor(() => expect(syncedSettings().clickSpeed).toBe(30));
+    expect(syncedSettings().theme).toBe("custom");
+    await waitFor(() => {
+      const saved = tauri.savedSettings().at(-1);
+      expect(saved?.themeProfiles.map((profile) => profile.id)).toEqual([
+        "theme-new",
+      ]);
+      expect(saved?.activeThemeProfileId).toBe("theme-new");
+      expect(saved?.clickSpeed).toBe(30);
+    });
+
+    await act(async () => {
+      themeBridgeMock.apply!({
+        kind: "delete",
+        sessionId: "session-1",
+        seq: 2,
+        profileId: "theme-new",
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const state = themeBridgeMock.states.at(-1);
+      expect(state?.theme).toBe("dark");
+      expect(state?.activeProfileId).toBe("");
+      expect(state?.profiles).toEqual([]);
+    });
+    await waitFor(() => {
+      const saved = tauri.savedSettings().at(-1);
+      expect(saved?.themeProfiles).toEqual([]);
+      expect(saved?.activeThemeProfileId).toBe("");
+    });
+  });
+
+  it("disables the accent controls while a custom theme is active", async () => {
+    tauri.setStoredSettings({
+      theme: "custom",
+      themeProfiles: [customThemeProfile()],
+      activeThemeProfileId: "theme-1",
+    });
+
+    await renderLoadedApp();
+    const session = userEvent.setup();
+    await openAppearanceTab(session);
+
+    expect(
+      await screen.findByText("Part of the custom theme you are using."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Edit custom theme" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector(".settings-color-controls[aria-disabled='true']"),
+    ).not.toBeNull();
+  });
+
+  it("selects the last custom theme without opening the customizer", async () => {
+    tauri.setStoredSettings({
+      theme: "dark",
+      themeProfiles: [customThemeProfile()],
+      activeThemeProfileId: "theme-1",
+    });
+
+    await renderLoadedApp();
+    const session = userEvent.setup();
+    await openAppearanceTab(session);
+
+    await session.click(await screen.findByRole("button", { name: "Custom" }));
+
+    expect(
+      await screen.findByRole("button", { name: "Edit custom theme" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Custom" })).toHaveClass(
+      "active",
+    );
+    expect(tauri.invokes("open_theme_window")).toHaveLength(0);
+
+    await session.click(
+      screen.getByRole("button", { name: "Edit custom theme" }),
+    );
+
+    await waitFor(() =>
+      expect(tauri.invokes("open_theme_window")).toHaveLength(1),
+    );
+  });
+
+  it("opens the theme window from the Custom segment when no profiles exist", async () => {
+    await renderLoadedApp();
+    const session = userEvent.setup();
+
+    await openAppearanceTab(session);
+    const syncedBefore = tauri.invokes("update_settings").length;
+
+    await session.click(await screen.findByRole("button", { name: "Custom" }));
+
+    await waitFor(() =>
+      expect(tauri.invokes("open_theme_window")).toHaveLength(1),
+    );
+    expect(tauri.invokes("update_settings")).toHaveLength(syncedBefore);
+    expect(syncedSettings().theme).toBe("dark");
+  });
+
+  it("opens the theme window with Ctrl+Alt+T", async () => {
+    await renderLoadedApp();
+
+    await act(async () => {
+      fireEvent.keyDown(document.body, {
+        key: "t",
+        code: "KeyT",
+        ctrlKey: true,
+        altKey: true,
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(tauri.invokes("open_theme_window")).toHaveLength(1),
     );
   });
 });

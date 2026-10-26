@@ -10,6 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { logDiagnostic } from "../../../../diagnostics";
 import { open } from "@tauri-apps/plugin-dialog";
 import { applyAccentTheme } from "../../../../accentTheme";
+import { themeBaseOf } from "../../../../themeModel";
 import {
   getExtension,
   IMAGE_EXTENSIONS,
@@ -51,7 +52,7 @@ const PAGES = [
   { suffix: "Settings", label: "Settings Page" },
 ] as const;
 
-const THEME_SEG_OPTIONS = ["dark", "light"] as const;
+const THEME_SEG_OPTIONS = ["dark", "light", "custom"] as const;
 const ICON_THEME_SEG_OPTIONS: IconTheme[] = ["auto", "dark", "light"];
 const ICON_COLOR_SEG_OPTIONS: IconColor[] = ["theme", "default"];
 
@@ -63,6 +64,7 @@ const LEGACY_WARNING_TEXT_STYLE: CSSProperties = {
 interface Props {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
+  onOpenCustomizer: () => void;
 }
 
 const PageAppearanceControls = memo(function PageAppearanceControls({
@@ -390,57 +392,139 @@ const FontPicker = memo(function FontPicker({
 const ThemeAccentCard = memo(function ThemeAccentCard({
   settings,
   update,
+  onOpenCustomizer,
 }: {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
+  onOpenCustomizer: () => void;
 }) {
   const theme = settings.theme;
-  const accentColor = settings.accentColor;
-  const handleThemeSelect = useCallback(
-    (next: Settings["theme"]) => update({ theme: next }),
-    [update],
+  const activeProfile = useMemo(
+    () =>
+      settings.themeProfiles.find(
+        (profile) => profile.id === settings.activeThemeProfileId,
+      ) ?? null,
+    [settings.activeThemeProfileId, settings.themeProfiles],
   );
+  const accentColor =
+    theme === "custom" && activeProfile
+      ? activeProfile.tokens.accent.hex
+      : settings.accentColor;
+  const accentDisabled = theme === "custom";
+
+  const handleThemeSelect = useCallback(
+    (next: Settings["theme"]) => {
+      if (next !== "custom") {
+        update({ theme: next });
+        return;
+      }
+
+      const profiles = settings.themeProfiles;
+      if (profiles.length === 0) {
+        onOpenCustomizer();
+        return;
+      }
+
+      const activeThemeProfileId = profiles.some(
+        (profile) => profile.id === settings.activeThemeProfileId,
+      )
+        ? settings.activeThemeProfileId
+        : profiles[0].id;
+      update({ theme: "custom", activeThemeProfileId });
+    },
+    [
+      onOpenCustomizer,
+      settings.activeThemeProfileId,
+      settings.themeProfiles,
+      update,
+    ],
+  );
+
   const handleAccentChange = useCallback(
     (nextColor: string) => update({ accentColor: nextColor }),
     [update],
   );
+
   const handleAccentPreview = useCallback(
-    (nextColor: string) => applyAccentTheme(nextColor, settings.theme),
-    [settings.theme],
+    (nextColor: string) => {
+      const base = themeBaseOf(theme, activeProfile);
+      applyAccentTheme(nextColor, base);
+      const root = document.querySelector<HTMLElement>(".app-root");
+      if (root) applyAccentTheme(nextColor, base, root);
+    },
+    [activeProfile, theme],
   );
+
   const handleAccentReset = useCallback(
     () => update({ accentColor: DEFAULT_ACCENT_COLOR }),
     [update],
   );
+
   return (
     <SettingsCard title="Theme & Accent" description="Applied to all pages.">
       <div className="settings-row">
         <div className="settings-label-group">
           <span className="settings-label">Theme</span>
           <span className="settings-sublabel">
-            Switch the app between dark and light.
+            Dark, light, or a theme of your own.
           </span>
         </div>
-        <div className="settings-seg-group settings-seg-group--theme">
-          {THEME_SEG_OPTIONS.map((option) => (
+        <div className="settings-row-actions">
+          <div className="settings-seg-group settings-seg-group--theme">
+            {THEME_SEG_OPTIONS.map((option) => (
+              <button
+                key={option}
+                className={`settings-seg-btn settings-seg-btn--${option} ${theme === option ? "active" : ""}`}
+                onClick={() => handleThemeSelect(option)}
+              >
+                {option === "dark"
+                  ? "Dark"
+                  : option === "light"
+                    ? "Light"
+                    : "Custom"}
+              </button>
+            ))}
+          </div>
+          {theme === "custom" && settings.themeProfiles.length > 0 && (
             <button
-              key={option}
-              className={`settings-seg-btn settings-seg-btn--${option} ${theme === option ? "active" : ""}`}
-              onClick={() => handleThemeSelect(option)}
+              type="button"
+              className="settings-btn-secondary settings-btn-icon"
+              aria-label="Edit custom theme"
+              title="Edit custom theme"
+              onClick={onOpenCustomizer}
             >
-              {option === "dark" ? "Dark" : "Light"}
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+                <path d="m15 5 4 4" />
+              </svg>
             </button>
-          ))}
+          )}
         </div>
       </div>
       <div className="settings-row">
         <div className="settings-label-group">
           <span className="settings-label">Accent Color</span>
           <span className="settings-sublabel">
-            Color of toggles, sliders and active tabs.
+            {accentDisabled
+              ? "Part of the custom theme you are using."
+              : "Color of toggles, sliders and active tabs."}
           </span>
         </div>
-        <div className="settings-color-controls">
+        <div
+          className={`settings-color-controls${accentDisabled ? " settings-color-controls--disabled" : ""}`}
+          aria-disabled={accentDisabled || undefined}
+          inert={accentDisabled}
+        >
           <ColorPicker
             value={accentColor}
             onChange={handleAccentChange}
@@ -453,7 +537,7 @@ const ThemeAccentCard = memo(function ThemeAccentCard({
           <button
             className="settings-btn-secondary"
             onClick={handleAccentReset}
-            disabled={accentColor === DEFAULT_ACCENT_COLOR}
+            disabled={accentDisabled || accentColor === DEFAULT_ACCENT_COLOR}
           >
             Reset
           </button>
@@ -478,7 +562,11 @@ const ThemeAccentCard = memo(function ThemeAccentCard({
   );
 });
 
-export default function AppearanceSection({ settings, update }: Props) {
+export default function AppearanceSection({
+  settings,
+  update,
+  onOpenCustomizer,
+}: Props) {
   const isPerPage = settings.perPageAppearance;
 
   const handleModeChange = useCallback(
@@ -520,7 +608,11 @@ export default function AppearanceSection({ settings, update }: Props) {
 
   return (
     <>
-      <ThemeAccentCard settings={settings} update={update} />
+      <ThemeAccentCard
+        settings={settings}
+        update={update}
+        onOpenCustomizer={onOpenCustomizer}
+      />
 
       <SettingsCard
         title="Appearance Mode"

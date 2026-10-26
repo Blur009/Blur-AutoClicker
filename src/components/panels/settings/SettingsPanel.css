@@ -34,7 +34,7 @@
 }
 
 .settings-sidebar::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  background: var(--scrollbar-hover, #777777);
 }
 
 @keyframes settings-sidebar-enable {
@@ -193,7 +193,7 @@
 }
 
 .settings-panel::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  background: var(--scrollbar-hover, #777777);
 }
 
 @keyframes settings-panel-enable {
@@ -201,9 +201,9 @@
     overflow-y: auto;
   }
 }
+
 [data-theme="light"] .settings-panel {
-  border-top-color: rgb(166, 166, 166);
-  border-left-color: rgb(166, 166, 166);
+  border-color: var(--border-subtle);
 }
 
 .settings-section-heading {
@@ -444,6 +444,11 @@
   color: rgba(0, 0, 0, 1);
 }
 
+.settings-seg-group--theme .settings-seg-btn--custom:not(.active) {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
 .settings-seg-group--theme .settings-seg-btn:first-child {
   border-radius: calc(var(--radius-md) - 1px) 0 0 calc(var(--radius-md) - 1px);
 }
@@ -452,13 +457,27 @@
   border-radius: 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0;
 }
 
+.settings-seg-group--theme .settings-seg-btn {
+  position: relative;
+}
+
+.settings-seg-group--theme {
+  overflow: visible;
+}
+
 .settings-seg-group--theme .settings-seg-btn:hover {
-  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.55);
+  z-index: 1;
+  box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.55);
 }
 
 .settings-seg-group--theme .settings-seg-btn.active,
 .settings-seg-group--theme .settings-seg-btn.active:hover {
-  box-shadow: inset 0 0 0 1px var(--accent);
+  z-index: 1;
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.settings-seg-group--theme .settings-seg-btn:focus-visible {
+  z-index: 2;
 }
 
 .settings-btn-primary,
@@ -497,6 +516,28 @@
 
 .settings-btn-secondary {
   color: var(--text-primary);
+}
+
+.settings-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+}
+
+.sidebar-tab:focus-visible,
+.settings-btn-primary:focus-visible,
+.settings-btn-secondary:focus-visible,
+.settings-btn-danger:focus-visible,
+.settings-btn-quiet:focus-visible,
+.settings-btn-icon:focus-visible,
+.settings-opacity-slider:focus-visible,
+.settings-seg-btn:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
 }
 
 .font-dropdown {
@@ -582,6 +623,11 @@
   flex-wrap: wrap;
 }
 
+.settings-color-controls--disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .preset-compose {
   display: flex;
   gap: 0.5rem;
@@ -634,7 +680,7 @@
 }
 
 .preset-list::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  background: var(--scrollbar-hover, #777777);
 }
 
 @keyframes preset-list-enable {
@@ -1085,7 +1131,7 @@
 }
 
 .settings-proc-list::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  background: var(--scrollbar-hover, #777777);
 }
 
 .settings-proc-list .adv-click-points-item {

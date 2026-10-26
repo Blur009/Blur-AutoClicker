@@ -421,7 +421,7 @@
 }
 
 .adv-stop-zone-list::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  background: var(--scrollbar-hover, #777777);
 }
 
 .adv-stop-zone-list > * + * {

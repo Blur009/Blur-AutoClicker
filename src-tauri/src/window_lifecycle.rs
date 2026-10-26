@@ -100,7 +100,8 @@ pub fn start_periodic_trimming(interval_secs: u64) {
     });
 }
 
-pub fn on_hide(_app: &AppHandle) {
+pub fn on_hide(app: &AppHandle) {
+    crate::theme_window::close_if_open(app);
     trim_webview_processes();
 }
 

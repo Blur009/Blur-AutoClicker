@@ -21,6 +21,7 @@ export type SequenceEntry = {
 };
 
 type InvokeHandler = (args: Record<string, unknown> | undefined) => unknown;
+type CloseRequestedHandler = (event: { preventDefault: () => void }) => void;
 
 type HarnessState = {
   invokes: InvokeRecord[];
@@ -29,10 +30,12 @@ type HarnessState = {
   sequence: SequenceEntry[];
   windowCalls: WindowRecord[];
   storedSettings: Settings;
+  savedSettings: Settings[];
   loadError: unknown;
   recoveryWarning: string | null;
   invokeResults: Map<string, unknown>;
   invokeHandlers: Map<string, InvokeHandler>;
+  closeRequestedHandler: CloseRequestedHandler | null;
 };
 
 const APP_INFO = {
@@ -101,10 +104,12 @@ function initialState(): HarnessState {
     sequence: [],
     windowCalls: [],
     storedSettings: createDefaultSettings("0.0.0"),
+    savedSettings: [],
     loadError: null,
     recoveryWarning: null,
     invokeResults: new Map(),
     invokeHandlers: new Map(),
+    closeRequestedHandler: null,
   };
 }
 
@@ -204,7 +209,15 @@ const appWindow = {
   innerSize: async () => ({ width: 750, height: 220 }),
   scaleFactor: async () => 1,
   onResized: async () => () => {},
-  onCloseRequested: async () => () => {},
+  onCloseRequested: async (handler: CloseRequestedHandler) => {
+    recordWindowCall("onCloseRequested", []);
+    state.closeRequestedHandler = handler;
+    return () => {
+      if (state.closeRequestedHandler === handler) {
+        state.closeRequestedHandler = null;
+      }
+    };
+  },
 };
 
 export function getCurrentWindow() {
@@ -236,10 +249,12 @@ export function reset() {
   state.sequence = fresh.sequence;
   state.windowCalls = fresh.windowCalls;
   state.storedSettings = fresh.storedSettings;
+  state.savedSettings = fresh.savedSettings;
   state.loadError = fresh.loadError;
   state.recoveryWarning = fresh.recoveryWarning;
   state.invokeResults = fresh.invokeResults;
   state.invokeHandlers = fresh.invokeHandlers;
+  state.closeRequestedHandler = fresh.closeRequestedHandler;
 }
 
 export function setStoredSettings(overrides: Partial<Settings>) {
@@ -286,9 +301,26 @@ export function windowCalls(method?: string): WindowRecord[] {
   return state.windowCalls.filter((record) => record.method === method);
 }
 
+export function requestClose(): boolean {
+  const handler = state.closeRequestedHandler;
+  if (!handler) throw new Error("No close handler registered");
+  let prevented = false;
+  handler({
+    preventDefault: () => {
+      prevented = true;
+    },
+  });
+  return prevented;
+}
+
+export function savedSettings(): Settings[] {
+  return state.savedSettings;
+}
+
 export const tauri = {
   reset,
   setStoredSettings,
+  savedSettings,
   failLoadSettings,
   setRecoveryWarning,
   setInvokeResult,
@@ -298,6 +330,7 @@ export const tauri = {
   emits,
   firstIndexOf,
   windowCalls,
+  requestClose,
 };
 
 export function registerHotkeyEcho(args: Record<string, unknown> | undefined) {
@@ -311,7 +344,9 @@ export async function loadStoredSettings(): Promise<Settings> {
   return state.storedSettings;
 }
 
-export async function saveStoredSettings(): Promise<void> {}
+export async function saveStoredSettings(settings: Settings): Promise<void> {
+  state.savedSettings.push(structuredClone(settings));
+}
 
 export async function clearStoredSettings(): Promise<void> {}
 

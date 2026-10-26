@@ -16,7 +16,7 @@
   border-radius: var(--radius-lg);
   padding: 1.25rem 1.375rem 1rem;
   width: min(22.5rem, calc(100% - 2.5rem));
-  box-shadow: 0 1.25rem 3.75rem rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-modal, 0 1.25rem 3.75rem rgba(0, 0, 0, 0.6));
   animation: confirm-dialog-pop-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 

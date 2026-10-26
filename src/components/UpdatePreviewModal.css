@@ -18,7 +18,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: 0 1.25rem 3.75rem rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-modal, 0 1.25rem 3.75rem rgba(0, 0, 0, 0.6));
   animation: update-preview-pop-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: hidden;
 }

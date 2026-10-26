@@ -10,6 +10,8 @@ import {
   withFactoryPresets,
 } from "../settingsSchema";
 import type { Settings } from "../settingsSchema";
+import { MAX_THEME_PROFILES, createThemeProfile } from "../themeModel";
+import type { ThemeProfile } from "../themeModel";
 
 const VERSION = "3.9.2";
 
@@ -361,5 +363,115 @@ describe("duty cycle hold mode settings", () => {
     expect(settings.savedClickSpeed).toBe(12);
     expect(settings.savedClickInterval).toBe("m");
     expect(settings.savedDutyCycle).toBe(60);
+  });
+});
+
+describe("custom theme settings", () => {
+  const profile = createThemeProfile(
+    "dark",
+    "#22c55e",
+    "Custom 1",
+    "theme-1",
+    1,
+  );
+
+  it("defaults to the dark theme with no profiles and no active theme", () => {
+    const defaults = createDefaultSettings(VERSION);
+
+    expect(defaults.theme).toBe("dark");
+    expect(defaults.themeProfiles).toEqual([]);
+    expect(defaults.activeThemeProfileId).toBe("");
+  });
+
+  it("keeps a custom theme together with its active profile", () => {
+    const settings = sanitizeSettings(
+      {
+        theme: "custom",
+        themeProfiles: [profile],
+        activeThemeProfileId: "theme-1",
+      },
+      VERSION,
+    );
+
+    expect(settings.theme).toBe("custom");
+    expect(settings.themeProfiles).toHaveLength(1);
+    expect(settings.activeThemeProfileId).toBe("theme-1");
+  });
+
+  it("falls back to the dark theme when custom mode has no profile", () => {
+    const settings = sanitizeSettings({ theme: "custom" }, VERSION);
+
+    expect(settings.theme).toBe("dark");
+    expect(settings.activeThemeProfileId).toBe("");
+    expect(settings.themeProfiles).toEqual([]);
+  });
+
+  it("clears an active id that matches no surviving profile", () => {
+    const settings = sanitizeSettings(
+      {
+        theme: "custom",
+        themeProfiles: [profile],
+        activeThemeProfileId: "missing",
+      },
+      VERSION,
+    );
+
+    expect(settings.theme).toBe("dark");
+    expect(settings.activeThemeProfileId).toBe("");
+    expect(settings.themeProfiles).toHaveLength(1);
+  });
+
+  it("clamps profile token values and caps the profile list", () => {
+    const many = Array.from(
+      { length: MAX_THEME_PROFILES + 10 },
+      (_, index) => ({
+        ...profile,
+        id: `theme-${index}`,
+        tokens: { ...profile.tokens, accent: { hex: "#22c55e", alpha: 9 } },
+      }),
+    );
+
+    const settings = sanitizeSettings({ themeProfiles: many }, VERSION);
+
+    expect(settings.themeProfiles).toHaveLength(MAX_THEME_PROFILES);
+    expect(settings.themeProfiles[0].tokens.accent.alpha).toBe(1);
+  });
+
+  it("drops profile entries without a usable id", () => {
+    const invalid = [
+      { ...profile, id: 5 },
+      { ...profile, id: "theme-1" },
+    ] as unknown as ThemeProfile[];
+
+    const settings = sanitizeSettings({ themeProfiles: invalid }, VERSION);
+
+    expect(settings.themeProfiles.map((entry) => entry.id)).toEqual([
+      "theme-1",
+    ]);
+  });
+
+  it("always returns a fresh profile array", () => {
+    const defaults = createDefaultSettings(VERSION);
+    const settings = sanitizeSettings({}, VERSION);
+
+    expect(settings.themeProfiles).not.toBe(defaults.themeProfiles);
+
+    settings.themeProfiles.push(
+      createThemeProfile("dark", "#22c55e", "X", "x", 1),
+    );
+
+    expect(defaults.themeProfiles).toHaveLength(0);
+    expect(createDefaultSettings(VERSION).themeProfiles).toHaveLength(0);
+  });
+
+  it("gives every default settings call its own array fields", () => {
+    const first = createDefaultSettings(VERSION);
+    first.themeProfiles.push(
+      createThemeProfile("dark", "#22c55e", "X", "x", 1),
+    );
+
+    const second = createDefaultSettings(VERSION);
+
+    expect(second.themeProfiles).toHaveLength(0);
   });
 });
