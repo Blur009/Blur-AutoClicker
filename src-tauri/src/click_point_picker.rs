@@ -8,9 +8,10 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     GetAsyncKeyState, VK_CONTROL, VK_ESCAPE, VK_SHIFT,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, GetMessageW, PostThreadMessageW, SetWindowsHookExW, UnhookWindowsHookEx, HHOOK,
-    KBDLLHOOKSTRUCT, MSG, MSLLHOOKSTRUCT, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_MOUSEMOVE,
-    WM_QUIT, WM_RBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
+    CallNextHookEx, GetMessageW, PeekMessageW, PostThreadMessageW, SetWindowsHookExW,
+    UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT, MSG, MSLLHOOKSTRUCT, PM_NOREMOVE, WH_KEYBOARD_LL,
+    WH_MOUSE_LL, WM_KEYDOWN, WM_MOUSEMOVE, WM_QUIT, WM_RBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    WM_SYSKEYDOWN,
 };
 
 use crate::engine::mouse::{current_virtual_screen_rect, VirtualScreenRect};
@@ -20,6 +21,7 @@ use crate::error::AppResult;
 use crate::ClickerState;
 
 const CURSOR_EMIT_INTERVAL: Duration = Duration::from_millis(16);
+const HOOK_THREAD_EXIT_TIMEOUT: Duration = Duration::from_millis(250);
 
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -53,12 +55,61 @@ enum KeyboardHookDecision {
 #[derive(Default)]
 struct PickerRuntime {
     active: bool,
+    starting: bool,
+    generation: u64,
+    hook_generation: u64,
     mouse_hook: HHOOK,
     keyboard_hook: HHOOK,
     thread_id: u32,
+    hook_thread_exit: Option<mpsc::Receiver<()>>,
     app: Option<AppHandle>,
     last_cursor_emit: Option<Instant>,
     stop_after_right_up: bool,
+}
+
+struct CancelRequest {
+    app: Option<AppHandle>,
+    thread_id: u32,
+    generation: u64,
+    hook_thread_exit: Option<mpsc::Receiver<()>>,
+}
+
+impl PickerRuntime {
+    fn claim_start(&mut self) -> Option<u64> {
+        if self.starting || self.active {
+            return None;
+        }
+        self.starting = true;
+        self.active = true;
+        self.last_cursor_emit = None;
+        self.stop_after_right_up = false;
+        self.generation = self.generation.wrapping_add(1);
+        Some(self.generation)
+    }
+
+    fn is_current(&self, generation: u64) -> bool {
+        self.generation == generation
+    }
+
+    fn begin_cancel(&mut self, app_override: Option<AppHandle>) -> CancelRequest {
+        let app = app_override.or_else(|| self.app.clone());
+        self.active = false;
+        self.starting = false;
+        self.app = None;
+        self.last_cursor_emit = None;
+        self.stop_after_right_up = false;
+        self.generation = self.generation.wrapping_add(1);
+        CancelRequest {
+            app,
+            thread_id: self.thread_id,
+            generation: self.generation,
+            hook_thread_exit: self.hook_thread_exit.take(),
+        }
+    }
+
+    fn has_live_hook_thread(&self) -> bool {
+        self.thread_id != 0 || !self.mouse_hook.is_null() || !self.keyboard_hook.is_null()
+    }
 }
 
 unsafe impl Send for PickerRuntime {}
@@ -68,6 +119,73 @@ static PICKER: OnceLock<Mutex<PickerRuntime>> = OnceLock::new();
 
 fn picker() -> &'static Mutex<PickerRuntime> {
     PICKER.get_or_init(|| Mutex::new(PickerRuntime::default()))
+}
+
+struct PickStartGuard {
+    armed: bool,
+}
+
+impl PickStartGuard {
+    fn arm() -> Self {
+        Self { armed: true }
+    }
+
+    fn disarm(mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for PickStartGuard {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        if let Some(app) = stop_click_point_pick(None, true) {
+            let _ = crate::overlay::hide_overlay(app);
+        }
+    }
+}
+
+struct HookThreadExitGuard(mpsc::Sender<()>);
+
+impl Drop for HookThreadExitGuard {
+    fn drop(&mut self) {
+        let _ = self.0.send(());
+    }
+}
+
+fn create_thread_message_queue() {
+    unsafe {
+        let mut msg = std::mem::zeroed::<MSG>();
+        PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_NOREMOVE);
+    }
+}
+
+fn clear_hook_thread(thread_id: u32) {
+    let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
+    if runtime.thread_id == thread_id {
+        runtime.thread_id = 0;
+    }
+}
+
+fn hook_thread_is_current(generation: u64) -> bool {
+    picker()
+        .lock()
+        .unwrap_or_else(poisoned_inner)
+        .is_current(generation)
+}
+
+fn retire_stale_hook() -> bool {
+    let stale = {
+        let runtime = picker().lock().unwrap_or_else(poisoned_inner);
+        runtime.hook_generation != runtime.generation
+    };
+    if stale {
+        unsafe {
+            PostThreadMessageW(GetCurrentThreadId(), WM_QUIT, 0, 0);
+        }
+    }
+    stale
 }
 
 fn classify_mouse_message(message: u32, shift_down: bool, ctrl_down: bool) -> MouseHookDecision {
@@ -93,32 +211,53 @@ fn classify_keyboard_message(message: u32, virtual_key: u32) -> KeyboardHookDeci
 pub fn start_click_point_pick_inner(app: AppHandle) -> AppResult<()> {
     crate::custom_stop_zone_picker::cancel_custom_stop_zone_pick_inner(&app);
 
-    {
+    let claimed = {
         let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
-        if runtime.active {
-            crate::overlay::show_click_point_pick_overlay(&app)?;
-            return Ok(());
+        let claimed = runtime.claim_start();
+        if claimed.is_some() {
+            runtime.app = Some(app.clone());
         }
-
-        runtime.active = true;
-        runtime.app = Some(app.clone());
-        runtime.last_cursor_emit = None;
-        runtime.stop_after_right_up = false;
-    }
+        claimed
+    };
+    let Some(generation) = claimed else {
+        crate::overlay::show_click_point_pick_overlay(&app)?;
+        return Ok(());
+    };
 
     app.state::<ClickerState>()
         .click_point_pick_active
         .store(true, std::sync::atomic::Ordering::SeqCst);
 
+    let guard = PickStartGuard::arm();
+
     crate::overlay::show_click_point_pick_overlay(&app)?;
 
     let (ready_tx, ready_rx) = mpsc::channel();
+    let (exit_tx, exit_rx) = mpsc::channel();
+    {
+        let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
+        runtime.hook_thread_exit = Some(exit_rx);
+    }
+
     std::thread::spawn(move || unsafe {
+        let _exit = HookThreadExitGuard(exit_tx);
+        create_thread_message_queue();
         let thread_id = GetCurrentThreadId();
+
+        {
+            let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
+            if !runtime.is_current(generation) {
+                let _ = ready_tx.send(Err(AppError::ChannelFailure));
+                return;
+            }
+            runtime.thread_id = thread_id;
+        }
+
         let mouse_hook =
             SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), std::ptr::null_mut(), 0);
         if mouse_hook.is_null() {
             let err = GetLastError();
+            clear_hook_thread(thread_id);
             let _ = ready_tx.send(Err(AppError::WindowsSystem(err)));
             return;
         }
@@ -132,45 +271,66 @@ pub fn start_click_point_pick_inner(app: AppHandle) -> AppResult<()> {
         if keyboard_hook.is_null() {
             let err = GetLastError();
             UnhookWindowsHookEx(mouse_hook);
+            clear_hook_thread(thread_id);
             let _ = ready_tx.send(Err(AppError::WindowsSystem(err)));
             return;
         }
 
-        {
+        let installed = {
             let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
-            runtime.mouse_hook = mouse_hook;
-            runtime.keyboard_hook = keyboard_hook;
-            runtime.thread_id = thread_id;
+            if runtime.is_current(generation) {
+                runtime.mouse_hook = mouse_hook;
+                runtime.keyboard_hook = keyboard_hook;
+                runtime.hook_generation = generation;
+                runtime.starting = false;
+                true
+            } else {
+                false
+            }
+        };
+        if !installed {
+            UnhookWindowsHookEx(mouse_hook);
+            UnhookWindowsHookEx(keyboard_hook);
+            clear_hook_thread(thread_id);
+            let _ = ready_tx.send(Err(AppError::ChannelFailure));
+            return;
         }
         let _ = ready_tx.send(Ok(()));
 
         let mut msg = std::mem::zeroed::<MSG>();
-        while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {}
+        while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
+            if !hook_thread_is_current(generation) {
+                break;
+            }
+        }
 
         UnhookWindowsHookEx(mouse_hook);
         UnhookWindowsHookEx(keyboard_hook);
-        let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
-        if runtime.mouse_hook == mouse_hook {
-            runtime.mouse_hook = std::ptr::null_mut();
+        {
+            let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
+            if runtime.mouse_hook == mouse_hook {
+                runtime.mouse_hook = std::ptr::null_mut();
+            }
+            if runtime.keyboard_hook == keyboard_hook {
+                runtime.keyboard_hook = std::ptr::null_mut();
+            }
         }
-        if runtime.keyboard_hook == keyboard_hook {
-            runtime.keyboard_hook = std::ptr::null_mut();
-        }
-        if runtime.mouse_hook.is_null() && runtime.keyboard_hook.is_null() {
-            runtime.thread_id = 0;
-        }
+        clear_hook_thread(thread_id);
     });
 
-    match ready_rx.recv_timeout(Duration::from_secs(1)) {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(error)) => {
-            cancel_click_point_pick_inner(&app);
-            Err(error)
+    let ready = ready_rx.recv_timeout(Duration::from_secs(1));
+    if !hook_thread_is_current(generation) {
+        guard.disarm();
+        return Ok(());
+    }
+
+    match ready {
+        Ok(Ok(())) => {
+            guard.disarm();
+            Ok(())
         }
-        Err(_) => {
-            cancel_click_point_pick_inner(&app);
-            Err(AppError::ChannelFailure)
-        }
+        Ok(Err(error)) => Err(error),
+        Err(_) => Err(AppError::ChannelFailure),
     }
 }
 
@@ -190,18 +350,12 @@ fn stop_click_point_pick(
     app_override: Option<AppHandle>,
     notify_overlay: bool,
 ) -> Option<AppHandle> {
-    let (app, thread_id) = {
-        let mut runtime = picker().lock().unwrap_or_else(poisoned_inner);
-        let app = app_override.or_else(|| runtime.app.clone());
-        let thread_id = runtime.thread_id;
-        runtime.active = false;
-        runtime.app = None;
-        runtime.last_cursor_emit = None;
-        runtime.stop_after_right_up = false;
-        (app, thread_id)
-    };
+    let cancel = picker()
+        .lock()
+        .unwrap_or_else(poisoned_inner)
+        .begin_cancel(app_override);
 
-    if let Some(app) = &app {
+    if let Some(app) = &cancel.app {
         app.state::<ClickerState>()
             .click_point_pick_active
             .store(false, std::sync::atomic::Ordering::SeqCst);
@@ -211,16 +365,38 @@ fn stop_click_point_pick(
         }
     }
 
-    if thread_id != 0 {
+    let on_hook_thread =
+        cancel.thread_id != 0 && unsafe { GetCurrentThreadId() } == cancel.thread_id;
+    let mut hook_thread_stopped = cancel.thread_id == 0;
+    if cancel.thread_id != 0 {
         unsafe {
-            PostThreadMessageW(thread_id, WM_QUIT, 0, 0);
+            PostThreadMessageW(cancel.thread_id, WM_QUIT, 0, 0);
+        }
+        if !on_hook_thread {
+            if let Some(exit) = cancel.hook_thread_exit {
+                hook_thread_stopped = exit.recv_timeout(HOOK_THREAD_EXIT_TIMEOUT).is_ok();
+                if !hook_thread_stopped {
+                    log::warn!(
+                        "[picker] click point hook thread still running {} ms after WM_QUIT; it exits on its next generation check",
+                        HOOK_THREAD_EXIT_TIMEOUT.as_millis()
+                    );
+                }
+            }
         }
     }
 
-    app
+    if !on_hook_thread && hook_thread_stopped {
+        let runtime = picker().lock().unwrap_or_else(poisoned_inner);
+        debug_assert!(
+            runtime.generation != cancel.generation || !runtime.has_live_hook_thread(),
+            "click point picker cancel left a live hook thread"
+        );
+    }
+
+    cancel.app
 }
 unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    if code < 0 {
+    if code < 0 || retire_stale_hook() {
         return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
     }
 
@@ -232,8 +408,14 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
         return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
     }
 
-    let shift_down = (GetAsyncKeyState(VK_SHIFT as i32) & 0x8000u16 as i16) != 0;
-    let ctrl_down = (GetAsyncKeyState(VK_CONTROL as i32) & 0x8000u16 as i16) != 0;
+    let (shift_down, ctrl_down) = if message == WM_RBUTTONDOWN {
+        (
+            (GetAsyncKeyState(VK_SHIFT as i32) & 0x8000u16 as i16) != 0,
+            (GetAsyncKeyState(VK_CONTROL as i32) & 0x8000u16 as i16) != 0,
+        )
+    } else {
+        (false, false)
+    };
 
     match classify_mouse_message(message, shift_down, ctrl_down) {
         MouseHookDecision::Pass => CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam),
@@ -266,7 +448,7 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
     }
 }
 unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    if code < 0 {
+    if code < 0 || retire_stale_hook() {
         return CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam);
     }
 
@@ -359,8 +541,10 @@ fn emit_delete_request(x: i32, y: i32) {
 #[cfg(test)]
 mod tests {
     use super::{
-        classify_keyboard_message, classify_mouse_message, KeyboardHookDecision, MouseHookDecision,
+        classify_keyboard_message, classify_mouse_message, picker, KeyboardHookDecision,
+        MouseHookDecision, PickStartGuard, PickerRuntime,
     };
+    use crate::error::poisoned_inner;
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{VK_ESCAPE, VK_SPACE};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
@@ -448,5 +632,78 @@ mod tests {
             classify_keyboard_message(WM_KEYDOWN, VK_SPACE as u32),
             KeyboardHookDecision::Pass
         );
+    }
+
+    #[test]
+    fn click_picker_start_guard_clears_active_flag_unless_disarmed() {
+        let set_active = || {
+            picker().lock().unwrap_or_else(poisoned_inner).active = true;
+        };
+        let is_active = || picker().lock().unwrap_or_else(poisoned_inner).active;
+
+        set_active();
+        PickStartGuard::arm().disarm();
+        assert!(is_active());
+
+        set_active();
+        {
+            let _guard = PickStartGuard::arm();
+        }
+        assert!(!is_active());
+    }
+
+    #[test]
+    fn second_start_while_starting_is_refused() {
+        let mut runtime = PickerRuntime::default();
+        assert!(runtime.claim_start().is_some());
+        assert!(runtime.claim_start().is_none());
+    }
+
+    #[test]
+    fn start_while_installed_is_refused() {
+        let mut runtime = PickerRuntime::default();
+        let generation = runtime.claim_start().expect("first start claims");
+        runtime.starting = false;
+        assert!(runtime.claim_start().is_none());
+        assert!(runtime.is_current(generation));
+    }
+
+    #[test]
+    fn cancel_before_install_leaves_no_hooks() {
+        let mut runtime = PickerRuntime::default();
+        let generation = runtime.claim_start().expect("first start claims");
+        let cancel = runtime.begin_cancel(None);
+
+        assert_eq!(cancel.thread_id, 0);
+        assert_eq!(cancel.generation, runtime.generation);
+        assert!(!runtime.has_live_hook_thread());
+        assert!(!runtime.active);
+        assert!(!runtime.starting);
+        assert!(!runtime.is_current(generation));
+    }
+
+    #[test]
+    fn cancel_makes_installed_hook_generation_stale() {
+        let mut runtime = PickerRuntime::default();
+        let generation = runtime.claim_start().expect("first start claims");
+        runtime.starting = false;
+        runtime.hook_generation = generation;
+        runtime.thread_id = 4242;
+
+        runtime.begin_cancel(None);
+
+        assert_ne!(runtime.hook_generation, runtime.generation);
+        assert!(!runtime.is_current(generation));
+    }
+
+    #[test]
+    fn stale_generation_ends_hook_loop() {
+        let mut runtime = PickerRuntime::default();
+        let generation = runtime.claim_start().expect("first start claims");
+        assert!(runtime.is_current(generation));
+
+        runtime.begin_cancel(None);
+
+        assert!(!runtime.is_current(generation));
     }
 }

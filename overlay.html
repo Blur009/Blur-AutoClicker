@@ -7,8 +7,8 @@
     <style>
         @font-face {
             font-family: 'RobotoFlex';
-            src: url('/fonts/RobotoFlex-VariableFont_wght.ttf') format('truetype');
-            font-weight: 200 800;
+            src: url('/fonts/RobotoFlex.ttf') format('truetype');
+            font-weight: 100 1000;
             font-style: normal;
         }
 
@@ -96,7 +96,6 @@
             font: 600 13px/1.32 "RobotoFlex", "Segoe UI", sans-serif;
             pointer-events: none;
             opacity: 0;
-            transform: translate(18px, 18px);
             transition: opacity 120ms ease;
         }
         .overlay-prompt.active {
@@ -169,49 +168,61 @@
         let zoneFadeAnim = null;
         let hasFadedIn = false;
 
-        function setupTauriListener() {
+        async function setupTauriListener() {
             if (!window.__TAURI__ || !window.__TAURI__.event) {
                 console.log('[Overlay] Tauri not ready, retrying...');
                 setTimeout(setupTauriListener, 200);
                 return;
             }
 
-            window.__TAURI__.event.listen('zone-data', (event) => {
-                renderZones(event.payload);
-            });
+            const tauriEvent = window.__TAURI__.event;
 
-            window.__TAURI__.event.listen('clear-zones', () => {
-                zoneLayer.innerHTML = '';
-                if (zoneFadeAnim) {
-                    zoneFadeAnim.cancel();
-                    zoneFadeAnim = null;
-                }
-            });
+            try {
+                await Promise.all([
+                    tauriEvent.listen('zone-data', (event) => {
+                        renderZones(event.payload);
+                    }),
 
-            window.__TAURI__.event.listen('click-points-data', (event) => {
-                renderClickPoints(event.payload);
-            });
+                    tauriEvent.listen('clear-zones', () => {
+                        zoneLayer.innerHTML = '';
+                        if (zoneFadeAnim) {
+                            zoneFadeAnim.cancel();
+                            zoneFadeAnim = null;
+                        }
+                    }),
 
-            window.__TAURI__.event.listen('click-pick-mode', (event) => {
-                setPickMode(Boolean(event.payload && event.payload.active));
-            });
+                    tauriEvent.listen('click-points-data', (event) => {
+                        renderClickPoints(event.payload);
+                    }),
 
-            window.__TAURI__.event.listen('click-pick-cursor', (event) => {
-                updatePickPrompt(event.payload);
-            });
+                    tauriEvent.listen('click-pick-mode', (event) => {
+                        setPickMode(Boolean(event.payload && event.payload.active));
+                    }),
 
-            window.__TAURI__.event.listen('custom-stop-zone-pick-mode', (event) => {
-                setStopZonePickMode(Boolean(event.payload && event.payload.active));
-            });
+                    tauriEvent.listen('click-pick-cursor', (event) => {
+                        updatePickPrompt(event.payload);
+                    }),
 
-            window.__TAURI__.event.listen('custom-stop-zone-preview', (event) => {
-                renderStopZonePreview(event.payload);
-            });
+                    tauriEvent.listen('custom-stop-zone-pick-mode', (event) => {
+                        setStopZonePickMode(Boolean(event.payload && event.payload.active));
+                    }),
 
-            window.__TAURI__.event.listen('custom-stop-zone-clear-preview', () => {
-                clearStopZonePreview();
-            });
+                    tauriEvent.listen('custom-stop-zone-preview', (event) => {
+                        renderStopZonePreview(event.payload);
+                    }),
 
+                    tauriEvent.listen('custom-stop-zone-clear-preview', () => {
+                        clearStopZonePreview();
+                    })
+                ]);
+            } catch (error) {
+                console.log('[Overlay] Listener registration failed', error);
+                return;
+            }
+
+            await tauriEvent.emit('overlay-ready').catch((error) => {
+                console.log('[Overlay] Ready emit failed', error);
+            });
             console.log('[Overlay] Event listeners registered');
         }
 

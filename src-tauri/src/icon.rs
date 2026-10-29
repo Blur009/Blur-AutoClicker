@@ -120,12 +120,15 @@ pub fn resolve_theme(pref: &IconThemePref, app_theme: &str) -> ResolvedTheme {
 
 fn compute_tinted(hex: &str, base: &[u8], mask: &[u8]) -> Option<RgbaImage> {
     let hex = hex.trim_start_matches('#');
-    if hex.len() < 6 {
-        return None;
-    }
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+    // `get` rather than indexing: these are byte offsets, and a string of six or
+    // more bytes can still split a multi-byte character.
+    let (r, g, b) = match (hex.get(0..2), hex.get(2..4), hex.get(4..6)) {
+        (Some(r), Some(g), Some(b)) => (r, g, b),
+        _ => return None,
+    };
+    let r = u8::from_str_radix(r, 16).ok()?;
+    let g = u8::from_str_radix(g, 16).ok()?;
+    let b = u8::from_str_radix(b, 16).ok()?;
 
     let base_img = image::load_from_memory(base).ok()?.to_rgba8();
     let mask_img = image::load_from_memory(mask).ok()?.to_rgba8();
@@ -185,48 +188,40 @@ pub fn decide_icon(
     is_dark: bool,
     cache: &IconCache,
 ) -> Option<IconDecision> {
-    let (deact_same, deact_other) = if is_dark {
-        (
-            cache.deactivated_dark.clone(),
-            cache.deactivated_light.clone(),
-        )
+    let (deact_same, deact_other): (&Option<RgbaImage>, &Option<RgbaImage>) = if is_dark {
+        (&cache.deactivated_dark, &cache.deactivated_light)
     } else {
-        (
-            cache.deactivated_light.clone(),
-            cache.deactivated_dark.clone(),
-        )
+        (&cache.deactivated_light, &cache.deactivated_dark)
     };
-    let (emb_same, emb_other) = if is_dark {
-        (cache.activated_dark.clone(), cache.activated_light.clone())
+    let (emb_same, emb_other): (&Option<RgbaImage>, &Option<RgbaImage>) = if is_dark {
+        (&cache.activated_dark, &cache.activated_light)
     } else {
-        (cache.activated_light.clone(), cache.activated_dark.clone())
+        (&cache.activated_light, &cache.activated_dark)
     };
-    let (tint_same, tint_other) = if is_dark {
-        (
-            cache.active_tint_dark.clone(),
-            cache.active_tint_light.clone(),
-        )
+    let (tint_same, tint_other): (&Option<RgbaImage>, &Option<RgbaImage>) = if is_dark {
+        (&cache.active_tint_dark, &cache.active_tint_light)
     } else {
-        (
-            cache.active_tint_light.clone(),
-            cache.active_tint_dark.clone(),
-        )
+        (&cache.active_tint_light, &cache.active_tint_dark)
     };
 
     if !running || !icon_enabled {
         let chosen = deact_same
-            .or_else(|| deact_other.clone())
-            .or_else(|| emb_same.clone())
-            .or_else(|| emb_other.clone())
-            .or_else(|| tint_same.clone())
-            .or_else(|| tint_other.clone());
-        chosen.map(|image| IconDecision { image })
+            .as_ref()
+            .or(deact_other.as_ref())
+            .or(emb_same.as_ref())
+            .or(emb_other.as_ref())
+            .or(tint_same.as_ref())
+            .or(tint_other.as_ref());
+        chosen.cloned().map(|image| IconDecision { image })
     } else {
         let chosen = tint_same
-            .or_else(|| emb_same.clone())
-            .or_else(|| deact_same.clone())
-            .or_else(|| deact_other.clone());
-        chosen.map(|image| IconDecision { image })
+            .as_ref()
+            .or(tint_other.as_ref())
+            .or(emb_same.as_ref())
+            .or(emb_other.as_ref())
+            .or(deact_same.as_ref())
+            .or(deact_other.as_ref());
+        chosen.cloned().map(|image| IconDecision { image })
     }
 }
 
@@ -476,6 +471,7 @@ pub fn set_app_icons(app: &AppHandle) {
     if let Err(e) = app.run_on_main_thread(move || {
         let state = handle.state::<ClickerState>();
         let running = state.running.load(Ordering::SeqCst);
+        crate::indicator::set_active(&handle, running);
 
         let (icon_enabled, is_dark) = {
             let icon_state = state.icon_state.lock().unwrap_or_else(poisoned_inner);
@@ -498,6 +494,22 @@ pub fn set_app_icons(app: &AppHandle) {
     }
 }
 
+fn same_icon_args(
+    state: &IconState,
+    hex_color: &str,
+    theme: &str,
+    icon_enabled: bool,
+    icon_theme: &str,
+    icon_color: &str,
+) -> bool {
+    state.icons_applied
+        && state.accent_color == hex_color
+        && state.theme == theme
+        && state.icon_enabled == icon_enabled
+        && state.icon_theme == icon_theme
+        && state.icon_color == icon_color
+}
+
 pub fn set_icon_theme(
     app: &AppHandle,
     hex_color: &str,
@@ -507,6 +519,20 @@ pub fn set_icon_theme(
     icon_color: &str,
 ) {
     let state = app.state::<ClickerState>();
+
+    {
+        let icon_state = state.icon_state.lock().unwrap_or_else(poisoned_inner);
+        if same_icon_args(
+            &icon_state,
+            hex_color,
+            theme,
+            icon_enabled,
+            icon_theme,
+            icon_color,
+        ) {
+            return;
+        }
+    }
 
     let (dark, light) = recompute_tint(icon_enabled, icon_color, hex_color);
 
@@ -518,6 +544,7 @@ pub fn set_icon_theme(
         icon_state.icon_enabled = icon_enabled;
         icon_state.icon_theme = icon_theme.to_string();
         icon_state.icon_color = icon_color.to_string();
+        icon_state.icons_applied = true;
     }
 
     {
@@ -533,12 +560,61 @@ pub fn set_icon_theme(
     }
 
     set_app_icons(app);
+    crate::sync_indicator_config(app);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use image::ImageEncoder;
+
+    #[test]
+    fn same_icon_args_requires_an_applied_set() {
+        let mut state = IconState {
+            accent_color: String::from("#22c55e"),
+            theme: String::from("dark"),
+            icon_enabled: true,
+            icon_theme: String::from("auto"),
+            icon_color: String::from("theme"),
+            icons_applied: false,
+        };
+
+        assert!(!same_icon_args(
+            &state, "#22c55e", "dark", true, "auto", "theme"
+        ));
+
+        state.icons_applied = true;
+
+        assert!(same_icon_args(
+            &state, "#22c55e", "dark", true, "auto", "theme"
+        ));
+        assert!(!same_icon_args(
+            &state, "#16a34a", "dark", true, "auto", "theme"
+        ));
+        assert!(!same_icon_args(
+            &state, "#22c55e", "light", true, "auto", "theme"
+        ));
+        assert!(!same_icon_args(
+            &state, "#22c55e", "dark", false, "auto", "theme"
+        ));
+        assert!(!same_icon_args(
+            &state, "#22c55e", "dark", true, "dark", "theme"
+        ));
+        assert!(!same_icon_args(
+            &state, "#22c55e", "dark", true, "auto", "default"
+        ));
+    }
+
+    #[test]
+    fn compute_tinted_declines_a_colour_that_splits_a_character() {
+        // Six bytes, but byte 2 lands inside the first 'é'. Indexing here used to
+        // panic on the event-loop thread; the function should just return None.
+        assert!(compute_tinted("aééb", &[], &[]).is_none());
+        assert!(compute_tinted("#€€€", &[], &[]).is_none());
+        assert!(compute_tinted("#22c55", &[], &[]).is_none());
+        // Well-formed colour, no image bytes to tint.
+        assert!(compute_tinted("#22c55e", &[], &[]).is_none());
+    }
 
     struct RecordingBackend {
         window_ok: bool,
@@ -807,25 +883,25 @@ mod tests {
     }
 
     #[test]
-    fn decide_icon_active_tint_none_falls_to_embedded() {
+    fn decide_icon_active_tint_none_falls_to_other_tint() {
         let mut cache = cache_from_real_icons();
         cache.active_tint_dark = None;
         let d = decide_icon(true, true, true, &cache).expect("some");
         assert_eq!(
             rgba_of(&d.image),
-            rgba_of(cache.activated_dark.as_ref().unwrap())
+            rgba_of(cache.active_tint_light.as_ref().unwrap())
         );
     }
 
     #[test]
-    fn decide_icon_embedded_none_falls_to_deactivated() {
+    fn decide_icon_embedded_none_falls_to_other_tint() {
         let mut cache = cache_from_real_icons();
         cache.active_tint_dark = None;
         cache.activated_dark = None;
         let d = decide_icon(true, true, true, &cache).expect("some");
         assert_eq!(
             rgba_of(&d.image),
-            rgba_of(cache.deactivated_dark.as_ref().unwrap())
+            rgba_of(cache.active_tint_light.as_ref().unwrap())
         );
     }
 
@@ -836,7 +912,7 @@ mod tests {
         let d = decide_icon(true, true, true, &cache).expect("some");
         assert_eq!(
             rgba_of(&d.image),
-            rgba_of(cache.activated_dark.as_ref().unwrap())
+            rgba_of(cache.active_tint_light.as_ref().unwrap())
         );
     }
 
@@ -847,7 +923,7 @@ mod tests {
         let d = decide_icon(true, true, false, &cache).expect("some");
         assert_eq!(
             rgba_of(&d.image),
-            rgba_of(cache.activated_light.as_ref().unwrap())
+            rgba_of(cache.active_tint_dark.as_ref().unwrap())
         );
     }
 
@@ -941,18 +1017,6 @@ mod tests {
         assert!(backend
             .set_tray_icon(&decode_icon(ICON_ACTIVATED_DARK).unwrap())
             .is_ok());
-    }
-
-    #[test]
-    fn decode_failure_path_covered_by_garbage() {
-        let cache = empty_cache();
-        let none_decision = decide_icon(true, true, true, &cache);
-        assert!(none_decision.is_none());
-        let backend = RecordingBackend::new(true, true);
-        if let Some(d) = none_decision {
-            let _ = apply_icon(&backend, &d);
-        }
-        assert!(decide_icon(false, true, false, &cache).is_none());
     }
 
     #[test]

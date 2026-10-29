@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use tauri_plugin_log::fern;
@@ -8,10 +8,17 @@ const MAX_FILES: usize = 3;
 
 pub static APP_EVENTS_SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
-pub fn create_app_events_target() -> fern::Dispatch {
-    let (tx, rx) = mpsc::sync_channel::<String>(1024);
+struct AppEventRecord {
+    level: String,
+    target: String,
+    message: String,
+    millis: i64,
+}
 
-    std::thread::Builder::new()
+pub fn create_app_events_target() -> fern::Dispatch {
+    let (tx, rx) = mpsc::sync_channel::<AppEventRecord>(1024);
+
+    let writer = std::thread::Builder::new()
         .name("app-events-writer".into())
         .spawn(move || {
             let dir = match crate::diagnostics::app_events_dir() {
@@ -23,10 +30,21 @@ pub fn create_app_events_target() -> fern::Dispatch {
             let mut batch: Vec<String> = Vec::new();
             let mut approx_size: u64 = 0;
 
-            for record_str in rx {
+            for record in rx {
                 if APP_EVENTS_SHUTDOWN.load(Ordering::SeqCst) {
                     break;
                 }
+                let timestamp =
+                    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(record.millis)
+                        .map(|dt| dt.to_rfc3339())
+                        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+                let record_str = serde_json::json!({
+                    "timestamp": timestamp,
+                    "level": record.level,
+                    "target": record.target,
+                    "message": record.message,
+                })
+                .to_string();
                 let record_len = record_str.len() as u64 + 1;
                 if approx_size + record_len > MAX_FILE_SIZE {
                     flush_telemetry_batch(&dir, &batch);
@@ -41,19 +59,21 @@ pub fn create_app_events_target() -> fern::Dispatch {
             if !batch.is_empty() {
                 flush_telemetry_batch(&dir, &batch);
             }
-        })
-        .expect("failed to spawn telemetry writer thread");
+        });
+
+    if let Err(err) = writer {
+        eprintln!("[telemetry] writer thread unavailable, file logging disabled: {err}");
+    }
 
     fern::Dispatch::new()
         .filter(telemetry_filter)
         .chain(fern::Output::call(move |record| {
-            let json = serde_json::json!({
-                "timestamp": chrono::Utc::now().to_rfc3339(),
-                "level": record.level().to_string(),
-                "target": record.target(),
-                "message": record.args().to_string(),
+            let _ = tx.try_send(AppEventRecord {
+                level: record.level().to_string(),
+                target: record.target().to_string(),
+                message: record.args().to_string(),
+                millis: chrono::Utc::now().timestamp_millis(),
             });
-            let _ = tx.try_send(json.to_string());
         }))
 }
 
@@ -71,10 +91,12 @@ fn flush_telemetry_batch(dir: &std::path::Path, batch: &[String]) {
         .unwrap_or_default()
         .as_secs();
     let path = dir.join(format!("events_{ts}.jsonl"));
-    if let Ok(mut file) = std::fs::File::create(&path) {
+    if let Ok(file) = std::fs::File::create(&path) {
+        let mut out = BufWriter::with_capacity(64 * 1024, file);
         for line in batch {
-            let _ = writeln!(file, "{line}");
+            let _ = writeln!(out, "{line}");
         }
+        let _ = out.flush();
     }
 }
 

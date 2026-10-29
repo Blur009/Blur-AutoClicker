@@ -93,21 +93,38 @@
   color: var(--text-dim);
 }
 
-.changelog-collapsed {
-  position: relative;
-  max-height: 18rem;
-  overflow: hidden;
+.changelog-subitems {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0.125rem 0 0;
+  padding: 0 0 0 0.75rem;
 }
 
-.changelog-collapsed::after {
-  content: "";
+.changelog-subitem {
+  font-family: var(--font-family-base);
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+  padding-left: 0.75rem;
+  position: relative;
+}
+
+.changelog-subitem::before {
+  content: "\2022";
   position: absolute;
-  bottom: 0;
   left: 0;
-  right: 0;
-  height: 5rem;
-  background: linear-gradient(transparent, var(--bg-surface));
-  pointer-events: none;
+  color: var(--text-dim);
+}
+
+.changelog-clip {
+  overflow: hidden;
+  transition: max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.changelog-collapsed {
+  max-height: 18rem;
 }
 
 .changelog-expand-btn {
@@ -135,4 +152,14 @@
   background: var(--bg-elevated);
   border-color: var(--border);
   color: var(--text-primary);
+}
+
+.changelog-expand-arrow--up {
+  transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .changelog-clip {
+    transition-duration: 0.01s;
+  }
 }

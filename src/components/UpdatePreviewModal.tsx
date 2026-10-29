@@ -29,7 +29,6 @@ export default function UpdatePreviewModal({
   onClose,
 }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -45,34 +44,6 @@ export default function UpdatePreviewModal({
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    const el = bodyRef.current;
-    if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    const TRAIL_MS = 1000;
-    const BG_MS = -4000;
-
-    let rafId = 0;
-    const start = performance.now();
-
-    const tick = (now: number) => {
-      const t = now - start;
-
-      const trailY = ((t % TRAIL_MS) / TRAIL_MS) * 20;
-      el.style.setProperty("--nyan-trail-y", `${trailY}px`);
-
-      const bgY = ((t % BG_MS) / BG_MS) * 60;
-      el.style.setProperty("--nyan-bg-y", `${bgY}px`);
-
-      rafId = requestAnimationFrame(tick);
-    };
-
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [open]);
 
   if (!open) return null;
 
@@ -113,7 +84,13 @@ export default function UpdatePreviewModal({
             </svg>
           </button>
         </div>
-        <div className="update-preview-body" ref={bodyRef}>
+        <style>{`@property --nyan-trail-y { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --nyan-bg-y { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@keyframes nyan-trail-scroll { from { --nyan-trail-y: 0px; } to { --nyan-trail-y: 20px; } }
+@keyframes nyan-bg-scroll { from { --nyan-bg-y: 0px; } to { --nyan-bg-y: 60px; } }
+.update-preview-body { animation: nyan-trail-scroll 1s linear infinite, nyan-bg-scroll 4s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .update-preview-body { animation: none; } }`}</style>
+        <div className="update-preview-body">
           {loading ? (
             <span className="update-preview-status">Loading changelog...</span>
           ) : error ? (

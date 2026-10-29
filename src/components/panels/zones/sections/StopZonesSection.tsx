@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Settings, StopZone } from "../../../../store";
 import { createStopZoneId } from "../../../../settingsSchema";
-import { error } from "@tauri-apps/plugin-log";
+import { logDiagnostic } from "../../../../diagnostics";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -104,12 +104,9 @@ export default function StopZonesSection({ settings, update }: Props) {
     } catch (err) {
       pendingIndexRef.current = null;
       setDrawingIndex(null);
-      error(
-        JSON.stringify({
-          source: "StopZonesSection.startDraw",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("StopZonesSection.startDraw", {
+        error: String(err),
+      });
     }
   }, []);
 
@@ -119,12 +116,9 @@ export default function StopZonesSection({ settings, update }: Props) {
     try {
       await invoke("cancel_custom_stop_zone_pick");
     } catch (err) {
-      error(
-        JSON.stringify({
-          source: "StopZonesSection.cancelDraw",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("StopZonesSection.cancelDraw", {
+        error: String(err),
+      });
     }
   }, []);
 
@@ -221,8 +215,9 @@ export default function StopZonesSection({ settings, update }: Props) {
       </div>
       <CardDivider />
       <div className="adv-card-desc">
-        Draw zones on screen. The clicker stops, pauses, or starts whenever your
-        cursor moves inside a zone.
+        Draw zones on screen. Stop ends the run as soon as the cursor enters a
+        zone, Pause holds clicks while the cursor stays inside, and Start begins
+        a run on entry and ends that run when the cursor leaves.
       </div>
       <Disableable enabled={settings.stopZonesEnabled}>
         <div className="adv-stop-zone-body">
@@ -283,8 +278,7 @@ export default function StopZonesSection({ settings, update }: Props) {
                     <div className="adv-zones-empty-title">No zones yet</div>
                     <div className="adv-zones-empty-hint">
                       Click <strong>Add Zone</strong> above, then click{" "}
-                      <strong>Draw</strong> on a row to define its area on
-                      screen.
+                      <strong>Edit</strong> on a row to draw its area on screen.
                     </div>
                   </div>
                 ) : (
@@ -356,8 +350,8 @@ export default function StopZonesSection({ settings, update }: Props) {
                         type="button"
                         className="adv-click-points-delete"
                         onClick={() => removeZone(index)}
-                        aria-label="Delete"
-                        title="Delete"
+                        aria-label="Delete zone"
+                        title="Delete zone"
                       >
                         <svg
                           width="16"

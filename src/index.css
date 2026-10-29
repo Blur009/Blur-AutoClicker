@@ -6,7 +6,8 @@
 }
 
 :root {
-  --font-family-base: "RobotoFlex", sans-serif;
+  --font-fallback: "RobotoFlex", sans-serif;
+  --font-family-base: var(--font-fallback);
 
   --bg-base: rgb(12, 12, 14);
   --bg-surface: rgb(26, 26, 26);
@@ -36,8 +37,13 @@
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 1rem;
+  --radius-window: 7px;
+  --radius-window-inner: max(0px, calc(var(--radius-window, 7px) - 2px));
 
   --container-shadow: 0 2px 0.5rem rgba(0, 0, 0, 0.3);
+  --shadow-modal: 0 1.25rem 3.75rem rgba(0, 0, 0, 0.6);
+
+  --scrollbar-hover: #777777;
 
   --font-weight-li: 400;
   --font-weight-md: 600;
@@ -114,7 +120,7 @@ body {
 }
 
 .app-root {
-  border-radius: 8px;
+  border-radius: var(--radius-window, 7px);
   border: 2px var(--border-subtle) solid;
   background: var(--bg-base);
   width: 100%;
@@ -174,6 +180,15 @@ body {
 .app-root > *:not(.app-bg-video) {
   position: relative;
   z-index: 1;
+}
+
+.app-root > .confirm-dialog-backdrop,
+.app-root > .update-preview-backdrop,
+.app-root > .donation-prompt-backdrop {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1000;
 }
 
 .app-root > .app-bg-video {
@@ -244,7 +259,7 @@ body {
 }
 
 .settings-card {
-  backdrop-filter: blur(var(--bg-panel-blur, 0px));
+  backdrop-filter: var(--panel-blur-filter, none);
 }
 
 .hk-wrapper {

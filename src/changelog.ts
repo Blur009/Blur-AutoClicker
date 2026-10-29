@@ -1,6 +1,11 @@
+export interface ChangelogItem {
+  text: string;
+  subitems: string[];
+}
+
 export interface ChangelogSection {
   heading: string;
-  items: string[];
+  items: ChangelogItem[];
 }
 
 export interface ChangelogEntry {
@@ -49,11 +54,17 @@ export function parseChangelog(raw: string): ChangelogEntry[] {
       if (!sectionLine) continue;
 
       const heading = sectionLine[1];
-      const items: string[] = [];
+      const items: ChangelogItem[] = [];
 
       for (const line of sb.split("\n")) {
-        const itemMatch = line.match(/^(\d+\.|-)\s(.+)/);
-        if (itemMatch) items.push(itemMatch[2]);
+        const itemMatch = line.match(/^(\s*)(\d+\.|-)\s+(.+)/);
+        if (!itemMatch) continue;
+        const [, indent, , text] = itemMatch;
+        if (indent.length > 0) {
+          items[items.length - 1]?.subitems.push(text);
+          continue;
+        }
+        items.push({ text, subitems: [] });
       }
 
       if (items.length > 0) {

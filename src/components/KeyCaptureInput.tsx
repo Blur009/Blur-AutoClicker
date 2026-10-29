@@ -6,7 +6,7 @@ import {
   type CSSProperties,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { error } from "@tauri-apps/plugin-log";
+import { logDiagnostic } from "../diagnostics";
 import {
   buildHotkeyWithHeld,
   captureHotkey,
@@ -81,22 +81,16 @@ export default function KeyCaptureInput({
     if (!listening) return;
 
     invoke("set_hotkey_capture_active", { active: true }).catch((err) => {
-      error(
-        JSON.stringify({
-          source: "KeyCaptureInput.toggle",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("KeyCaptureInput.toggle", {
+        error: String(err),
+      });
     });
 
     return () => {
       invoke("set_hotkey_capture_active", { active: false }).catch((err) => {
-        error(
-          JSON.stringify({
-            source: "KeyCaptureInput.clear",
-            error: String(err),
-          }),
-        );
+        logDiagnostic("KeyCaptureInput.clear", {
+          error: String(err),
+        });
       });
     };
   }, [listening]);
@@ -235,12 +229,9 @@ export default function KeyCaptureInput({
         }}
         onClick={() => {
           invoke("stop_clicker").catch((err) => {
-            error(
-              JSON.stringify({
-                source: "KeyCaptureInput.stopClicker",
-                error: String(err),
-              }),
-            );
+            logDiagnostic("KeyCaptureInput.stopClicker", {
+              error: String(err),
+            });
           });
           setListening(true);
         }}
@@ -262,12 +253,9 @@ export default function KeyCaptureInput({
           onClick={(e) => {
             e.stopPropagation();
             invoke("stop_clicker").catch((err) => {
-              error(
-                JSON.stringify({
-                  source: "KeyCaptureInput.clear",
-                  error: String(err),
-                }),
-              );
+              logDiagnostic("KeyCaptureInput.clear", {
+                error: String(err),
+              });
             });
             onChange("");
           }}

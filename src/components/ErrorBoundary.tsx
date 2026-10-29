@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { error as logError } from "@tauri-apps/plugin-log";
+import { logDiagnostic } from "../diagnostics";
 
 type Props = {
   children: ReactNode;
@@ -26,11 +26,9 @@ export default class ErrorBoundary extends Component<Props, State> {
   };
 
   handleQuit = () => {
-    invoke("quit_app").catch((e) =>
-      logError(
-        JSON.stringify({ source: "ErrorBoundary.quit", error: String(e) }),
-      ),
-    );
+    invoke("quit_app").catch((e) => {
+      logDiagnostic("ErrorBoundary.quit", { error: String(e) });
+    });
   };
 
   render() {

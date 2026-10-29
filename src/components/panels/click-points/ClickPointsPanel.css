@@ -78,7 +78,7 @@
 }
 
 .adv-click-points-list::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  background: var(--scrollbar-hover, #777777);
 }
 
 @keyframes adv-cplist-enable {
@@ -135,7 +135,7 @@
 }
 
 .adv-click-points-index {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 12px;
   font-weight: var(--font-weight-hv);
   color: var(--text-dim);
@@ -332,7 +332,7 @@
 }
 
 .adv-click-points-option-label {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.75rem;
   font-weight: var(--font-weight-hv);
   color: var(--text-primary);

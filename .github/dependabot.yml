@@ -1,4 +1,13 @@
 version: 2
+
+# Updates land on dev and merge themselves once CI passes (see the
+# "Dependabot auto-merge" workflow and the "Protect Dev" ruleset).
+#
+# Patches and minors are grouped so one PR per ecosystem arrives each week
+# instead of a dozen PRs fighting over the same Cargo.lock lines. Majors get
+# their own PR per ecosystem: a major that breaks CI then blocks only itself
+# instead of holding back every other update.
+
 updates:
   - package-ecosystem: github-actions
     directory: /.github/workflows
@@ -8,6 +17,13 @@ updates:
     commit-message:
       prefix: ci
     open-pull-requests-limit: 10
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      actions-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: npm
     directory: /
@@ -17,6 +33,13 @@ updates:
     commit-message:
       prefix: fix
     open-pull-requests-limit: 10
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      npm-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: cargo
     directory: "/src-tauri"
@@ -26,3 +49,10 @@ updates:
     commit-message:
       prefix: fix
     open-pull-requests-limit: 10
+    groups:
+      cargo-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      cargo-major:
+        patterns: ["*"]
+        update-types: ["major"]

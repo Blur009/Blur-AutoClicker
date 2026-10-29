@@ -1,0 +1,11 @@
+# Git for Windows commonly runs with core.autocrlf=true, which checks files out
+# as CRLF. Prettier's default endOfLine is lf, so `npm run format:check` then
+# fails on files nobody edited, and a pre-commit hook that stashes unstaged
+# changes leaves them CRLF on the way back. Pin the files the gate reads.
+src/**/*.ts  text eol=lf
+src/**/*.tsx text eol=lf
+src/**/*.css text eol=lf
+
+# Workflows too: yamllint's default rules reject CRLF, and GitHub does not care
+# either way, so LF keeps local linting quiet without changing what CI runs.
+.github/workflows/*.yml text eol=lf

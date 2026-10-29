@@ -11,17 +11,17 @@
 }
 
 .confirm-dialog {
-  background: var(--bg-surface);
+  background: var(--bg-surface-solid, var(--bg-surface));
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: 1.25rem 1.375rem 1rem;
   width: min(22.5rem, calc(100% - 2.5rem));
-  box-shadow: 0 1.25rem 3.75rem rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-modal, 0 1.25rem 3.75rem rgba(0, 0, 0, 0.6));
   animation: confirm-dialog-pop-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .confirm-dialog-title {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -30,7 +30,7 @@
 }
 
 .confirm-dialog-message {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.8125rem;
   font-weight: 400;
   color: var(--text-muted);
@@ -45,7 +45,7 @@
 }
 
 .confirm-dialog-btn {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.875rem;
   font-weight: 600;
   padding: 0.3125rem 0.875rem;

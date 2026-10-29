@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import "./ConfirmDialog.css";
 
 interface Props {
@@ -31,6 +32,11 @@ export default function ConfirmDialog({
 
     const handleKey = (e: KeyboardEvent) => {
       if (busy) return;
+      const promptOpen =
+        document
+          .querySelector(".app-root")
+          ?.getAttribute("data-elevation-prompt") === "true";
+      if (promptOpen) return;
       if (e.key === "Escape") {
         e.preventDefault();
         onCancel();
@@ -43,7 +49,10 @@ export default function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  const host =
+    document.querySelector<HTMLElement>(".app-root") ?? document.body;
+
+  return createPortal(
     <div
       className="confirm-dialog-backdrop"
       onClick={busy ? undefined : onCancel}
@@ -83,6 +92,7 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    host,
   );
 }

@@ -1,3 +1,6 @@
+import { DEFAULT_ACCENT_HEX, sanitizeThemeProfiles } from "./themeModel";
+import type { ThemeProfile } from "./themeModel";
+
 export type ClickInterval = "s" | "m" | "h" | "d";
 export type MouseButton = "Left" | "Middle" | "Right";
 export type InputType = "mouse" | "keyboard";
@@ -6,15 +9,23 @@ export type ClickMode = "Toggle" | "Hold";
 export type DutyCycleMode = "Click" | "Hold";
 export type TimeLimitUnit = "s" | "m" | "h";
 export type SavedPanel = "simple" | "advanced" | "zones" | "click-points";
-export type Theme = "dark" | "light";
+export type Theme = "dark" | "light" | "custom";
 export type IconTheme = "auto" | "dark" | "light";
 export type IconColor = "theme" | "default";
 export type PresetId = string;
 export type RateInputMode = "rate" | "duration";
 export type ProcessListMode = "whitelist" | "blacklist";
+export type IndicatorCorner =
+  "top-right" | "top-left" | "bottom-right" | "bottom-left";
+export type IndicatorColorMode = "theme" | "black" | "white" | "custom";
+export type IndicatorCountdownMode = "plain" | "short" | "words";
+export type IndicatorBackgroundMode = "off" | "card" | "shadow";
 
 const INT32_MIN: number = -2147483648;
 const INT32_MAX: number = 2147483647;
+const STOP_ZONE_OFFSET_LIMIT = 99999;
+const STOP_ZONE_SIZE_LIMIT = 99999;
+export const STOP_ZONE_MAX_COUNT = 64;
 
 export interface ProcessListEntry {
   name: string;
@@ -38,10 +49,15 @@ export interface StopZone {
   action: "stop" | "pause" | "start";
 }
 
-export const DEFAULT_ACCENT_COLOR = "#22c55e";
+export const DEFAULT_ACCENT_COLOR = DEFAULT_ACCENT_HEX;
+export const DEFAULT_FONT_FAMILY = "RobotoFlex";
+export const DEFAULT_TITLE_FONT = "Pristina";
 export const PRESET_NAME_MAX_LENGTH = 40;
 export const DEFAULT_MAX_CLICK_SPEED = 500;
 export const EXTENDED_MAX_CLICK_SPEED = 1000;
+export const UI_SCALE_MIN = 25;
+export const UI_SCALE_MAX = 300;
+export const UI_SCALE_DEFAULT = 100;
 
 export const CLICK_INTERVAL_OPTIONS = [
   { value: "s", label: "Second" },
@@ -71,7 +87,30 @@ export const TIME_LIMIT_UNIT_OPTIONS = [
 export const THEME_OPTIONS = [
   "dark",
   "light",
+  "custom",
 ] as const satisfies ReadonlyArray<Theme>;
+export const INDICATOR_CORNER_OPTIONS = [
+  "top-right",
+  "top-left",
+  "bottom-right",
+  "bottom-left",
+] as const satisfies ReadonlyArray<IndicatorCorner>;
+export const INDICATOR_COLOR_MODE_OPTIONS = [
+  "theme",
+  "black",
+  "white",
+  "custom",
+] as const satisfies ReadonlyArray<IndicatorColorMode>;
+export const INDICATOR_COUNTDOWN_MODE_OPTIONS = [
+  "plain",
+  "short",
+  "words",
+] as const satisfies ReadonlyArray<IndicatorCountdownMode>;
+export const INDICATOR_BACKGROUND_MODE_OPTIONS = [
+  "off",
+  "card",
+  "shadow",
+] as const satisfies ReadonlyArray<IndicatorBackgroundMode>;
 
 type LimitDef = {
   min?: number;
@@ -100,7 +139,8 @@ type FieldDef<T> = {
       | "startup"
       | "appearance"
       | "keybinds"
-      | "presets";
+      | "presets"
+      | "sounds";
     control: UiControl;
   };
 };
@@ -282,6 +322,30 @@ const PRESET_FIELDS = {
 
 //All Other settings that do not need to be saved by presets go here.
 const SETTINGS_ONLY_FIELDS = {
+  elevationNoticeEnabled: {
+    default: true,
+    ui: { section: "behavior", control: "toggle" },
+  },
+  onboardingCompleted: {
+    default: false,
+    ui: { section: "behavior", control: "toggle" },
+  },
+  alwaysRunAsAdmin: {
+    default: false,
+    ui: { section: "startup", control: "toggle" },
+  },
+  fancyTitle: {
+    default: false,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  titleFont: {
+    default: DEFAULT_TITLE_FONT,
+    ui: { section: "appearance", control: "select" },
+  },
+  fontFamily: {
+    default: DEFAULT_FONT_FAMILY,
+    ui: { section: "appearance", control: "select" },
+  },
   rateInputMode: {
     default: "rate" as RateInputMode,
     ui: { section: "core", control: "select" },
@@ -318,6 +382,11 @@ const SETTINGS_ONLY_FIELDS = {
   savedDutyCycle: {
     default: 45,
     limit: { min: 0, max: 100 },
+    ui: { section: "limits", control: "number" },
+  },
+  savedDurationMs: {
+    default: 40,
+    limit: { min: 0 },
     ui: { section: "limits", control: "number" },
   },
   stopZones: {
@@ -371,6 +440,14 @@ const SETTINGS_ONLY_FIELDS = {
     default: "dark" as Theme,
     ui: { section: "appearance", control: "select" },
   },
+  themeProfiles: {
+    default: [] as ThemeProfile[],
+    ui: { section: "appearance", control: "custom" },
+  },
+  activeThemeProfileId: {
+    default: "",
+    ui: { section: "appearance", control: "custom" },
+  },
   alwaysOnTop: {
     default: false,
     ui: { section: "behavior", control: "toggle" },
@@ -388,6 +465,63 @@ const SETTINGS_ONLY_FIELDS = {
   accentColor: {
     default: DEFAULT_ACCENT_COLOR,
     ui: { section: "appearance", control: "color" },
+  },
+  indicatorEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  indicatorCorner: {
+    default: "top-right" as IndicatorCorner,
+    ui: { section: "appearance", control: "select" },
+  },
+  indicatorColorMode: {
+    default: "theme" as IndicatorColorMode,
+    ui: { section: "appearance", control: "select" },
+  },
+  indicatorCustomColor: {
+    default: "#ffffff",
+    ui: { section: "appearance", control: "color" },
+  },
+  indicatorSize: {
+    default: 32,
+    limit: { min: 16, max: 512 },
+    ui: { section: "appearance", control: "number" },
+  },
+  indicatorOffsetX: {
+    default: 24,
+    limit: { min: 0, max: 4000 },
+    ui: { section: "appearance", control: "number" },
+  },
+  indicatorOffsetY: {
+    default: 24,
+    limit: { min: 0, max: 4000 },
+    ui: { section: "appearance", control: "number" },
+  },
+  indicatorFlashEnabled: {
+    default: false,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  indicatorFlashDim: {
+    default: 25,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
+  },
+  indicatorCountdownEnabled: {
+    default: false,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  indicatorCountdownMode: {
+    default: "words" as IndicatorCountdownMode,
+    ui: { section: "appearance", control: "select" },
+  },
+  indicatorBackgroundMode: {
+    default: "card" as IndicatorBackgroundMode,
+    ui: { section: "appearance", control: "select" },
+  },
+  indicatorBackgroundStrength: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "appearance", control: "number" },
   },
   backgroundImage: {
     default: "",
@@ -663,6 +797,68 @@ const SETTINGS_ONLY_FIELDS = {
     default: true,
     ui: { section: "appearance", control: "toggle" },
   },
+  statusBarPresetEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  statusBarSoundEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  statusBarScaleEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  donationClicksMilestone: {
+    default: 0,
+    limit: { min: 0, max: 1_000_000_000 },
+    ui: { section: "core", control: "number" },
+  },
+  donationTimeMilestone: {
+    default: 0,
+    limit: { min: 0, max: 10_000_000 },
+    ui: { section: "core", control: "number" },
+  },
+  uiScale: {
+    default: UI_SCALE_DEFAULT,
+    limit: { min: UI_SCALE_MIN, max: UI_SCALE_MAX },
+    ui: { section: "appearance", control: "number" },
+  },
+  enableSoundEnabled: {
+    default: true,
+    ui: { section: "sounds", control: "toggle" },
+  },
+  enableSoundPath: {
+    default: "",
+    ui: { section: "sounds", control: "custom" },
+  },
+  enableSoundVolume: {
+    default: 50,
+    limit: { min: 0, max: 100 },
+    ui: { section: "sounds", control: "number" },
+  },
+  disableSoundEnabled: {
+    default: true,
+    ui: { section: "sounds", control: "toggle" },
+  },
+  disableSoundPath: {
+    default: "",
+    ui: { section: "sounds", control: "custom" },
+  },
+  disableSoundVolume: {
+    default: 50,
+    limit: { min: 0, max: 100 },
+    ui: { section: "sounds", control: "number" },
+  },
+  soundVolume: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "sounds", control: "number" },
+  },
+  soundMuted: {
+    default: false,
+    ui: { section: "sounds", control: "toggle" },
+  },
 } satisfies Record<string, FieldDef<unknown>>;
 
 type DefaultValues<F extends Record<string, FieldDef<unknown>>> = {
@@ -674,7 +870,9 @@ function defaultsFromFields<F extends Record<string, FieldDef<unknown>>>(
 ): DefaultValues<F> {
   const output: Record<string, unknown> = {};
   for (const [key, def] of Object.entries(fields)) {
-    output[key] = def.default;
+    output[key] = Array.isArray(def.default)
+      ? def.default.slice()
+      : def.default;
   }
   return output as DefaultValues<F>;
 }
@@ -698,11 +896,8 @@ function limitsFromFields<F extends Record<string, FieldDef<unknown>>>(
   return output;
 }
 
-const PRESET_DEFAULTS = defaultsFromFields(PRESET_FIELDS);
-const SETTINGS_ONLY_DEFAULTS = defaultsFromFields(SETTINGS_ONLY_FIELDS);
-
-type PresetFieldValues = typeof PRESET_DEFAULTS;
-type SettingsOnlyFieldValues = typeof SETTINGS_ONLY_DEFAULTS;
+type PresetFieldValues = DefaultValues<typeof PRESET_FIELDS>;
+type SettingsOnlyFieldValues = DefaultValues<typeof SETTINGS_ONLY_FIELDS>;
 
 export type PresetSnapshot = PresetFieldValues;
 
@@ -900,6 +1095,12 @@ export function sanitizeBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
+function sanitizeLegacyBoolean(value: unknown, fallback: boolean): boolean {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return sanitizeBoolean(value, fallback);
+}
+
 export function sanitizeHexColor(value: unknown, fallback: string): string {
   if (typeof value !== "string") {
     return fallback;
@@ -907,6 +1108,20 @@ export function sanitizeHexColor(value: unknown, fallback: string): string {
 
   const normalized = value.trim().toLowerCase();
   return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : fallback;
+}
+
+export function sanitizeFontFamily(value: unknown, fallback: string): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const cleaned = value
+    .split("")
+    .filter((char) => char.charCodeAt(0) > 31)
+    .join("")
+    .replace(/["`;\\]/g, "")
+    .trim();
+  return cleaned ? cleaned.slice(0, 128) : fallback;
 }
 
 export function sanitizePresetName(value: unknown): string {
@@ -961,6 +1176,38 @@ function sanitizeFields<F extends Record<string, FieldDef<unknown>>>(
   }
 
   return result as DefaultValues<F>;
+}
+
+type SpeedRandomizationFields = {
+  speedRandomization: number;
+  speedRandomizationEnabled: boolean;
+};
+
+function migrateSpeedRandomization(
+  target: SpeedRandomizationFields,
+  saved: Record<string, unknown>,
+  defaults: SpeedRandomizationFields,
+): void {
+  const legacyMax = clampNumber(
+    saved.speedRandomizationMax,
+    defaults.speedRandomization,
+    SETTINGS_LIMITS.speedRandomization.min,
+    SETTINGS_LIMITS.speedRandomization.max,
+  );
+
+  target.speedRandomization = clampNumber(
+    saved.speedRandomization ?? saved.speedVariation,
+    legacyMax,
+    SETTINGS_LIMITS.speedRandomization.min,
+    SETTINGS_LIMITS.speedRandomization.max,
+  );
+
+  if (saved.speedRandomizationEnabled === undefined) {
+    target.speedRandomizationEnabled = sanitizeLegacyBoolean(
+      saved.speedVariationEnabled,
+      defaults.speedRandomizationEnabled,
+    );
+  }
 }
 
 function createFallbackPresetId(index: number) {
@@ -1067,6 +1314,7 @@ function sanitizeStopZones(value: unknown): StopZone[] {
   if (!Array.isArray(value)) return [];
 
   return value
+    .slice(0, STOP_ZONE_MAX_COUNT)
     .map((zone) => {
       if (!zone || typeof zone !== "object") return null;
       const candidate = zone as Partial<StopZone>;
@@ -1076,11 +1324,21 @@ function sanitizeStopZones(value: unknown): StopZone[] {
           : createStopZoneId();
       const x =
         typeof candidate.x === "number" && Number.isFinite(candidate.x)
-          ? clampNumber(Math.trunc(candidate.x), 0, INT32_MIN, INT32_MAX)
+          ? clampNumber(
+              Math.trunc(candidate.x),
+              0,
+              -STOP_ZONE_OFFSET_LIMIT,
+              STOP_ZONE_OFFSET_LIMIT,
+            )
           : 0;
       const y =
         typeof candidate.y === "number" && Number.isFinite(candidate.y)
-          ? clampNumber(Math.trunc(candidate.y), 0, INT32_MIN, INT32_MAX)
+          ? clampNumber(
+              Math.trunc(candidate.y),
+              0,
+              -STOP_ZONE_OFFSET_LIMIT,
+              STOP_ZONE_OFFSET_LIMIT,
+            )
           : 0;
       const width =
         typeof candidate.width === "number" && Number.isFinite(candidate.width)
@@ -1088,7 +1346,7 @@ function sanitizeStopZones(value: unknown): StopZone[] {
               Math.max(1, Math.trunc(candidate.width)),
               100,
               1,
-              INT32_MAX,
+              STOP_ZONE_SIZE_LIMIT,
             )
           : 100;
       const height =
@@ -1098,7 +1356,7 @@ function sanitizeStopZones(value: unknown): StopZone[] {
               Math.max(1, Math.trunc(candidate.height)),
               100,
               1,
-              INT32_MAX,
+              STOP_ZONE_SIZE_LIMIT,
             )
           : 100;
       const action =
@@ -1116,8 +1374,19 @@ function sanitizeStopZones(value: unknown): StopZone[] {
 export function createDefaultSettings(version: string): Settings {
   return {
     version,
-    ...PRESET_DEFAULTS,
-    ...SETTINGS_ONLY_DEFAULTS,
+    ...defaultsFromFields(PRESET_FIELDS),
+    ...defaultsFromFields(SETTINGS_ONLY_FIELDS),
+  };
+}
+
+export function withFactoryPresets(settings: Settings): Settings {
+  return {
+    ...settings,
+    presets: FACTORY_PRESETS.map((preset) => ({
+      ...preset,
+      settings: { ...preset.settings },
+    })),
+    activePresetId: null,
   };
 }
 
@@ -1224,13 +1493,16 @@ export function sanitizePresetSnapshot(
   snapshot.clickPoints = sanitizeClickPoints(
     saved.clickPoints ?? (saved.sequencePoints as ClickPoint[] | undefined),
   );
-  if (snapshot.clickPointsEnabled === undefined) {
-    snapshot.clickPointsEnabled =
-      (saved.sequenceEnabled as boolean | undefined) ?? false;
+  if (saved.clickPointsEnabled === undefined) {
+    snapshot.clickPointsEnabled = sanitizeLegacyBoolean(
+      saved.sequenceEnabled,
+      false,
+    );
   }
   snapshot.processListEntries = sanitizeProcessListEntries(
     saved.processListEntries,
   );
+  migrateSpeedRandomization(snapshot, saved, defaults);
 
   return snapshot;
 }
@@ -1293,13 +1565,6 @@ export function sanitizeSettings(
   const presetSettings = sanitizeFields(PRESET_FIELDS, savedRecord);
   const settingsOnly = sanitizeFields(SETTINGS_ONLY_FIELDS, savedRecord);
 
-  const legacySpeedRandomization = clampNumber(
-    saved.speedRandomizationMax,
-    defaults.speedRandomization,
-    SETTINGS_LIMITS.speedRandomization.min,
-    SETTINGS_LIMITS.speedRandomization.max,
-  );
-
   presetSettings.clickInterval = sanitizeEnum(
     saved.clickInterval,
     defaults.clickInterval,
@@ -1339,25 +1604,16 @@ export function sanitizeSettings(
     saved.clickPoints ??
       (savedRecord.sequencePoints as ClickPoint[] | undefined),
   );
-  if (presetSettings.clickPointsEnabled === undefined) {
-    presetSettings.clickPointsEnabled =
-      (savedRecord.sequenceEnabled as boolean | undefined) ?? false;
+  if (savedRecord.clickPointsEnabled === undefined) {
+    presetSettings.clickPointsEnabled = sanitizeLegacyBoolean(
+      savedRecord.sequenceEnabled,
+      false,
+    );
   }
   presetSettings.processListEntries = sanitizeProcessListEntries(
     saved.processListEntries,
   );
-  presetSettings.speedRandomization = clampNumber(
-    saved.speedRandomization ??
-      (savedRecord.speedVariation as number | undefined),
-    legacySpeedRandomization,
-    SETTINGS_LIMITS.speedRandomization.min,
-    SETTINGS_LIMITS.speedRandomization.max,
-  );
-  if (presetSettings.speedRandomizationEnabled === undefined) {
-    presetSettings.speedRandomizationEnabled =
-      (savedRecord.speedVariationEnabled as boolean | undefined) ??
-      defaults.speedRandomizationEnabled;
-  }
+  migrateSpeedRandomization(presetSettings, savedRecord, defaults);
 
   settingsOnly.rateInputMode = sanitizeRateInputMode(
     saved.rateInputMode,
@@ -1368,6 +1624,20 @@ export function sanitizeSettings(
     defaults.lastPanel,
   );
   settingsOnly.theme = sanitizeTheme(saved.theme, defaults.theme);
+  const themeProfiles = sanitizeThemeProfiles(saved.themeProfiles);
+  const savedActiveThemeProfileId =
+    typeof saved.activeThemeProfileId === "string"
+      ? saved.activeThemeProfileId
+      : "";
+  settingsOnly.themeProfiles = themeProfiles;
+  settingsOnly.activeThemeProfileId = themeProfiles.some(
+    (profile) => profile.id === savedActiveThemeProfileId,
+  )
+    ? savedActiveThemeProfileId
+    : "";
+  if (settingsOnly.theme === "custom" && !settingsOnly.activeThemeProfileId) {
+    settingsOnly.theme = "dark";
+  }
   settingsOnly.masterKeybindMode = sanitizeEnum(
     saved.masterKeybindMode,
     defaults.masterKeybindMode,
@@ -1381,6 +1651,63 @@ export function sanitizeSettings(
     saved.accentColor,
     defaults.accentColor,
   );
+  settingsOnly.elevationNoticeEnabled = sanitizeBoolean(
+    saved.elevationNoticeEnabled,
+    defaults.elevationNoticeEnabled,
+  );
+  settingsOnly.alwaysRunAsAdmin = sanitizeBoolean(
+    saved.alwaysRunAsAdmin,
+    defaults.alwaysRunAsAdmin,
+  );
+  settingsOnly.fancyTitle = sanitizeBoolean(
+    saved.fancyTitle,
+    defaults.fancyTitle,
+  );
+  settingsOnly.titleFont = sanitizeFontFamily(
+    saved.titleFont,
+    defaults.titleFont,
+  );
+  settingsOnly.fontFamily = sanitizeFontFamily(
+    saved.fontFamily,
+    defaults.fontFamily,
+  );
+  settingsOnly.indicatorCorner = sanitizeEnum(
+    saved.indicatorCorner,
+    defaults.indicatorCorner,
+    INDICATOR_CORNER_OPTIONS,
+  );
+  settingsOnly.indicatorColorMode = sanitizeEnum(
+    saved.indicatorColorMode,
+    defaults.indicatorColorMode,
+    INDICATOR_COLOR_MODE_OPTIONS,
+  );
+  settingsOnly.indicatorCustomColor = sanitizeHexColor(
+    saved.indicatorCustomColor,
+    defaults.indicatorCustomColor,
+  );
+  const rawCountdownMode = saved.indicatorCountdownMode as string | undefined;
+  const savedCountdownMode =
+    rawCountdownMode === "off"
+      ? "plain"
+      : typeof rawCountdownMode === "string"
+        ? rawCountdownMode
+        : saved.indicatorCountdownEnabled === true
+          ? "words"
+          : undefined;
+  settingsOnly.indicatorCountdownMode = sanitizeEnum(
+    savedCountdownMode,
+    defaults.indicatorCountdownMode,
+    INDICATOR_COUNTDOWN_MODE_OPTIONS,
+  );
+  settingsOnly.indicatorBackgroundMode = sanitizeEnum(
+    saved.indicatorBackgroundMode,
+    defaults.indicatorBackgroundMode,
+    INDICATOR_BACKGROUND_MODE_OPTIONS,
+  );
+  settingsOnly.indicatorCountdownEnabled =
+    typeof saved.indicatorCountdownEnabled === "boolean"
+      ? saved.indicatorCountdownEnabled
+      : savedCountdownMode !== undefined;
 
   // Sanitize stopZones from raw data (skip sanitizeFields default)
   const rawStopZones = savedRecord.stopZones;
@@ -1406,26 +1733,20 @@ export function sanitizeSettings(
   if (settingsOnly.stopZones.length === 0) {
     const oldEnabled = savedRecord.customStopZoneEnabled as boolean | undefined;
     if (oldEnabled) {
-      const oldX = clampNumber(savedRecord.customStopZoneX, 0, 0);
-      const oldY = clampNumber(savedRecord.customStopZoneY, 0, 0);
-      const oldW = Math.max(
-        1,
-        clampNumber(savedRecord.customStopZoneWidth, 100, 1),
-      );
-      const oldH = Math.max(
-        1,
-        clampNumber(savedRecord.customStopZoneHeight, 100, 1),
-      );
-      settingsOnly.stopZones = [
+      const migratedZones = sanitizeStopZones([
         {
           id: createStopZoneId(),
-          x: oldX,
-          y: oldY,
-          width: oldW,
-          height: oldH,
+          x: savedRecord.customStopZoneX,
+          y: savedRecord.customStopZoneY,
+          width: savedRecord.customStopZoneWidth,
+          height: savedRecord.customStopZoneHeight,
           action: "stop",
         },
-      ];
+      ]);
+      settingsOnly.stopZones = migratedZones;
+      if (migratedZones.length > 0) {
+        presetSettings.stopZonesEnabled = true;
+      }
     }
   }
   presetSettings.clickSpeed = clampNumber(
@@ -1442,10 +1763,25 @@ export function sanitizeSettings(
       ? saved.activePresetId
       : null;
 
+  if (
+    presetSettings.dutyCycleMode === "Hold" &&
+    savedRecord.savedDurationMs === undefined
+  ) {
+    settingsOnly.savedDurationMs =
+      settingsOnly.durationHours * 3_600_000 +
+      settingsOnly.durationMinutes * 60_000 +
+      settingsOnly.durationSeconds * 1_000 +
+      settingsOnly.durationMilliseconds;
+  }
+
   if (presetSettings.dutyCycleMode === "Hold") {
     presetSettings.clickSpeed = 1;
     presetSettings.clickInterval = "d";
     presetSettings.dutyCycle = 100;
+    settingsOnly.durationHours = 24;
+    settingsOnly.durationMinutes = 0;
+    settingsOnly.durationSeconds = 0;
+    settingsOnly.durationMilliseconds = 0;
   }
 
   return {

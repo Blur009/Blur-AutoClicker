@@ -1,4 +1,5 @@
 import type { Settings } from "../../../../store";
+import { holdModePatch } from "../../../../cadence";
 
 import {
   SETTINGS_LIMITS,
@@ -30,9 +31,9 @@ export default function DutyCycleSection({ settings, update }: Props) {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
               <path stroke="none" d="M0 0h24v24H0z" fill="none" />
               <path d="M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1" />
@@ -51,26 +52,12 @@ export default function DutyCycleSection({ settings, update }: Props) {
                   dutyCycleOption === "Hold" &&
                   settings.dutyCycleMode !== "Hold"
                 ) {
-                  update({
-                    dutyCycleMode: "Hold",
-                    savedClickSpeed: settings.clickSpeed,
-                    savedClickInterval: settings.clickInterval,
-                    savedDutyCycle: settings.dutyCycle,
-                    clickSpeed: 1,
-                    clickInterval: "d",
-                    dutyCycle: 100,
-                  });
+                  update(holdModePatch(settings, true));
                 } else if (
                   dutyCycleOption === "Click" &&
                   settings.dutyCycleMode !== "Click"
                 ) {
-                  update({
-                    dutyCycleMode: "Click",
-                    clickSpeed: settings.savedClickSpeed,
-                    clickInterval:
-                      settings.savedClickInterval as Settings["clickInterval"],
-                    dutyCycle: settings.savedDutyCycle,
-                  });
+                  update(holdModePatch(settings, false));
                 }
               }}
             >
@@ -82,8 +69,8 @@ export default function DutyCycleSection({ settings, update }: Props) {
       <CardDivider />
       <div className="adv-card-desc">
         {settings.dutyCycleMode === "Click"
-          ? "Controls how long the button is held during each click."
-          : "Holds the button down continuously. Click speed is disabled."}
+          ? "Sets how much of each click cycle the button is held down."
+          : "Holds the button or key down continuously and ignores click speed."}
       </div>
       {settings.dutyCycleMode === "Click" && (
         <div className="adv-row" style={{ gap: 8, justifyContent: "flex-end" }}>
@@ -106,7 +93,7 @@ export default function DutyCycleSection({ settings, update }: Props) {
               whiteSpace: "nowrap",
             }}
           >
-            hold duration
+            of each cycle
           </span>
         </div>
       )}

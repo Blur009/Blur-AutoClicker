@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Click Indicator</title>
+    <style>
+      :root {
+        --surface-rgb: 22, 24, 29;
+        --bubble-bg: #16181d;
+        --bubble-fg: #f2f3f5;
+      }
+
+      :root[data-theme="light"] {
+        --surface-rgb: 244, 244, 245;
+        --bubble-bg: #f4f4f5;
+        --bubble-fg: #16181d;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+        pointer-events: none;
+        user-select: none;
+      }
+
+      #stack {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 1;
+      }
+
+      #card {
+        box-sizing: border-box;
+        padding: var(--bg-pad, 0px);
+      }
+
+      #content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      #card[data-bg="card"] {
+        background: rgba(var(--surface-rgb), var(--bg-alpha, 0.6));
+        border-radius: calc(var(--bg-pad, 0px) * 1.2);
+      }
+
+      #card[data-bg="shadow"] #content {
+        filter: drop-shadow(
+          0 0 calc(var(--bg-pad, 0px) * 0.5)
+            rgba(0, 0, 0, var(--bg-alpha, 0.6))
+        );
+      }
+
+      #card[data-bg="card"] #countdown,
+      #card[data-bg="shadow"] #countdown {
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
+      }
+
+      #card[data-bg="shadow"] #countdown {
+        color: #f2f3f5;
+      }
+
+      #glyph {
+        width: var(--glyph-size, 32px);
+        height: var(--glyph-size, 32px);
+        flex: 0 0 auto;
+        background-color: var(--glyph-color, #22c55e);
+        -webkit-mask-image: url("/icon-cursor-mask.png");
+        mask-image: url("/icon-cursor-mask.png");
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-position: center;
+        mask-position: center;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+      }
+
+      #countdown {
+        width: max-content;
+        max-width: 100%;
+        padding: 1px 6px;
+        border-radius: calc((1.15em + 2px) * 0.25);
+        background: var(--bubble-bg);
+        color: var(--bubble-fg);
+        font-family: "Segoe UI", system-ui, sans-serif;
+        font-size: var(--countdown-font, 10px);
+        line-height: 1.15;
+        text-align: center;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stack">
+      <div id="card">
+        <div id="content">
+          <div id="glyph"></div>
+          <div id="countdown" hidden></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/indicator.ts"></script>
+  </body>
+</html>

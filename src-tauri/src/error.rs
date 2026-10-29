@@ -22,6 +22,9 @@ pub enum AppError {
     State(String),
 
     #[error("{0}")]
+    InvalidSetting(String),
+
+    #[error("{0}")]
     Network(String),
 
     #[error(transparent)]
@@ -50,6 +53,12 @@ pub enum AppError {
 
     #[error("Inter-thread channel communication disconnected")]
     ChannelFailure,
+
+    #[error(transparent)]
+    Db(#[from] rusqlite::Error),
+
+    #[error("Database migration failed: {0}")]
+    DbMigration(String),
 }
 
 #[derive(Serialize)]
@@ -80,6 +89,10 @@ impl Serialize for AppError {
             },
             AppError::Network(msg) => ErrorPayload {
                 code: "NETWORK_ERROR",
+                message: msg.clone(),
+            },
+            AppError::InvalidSetting(msg) => ErrorPayload {
+                code: "INVALID_SETTING",
                 message: msg.clone(),
             },
             AppError::Io(err) => ErrorPayload {
@@ -118,6 +131,14 @@ impl Serialize for AppError {
             AppError::ChannelFailure => ErrorPayload {
                 code: "THREAD_SYNC_FAILURE",
                 message: "Active communication between automation threads was severed.".to_string(),
+            },
+            AppError::Db(err) => ErrorPayload {
+                code: "DB_ERROR",
+                message: err.to_string(),
+            },
+            AppError::DbMigration(msg) => ErrorPayload {
+                code: "DB_MIGRATION_ERROR",
+                message: msg.clone(),
             },
         };
         payload.serialize(serializer)
@@ -163,6 +184,14 @@ mod tests {
         let val = serde_json::to_value(&err).unwrap();
         assert_eq!(val["code"], "STATE_ERROR");
         assert_eq!(val["message"], "bad state");
+    }
+
+    #[test]
+    fn app_error_invalid_setting_serializes_correctly() {
+        let err = AppError::InvalidSetting("accent colour 'x' is not #RRGGBB".into());
+        let val = serde_json::to_value(&err).unwrap();
+        assert_eq!(val["code"], "INVALID_SETTING");
+        assert!(val["message"].as_str().unwrap().contains("#RRGGBB"));
     }
 
     #[test]

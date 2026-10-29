@@ -1,3 +1,6 @@
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
 use super::mouse::{current_cursor_position, current_monitor_rects, VirtualScreenRect};
 use super::{ClickerConfig, ZoneAction};
 
@@ -113,9 +116,74 @@ pub fn detect_failsafe(
     None
 }
 
+pub const FAILSAFE_CURSOR_UNAVAILABLE: &str =
+    "Failsafe unavailable: cursor position could not be read";
+pub const FAILSAFE_MONITORS_UNAVAILABLE: &str =
+    "Failsafe unavailable: monitor layout could not be read";
+
+const CURSOR_UNREADABLE_GRACE: Duration = Duration::from_millis(500);
+
+static CURSOR_UNREADABLE_SINCE: Mutex<Option<Instant>> = Mutex::new(None);
+
+fn evaluate_cursor_failure(since: Option<Instant>, now: Instant) -> (Option<Instant>, bool) {
+    let started = since.unwrap_or(now);
+    let expired = now.saturating_duration_since(started) >= CURSOR_UNREADABLE_GRACE;
+    (Some(started), expired)
+}
+
+fn note_cursor_read_failure() -> Option<String> {
+    let now = Instant::now();
+    let mut since = CURSOR_UNREADABLE_SINCE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let (started, expired) = evaluate_cursor_failure(*since, now);
+    *since = started;
+    if expired {
+        Some(String::from(FAILSAFE_CURSOR_UNAVAILABLE))
+    } else {
+        None
+    }
+}
+
+pub fn reset_cursor_unreadable_grace() {
+    let mut since = CURSOR_UNREADABLE_SINCE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    *since = None;
+}
+
+fn note_cursor_read_success() {
+    reset_cursor_unreadable_grace();
+}
+
 pub fn should_stop_for_failsafe(config: &ClickerConfig) -> Option<String> {
-    let cursor = current_cursor_position()?;
-    let monitors = current_monitor_rects()?;
+    let stop_zone_gate = config.stop_zones_enabled
+        && config
+            .stop_zones
+            .iter()
+            .any(|zone| zone.action == ZoneAction::Stop);
+    let needs_monitors = config.corner_stop_enabled || config.edge_stop_enabled;
+    if !needs_monitors && !stop_zone_gate {
+        return None;
+    }
+
+    let cursor = match current_cursor_position() {
+        Some(cursor) => {
+            note_cursor_read_success();
+            cursor
+        }
+        None => return note_cursor_read_failure(),
+    };
+
+    let monitors = if needs_monitors {
+        match current_monitor_rects() {
+            Some(monitors) => monitors,
+            None => return Some(String::from(FAILSAFE_MONITORS_UNAVAILABLE)),
+        }
+    } else {
+        Vec::new()
+    };
+
     detect_failsafe(cursor, &monitors, config)
 }
 
@@ -138,8 +206,8 @@ mod tests {
             stop_zones_enabled: false,
             stop_when_complete: false,
             click_points: Vec::new(),
-            offset: 0.0,
-            offset_chance: 0.0,
+            cursor_nudge_px: 0.0,
+            cursor_nudge_chance_pct: 0.0,
             smoothing: 0,
             stop_zones: Vec::new(),
             corner_stop_enabled: true,
@@ -160,6 +228,59 @@ mod tests {
             process_list_entries: Vec::new(),
             task_switcher_stop_enabled: false,
         }
+    }
+
+    #[test]
+    fn first_unreadable_cursor_sample_does_not_stop_the_run() {
+        let now = Instant::now();
+
+        let (since, expired) = evaluate_cursor_failure(None, now);
+        assert_eq!(since, Some(now));
+        assert!(!expired);
+    }
+
+    #[test]
+    fn unreadable_cursor_stops_after_the_grace_window() {
+        let start = Instant::now();
+
+        let (since, expired) =
+            evaluate_cursor_failure(Some(start), start + Duration::from_millis(499));
+        assert_eq!(since, Some(start));
+        assert!(!expired);
+
+        let (since, expired) =
+            evaluate_cursor_failure(Some(start), start + CURSOR_UNREADABLE_GRACE);
+        assert_eq!(since, Some(start));
+        assert!(expired);
+
+        let (_, expired) = evaluate_cursor_failure(Some(start), start + Duration::from_secs(30));
+        assert!(expired);
+    }
+
+    #[test]
+    fn successful_read_clears_the_unreadable_cursor_timestamp() {
+        note_cursor_read_success();
+        assert_eq!(note_cursor_read_failure(), None);
+        assert!(CURSOR_UNREADABLE_SINCE.lock().unwrap().is_some());
+
+        note_cursor_read_success();
+        assert!(CURSOR_UNREADABLE_SINCE.lock().unwrap().is_none());
+        assert_eq!(note_cursor_read_failure(), None);
+
+        note_cursor_read_success();
+    }
+
+    #[test]
+    fn reset_starts_a_fresh_grace_for_the_next_unreadable_cursor_sample() {
+        let stale = Instant::now();
+        *CURSOR_UNREADABLE_SINCE.lock().unwrap() = Some(stale);
+
+        reset_cursor_unreadable_grace();
+        assert!(CURSOR_UNREADABLE_SINCE.lock().unwrap().is_none());
+
+        assert_eq!(note_cursor_read_failure(), None);
+
+        note_cursor_read_success();
     }
 
     #[test]
@@ -208,6 +329,51 @@ mod tests {
 
         let reason = detect_failsafe((1915, 1195), &monitors, &config);
         assert_eq!(reason.as_deref(), Some("Bottom-right corner failsafe"));
+    }
+
+    #[test]
+    fn corner_failsafe_boundary_is_inclusive() {
+        let config = sample_config();
+        let monitors = [
+            VirtualScreenRect::new(0, 0, 1920, 1080),
+            VirtualScreenRect::new(-1920, -200, 1920, 1080),
+        ];
+
+        for monitor in monitors {
+            let inside = (
+                monitor.left + config.corner_stop_tl,
+                monitor.top + config.corner_stop_tl,
+            );
+            assert_eq!(
+                detect_failsafe(inside, &[monitor], &config).as_deref(),
+                Some("Top-left corner failsafe")
+            );
+            assert_eq!(
+                detect_failsafe((inside.0 + 1, inside.1 + 1), &[monitor], &config),
+                None
+            );
+        }
+    }
+
+    #[test]
+    fn left_edge_failsafe_boundary_is_inclusive() {
+        let config = sample_config();
+        let monitors = [
+            VirtualScreenRect::new(0, 0, 1920, 1080),
+            VirtualScreenRect::new(-1920, -200, 1920, 1080),
+        ];
+
+        for monitor in monitors {
+            let inside = (monitor.left + config.edge_stop_left, monitor.top + 500);
+            assert_eq!(
+                detect_failsafe(inside, &[monitor], &config).as_deref(),
+                Some("Left edge failsafe")
+            );
+            assert_eq!(
+                detect_failsafe((inside.0 + 1, inside.1), &[monitor], &config),
+                None
+            );
+        }
     }
 
     #[test]

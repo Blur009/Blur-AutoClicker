@@ -1,5 +1,14 @@
 name: Dependabot auto-merge
 
+# Turns on GitHub's auto-merge for every Dependabot PR. Auto-merge then waits
+# for the checks required by the "Protect Dev" ruleset and merges the PR as
+# soon as they pass, so no manual step is involved.
+#
+# This is only safe while the target branch requires CI checks. Without them
+# GitHub has nothing to wait for and merges the PR immediately, which is how
+# three unverified PRs landed on dev on 2026-10-20. The guard below refuses to
+# run when auto-merge is off, and the ruleset is what makes the wait real.
+
 on: pull_request
 
 permissions:
@@ -9,17 +18,16 @@ permissions:
 jobs:
   dependabot:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]' && github.event.pull_request.base.ref == 'dev'
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     steps:
-      - name: Fetch metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Enable auto-merge for patch/minor
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+      - name: Enable auto-merge
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: |
+          enabled=$(gh api "repos/${{ github.repository }}" --jq .allow_auto_merge)
+          if [ "$enabled" != "true" ]; then
+            echo "auto-merge is disabled for this repository, doing nothing"
+            exit 0
+          fi
+          gh pr merge --auto --squash "$PR_URL"

@@ -1,5 +1,16 @@
-import { error } from "@tauri-apps/plugin-log";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { logDiagnostic } from "../../../../diagnostics";
 import { open } from "@tauri-apps/plugin-dialog";
+import { applyAccentTheme } from "../../../../accentTheme";
+import { themeBaseOf } from "../../../../themeModel";
 import {
   getExtension,
   IMAGE_EXTENSIONS,
@@ -7,9 +18,16 @@ import {
   PLAYABLE_VIDEO_EXTENSIONS,
   VIDEO_EXTENSIONS,
 } from "../../../../backgroundMedia";
-import { DEFAULT_ACCENT_COLOR } from "../../../../settingsSchema";
+import {
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_TITLE_FONT,
+} from "../../../../settingsSchema";
 import type { IconColor, IconTheme } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
+import ColorPicker from "../../../ColorPicker";
+import UiScaleControl from "../../../UiScaleControl";
+import { AdvDropdown } from "../../advanced/sections/shared";
 import { SettingsCard } from "./shared";
 
 const MEDIA_FILTERS = [
@@ -35,12 +53,22 @@ const PAGES = [
   { suffix: "Settings", label: "Settings Page" },
 ] as const;
 
+const THEME_SEG_OPTIONS = ["dark", "light", "custom"] as const;
+const ICON_THEME_SEG_OPTIONS: IconTheme[] = ["auto", "dark", "light"];
+const ICON_COLOR_SEG_OPTIONS: IconColor[] = ["theme", "default"];
+
+const LEGACY_WARNING_ROW_STYLE: CSSProperties = { marginTop: "-0.5rem" };
+const LEGACY_WARNING_TEXT_STYLE: CSSProperties = {
+  color: "var(--accent-yellow)",
+};
+
 interface Props {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
+  onOpenCustomizer: () => void;
 }
 
-function PageAppearanceControls({
+const PageAppearanceControls = memo(function PageAppearanceControls({
   settings,
   update,
   suffix,
@@ -63,21 +91,71 @@ function PageAppearanceControls({
   const panelBlur = settings[panelBlurKey] as number;
   const bgBlur = settings[bgBlurKey] as number;
 
-  const handleBrowse = async () => {
+  const handleBrowse = useCallback(async () => {
     try {
       const selected = await open({ multiple: false, filters: MEDIA_FILTERS });
       if (selected) {
         update({ [bgImageKey]: selected as string });
       }
     } catch (err) {
-      error(
-        JSON.stringify({
-          source: "SettingsPanel.pickImage",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("SettingsPanel.pickImage", {
+        error: String(err),
+      });
     }
-  };
+  }, [bgImageKey, update]);
+
+  const handleBgImageChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [bgImageKey]: e.target.value }),
+    [bgImageKey, update],
+  );
+
+  const handleRemoveBgImage = useCallback(
+    () => update({ [bgImageKey]: "" }),
+    [bgImageKey, update],
+  );
+
+  const handleWinOpacityChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [winOpacityKey]: Number(e.target.value) }),
+    [winOpacityKey, update],
+  );
+
+  const handleBgOpacityChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [bgOpacityKey]: Number(e.target.value) }),
+    [bgOpacityKey, update],
+  );
+
+  const handlePanelOpacityChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [panelOpacityKey]: Number(e.target.value) }),
+    [panelOpacityKey, update],
+  );
+
+  const handleBgBlurChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [bgBlurKey]: Number(e.target.value) }),
+    [bgBlurKey, update],
+  );
+
+  const handlePanelBlurChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      update({ [panelBlurKey]: Number(e.target.value) }),
+    [panelBlurKey, update],
+  );
+
+  const legacyVideoWarning = useMemo(() => {
+    const ext = getExtension(bgImage);
+    if (!isLegacyVideoExtension(ext)) return null;
+    return (
+      <div className="settings-row" style={LEGACY_WARNING_ROW_STYLE}>
+        <span className="settings-sublabel" style={LEGACY_WARNING_TEXT_STYLE}>
+          MOV/M4V/AVI/MKV often fail. If video stays black, convert it to mp4.
+        </span>
+      </div>
+    );
+  }, [bgImage]);
 
   return (
     <>
@@ -85,8 +163,7 @@ function PageAppearanceControls({
         <div className="settings-label-group">
           <span className="settings-label">Background Media</span>
           <span className="settings-sublabel">
-            Path or URL to an image or video. Images support transparency.
-            Videos auto-loop muted.
+            Path or URL to an image or video. Videos loop muted.
           </span>
         </div>
         <div className="settings-bg-image-row">
@@ -94,7 +171,7 @@ function PageAppearanceControls({
             className="settings-bg-input"
             type="text"
             value={bgImage}
-            onChange={(e) => update({ [bgImageKey]: e.target.value })}
+            onChange={handleBgImageChange}
             placeholder="https://example.com/image.png or C:\Videos\loop.mp4"
           />
           <div className="settings-bg-buttons">
@@ -103,37 +180,21 @@ function PageAppearanceControls({
             </button>
             <button
               className="settings-btn-danger settings-btn-danger--compact"
-              onClick={() => update({ [bgImageKey]: "" })}
+              onClick={handleRemoveBgImage}
               disabled={!bgImage}
             >
               Remove
             </button>
           </div>
         </div>
-        {(() => {
-          const ext = getExtension(bgImage);
-          if (isLegacyVideoExtension(ext)) {
-            return (
-              <div className="settings-row" style={{ marginTop: "-0.5rem" }}>
-                <span
-                  className="settings-sublabel"
-                  style={{ color: "var(--accent-yellow)" }}
-                >
-                  MOV/M4V/AVI/MKV often fail. If video stays black, convert it
-                  to mp4.
-                </span>
-              </div>
-            );
-          }
-          return null;
-        })()}
+        {legacyVideoWarning}
       </div>
 
       <div className="settings-row">
         <div className="settings-label-group">
           <span className="settings-label">Background Opacity</span>
           <span className="settings-sublabel">
-            Transparency of the app window background.
+            How much of the desktop shows through the window.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -143,9 +204,7 @@ function PageAppearanceControls({
             min="0"
             max="100"
             value={winOpacity}
-            onChange={(e) =>
-              update({ [winOpacityKey]: Number(e.target.value) })
-            }
+            onChange={handleWinOpacityChange}
           />
           <span className="settings-slider-value">{winOpacity}%</span>
         </div>
@@ -155,7 +214,7 @@ function PageAppearanceControls({
         <div className="settings-label-group">
           <span className="settings-label">Background Media Opacity</span>
           <span className="settings-sublabel">
-            Transparency of the background image or video.
+            Fade the image or video behind the panels.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -166,7 +225,7 @@ function PageAppearanceControls({
             max="100"
             value={bgOpacity}
             disabled={!bgImage}
-            onChange={(e) => update({ [bgOpacityKey]: Number(e.target.value) })}
+            onChange={handleBgOpacityChange}
           />
           <span className="settings-slider-value">{bgOpacity}%</span>
         </div>
@@ -175,7 +234,9 @@ function PageAppearanceControls({
       <div className="settings-row">
         <div className="settings-label-group">
           <span className="settings-label">Panel Opacity</span>
-          <span className="settings-sublabel">Transparency of the panel.</span>
+          <span className="settings-sublabel">
+            Fade the panels, cards and inputs.
+          </span>
         </div>
         <div className="settings-opacity-controls">
           <input
@@ -184,9 +245,7 @@ function PageAppearanceControls({
             min="0"
             max="100"
             value={panelOpacity}
-            onChange={(e) =>
-              update({ [panelOpacityKey]: Number(e.target.value) })
-            }
+            onChange={handlePanelOpacityChange}
           />
           <span className="settings-slider-value">{panelOpacity}%</span>
         </div>
@@ -196,7 +255,7 @@ function PageAppearanceControls({
         <div className="settings-label-group">
           <span className="settings-label">Background Blur</span>
           <span className="settings-sublabel">
-            Blur the background media itself, across the whole UI.
+            Blur the image or video itself.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -207,7 +266,7 @@ function PageAppearanceControls({
             max="20"
             value={bgBlur}
             disabled={!bgImage}
-            onChange={(e) => update({ [bgBlurKey]: Number(e.target.value) })}
+            onChange={handleBgBlurChange}
           />
           <span className="settings-slider-value">{bgBlur}px</span>
         </div>
@@ -217,7 +276,7 @@ function PageAppearanceControls({
         <div className="settings-label-group">
           <span className="settings-label">Panel Blur</span>
           <span className="settings-sublabel">
-            Blur effect behind the panel.
+            Blur what sits behind the panels.
           </span>
         </div>
         <div className="settings-opacity-controls">
@@ -227,74 +286,354 @@ function PageAppearanceControls({
             min="0"
             max="20"
             value={panelBlur}
-            onChange={(e) => update({ [panelBlurKey]: Number(e.target.value) })}
+            onChange={handlePanelBlurChange}
           />
           <span className="settings-slider-value">{panelBlur}px</span>
         </div>
       </div>
     </>
   );
+});
+
+let fontFamiliesPromise: Promise<string[] | null> | null = null;
+
+function loadFontFamilies(): Promise<string[] | null> {
+  if (!fontFamiliesPromise) {
+    fontFamiliesPromise = invoke<string[]>("list_font_families").catch(
+      (err) => {
+        logDiagnostic("AppearanceSection.loadFontFamilies", {
+          error: String(err),
+        });
+        fontFamiliesPromise = null;
+        return null;
+      },
+    );
+  }
+  return fontFamiliesPromise;
 }
 
-export default function AppearanceSection({ settings, update }: Props) {
-  const isPerPage = settings.perPageAppearance;
+const FontPicker = memo(function FontPicker({
+  value,
+  fallback,
+  onChange,
+}: {
+  value: string;
+  fallback: string;
+  onChange: (next: string) => void;
+}) {
+  const [families, setFamilies] = useState<string[] | null>(null);
 
-  const handleModeChange = (individual: boolean) => {
-    update({ perPageAppearance: individual });
-  };
+  useEffect(() => {
+    let alive = true;
+    loadFontFamilies().then((list) => {
+      if (alive) setFamilies(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const themeAccent = (
+  const options = useMemo(() => {
+    const installed = families ?? [];
+    const entries = [{ value: fallback, label: "Default" }];
+    if (value !== fallback && !installed.includes(value)) {
+      entries.push({
+        value,
+        label: `${value} (not installed)`,
+      });
+    }
+    for (const family of installed) {
+      if (family !== fallback) {
+        entries.push({ value: family, label: family });
+      }
+    }
+    return entries;
+  }, [families, fallback, value]);
+
+  return (
+    <>
+      <div className="font-dropdown">
+        <AdvDropdown
+          value={value}
+          options={options}
+          onChange={onChange}
+          searchable
+          hoverWheel={false}
+        />
+      </div>
+      {value !== fallback && (
+        <button
+          type="button"
+          className="settings-btn-secondary font-reset-btn"
+          onClick={() => onChange(fallback)}
+          aria-label="Reset font"
+          title="Reset to default font"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="lucide lucide-rotate-ccw"
+          >
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        </button>
+      )}
+    </>
+  );
+});
+
+const ThemeAccentCard = memo(function ThemeAccentCard({
+  settings,
+  update,
+  onOpenCustomizer,
+}: {
+  settings: Settings;
+  update: (patch: Partial<Settings>) => void;
+  onOpenCustomizer: () => void;
+}) {
+  const theme = settings.theme;
+  const activeProfile = useMemo(
+    () =>
+      settings.themeProfiles.find(
+        (profile) => profile.id === settings.activeThemeProfileId,
+      ) ?? null,
+    [settings.activeThemeProfileId, settings.themeProfiles],
+  );
+  const accentColor =
+    theme === "custom" && activeProfile
+      ? activeProfile.tokens.accent.hex
+      : settings.accentColor;
+  const accentDisabled = theme === "custom";
+
+  const handleThemeSelect = useCallback(
+    (next: Settings["theme"]) => {
+      if (next !== "custom") {
+        update({ theme: next });
+        return;
+      }
+
+      const profiles = settings.themeProfiles;
+      if (profiles.length === 0) {
+        onOpenCustomizer();
+        return;
+      }
+
+      const activeThemeProfileId = profiles.some(
+        (profile) => profile.id === settings.activeThemeProfileId,
+      )
+        ? settings.activeThemeProfileId
+        : profiles[0].id;
+      update({ theme: "custom", activeThemeProfileId });
+    },
+    [
+      onOpenCustomizer,
+      settings.activeThemeProfileId,
+      settings.themeProfiles,
+      update,
+    ],
+  );
+
+  const handleAccentChange = useCallback(
+    (nextColor: string) => update({ accentColor: nextColor }),
+    [update],
+  );
+
+  const handleAccentPreview = useCallback(
+    (nextColor: string) => {
+      const base = themeBaseOf(theme, activeProfile);
+      applyAccentTheme(nextColor, base);
+      const root = document.querySelector<HTMLElement>(".app-root");
+      if (root) applyAccentTheme(nextColor, base, root);
+    },
+    [activeProfile, theme],
+  );
+
+  const handleAccentReset = useCallback(
+    () => update({ accentColor: DEFAULT_ACCENT_COLOR }),
+    [update],
+  );
+
+  return (
     <SettingsCard title="Theme & Accent" description="Applied to all pages.">
       <div className="settings-row">
         <div className="settings-label-group">
           <span className="settings-label">Theme</span>
           <span className="settings-sublabel">
-            Choose between dark and light mode.
+            Dark, light, or a theme of your own.
           </span>
         </div>
-        <div className="settings-seg-group">
-          {(["dark", "light"] as const).map((theme) => (
+        <div className="settings-row-actions">
+          <div className="settings-seg-group settings-seg-group--theme">
+            {THEME_SEG_OPTIONS.map((option) => (
+              <button
+                key={option}
+                className={`settings-seg-btn settings-seg-btn--${option} ${theme === option ? "active" : ""}`}
+                onClick={() => handleThemeSelect(option)}
+              >
+                {option === "dark"
+                  ? "Dark"
+                  : option === "light"
+                    ? "Light"
+                    : "Custom"}
+              </button>
+            ))}
+          </div>
+          {theme === "custom" && settings.themeProfiles.length > 0 && (
             <button
-              key={theme}
-              className={`settings-seg-btn ${settings.theme === theme ? "active" : ""}`}
-              onClick={() => update({ theme })}
+              type="button"
+              className="settings-btn-secondary settings-btn-icon"
+              aria-label="Edit custom theme"
+              title="Edit custom theme"
+              onClick={onOpenCustomizer}
             >
-              {theme === "dark" ? "Dark" : "Light"}
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+                <path d="m15 5 4 4" />
+              </svg>
             </button>
-          ))}
+          )}
         </div>
       </div>
       <div className="settings-row">
         <div className="settings-label-group">
           <span className="settings-label">Accent Color</span>
-          <span className="settings-sublabel">The primary accent color.</span>
+          <span className="settings-sublabel">
+            {accentDisabled
+              ? "Part of the custom theme you are using."
+              : "Color of toggles, sliders and active tabs."}
+          </span>
         </div>
-        <div className="settings-color-controls">
-          <label className="settings-color-picker">
-            <input
-              type="color"
-              value={settings.accentColor}
-              onChange={(event) => update({ accentColor: event.target.value })}
-            />
-          </label>
+        <div
+          className={`settings-color-controls${accentDisabled ? " settings-color-controls--disabled" : ""}`}
+          aria-disabled={accentDisabled || undefined}
+          inert={accentDisabled}
+        >
+          <ColorPicker
+            value={accentColor}
+            onChange={handleAccentChange}
+            onPreview={handleAccentPreview}
+            label="Accent color"
+          />
           <span className="settings-value settings-value--mono">
-            {settings.accentColor.toUpperCase()}
+            {accentColor.toUpperCase()}
           </span>
           <button
             className="settings-btn-secondary"
-            onClick={() => update({ accentColor: DEFAULT_ACCENT_COLOR })}
-            disabled={settings.accentColor === DEFAULT_ACCENT_COLOR}
+            onClick={handleAccentReset}
+            disabled={accentDisabled || accentColor === DEFAULT_ACCENT_COLOR}
           >
             Reset
           </button>
         </div>
       </div>
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">App Font</span>
+          <span className="settings-sublabel">
+            Any font on this PC, though some break the layout.
+          </span>
+        </div>
+        <div className="settings-row-actions">
+          <FontPicker
+            value={settings.fontFamily}
+            fallback={DEFAULT_FONT_FAMILY}
+            onChange={(next) => update({ fontFamily: next })}
+          />
+        </div>
+      </div>
     </SettingsCard>
+  );
+});
+
+export default function AppearanceSection({
+  settings,
+  update,
+  onOpenCustomizer,
+}: Props) {
+  const isPerPage = settings.perPageAppearance;
+
+  const handleModeChange = useCallback(
+    (individual: boolean) => update({ perPageAppearance: individual }),
+    [update],
+  );
+
+  const handleTaskbarIconToggle = useCallback(
+    () => update({ taskbarIconEnabled: !settings.taskbarIconEnabled }),
+    [update, settings.taskbarIconEnabled],
+  );
+
+  const handleIconThemeSelect = useCallback(
+    (opt: IconTheme) => update({ taskbarIconTheme: opt }),
+    [update],
+  );
+
+  const handleIconColorSelect = useCallback(
+    (opt: IconColor) => {
+      if (settings.taskbarIconEnabled) update({ taskbarIconColor: opt });
+    },
+    [update, settings.taskbarIconEnabled],
+  );
+
+  const handleStatusBarToggle = useCallback(
+    () => update({ statusBarEnabled: !settings.statusBarEnabled }),
+    [update, settings.statusBarEnabled],
+  );
+
+  const handleStatusBarPresetToggle = useCallback(
+    () => update({ statusBarPresetEnabled: !settings.statusBarPresetEnabled }),
+    [update, settings.statusBarPresetEnabled],
+  );
+
+  const handleStatusBarSoundToggle = useCallback(
+    () => update({ statusBarSoundEnabled: !settings.statusBarSoundEnabled }),
+    [update, settings.statusBarSoundEnabled],
+  );
+
+  const handleStatusBarScaleToggle = useCallback(
+    () => update({ statusBarScaleEnabled: !settings.statusBarScaleEnabled }),
+    [update, settings.statusBarScaleEnabled],
+  );
+
+  const handleUiScaleChange = useCallback(
+    (next: number) => update({ uiScale: next }),
+    [update],
+  );
+
+  const handleFancyTitleToggle = useCallback(
+    () => update({ fancyTitle: !settings.fancyTitle }),
+    [update, settings.fancyTitle],
+  );
+
+  const handleTitleFontChange = useCallback(
+    (next: string) => update({ titleFont: next }),
+    [update],
   );
 
   return (
     <>
-      {themeAccent}
+      <ThemeAccentCard
+        settings={settings}
+        update={update}
+        onOpenCustomizer={onOpenCustomizer}
+      />
 
       <SettingsCard
         title="Appearance Mode"
@@ -346,21 +685,19 @@ export default function AppearanceSection({ settings, update }: Props) {
 
       <SettingsCard
         title="Taskbar Icon"
-        description="Control how the taskbar and tray icon looks."
+        description="Change the icon in the taskbar and the tray."
       >
         <div className="settings-row">
           <div className="settings-label-group">
             <span className="settings-label">Active Icon</span>
             <span className="settings-sublabel">
-              Show different icon when clicker is active.
+              Use a different icon while clicking.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.taskbarIconEnabled ? "on" : "off"}`}
-              onClick={() =>
-                update({ taskbarIconEnabled: !settings.taskbarIconEnabled })
-              }
+              onClick={handleTaskbarIconToggle}
             >
               <span className="settings-toggle-knob" />
             </button>
@@ -371,15 +708,15 @@ export default function AppearanceSection({ settings, update }: Props) {
           <div className="settings-label-group">
             <span className="settings-label">Icon Theme</span>
             <span className="settings-sublabel">
-              Which themed icons to use. Auto follows app theme.
+              Auto follows the app theme.
             </span>
           </div>
           <div className="settings-seg-group">
-            {(["auto", "dark", "light"] as IconTheme[]).map((opt) => (
+            {ICON_THEME_SEG_OPTIONS.map((opt) => (
               <button
                 key={opt}
                 className={`settings-seg-btn ${settings.taskbarIconTheme === opt ? "active" : ""}`}
-                onClick={() => update({ taskbarIconTheme: opt })}
+                onClick={() => handleIconThemeSelect(opt)}
               >
                 {opt === "auto" ? "Auto" : opt === "dark" ? "Dark" : "Light"}
               </button>
@@ -393,18 +730,15 @@ export default function AppearanceSection({ settings, update }: Props) {
           <div className="settings-label-group">
             <span className="settings-label">Icon Color</span>
             <span className="settings-sublabel">
-              Use accent color or default icon colors.
+              Tint the active icon with your accent color.
             </span>
           </div>
           <div className="settings-seg-group">
-            {(["theme", "default"] as IconColor[]).map((opt) => (
+            {ICON_COLOR_SEG_OPTIONS.map((opt) => (
               <button
                 key={opt}
                 className={`settings-seg-btn ${settings.taskbarIconColor === opt ? "active" : ""}`}
-                onClick={() =>
-                  settings.taskbarIconEnabled &&
-                  update({ taskbarIconColor: opt })
-                }
+                onClick={() => handleIconColorSelect(opt)}
               >
                 {opt === "theme" ? "Theme" : "Default"}
               </button>
@@ -414,27 +748,134 @@ export default function AppearanceSection({ settings, update }: Props) {
       </SettingsCard>
 
       <SettingsCard
+        title="Interface Scale"
+        description="Scales the entire window: text, controls, spacing and the window itself."
+      >
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Scale</span>
+            <span className="settings-sublabel">
+              The same control sits at the bottom right of the status bar. 10%
+              per click, 25% with Shift, 50% with Ctrl+Shift. Click the number
+              to reset to 100%.
+            </span>
+          </div>
+          <UiScaleControl
+            scale={settings.uiScale}
+            onChange={handleUiScaleChange}
+          />
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
         title="Status Bar"
         description="Show the status bar at the bottom of the window."
       >
         <div className="settings-row">
           <div className="settings-label-group">
-            <span className="settings-label">Footer</span>
+            <span className="settings-label">Enable</span>
             <span className="settings-sublabel">
-              Shows active preset, version, and stop reasons.
+              Shows active preset, version and stop reason.
             </span>
           </div>
           <div className="settings-toggle-wrapper">
             <button
               className={`settings-toggle ${settings.statusBarEnabled ? "on" : "off"}`}
-              onClick={() =>
-                update({ statusBarEnabled: !settings.statusBarEnabled })
-              }
+              onClick={handleStatusBarToggle}
             >
               <span className="settings-toggle-knob" />
             </button>
           </div>
         </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Preset Name</span>
+            <span className="settings-sublabel">
+              Show the active preset on the left of the status bar.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.statusBarPresetEnabled ? "on" : "off"}`}
+              onClick={handleStatusBarPresetToggle}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Sound Icon</span>
+            <span className="settings-sublabel">
+              Show the speaker button that mutes every sound. It only appears
+              while at least one sound is turned on in Sounds.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.statusBarSoundEnabled ? "on" : "off"}`}
+              onClick={handleStatusBarSoundToggle}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Interface Scale</span>
+            <span className="settings-sublabel">
+              Show the scale control at the right of the status bar. The scale
+              itself stays available above, in Interface Scale.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.statusBarScaleEnabled ? "on" : "off"}`}
+              onClick={handleStatusBarScaleToggle}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard title="Fun">
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Fancy Title</span>
+            <span className="settings-sublabel">
+              Give the window title a script font.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.fancyTitle ? "on" : "off"}`}
+              onClick={handleFancyTitleToggle}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+        {settings.fancyTitle && (
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">Title Font</span>
+              <span className="settings-sublabel">
+                Pristina by default, any installed font.
+              </span>
+            </div>
+            <div className="settings-row-actions">
+              <FontPicker
+                value={settings.titleFont}
+                fallback={DEFAULT_TITLE_FONT}
+                onChange={handleTitleFontChange}
+              />
+            </div>
+          </div>
+        )}
       </SettingsCard>
     </>
   );

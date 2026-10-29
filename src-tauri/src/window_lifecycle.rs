@@ -1,8 +1,16 @@
 use tauri::AppHandle;
 
 #[cfg(target_os = "windows")]
+type TrimMaps = Option<(
+    std::collections::HashMap<u32, Vec<u32>>,
+    std::collections::HashMap<u32, bool>,
+)>;
+
+#[cfg(target_os = "windows")]
+static TRIM_MAPS: std::sync::Mutex<TrimMaps> = std::sync::Mutex::new(None);
+
+#[cfg(target_os = "windows")]
 fn trim_webview_processes() {
-    use std::collections::HashMap;
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Diagnostics::ToolHelp::*;
@@ -27,8 +35,10 @@ fn trim_webview_processes() {
             .collect();
         let our_pid = std::process::id();
 
-        let mut children_of: HashMap<u32, Vec<u32>> = HashMap::new();
-        let mut is_webview2: HashMap<u32, bool> = HashMap::new();
+        let mut maps = TRIM_MAPS.lock().unwrap_or_else(|e| e.into_inner());
+        let (children_of, is_webview2) = maps.get_or_insert_with(Default::default);
+        children_of.clear();
+        is_webview2.clear();
 
         loop {
             let name_end = entry
@@ -82,13 +92,7 @@ fn trim_webview_processes() {}
 
 pub fn start_periodic_trimming(interval_secs: u64) {
     std::thread::spawn(move || {
-        // Wait 60 seconds before first trim to avoid interfering with WebView2 startup
-        for _ in 0..60 {
-            if !crate::overlay::OVERLAY_THREAD_RUNNING.load(std::sync::atomic::Ordering::SeqCst) {
-                return;
-            }
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
+        std::thread::sleep(std::time::Duration::from_secs(60));
         while crate::overlay::OVERLAY_THREAD_RUNNING.load(std::sync::atomic::Ordering::SeqCst) {
             std::thread::sleep(std::time::Duration::from_secs(interval_secs));
             trim_webview_processes();
@@ -96,7 +100,8 @@ pub fn start_periodic_trimming(interval_secs: u64) {
     });
 }
 
-pub fn on_hide(_app: &AppHandle) {
+pub fn on_hide(app: &AppHandle) {
+    crate::theme_window::close_if_open(app);
     trim_webview_processes();
 }
 

@@ -221,7 +221,7 @@
 }
 
 .adv-zone-index {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.75rem;
   font-weight: var(--font-weight-hv);
   color: var(--text-dim);
@@ -259,7 +259,7 @@
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-weight: var(--font-weight-hv);
   display: inline-flex;
   align-items: center;
@@ -421,7 +421,7 @@
 }
 
 .adv-stop-zone-list::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  background: var(--scrollbar-hover, #777777);
 }
 
 .adv-stop-zone-list > * + * {
@@ -446,14 +446,14 @@
 }
 
 .adv-zones-empty-title {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.8rem;
   font-weight: var(--font-weight-hv);
   color: var(--text-muted);
 }
 
 .adv-zones-empty-hint {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.72rem;
   color: var(--text-dim);
   line-height: 1.4;
@@ -466,7 +466,7 @@
 }
 
 .adv-proc-search {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.75rem;
   height: var(--adv-control-height);
   padding: 0 1.5rem 0 0.5rem;

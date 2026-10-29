@@ -55,6 +55,17 @@ function handleWheelStep(
   apply(clamp(current + delta * step, min, max));
 }
 
+const CLICK_MODE_OPTIONS = MODE_OPTIONS.map((mode) => ({
+  value: mode,
+  label: mode === "Toggle" ? "Toggle" : "Hold",
+}));
+
+const MOUSE_BUTTONS = ["Left", "Middle", "Right"] as const;
+
+const HOTKEY_INPUT_STYLE: CSSProperties = { width: "90px" };
+
+const KEY_INPUT_STYLE: CSSProperties = { width: "90px", flexShrink: 0 };
+
 function ControlBox({
   className,
   children,
@@ -129,11 +140,6 @@ function NumberField({
 }
 
 function SimplePanel({ settings, update }: SimplePanelProps) {
-  const clickModeOptions = MODE_OPTIONS.map((mode) => ({
-    value: mode,
-    label: mode === "Toggle" ? "Toggle" : "Hold",
-  }));
-
   const canToggleKeyboardKeyCase = isAlphabeticKeyboardKey(
     settings.keyboardKey,
   );
@@ -167,7 +173,7 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
           <div className="faderbox simple-hotkey-field">
             <HotkeyCaptureInput
               className="simple-hotkey-input"
-              style={{ width: "90px" }}
+              style={HOTKEY_INPUT_STYLE}
               value={settings.hotkey}
               onChange={(hotkey) => update({ hotkey })}
               conflicts={hotkeyConflicts}
@@ -197,7 +203,7 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
           <div className="vertical-devider vertical-devider--stretch" />
           <AdvDropdown
             value={settings.mode}
-            options={clickModeOptions}
+            options={CLICK_MODE_OPTIONS}
             allowWindowOverflow
             onChange={(value) => update({ mode: value as Settings["mode"] })}
           />
@@ -267,7 +273,7 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
           <div className="vertical-devider vertical-devider--stretch" />
           {settings.inputType === "mouse" ? (
             <div className="simple-mouse-btn-group">
-              {(["Left", "Middle", "Right"] as const).map((btn) => (
+              {MOUSE_BUTTONS.map((btn) => (
                 <button
                   key={btn}
                   type="button"
@@ -288,7 +294,7 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
                 onMouseButtonCapture={(mouseButton) =>
                   update({ inputType: "mouse", mouseButton })
                 }
-                style={{ width: "90px", flexShrink: 0 }}
+                style={KEY_INPUT_STYLE}
                 conflicts={autoPressKeyConflicts}
               />
               <button
@@ -304,7 +310,11 @@ function SimplePanel({ settings, update }: SimplePanelProps) {
                     : "Send letters as lowercase"
                 }
                 aria-pressed={keyboardKeyCaseIsUpper}
-                title="Toggle keyboard key case"
+                title={
+                  canToggleKeyboardKeyCase
+                    ? "Toggle keyboard key case"
+                    : "Key case applies to letters only"
+                }
                 disabled={!canToggleKeyboardKeyCase}
                 onClick={toggleKeyboardKeyCase}
               >

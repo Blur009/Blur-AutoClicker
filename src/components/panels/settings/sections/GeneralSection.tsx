@@ -1,52 +1,20 @@
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppInfo } from "../../../../store";
 import { changelogEntries } from "../../../../changelog";
 import ChangelogContent from "../../../ChangelogContent";
+import DiscordIcon from "../../../DiscordIcon";
+import UsageCard from "./UsageStats";
+import type { StatsOverview } from "./usageSeries";
 import { SettingsCard } from "./shared";
-
-interface CumulativeStats {
-  totalClicks: number;
-  totalTimeSecs: number;
-  totalSessions: number;
-  avgCpu: number;
-}
-
-function formatTime(totalSeconds: number, language: string): string {
-  if (totalSeconds < 0.01) return "0s";
-  if (totalSeconds < 60) {
-    return `${Math.floor(totalSeconds).toLocaleString(language)}s`;
-  }
-  if (totalSeconds < 3600) {
-    const m = Math.floor(totalSeconds / 60);
-    const s = Math.floor(totalSeconds % 60);
-    return s > 0
-      ? `${m.toLocaleString(language)}m ${s.toLocaleString(language)}s`
-      : `${m.toLocaleString(language)}m`;
-  }
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  return m > 0
-    ? `${h.toLocaleString(language)}h ${m.toLocaleString(language)}m`
-    : `${h.toLocaleString(language)}h`;
-}
-
-function formatNumber(n: number, language: string): string {
-  return Math.floor(n).toLocaleString(language);
-}
-
-function formatCpu(
-  cpu: number,
-  language: string,
-  notAvailable: string,
-): string {
-  if (!Number.isFinite(cpu) || cpu < 0) return notAvailable;
-  return `${cpu.toLocaleString(language, {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  })}%`;
-}
 
 interface Props {
   appInfo: AppInfo;
@@ -55,34 +23,79 @@ interface Props {
   onCheckForUpdate: () => void;
 }
 
+const UPDATE_BUTTON_LABELS = {
+  idle: "Check for Update",
+  checking: "Checking...",
+  available: "Update found!",
+  unavailable: "No update found",
+  error: "Check failed",
+} as const;
+
+const KOFI_URL = "https://ko-fi.com/Z8Z71T8QD4";
+const YOUTUBE_URL = "https://youtube.com/@Blur009";
+const TWITCH_URL = "https://twitch.tv/Blur009";
+const GITHUB_URL = "https://github.com/Blur009/Blur-AutoClicker";
+const DISCORD_URL = "https://discord.gg/jhWEW747x5";
+
+const KOFI_IMG_STYLE: CSSProperties = { border: 0, height: "28px" };
+
 export default function GeneralSection({
   appInfo,
   updateCheckStatus,
   onCheckForUpdate,
 }: Props) {
-  const [stats, setStats] = useState<CumulativeStats | null>(null);
+  const [overview, setOverview] = useState<StatsOverview | null>(null);
   const [showChangelog, setShowChangelog] = useState(false);
-  const language = "en";
 
   useEffect(() => {
-    invoke<CumulativeStats>("get_stats")
-      .then(setStats)
+    const load = () => {
+      invoke<StatsOverview>("get_stats_overview")
+        .then(setOverview)
+        .catch(() => {});
+    };
+
+    load();
+
+    let cleanup: (() => void) | undefined;
+    listen("stats-updated", load)
+      .then((unlisten) => {
+        cleanup = unlisten;
+      })
       .catch(() => {});
+
+    return () => {
+      cleanup?.();
+    };
   }, []);
 
-  const hasStats = stats !== null && stats.totalSessions > 0;
+  const updateButtonLabel = UPDATE_BUTTON_LABELS[updateCheckStatus];
 
-  const updateButtonLabel = {
-    idle: "Check for Update",
-    checking: "Checking...",
-    available: "Update found!",
-    unavailable: "No update found",
-    error: "Check failed",
-  }[updateCheckStatus];
+  const toggleChangelog = useCallback(() => setShowChangelog((v) => !v), []);
+
+  const openKofi = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    void openUrl(KOFI_URL);
+  }, []);
+  const openYoutube = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    void openUrl(YOUTUBE_URL);
+  }, []);
+  const openTwitch = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    void openUrl(TWITCH_URL);
+  }, []);
+  const openGithub = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    void openUrl(GITHUB_URL);
+  }, []);
+  const openDiscord = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    void openUrl(DISCORD_URL);
+  }, []);
 
   return (
     <>
-      <SettingsCard title="About" description="Version and project links.">
+      <SettingsCard>
         <div className="social-links">
           <span className="settings-label">Support Me</span>
           <div className="social-icons">
@@ -90,14 +103,11 @@ export default function GeneralSection({
               className="social-icon social-icon--kofi"
               href="#"
               title="Ko-fi"
-              onClick={(e) => {
-                e.preventDefault();
-                void openUrl("https://ko-fi.com/Z8Z71T8QD4");
-              }}
+              onClick={openKofi}
             >
               <img
                 height="28"
-                style={{ border: 0, height: "28px" }}
+                style={KOFI_IMG_STYLE}
                 src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
                 alt="Buy Me a Coffee at ko-fi.com"
               />
@@ -106,10 +116,7 @@ export default function GeneralSection({
               className="social-icon social-icon--youtube"
               href="#"
               title="YouTube"
-              onClick={(e) => {
-                e.preventDefault();
-                void openUrl("https://youtube.com/@Blur009");
-              }}
+              onClick={openYoutube}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -124,10 +131,7 @@ export default function GeneralSection({
               className="social-icon social-icon--twitch"
               href="#"
               title="Twitch"
-              onClick={(e) => {
-                e.preventDefault();
-                void openUrl("https://twitch.tv/Blur009");
-              }}
+              onClick={openTwitch}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -142,10 +146,7 @@ export default function GeneralSection({
               className="social-icon social-icon--github"
               href="#"
               title="GitHub"
-              onClick={(e) => {
-                e.preventDefault();
-                void openUrl("https://github.com/Blur009/Blur-AutoClicker");
-              }}
+              onClick={openGithub}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -153,12 +154,20 @@ export default function GeneralSection({
                 width="18"
                 height="18"
               >
-                <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.2-1.7-1.2-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 .1.8 1.8 3.4 1.2.1-.7.4-1.2.7-1.5-2.7-.3-5.4-1.3-5.4-6a4.7 4.7 0 0 1 1.2-3.2c-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.2 11.2 0 0 1 6.1 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2a4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.8 5.7-5.4 6 .4.3.8 1 .8 2.1v3.1c0 .4.2.7.8.6A12 12 0 0 0 12 .3" />
+                <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
               </svg>
+            </a>
+            <a
+              className="social-icon social-icon--discord"
+              href="#"
+              title="Discord"
+              onClick={openDiscord}
+            >
+              <DiscordIcon size={18} />
             </a>
           </div>
         </div>
-        <div className="settings-row">
+        <div className="settings-row settings-row--inline settings-row--reveal">
           <div className="settings-label-group settings-label-group--inline">
             <span className="settings-label">Version</span>
             <span className="settings-value">
@@ -169,7 +178,8 @@ export default function GeneralSection({
           <div className="settings-row-actions">
             <button
               className="settings-btn-secondary changelog-toggle-btn"
-              onClick={() => setShowChangelog((v) => !v)}
+              onClick={toggleChangelog}
+              aria-expanded={showChangelog}
             >
               <svg
                 className={`changelog-arrow${showChangelog ? " open" : ""}`}
@@ -197,44 +207,16 @@ export default function GeneralSection({
             </button>
           </div>
         </div>
-        {showChangelog && <ChangelogContent entries={changelogEntries} />}
+        <div
+          className={`changelog-reveal${showChangelog ? " changelog-reveal--open" : ""}`}
+        >
+          <div className="changelog-reveal-inner">
+            <ChangelogContent entries={changelogEntries} />
+          </div>
+        </div>
       </SettingsCard>
 
-      <SettingsCard
-        title="Usage"
-        description="Clicking statistics for all sessions (only stored locally)."
-      >
-        {hasStats ? (
-          <div className="stats-grid">
-            <div className="stats-cell">
-              <span className="stats-cell-label">Total Clicks</span>
-              <span className="stats-cell-value">
-                {formatNumber(stats.totalClicks, language)}
-              </span>
-            </div>
-            <div className="stats-cell">
-              <span className="stats-cell-label">Total Clicking Time</span>
-              <span className="stats-cell-value">
-                {formatTime(stats.totalTimeSecs, language)}
-              </span>
-            </div>
-            <div className="stats-cell">
-              <span className="stats-cell-label">Average CPU Usage</span>
-              <span className="stats-cell-value">
-                {formatCpu(stats.avgCpu, language, "N/A")}
-              </span>
-            </div>
-            <div className="stats-cell">
-              <span className="stats-cell-label">Clicking Sessions</span>
-              <span className="stats-cell-value">
-                {formatNumber(stats.totalSessions, language)}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div className="stats-empty">No session data yet.</div>
-        )}
-      </SettingsCard>
+      <UsageCard overview={overview} />
     </>
   );
 }

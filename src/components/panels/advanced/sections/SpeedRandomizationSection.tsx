@@ -67,10 +67,10 @@ export default function SpeedRandomizationSection({ settings, update }: Props) {
       <CardDivider />
       <Disableable
         enabled={settings.speedRandomizationEnabled}
-        disabledReason="Enable Speed Randomization to edit how much the app randomizes your click timing."
+        disabledReason="Enable Speed Randomization to set the random percentage."
       >
         <div className="adv-card-desc">
-          Randomizes your click speed by the given percentage.
+          Randomizes the delay between each click by this percentage.
         </div>
         <div className="adv-row" style={{ gap: 8, justifyContent: "flex-end" }}>
           <div className="adv-numbox-sm">

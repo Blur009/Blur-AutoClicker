@@ -22,7 +22,7 @@
 
 .adv-sectioncontainer {
   background: var(--bg-surface);
-  backdrop-filter: blur(var(--bg-panel-blur, 0px));
+  backdrop-filter: var(--panel-blur-filter, none);
   border: 0px solid var(--border);
   border-radius: var(--radius-md);
   padding: 0.5rem 0.75rem;
@@ -46,7 +46,7 @@
 }
 
 .adv-card-title {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.875rem;
   font-weight: var(--font-weight-hv);
   color: var(--text-primary);
@@ -65,7 +65,7 @@
 }
 
 .adv-card-desc {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.75rem;
   color: var(--text-dim);
   line-height: 1.4;
@@ -99,14 +99,14 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .adv-number-sm {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.875rem;
   font-weight: var(--font-weight-hv);
   color: var(--text-primary);
 }
 
 .adv-unit {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.625rem;
   font-weight: var(--font-weight-hv);
   letter-spacing: 0.05em;
@@ -120,7 +120,7 @@ input[type="number"]::-webkit-outer-spin-button {
   justify-content: center;
   height: 30px;
   box-sizing: border-box;
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 12px;
   font-weight: var(--font-weight-hv);
   padding: 0 8px;
@@ -164,7 +164,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .adv-seg-btn {
   flex: 0 0 auto;
   height: calc(var(--adv-control-height) - 2px);
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 1rem;
   font-weight: var(--font-weight-md);
   line-height: 1.125rem;
@@ -208,7 +208,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .adv-toggle-btn {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 4%;
@@ -291,14 +291,14 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .adv-click-points-empty-title {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.8125rem;
   font-weight: var(--font-weight-hv);
   color: var(--text-muted);
 }
 
 .adv-click-points-empty-hint {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.6875rem;
   font-weight: var(--font-weight-li);
   color: var(--text-dim);
@@ -344,7 +344,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .adv-disabled-label {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -358,7 +358,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .adv-number-sm {
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.75rem;
   font-weight: var(--font-weight-hv);
   color: var(--text-dim);
@@ -397,7 +397,7 @@ input[type="number"]::-webkit-outer-spin-button {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 0.6875rem;
   font-weight: var(--font-weight-li);
   color: var(--text-muted);
@@ -438,6 +438,51 @@ input[type="number"]::-webkit-outer-spin-button {
   min-width: fit-content;
 }
 
+.adv-dropdown-list {
+  max-height: 18rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.adv-dropdown-list::-webkit-scrollbar {
+  width: 0.375rem;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+}
+
+.adv-dropdown-list::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border-radius: var(--radius-sm);
+}
+
+.adv-dropdown-list::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover, #777777);
+}
+
+.adv-dropdown-menu--portal {
+  min-width: 0;
+  max-width: 24rem;
+}
+
+.adv-dropdown-search {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.375rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-family-base);
+  font-size: 1rem;
+  font-weight: var(--font-weight-md);
+  outline: none;
+}
+
+.adv-dropdown-search::placeholder {
+  color: var(--text-dim);
+}
+
 .adv-dropdown {
   position: relative;
   display: inline-flex;
@@ -454,7 +499,7 @@ input[type="number"]::-webkit-outer-spin-button {
   background: transparent;
   border: none;
   color: var(--text-primary);
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 1rem;
   font-weight: var(--font-weight-md);
   cursor: pointer;
@@ -469,13 +514,19 @@ input[type="number"]::-webkit-outer-spin-button {
 .adv-dropdown-item {
   display: block;
   width: 100%;
+  height: 2rem;
+  box-sizing: border-box;
   padding: 0.375rem 0.75rem;
   background: transparent;
   border: none;
   color: var(--text-dim);
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 1rem;
   font-weight: var(--font-weight-md);
+  line-height: 1.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   text-align: left;
   transition:
@@ -503,7 +554,7 @@ input[type="number"]::-webkit-outer-spin-button {
   min-height: var(--adv-control-height);
   padding: 0 0.75rem;
   color: var(--text-dim);
-  font-family: "RobotoFlex", sans-serif;
+  font-family: var(--font-family-base);
   font-size: 1rem;
   font-weight: var(--font-weight-hv);
   cursor: pointer;

@@ -1,11 +1,9 @@
+import { useCallback, useMemo, type CSSProperties } from "react";
 import type { MouseButton, Settings } from "../../../../store";
 import { MOUSE_BUTTON_OPTIONS } from "../../../../settingsSchema";
 import { isAlphabeticKeyboardKey } from "../../../../keyboardKeyCase";
 import { conflictsWithAutoPressKey } from "../../../../hotkeys";
-import {
-  getEffectiveClicksPerSecond,
-  isDoubleClickSupported,
-} from "../../../../cadence";
+import { getEffectiveClicksPerSecond } from "../../../../cadence";
 import KeyCaptureInput from "../../../KeyCaptureInput";
 import { CardDivider, ToggleBtn } from "./shared";
 
@@ -24,23 +22,74 @@ interface Props {
   update: (patch: Partial<Settings>) => void;
 }
 
-export default function ClickerTypeSection({ settings, update }: Props) {
-  const inputTypeOptions = [
-    { value: "mouse", label: "Mouse" },
-    { value: "keyboard", label: "Keyboard" },
-  ] as const;
+const INPUT_TYPE_OPTIONS = [
+  { value: "mouse", label: "Mouse" },
+  { value: "keyboard", label: "Keyboard" },
+] as const;
 
+const HOTKEY_CONFLICTS = ["Hotkey"];
+const NO_CONFLICTS: string[] = [];
+
+const HEADER_ROW_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+};
+
+const HEADER_ICON_STYLE: CSSProperties = { color: "var(--text-dim)" };
+
+const TARGET_ROW_STYLE: CSSProperties = {
+  gap: 8,
+  justifyContent: "flex-end",
+};
+
+const TARGET_LABEL_GROUP_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  marginRight: "auto",
+};
+
+const KEY_CAPTURE_STYLE: CSSProperties = { minWidth: "6rem" };
+
+export default function ClickerTypeSection({ settings, update }: Props) {
   const canToggleKeyboardKeyCase = isAlphabeticKeyboardKey(
     settings.keyboardKey,
   );
   const keyboardKeyCaseIsUpper = settings.keyboardKeyCase === "upper";
   const keyboardKeyCaseLabel = "↑";
-  const toggleKeyboardKeyCase = () => {
+  const toggleKeyboardKeyCase = useCallback(() => {
     if (!canToggleKeyboardKeyCase) return;
     update({
       keyboardKeyCase: keyboardKeyCaseIsUpper ? "lower" : "upper",
     });
-  };
+  }, [canToggleKeyboardKeyCase, keyboardKeyCaseIsUpper, update]);
+
+  const handleInputTypeSelect = useCallback(
+    (value: Settings["inputType"]) => update({ inputType: value }),
+    [update],
+  );
+
+  const handleDoubleClickChange = useCallback(
+    (v: boolean) => update({ doubleClickEnabled: v }),
+    [update],
+  );
+
+  const handleMouseButtonSelect = useCallback(
+    (mouseButtonOption: string) =>
+      update({ mouseButton: mouseButtonOption as MouseButton }),
+    [update],
+  );
+
+  const handleKeyboardKeyChange = useCallback(
+    (key: string) => update({ keyboardKey: key }),
+    [update],
+  );
+
+  const handleMouseButtonCapture = useCallback(
+    (mouseButton: MouseButton) => update({ inputType: "mouse", mouseButton }),
+    [update],
+  );
 
   const hasConflict =
     settings.inputType === "keyboard" &&
@@ -49,34 +98,44 @@ export default function ClickerTypeSection({ settings, update }: Props) {
       settings.keyboardKey,
       keyboardKeyCaseIsUpper,
     );
-  const autoPressKeyConflicts = hasConflict ? ["Hotkey"] : [];
+  const autoPressKeyConflicts = hasConflict ? HOTKEY_CONFLICTS : NO_CONFLICTS;
 
-  const currentClicksPerSecond = getEffectiveClicksPerSecond({
-    clickInterval: settings.clickInterval,
-    clickSpeed: settings.clickSpeed,
-    rateInputMode: settings.rateInputMode,
-    durationHours: settings.durationHours,
-    durationMinutes: settings.durationMinutes,
-    durationSeconds: settings.durationSeconds,
-    durationMilliseconds: settings.durationMilliseconds,
-  });
+  const currentClicksPerSecond = useMemo(
+    () =>
+      getEffectiveClicksPerSecond({
+        clickInterval: settings.clickInterval,
+        clickSpeed: settings.clickSpeed,
+        rateInputMode: settings.rateInputMode,
+        durationHours: settings.durationHours,
+        durationMinutes: settings.durationMinutes,
+        durationSeconds: settings.durationSeconds,
+        durationMilliseconds: settings.durationMilliseconds,
+      }),
+    [
+      settings.clickInterval,
+      settings.clickSpeed,
+      settings.rateInputMode,
+      settings.durationHours,
+      settings.durationMinutes,
+      settings.durationSeconds,
+      settings.durationMilliseconds,
+    ],
+  );
 
-  const doubleClickDisabled = !isDoubleClickSupported(settings);
-  const doubleClickDisabledReason = doubleClickDisabled
-    ? `Double Click is unavailable at ${formatClicksPerSecond(currentClicksPerSecond)} clicks/sec. Lower the click speed below 10 clicks/sec to turn it on.`
-    : undefined;
+  const doubleClickDisabled = !(currentClicksPerSecond < 11);
+  const doubleClickDisabledReason = useMemo(
+    () =>
+      doubleClickDisabled
+        ? `Double Click is unavailable at ${formatClicksPerSecond(currentClicksPerSecond)} clicks/sec. Lower the click speed below 11 clicks/sec to turn it on.`
+        : undefined,
+    [doubleClickDisabled, currentClicksPerSecond],
+  );
 
   return (
     <div className="adv-sectioncontainer adv-basic-card">
       <div className="adv-card-header">
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <span style={{ color: "var(--text-dim)" }}>
+        <div style={HEADER_ROW_STYLE}>
+          <span style={HEADER_ICON_STYLE}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="20"
@@ -84,9 +143,9 @@ export default function ClickerTypeSection({ settings, update }: Props) {
               viewBox="0 0 24 24"
               fill="currentColor"
               stroke="currentColor"
-              stroke-width="0"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeWidth="0"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
               <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />
             </svg>
@@ -94,18 +153,14 @@ export default function ClickerTypeSection({ settings, update }: Props) {
           <span className="adv-card-title">Clicker Type</span>
         </div>
         <div className="adv-seg-group adv-input-type-group">
-          {inputTypeOptions.map((inputTypeOption) => (
+          {INPUT_TYPE_OPTIONS.map((inputTypeOption) => (
             <button
               key={inputTypeOption.value}
               type="button"
               className={`adv-seg-btn ${
                 settings.inputType === inputTypeOption.value ? "active" : ""
               }`}
-              onClick={() =>
-                update({
-                  inputType: inputTypeOption.value as Settings["inputType"],
-                })
-              }
+              onClick={() => handleInputTypeSelect(inputTypeOption.value)}
             >
               {inputTypeOption.label}
             </button>
@@ -114,26 +169,16 @@ export default function ClickerTypeSection({ settings, update }: Props) {
       </div>
       <CardDivider />
       <div className="adv-card-desc">
-        Select the mouse button or keyboard key the autoclicker clicks.
+        Choose the mouse button or keyboard key the autoclicker presses.
       </div>
-      <div
-        className="adv-row adv-target-row"
-        style={{ gap: 8, justifyContent: "flex-end" }}
-      >
+      <div className="adv-row adv-target-row" style={TARGET_ROW_STYLE}>
         {settings.inputType === "mouse" ? (
           <>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                marginRight: "auto",
-              }}
-            >
+            <div style={TARGET_LABEL_GROUP_STYLE}>
               <span className="adv-label">Double Click</span>
               <ToggleBtn
                 value={settings.doubleClickEnabled}
-                onChange={(v) => update({ doubleClickEnabled: v })}
+                onChange={handleDoubleClickChange}
                 disabled={doubleClickDisabled}
                 disabledReason={doubleClickDisabledReason}
               />
@@ -144,9 +189,7 @@ export default function ClickerTypeSection({ settings, update }: Props) {
                   key={mouseButtonOption}
                   type="button"
                   className={`adv-seg-btn ${settings.mouseButton === mouseButtonOption ? "active" : ""}`}
-                  onClick={() =>
-                    update({ mouseButton: mouseButtonOption as MouseButton })
-                  }
+                  onClick={() => handleMouseButtonSelect(mouseButtonOption)}
                 >
                   {mouseButtonOption}
                 </button>
@@ -155,18 +198,11 @@ export default function ClickerTypeSection({ settings, update }: Props) {
           </>
         ) : (
           <>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                marginRight: "auto",
-              }}
-            >
+            <div style={TARGET_LABEL_GROUP_STYLE}>
               <span className="adv-label">Double Click</span>
               <ToggleBtn
                 value={settings.doubleClickEnabled}
-                onChange={(v) => update({ doubleClickEnabled: v })}
+                onChange={handleDoubleClickChange}
                 disabled={doubleClickDisabled}
                 disabledReason={doubleClickDisabledReason}
               />
@@ -174,13 +210,11 @@ export default function ClickerTypeSection({ settings, update }: Props) {
             <div className="adv-textbox">
               <KeyCaptureInput
                 className="adv-textbox-text"
-                style={{ minWidth: "6rem" }}
+                style={KEY_CAPTURE_STYLE}
                 value={settings.keyboardKey}
-                onChange={(key) => update({ keyboardKey: key })}
+                onChange={handleKeyboardKeyChange}
                 keyboardKeyCase={settings.keyboardKeyCase}
-                onMouseButtonCapture={(mouseButton) =>
-                  update({ inputType: "mouse", mouseButton })
-                }
+                onMouseButtonCapture={handleMouseButtonCapture}
                 conflicts={autoPressKeyConflicts}
               />
               <button
@@ -196,7 +230,11 @@ export default function ClickerTypeSection({ settings, update }: Props) {
                     : "Send letters as lowercase"
                 }
                 aria-pressed={keyboardKeyCaseIsUpper}
-                title="Toggle keyboard key case"
+                title={
+                  canToggleKeyboardKeyCase
+                    ? "Toggle keyboard key case"
+                    : "Key case applies to letters only"
+                }
                 disabled={!canToggleKeyboardKeyCase}
                 onClick={toggleKeyboardKeyCase}
               >

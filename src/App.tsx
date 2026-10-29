@@ -1,10 +1,11 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
-import { error } from "@tauri-apps/plugin-log";
+import { exit } from "@tauri-apps/plugin-process";
 import {
   currentMonitor,
   getCurrentWindow,
   LogicalSize,
+  monitorFromPoint,
   PhysicalPosition,
 } from "@tauri-apps/api/window";
 import {
@@ -16,12 +17,19 @@ import {
   useRef,
   useState,
 } from "react";
-import { applyAccentTheme } from "./accentTheme";
+import { useThemeRuntime } from "./themeRuntime";
+import {
+  logDiagnostic,
+  logWarning,
+  serializeDiagnosticValue,
+} from "./diagnostics";
 import {
   getExtension,
   isLegacyVideoExtension,
   resolveBackgroundSource,
 } from "./backgroundMedia";
+import ElevationPrompt from "./components/ElevationPrompt";
+import DonationPrompt from "./components/DonationPrompt";
 import UpdateBanner from "./components/Updatebanner";
 import {
   buildHotkeyWithHeld,
@@ -38,11 +46,12 @@ import {
   sanitizePresetSnapshot,
   sanitizeSettings,
   sanitizePresetName,
+  withFactoryPresets,
   type PresetDefinition,
   type PresetId,
 } from "./settingsSchema";
 import { save, open } from "@tauri-apps/plugin-dialog";
-import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   APP_VERSION,
   DEFAULT_SETTINGS,
@@ -53,7 +62,20 @@ import {
   clearSavedSettings,
   loadSettings,
   saveSettings,
+  settingsRecoveryWarning,
 } from "./store";
+import { restartAsAdministrator } from "./restart";
+import { holdModePatch } from "./cadence";
+import { playClickerSound } from "./soundPlayback";
+import FirstRunSetup from "./components/FirstRunSetup";
+import { webviewZoom } from "./uiScale";
+import {
+  KOFI_URL,
+  milestonePatch,
+  nextDonationMilestone,
+} from "./donationReminders";
+import type { DonationPrompt as DonationPromptState } from "./donationReminders";
+import type { CumulativeStats } from "./components/panels/settings/sections/usageSeries";
 
 void initAppVersion();
 
@@ -72,7 +94,7 @@ const TitleBar = lazy(() => import("./components/TitleBar"));
 const StatusBar = lazy(() => import("./components/StatusBar"));
 export type Tab = "simple" | "advanced" | "zones" | "settings" | "click-points";
 
-const BACKEND_SETTINGS_SCHEMA_VERSION = 10;
+const BACKEND_SETTINGS_SCHEMA_VERSION = 11;
 const MAX_DROPDOWN_OVERFLOW_BOTTOM = 220;
 const STATUS_BAR_HEIGHT = 26;
 
@@ -81,7 +103,10 @@ type DropdownOverflowDetail = {
   bottom?: number;
 };
 
-function getPanelSize(tab: Tab, hasUpdate: boolean) {
+const SETUP_SIZE = { width: 620, height: 520 };
+
+function getPanelSize(tab: Tab, hasUpdate: boolean, firstRunOpen: boolean) {
+  if (firstRunOpen) return SETUP_SIZE;
   const extra = hasUpdate ? 30 : 0;
   if (tab === "simple") {
     return { width: 750, height: 175 + extra };
@@ -117,6 +142,16 @@ async function getClampedPanelSize(
   };
 }
 
+async function isPointOnMonitor(x: number, y: number): Promise<boolean> {
+  try {
+    return (await monitorFromPoint(x, y)) !== null;
+  } catch {
+    // If the monitor lookup fails, keep the saved position rather than forcing
+    // a recenter on every launch.
+    return true;
+  }
+}
+
 const DEFAULT_STATUS: ClickerStatus = {
   running: false,
   paused: false,
@@ -127,6 +162,8 @@ const DEFAULT_STATUS: ClickerStatus = {
   activeClickPointIndex: null,
   activeClickPointTick: 0,
   masterAllowed: true,
+  elevationBlocked: false,
+  elevationBlockedWindow: null,
 };
 
 const DEFAULT_APP_INFO: AppInfo = {
@@ -137,9 +174,14 @@ const DEFAULT_APP_INFO: AppInfo = {
 };
 
 async function syncSettingsToBackend(settings: Settings) {
+  const backendSettings = Object.fromEntries(
+    Object.entries(settings).filter(
+      ([key]) => key !== "themeProfiles" && key !== "activeThemeProfileId",
+    ),
+  );
   await invoke("update_settings", {
     settings: {
-      ...settings,
+      ...backendSettings,
       version: BACKEND_SETTINGS_SCHEMA_VERSION,
     },
   });
@@ -148,10 +190,6 @@ async function syncSettingsToBackend(settings: Settings) {
 async function registerHotkeyCandidate(hotkey: string) {
   const canonicalHotkey = await canonicalizeHotkeyForBackend(hotkey);
   return invoke<string>("register_hotkey", { hotkey: canonicalHotkey });
-}
-
-function wait(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 type UpdateCheckResult = {
@@ -164,14 +202,21 @@ async function checkForUpdates(): Promise<UpdateCheckResult | null> {
   try {
     return await invoke<UpdateCheckResult>("check_for_updates");
   } catch (err) {
-    error(
-      JSON.stringify({
-        source: "App.updateCheck",
-        error: JSON.stringify(err),
-      }),
-    );
+    logDiagnostic("App.updateCheck", {
+      error: serializeDiagnosticValue(err),
+    });
     return null;
   }
+}
+
+const MIN_TEXT_SCALE = 0.5;
+const MAX_TEXT_SCALE = 4;
+
+function sanitizeTextScale(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.min(MAX_TEXT_SCALE, Math.max(MIN_TEXT_SCALE, value));
 }
 
 function tabSuffix(t: Tab): string {
@@ -191,6 +236,16 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [status, setStatus] = useState<ClickerStatus>(DEFAULT_STATUS);
+  const [elevation, setElevation] = useState({
+    elevated: false,
+    canElevate: false,
+  });
+  const [elevationLoaded, setElevationLoaded] = useState(false);
+  const [promptBusy, setPromptBusy] = useState(false);
+  const [donationPrompt, setDonationPrompt] =
+    useState<DonationPromptState | null>(null);
+  const donationOpenRef = useRef(false);
+  const elevationRelaunchedRef = useRef(false);
   const [appInfo, setAppInfo] = useState<AppInfo>(DEFAULT_APP_INFO);
   const [updateInfo, setUpdateInfo] = useState<{
     currentVersion: string;
@@ -203,14 +258,18 @@ export default function App() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<
     string | undefined
   >();
+  const [firstRunOpen, setFirstRunOpen] = useState(false);
 
   const hotkeyTimer = useRef<number | null>(null);
   const hotkeyRequestIdRef = useRef(0);
   const uiSettingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const committedSettingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const lastValidHotkeyRef = useRef(DEFAULT_SETTINGS.hotkey);
+  const previousRunningRef = useRef<boolean | null>(null);
   const launchWindowPlacementDone = useRef(false);
   const pendingShowWindowRef = useRef(false);
+  const bootTextScaleRef = useRef<number | null>(null);
+  const bootPhasesRef = useRef("");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resizeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toggleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -230,12 +289,14 @@ export default function App() {
     saveTimerRef.current = setTimeout(() => {
       if (!mountedRef.current) return;
       saveSettings(nextSettings).catch((err) => {
-        error(
-          JSON.stringify({ source: "App.saveSettings", error: String(err) }),
-        );
+        logDiagnostic("App.saveSettings", {
+          error: String(err),
+        });
       });
     }, 100);
   };
+
+  const scheduleSaveRef = useRef(scheduleSave);
 
   const persistCommittedSettings = (
     nextCommittedSettings: Settings,
@@ -249,7 +310,9 @@ export default function App() {
     }
 
     syncSettingsToBackend(nextCommittedSettings).catch((err) => {
-      error(JSON.stringify({ source: "App.syncSettings", error: String(err) }));
+      logDiagnostic("App.syncSettings", {
+        error: String(err),
+      });
     });
     scheduleSave(nextCommittedSettings);
   };
@@ -302,12 +365,9 @@ export default function App() {
             return;
           }
 
-          error(
-            JSON.stringify({
-              source: "App.registerHotkey",
-              error: String(err),
-            }),
-          );
+          logDiagnostic("App.registerHotkey", {
+            error: String(err),
+          });
 
           if (!hotkey) {
             lastValidHotkeyRef.current = "";
@@ -326,20 +386,22 @@ export default function App() {
     persistCommittedSettingsRef.current = persistCommittedSettings;
     setUiSettingsRef.current = setUiSettings;
     queueHotkeyRegistrationRef.current = queueHotkeyRegistration;
+    scheduleSaveRef.current = scheduleSave;
   });
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     const { hotkey, ...rest } = patch;
 
     if (Object.keys(rest).length > 0) {
-      const nextUiSettings = sanitizeSettings(
-        { ...uiSettingsRef.current, ...rest },
-        APP_VERSION,
-      );
+      const uiBase = uiSettingsRef.current;
       const nextCommittedSettings = sanitizeSettings(
         { ...committedSettingsRef.current, ...rest },
         APP_VERSION,
       );
+      const nextUiSettings = {
+        ...nextCommittedSettings,
+        hotkey: uiBase.hotkey,
+      };
 
       persistCommittedSettingsRef.current(
         nextCommittedSettings,
@@ -357,19 +419,29 @@ export default function App() {
   }, []);
 
   const applyStartupWindowPlacement = async () => {
-    const pos = committedSettingsRef.current.windowPosition;
-    if (
-      committedSettingsRef.current.rememberWindowPosition &&
-      pos.x !== null &&
-      pos.y !== null
-    ) {
-      await getCurrentWindow().setPosition(new PhysicalPosition(pos.x, pos.y));
-    } else {
-      await getCurrentWindow().center();
+    const settings = committedSettingsRef.current;
+    const savedX = settings.windowPosition.x;
+    const savedY = settings.windowPosition.y;
+
+    if (settings.rememberWindowPosition && savedX !== null && savedY !== null) {
+      if (await isPointOnMonitor(savedX, savedY)) {
+        await getCurrentWindow().setPosition(
+          new PhysicalPosition(savedX, savedY),
+        );
+        return;
+      }
+      // A saved position can land off-screen after a monitor is unplugged or
+      // the resolution / scaling changes. Center rather than show a window the
+      // user cannot see or reach.
+      logWarning("App.windowPlacement", {
+        error: `saved window position (${savedX}, ${savedY}) is off-screen, centering`,
+      });
     }
+
+    await getCurrentWindow().center();
   };
 
-  const handleWindowClose = async () => {
+  const handleWindowClose = useCallback(async () => {
     if (committedSettingsRef.current.rememberWindowPosition) {
       const pos = await getCurrentWindow().outerPosition();
       const next = sanitizeSettings(
@@ -382,13 +454,14 @@ export default function App() {
       await saveSettings(next);
     }
     if (uiSettingsRef.current.minimizeToTray) {
+      await invoke("clear_elevation_blocked").catch(() => {});
       await invoke("hide_main_window");
     } else {
       await invoke("quit_app");
     }
-  };
+  }, []);
 
-  const handleToggleAlwaysOnTop = async () => {
+  const handleToggleAlwaysOnTop = useCallback(async () => {
     const nextValue = !committedSettingsRef.current.alwaysOnTop;
 
     try {
@@ -397,9 +470,11 @@ export default function App() {
         alwaysOnTop: nextValue,
       });
     } catch (err) {
-      error(JSON.stringify({ source: "App.alwaysOnTop", error: String(err) }));
+      logDiagnostic("App.alwaysOnTop", {
+        error: String(err),
+      });
     }
-  };
+  }, [updateSettings]);
 
   const handleSavePreset = (name: string) => {
     if (status.running) {
@@ -439,8 +514,18 @@ export default function App() {
       return false;
     }
 
+    const current = committedSettingsRef.current;
+    const nextMode = preset.settings.dutyCycleMode ?? current.dutyCycleMode;
+    const transition =
+      current.dutyCycleMode === "Hold" && nextMode !== "Hold"
+        ? holdModePatch(current, false)
+        : current.dutyCycleMode !== "Hold" && nextMode === "Hold"
+          ? holdModePatch(current, true)
+          : {};
+
     updateSettings({
       ...preset.settings,
+      ...transition,
       activePresetId: presetId,
     });
     return true;
@@ -620,14 +705,10 @@ export default function App() {
         return false;
       }
 
-      const data = JSON.stringify(
-        { type: "blur-autoclicker-preset", version: 1, preset },
-        null,
-        2,
-      );
-      await writeTextFile(filePath, data);
+      await invoke("export_preset_file", { path: filePath, preset });
       return true;
-    } catch {
+    } catch (err) {
+      logDiagnostic("App.exportPreset", { error: String(err) });
       return false;
     }
   };
@@ -642,12 +723,11 @@ export default function App() {
         return null;
       }
 
-      const content = await readTextFile(filePath as string);
-      const parsed = JSON.parse(content) as {
+      const parsed = await invoke<{
         type?: string;
         version?: number;
         preset?: PresetDefinition;
-      };
+      }>("import_preset_file", { path: filePath });
 
       if (parsed.type !== "blur-autoclicker-preset" || !parsed.preset) {
         return null;
@@ -698,7 +778,8 @@ export default function App() {
 
       persistCommittedSettings(nextCommittedSettings, nextUiSettings);
       return true;
-    } catch {
+    } catch (err) {
+      logDiagnostic("App.importPreset", { error: String(err) });
       return null;
     }
   };
@@ -706,13 +787,36 @@ export default function App() {
   useEffect(() => {
     let mounted = true;
     mountedRef.current = true;
+    const phaseStart = performance.now();
+    const phases: string[] = [];
+    const recordPhase = (label: string) => {
+      phases.push(`${label} ${Math.round(performance.now() - phaseStart)}`);
+      bootPhasesRef.current = phases.join(", ");
+    };
+
+    const readyTimers: number[] = [];
+    for (let attempt = 1; attempt <= 8; attempt += 1) {
+      readyTimers.push(
+        window.setTimeout(() => {
+          emit("frontend-ready", {}).catch((err) =>
+            logDiagnostic("App.frontendReadyRetry", { error: String(err) }),
+          );
+        }, attempt * 400),
+      );
+    }
+
+    emit("frontend-ready", {}).catch((err) =>
+      logDiagnostic("App.frontendReady", { error: String(err) }),
+    );
 
     invoke<number>("get_text_scale_factor")
-      .then((textScale) =>
-        invoke("set_webview_zoom", { factor: 1.0 / textScale }),
-      )
+      .then((rawScale) => {
+        bootTextScaleRef.current = sanitizeTextScale(rawScale);
+      })
       .catch((err) =>
-        error(JSON.stringify({ source: "App.setZoom", error: String(err) })),
+        logDiagnostic("App.getTextScale", {
+          error: String(err),
+        }),
       );
 
     void Promise.all([
@@ -729,6 +833,7 @@ export default function App() {
           autostartLaunch,
         ]) => {
           if (!mounted) return;
+          recordPhase("load");
 
           let hydratedSettings = loadedSettings;
 
@@ -738,14 +843,12 @@ export default function App() {
               loadedSettings.hotkey,
             );
           } catch (err) {
-            error(
-              JSON.stringify({
-                source: "App.registerSavedHotkey",
-                error: String(err),
-              }),
-            );
+            logDiagnostic("App.registerSavedHotkey", {
+              error: String(err),
+            });
             registeredHotkey = lastValidHotkeyRef.current;
           }
+          recordPhase("hotkey");
 
           if (registeredHotkey !== hydratedSettings.hotkey) {
             hydratedSettings = {
@@ -759,12 +862,9 @@ export default function App() {
               hydratedSettings.alwaysOnTop,
             );
           } catch (err) {
-            error(
-              JSON.stringify({
-                source: "App.restoreAlwaysOnTop",
-                error: String(err),
-              }),
-            );
+            logDiagnostic("App.restoreAlwaysOnTop", {
+              error: String(err),
+            });
             hydratedSettings = {
               ...hydratedSettings,
               alwaysOnTop: false,
@@ -777,23 +877,34 @@ export default function App() {
 
           setTab(hydratedSettings.lastPanel);
           setSettings(hydratedSettings);
-          {
-            const theme = hydratedSettings.theme ?? "dark";
-            document.documentElement.dataset.theme = theme;
-            applyAccentTheme(hydratedSettings.accentColor, theme);
-            invoke("set_accent_color", {
-              color: hydratedSettings.accentColor,
-              theme,
-              iconEnabled: hydratedSettings.taskbarIconEnabled,
-              iconTheme: hydratedSettings.taskbarIconTheme,
-              iconColor: hydratedSettings.taskbarIconColor,
-            });
-          }
           setAppInfo(loadedAppInfo);
           setStatus(loadedStatus);
+          previousRunningRef.current = loadedStatus.running;
+          if (loadedStatus.elevationBlocked) {
+            setTab((current) => (current === "simple" ? "advanced" : current));
+          }
+          pendingShowWindowRef.current = !autostartLaunch;
+          setFirstRunOpen(!hydratedSettings.onboardingCompleted);
           setSettingsLoaded(true);
+          recordPhase("hydrate");
 
           await syncSettingsToBackend(hydratedSettings);
+          recordPhase("sync");
+
+          const recoveryWarning = settingsRecoveryWarning();
+          if (recoveryWarning) {
+            await invoke("set_settings_warning", {
+              warning: recoveryWarning,
+            }).catch((err) =>
+              logDiagnostic("App.settingsWarning", {
+                error: String(err),
+              }),
+            );
+            setStatus((current) => ({
+              ...current,
+              warning: recoveryWarning,
+            }));
+          }
 
           if (
             hydratedSettings.hotkey !== loadedSettings.hotkey ||
@@ -801,31 +912,27 @@ export default function App() {
           ) {
             await saveSettings(hydratedSettings);
           }
-
-          pendingShowWindowRef.current = !autostartLaunch;
-          emit("frontend-ready", {}).catch((err) =>
-            error(
-              JSON.stringify({
-                source: "App.frontendReady",
-                error: String(err),
-              }),
-            ),
-          );
+          recordPhase("save");
         },
       )
       .catch((err) => {
-        error(JSON.stringify({ source: "App.boot", error: String(err) }));
+        logDiagnostic("App.boot", {
+          error: String(err),
+        });
         if (!mounted) return;
         setSettingsLoaded(true);
         pendingShowWindowRef.current = true;
         emit("frontend-ready", {}).catch((err) =>
-          error(JSON.stringify({ source: "App.bootEmit", error: String(err) })),
+          logDiagnostic("App.bootEmit", {
+            error: String(err),
+          }),
         );
       });
 
     return () => {
       mountedRef.current = false;
       mounted = false;
+      readyTimers.forEach((timer) => window.clearTimeout(timer));
       if (hotkeyTimer.current !== null) {
         window.clearTimeout(hotkeyTimer.current);
       }
@@ -843,25 +950,99 @@ export default function App() {
     };
   }, []);
 
+  const checkDonationMilestone = useCallback(async () => {
+    if (donationOpenRef.current) return;
+    if (
+      document
+        .querySelector(".app-root")
+        ?.getAttribute("data-elevation-prompt") === "true"
+    ) {
+      return;
+    }
+    if (
+      document.querySelector(".app-root")?.getAttribute("data-setup") === "true"
+    ) {
+      return;
+    }
+
+    try {
+      const stats = await invoke<CumulativeStats>("get_stats");
+      if (!stats) return;
+
+      const current = committedSettingsRef.current;
+      const prompt = nextDonationMilestone({
+        totalClicks: stats.totalClicks,
+        totalTimeSecs: stats.totalTimeSecs,
+        clicksSeen: current.donationClicksMilestone,
+        timeSeen: current.donationTimeMilestone,
+      });
+      if (!prompt) return;
+
+      donationOpenRef.current = true;
+      setDonationPrompt(prompt);
+      setTab((currentTab) =>
+        currentTab === "simple" ? "advanced" : currentTab,
+      );
+    } catch (err) {
+      logDiagnostic("App.donationMilestone", {
+        error: String(err),
+      });
+    }
+  }, []);
+
+  const handleDonationAcknowledge = useCallback(() => {
+    const prompt = donationPrompt;
+    if (prompt) updateSettings(milestonePatch(prompt.milestone));
+  }, [donationPrompt, updateSettings]);
+
+  const handleDonationClose = useCallback(() => {
+    donationOpenRef.current = false;
+    setDonationPrompt(null);
+  }, []);
+
+  const handleDonationSupport = useCallback(() => {
+    void openUrl(KOFI_URL);
+  }, []);
+
   useEffect(() => {
     let cleanup: (() => void) | undefined;
 
     listen<ClickerStatus>("clicker-status", (event) => {
+      const wasRunning = previousRunningRef.current;
+      const nowRunning = event.payload.running;
+      if (wasRunning !== null && wasRunning !== nowRunning) {
+        void playClickerSound(
+          nowRunning ? "enable" : "disable",
+          uiSettingsRef.current,
+        );
+      }
+      if (wasRunning === true && !nowRunning) {
+        void checkDonationMilestone();
+      }
+      previousRunningRef.current = nowRunning;
       setStatus(event.payload);
+      if (event.payload.elevationBlocked) {
+        setTab((current) => (current === "simple" ? "advanced" : current));
+      }
     })
       .then((unlisten) => {
         cleanup = unlisten;
       })
       .catch((err) => {
-        error(
-          JSON.stringify({ source: "App.statusListener", error: String(err) }),
-        );
+        logDiagnostic("App.statusListener", {
+          error: String(err),
+        });
       });
 
     return () => {
       cleanup?.();
     };
-  }, []);
+  }, [checkDonationMilestone]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    void checkDonationMilestone();
+  }, [settingsLoaded, checkDonationMilestone]);
 
   useEffect(() => {
     const handleDropdownOverflow = (event: Event) => {
@@ -899,19 +1080,37 @@ export default function App() {
 
     void (async () => {
       try {
-        const textScale = await invoke<number>("get_text_scale_factor");
+        const bootTextScale = bootTextScaleRef.current;
+        bootTextScaleRef.current = null;
+        const textScale = sanitizeTextScale(
+          bootTextScale ?? (await invoke<number>("get_text_scale_factor")),
+        );
+        const zoom = webviewZoom(settings.uiScale, textScale);
+        const contentScale = zoom * textScale;
+        const logicalScale = textScale * contentScale;
         document.documentElement.style.fontSize = `${16 * textScale}px`;
+        invoke("set_webview_zoom", { factor: zoom }).catch((err) =>
+          logDiagnostic("App.setZoom", { error: String(err) }),
+        );
 
-        const preferredSize = getPanelSize(tab, !!updateInfo);
+        const preferredSize = getPanelSize(tab, !!updateInfo, firstRunOpen);
         const { width, height } = await getClampedPanelSize(
           preferredSize,
-          textScale,
+          logicalScale,
         );
-        const statusBarOffset = settings.statusBarEnabled
-          ? STATUS_BAR_HEIGHT
-          : 0;
+        const measuredBarHeight =
+          document.querySelector(".status-bar")?.getBoundingClientRect()
+            .height ?? 0;
+        const statusBarOffset =
+          settings.statusBarEnabled && !firstRunOpen
+            ? measuredBarHeight
+              ? measuredBarHeight * contentScale
+              : STATUS_BAR_HEIGHT * logicalScale
+            : 0;
         const appHeight = height + statusBarOffset;
-        const windowHeight = appHeight + dropdownOverflowBottom;
+        const windowHeight = appHeight + dropdownOverflowBottom * contentScale;
+        const cssWidth = width / contentScale;
+        const cssHeight = appHeight / contentScale;
 
         const appWindow = getCurrentWindow();
 
@@ -920,15 +1119,26 @@ export default function App() {
           await appWindow.setSize(new LogicalSize(width, windowHeight));
 
           if (cancelled) return;
-          root.style.width = `${width}px`;
-          root.style.height = `${appHeight}px`;
+          root.style.width = `${cssWidth}px`;
+          root.style.height = `${cssHeight}px`;
 
-          await wait(30);
           if (cancelled) return;
           await applyStartupWindowPlacement();
           if (pendingShowWindowRef.current) {
-            await appWindow.show();
             pendingShowWindowRef.current = false;
+            await invoke("prepare_main_window").catch(() => {});
+            await appWindow.show();
+            invoke("report_startup_ready", {
+              visible: true,
+              frontendBootMs: Math.round(performance.now()),
+              bootPhases: bootPhasesRef.current,
+            }).catch(() => {});
+          } else {
+            invoke("report_startup_ready", {
+              visible: false,
+              frontendBootMs: Math.round(performance.now()),
+              bootPhases: bootPhasesRef.current,
+            }).catch(() => {});
           }
           launchWindowPlacementDone.current = true;
           return;
@@ -949,8 +1159,8 @@ export default function App() {
           }
 
           if (cancelled) return;
-          root.style.width = `${width}px`;
-          root.style.height = `${appHeight}px`;
+          root.style.width = `${cssWidth}px`;
+          root.style.height = `${cssHeight}px`;
 
           const changedProps: string[] = [];
           if (width !== currentW) changedProps.push("width");
@@ -971,12 +1181,9 @@ export default function App() {
                 appWindow
                   .setSize(new LogicalSize(width, windowHeight))
                   .catch((err) => {
-                    error(
-                      JSON.stringify({
-                        source: "App.resizeFinalize",
-                        error: String(err),
-                      }),
-                    );
+                    logDiagnostic("App.resizeFinalize", {
+                      error: String(err),
+                    });
                   });
               }
             }
@@ -992,12 +1199,9 @@ export default function App() {
               appWindow
                 .setSize(new LogicalSize(width, windowHeight))
                 .catch((err) => {
-                  error(
-                    JSON.stringify({
-                      source: "App.resizeFinalizeTimeout",
-                      error: String(err),
-                    }),
-                  );
+                  logDiagnostic("App.resizeFinalizeTimeout", {
+                    error: String(err),
+                  });
                 });
             }
             resizeTimeout.current = null;
@@ -1006,19 +1210,19 @@ export default function App() {
           if (cancelled) return;
           await appWindow.setSize(new LogicalSize(width, windowHeight));
           if (cancelled) return;
-          root.style.width = `${currentW}px`;
-          root.style.height = `${currentH}px`;
+          root.style.width = `${currentW / contentScale}px`;
+          root.style.height = `${currentH / contentScale}px`;
 
           void root.offsetHeight;
 
-          root.style.width = `${width}px`;
-          root.style.height = `${appHeight}px`;
+          root.style.width = `${cssWidth}px`;
+          root.style.height = `${cssHeight}px`;
         }
       } catch (err) {
         if (!cancelled) {
-          error(
-            JSON.stringify({ source: "App.sizeWindow", error: String(err) }),
-          );
+          logDiagnostic("App.sizeWindow", {
+            error: String(err),
+          });
         }
       }
     })();
@@ -1039,6 +1243,8 @@ export default function App() {
     dropdownOverflowBottom,
     settingsLoaded,
     settings.statusBarEnabled,
+    settings.uiScale,
+    firstRunOpen,
   ]);
 
   useEffect(() => {
@@ -1094,127 +1300,27 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    const theme = settings.theme ?? "dark";
-    document.documentElement.dataset.theme = theme;
-    applyAccentTheme(settings.accentColor, theme);
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty(
+      "--font-family-base",
+      `"${settings.fontFamily}", var(--font-fallback)`,
+    );
+  }, [settings.fontFamily]);
 
-    invoke("set_accent_color", {
-      color: settings.accentColor,
-      theme,
-      iconEnabled: settings.taskbarIconEnabled,
-      iconTheme: settings.taskbarIconTheme,
-      iconColor: settings.taskbarIconColor,
-    });
-  }, [
-    settings.accentColor,
-    settings.theme,
-    settings.taskbarIconEnabled,
-    settings.taskbarIconTheme,
-    settings.taskbarIconColor,
-  ]);
+  useLayoutEffect(() => {
+    document.documentElement.dataset.fancyTitle = settings.fancyTitle
+      ? "true"
+      : "false";
+    document.documentElement.style.setProperty(
+      "--title-font-family",
+      `"${settings.titleFont}"`,
+    );
+  }, [settings.fancyTitle, settings.titleFont]);
 
   useEffect(() => {
     document.documentElement.lang = "en";
     document.documentElement.dir = "ltr";
   }, []);
-
-  useLayoutEffect(() => {
-    const root = document.querySelector(".app-root") as HTMLElement | null;
-    if (!root) return;
-
-    const sfx = tabSuffix(tab);
-    const panelOpacity =
-      resolvePerPage(settings, settings.panelOpacity, `panelOpacity${sfx}`) /
-      100;
-    const windowOpacity =
-      resolvePerPage(settings, settings.windowOpacity, `windowOpacity${sfx}`) /
-      100;
-    const colors =
-      settings.theme === "light"
-        ? {
-            base: "229, 223, 231",
-            surface: "255, 255, 255",
-            elevated: "242, 242, 242",
-            input: "217, 217, 217",
-            inputOff: "217, 217, 217",
-          }
-        : {
-            base: "12, 12, 14",
-            surface: "26, 26, 26",
-            elevated: "38, 38, 38",
-            input: "59, 59, 59",
-            inputOff: "51, 51, 51",
-          };
-
-    root.style.setProperty(
-      "--bg-base",
-      `rgba(${colors.base}, ${windowOpacity})`,
-    );
-    root.style.setProperty(
-      "--bg-surface",
-      `rgba(${colors.surface}, ${panelOpacity})`,
-    );
-    root.style.setProperty(
-      "--bg-elevated",
-      `rgba(${colors.elevated}, ${panelOpacity})`,
-    );
-    root.style.setProperty(
-      "--bg-input",
-      `rgba(${colors.input}, ${panelOpacity})`,
-    );
-    root.style.setProperty(
-      "--bg-input-off",
-      `rgba(${colors.inputOff}, ${panelOpacity})`,
-    );
-    root.style.setProperty(
-      "--bg-panel-blur",
-      `${resolvePerPage(settings, settings.panelBlur, `panelBlur${sfx}`)}px`,
-    );
-    root.style.setProperty(
-      "--bg-image-blur",
-      `${resolvePerPage(settings, settings.backgroundBlur, `backgroundBlur${sfx}`)}px`,
-    );
-
-    return () => {
-      root.style.removeProperty("--bg-base");
-      root.style.removeProperty("--bg-surface");
-      root.style.removeProperty("--bg-elevated");
-      root.style.removeProperty("--bg-input");
-      root.style.removeProperty("--bg-input-off");
-      root.style.removeProperty("--bg-panel-blur");
-      root.style.removeProperty("--bg-image-blur");
-    };
-  }, [
-    settings,
-    settings.windowOpacity,
-    settings.panelOpacity,
-    settings.panelBlur,
-    settings.backgroundBlur,
-    settings.theme,
-    settings.perPageAppearance,
-    settings.panelOpacitySimple,
-    settings.panelOpacityAdvanced,
-    settings.panelOpacityZones,
-    settings.panelOpacityClickPoints,
-    settings.panelOpacitySettings,
-    settings.panelBlurSimple,
-    settings.panelBlurAdvanced,
-    settings.panelBlurZones,
-    settings.panelBlurClickPoints,
-    settings.panelBlurSettings,
-    settings.backgroundBlurSimple,
-    settings.backgroundBlurAdvanced,
-    settings.backgroundBlurZones,
-    settings.backgroundBlurClickPoints,
-    settings.backgroundBlurSettings,
-    settings.windowOpacitySimple,
-    settings.windowOpacityAdvanced,
-    settings.windowOpacityZones,
-    settings.windowOpacityClickPoints,
-    settings.windowOpacitySettings,
-    tab,
-  ]);
 
   useEffect(() => {
     const cleanup = listen<boolean>("minimized-changed", (event) => {
@@ -1227,42 +1333,14 @@ export default function App() {
     };
   }, []);
 
-  const backgroundMedia = useMemo(() => {
+  const rawBackgroundPath = useMemo(() => {
     const sfx = tabSuffix(tab);
     const raw = resolvePerPage(
       settings,
       settings.backgroundImage,
       `backgroundImage${sfx}`,
     ) as string;
-    const trimmed = (raw ?? "").trim();
-    if (!trimmed)
-      return { kind: "none" as const, cssUrl: null, videoSrc: null };
-    let converted: string | null = null;
-    const lower = trimmed.toLowerCase();
-    const isRemoteOrData =
-      lower.startsWith("http://") ||
-      lower.startsWith("https://") ||
-      lower.startsWith("data:") ||
-      lower.startsWith("asset://");
-    if (!isRemoteOrData) {
-      try {
-        converted = convertFileSrc(trimmed);
-      } catch {
-        converted = null;
-      }
-    }
-    const resolved = resolveBackgroundSource(trimmed, converted);
-    if (resolved.kind === "image" && resolved.cssUrl) {
-      return {
-        kind: "image" as const,
-        cssUrl: resolved.cssUrl,
-        videoSrc: null,
-      };
-    }
-    if (resolved.kind === "video" && resolved.src) {
-      return { kind: "video" as const, cssUrl: null, videoSrc: resolved.src };
-    }
-    return { kind: "none" as const, cssUrl: null, videoSrc: null };
+    return (raw ?? "").trim();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     settings.backgroundImage,
@@ -1274,6 +1352,71 @@ export default function App() {
     settings.perPageAppearance,
     tab,
   ]);
+
+  const [backgroundMedia, setBackgroundMedia] = useState<{
+    kind: "none" | "image" | "video";
+    cssUrl: string | null;
+    videoSrc: string | null;
+  }>({ kind: "none", cssUrl: null, videoSrc: null });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveMedia = async () => {
+      const trimmed = rawBackgroundPath;
+      if (!trimmed) {
+        if (!cancelled) {
+          setBackgroundMedia({ kind: "none", cssUrl: null, videoSrc: null });
+        }
+        return;
+      }
+
+      const lower = trimmed.toLowerCase();
+      const isRemoteOrData =
+        lower.startsWith("http://") ||
+        lower.startsWith("https://") ||
+        lower.startsWith("data:") ||
+        lower.startsWith("asset://");
+
+      let converted: string | null = null;
+      if (!isRemoteOrData) {
+        try {
+          await invoke("allow_local_media", { path: trimmed });
+          converted = convertFileSrc(trimmed);
+        } catch (err) {
+          logDiagnostic("App.backgroundMedia", { error: String(err) });
+          converted = null;
+        }
+      }
+
+      if (cancelled) return;
+
+      const resolved = resolveBackgroundSource(trimmed, converted);
+      if (resolved.kind === "image" && resolved.cssUrl) {
+        setBackgroundMedia({
+          kind: "image",
+          cssUrl: resolved.cssUrl,
+          videoSrc: null,
+        });
+        return;
+      }
+      if (resolved.kind === "video" && resolved.src) {
+        setBackgroundMedia({
+          kind: "video",
+          cssUrl: null,
+          videoSrc: resolved.src,
+        });
+        return;
+      }
+      setBackgroundMedia({ kind: "none", cssUrl: null, videoSrc: null });
+    };
+
+    void resolveMedia();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rawBackgroundPath]);
 
   useLayoutEffect(() => {
     const root = document.querySelector(".app-root") as HTMLElement | null;
@@ -1290,23 +1433,15 @@ export default function App() {
     if (!root) return;
 
     const sfx = tabSuffix(tab);
-    const bgOp = resolvePerPage(
-      settings,
-      settings.backgroundOpacity,
-      `backgroundOpacity${sfx}`,
-    );
+    const bgOp = firstRunOpen
+      ? 0
+      : resolvePerPage(
+          settings,
+          settings.backgroundOpacity,
+          `backgroundOpacity${sfx}`,
+        );
     root.style.setProperty("--bg-opacity", String(bgOp));
-  }, [
-    settings,
-    settings.backgroundOpacity,
-    settings.perPageAppearance,
-    settings.backgroundOpacitySimple,
-    settings.backgroundOpacityAdvanced,
-    settings.backgroundOpacityZones,
-    settings.backgroundOpacityClickPoints,
-    settings.backgroundOpacitySettings,
-    tab,
-  ]);
+  }, [settings, tab, firstRunOpen]);
 
   const handleTabChange = useCallback(
     (nextTab: Tab) => {
@@ -1333,16 +1468,20 @@ export default function App() {
       await invoke("reset_settings");
       await clearSavedSettings();
       await invoke("set_autostart_enabled", { enabled: false }).catch(() => {});
-      await getCurrentWindow().setAlwaysOnTop(DEFAULT_SETTINGS.alwaysOnTop);
+      const resetSettings = withFactoryPresets({
+        ...DEFAULT_SETTINGS,
+        onboardingCompleted: true,
+      });
+      await getCurrentWindow().setAlwaysOnTop(resetSettings.alwaysOnTop);
 
-      lastValidHotkeyRef.current = DEFAULT_SETTINGS.hotkey;
-      persistCommittedSettings(DEFAULT_SETTINGS, DEFAULT_SETTINGS);
+      lastValidHotkeyRef.current = resetSettings.hotkey;
+      persistCommittedSettings(resetSettings, resetSettings);
       setTab("simple");
       launchWindowPlacementDone.current = false;
     } catch (err) {
-      error(
-        JSON.stringify({ source: "App.resetSettings", error: String(err) }),
-      );
+      logDiagnostic("App.resetSettings", {
+        error: String(err),
+      });
     }
   };
 
@@ -1356,9 +1495,34 @@ export default function App() {
     setTab("settings");
   }, []);
 
+  const handleOpenSoundSettings = useCallback(() => {
+    setSettingsInitialTab("sounds");
+    setTab("settings");
+  }, []);
+
   const handleInitialTabConsumed = useCallback(() => {
     setSettingsInitialTab(undefined);
   }, []);
+
+  const handleFirstRunFinish = useCallback(() => {
+    setFirstRunOpen(false);
+    updateSettings({ onboardingCompleted: true });
+  }, [updateSettings]);
+
+  const handleOpenFirstRunSetup = useCallback(() => {
+    setFirstRunOpen(true);
+  }, []);
+
+  const handleToggleSoundMuted = useCallback(() => {
+    updateSettings({ soundMuted: !committedSettingsRef.current.soundMuted });
+  }, [updateSettings]);
+
+  const handleUiScaleChange = useCallback(
+    (next: number) => {
+      updateSettings({ uiScale: next });
+    },
+    [updateSettings],
+  );
 
   const handleTabChangeRef = useRef(handleTabChange);
 
@@ -1367,6 +1531,11 @@ export default function App() {
   }, [handleTabChange]);
 
   const keybindMapRef = useRef<Record<string, Tab>>({});
+  const firstRunOpenRef = useRef(firstRunOpen);
+
+  useLayoutEffect(() => {
+    firstRunOpenRef.current = firstRunOpen;
+  }, [firstRunOpen]);
 
   useEffect(() => {
     const map: Record<string, Tab> = {};
@@ -1408,8 +1577,10 @@ export default function App() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (firstRunOpenRef.current) return;
       const modifierHit = captureModifierHotkey(e);
       if (modifierHit && !held.includes(modifierHit)) held.push(modifierHit);
+      if (e.repeat) return;
       if (
         e.target instanceof HTMLElement &&
         (e.target.isContentEditable ||
@@ -1513,24 +1684,7 @@ export default function App() {
           });
           break;
         case "dutyCycleMode":
-          if (s.dutyCycleMode === "Hold") {
-            updateSettings({
-              dutyCycleMode: "Click",
-              clickSpeed: s.savedClickSpeed,
-              clickInterval: s.savedClickInterval,
-              dutyCycle: s.savedDutyCycle,
-            });
-          } else {
-            updateSettings({
-              dutyCycleMode: "Hold",
-              savedClickSpeed: s.clickSpeed,
-              savedClickInterval: s.clickInterval,
-              savedDutyCycle: s.dutyCycle,
-              clickSpeed: 1,
-              clickInterval: "d",
-              dutyCycle: 100,
-            });
-          }
+          updateSettings(holdModePatch(s, s.dutyCycleMode !== "Hold"));
           break;
         case "speedRandomization":
           updateSettings({
@@ -1595,8 +1749,10 @@ export default function App() {
   useEffect(() => {
     const held: string[] = [];
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (firstRunOpenRef.current) return;
       const modifierHit = captureModifierHotkey(e);
       if (modifierHit && !held.includes(modifierHit)) held.push(modifierHit);
+      if (e.repeat) return;
       if (
         e.target instanceof HTMLElement &&
         (e.target.isContentEditable ||
@@ -1646,15 +1802,165 @@ export default function App() {
       hotkey: settings.keybindMaster,
       holdMode: settings.masterKeybindMode === "hold",
     }).catch((err) => {
-      error(
-        JSON.stringify({ source: "App.registerMaster", error: String(err) }),
-      );
+      logDiagnostic("App.registerMaster", {
+        error: String(err),
+      });
     });
   }, [settings.keybindMaster, settings.masterKeybindMode]);
 
   const activePreset = settings.presets.find(
     (p) => p.id === settings.activePresetId,
   );
+
+  const elevationPromptOpen = status.elevationBlocked && !elevation.elevated;
+
+  useEffect(() => {
+    invoke<{ elevated: boolean; canElevate: boolean }>("get_elevation_state")
+      .then((state) => {
+        setElevation(state);
+        setElevationLoaded(true);
+      })
+      .catch((err) => {
+        logDiagnostic("App.elevationState", {
+          error: String(err),
+        });
+        setElevationLoaded(true);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!status.elevationBlocked || elevation.elevated) return;
+    invoke("focus_main_window").catch(() => {});
+  }, [status.elevationBlocked, elevation.elevated]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    invoke("set_elevation_notice_enabled", {
+      enabled: settings.elevationNoticeEnabled,
+    }).catch(() => {});
+  }, [settingsLoaded, settings.elevationNoticeEnabled]);
+
+  useEffect(() => {
+    if (!settingsLoaded || !elevationLoaded) return;
+    if (elevationRelaunchedRef.current) return;
+    elevationRelaunchedRef.current = true;
+    if (!settings.alwaysRunAsAdmin || elevation.elevated) return;
+    if (!elevation.canElevate) return;
+    invoke<boolean>("relaunch_as_admin")
+      .then((relaunched) => {
+        if (relaunched) return exit(0);
+        return undefined;
+      })
+      .catch((err) =>
+        logDiagnostic("App.relaunchAdmin", {
+          error: String(err),
+        }),
+      );
+  }, [settingsLoaded, elevationLoaded, settings.alwaysRunAsAdmin, elevation]);
+
+  const flushPendingSettingsSave = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    try {
+      await saveSettings(committedSettingsRef.current);
+      return true;
+    } catch (err) {
+      logDiagnostic("App.flushSettings", {
+        error: String(err),
+      });
+      return false;
+    }
+  }, []);
+
+  const handleOpenCustomizer = useCallback(() => {
+    void flushPendingSettingsSave().then((saved) => {
+      if (!saved) {
+        scheduleSaveRef.current(committedSettingsRef.current);
+      }
+      return invoke("open_theme_window").catch((err) =>
+        logDiagnostic("App.openThemeWindow", {
+          error: String(err),
+        }),
+      );
+    });
+  }, [flushPendingSettingsSave]);
+
+  const readCommittedSettings = useCallback(
+    () => committedSettingsRef.current,
+    [],
+  );
+
+  const commitThemeSettings = useCallback((nextSettings: Settings) => {
+    committedSettingsRef.current = nextSettings;
+    setUiSettingsRef.current({
+      ...nextSettings,
+      hotkey: uiSettingsRef.current.hotkey,
+    });
+    scheduleSaveRef.current(nextSettings);
+  }, []);
+
+  const themeTabSuffix = tabSuffix(tab);
+
+  useThemeRuntime({
+    settings,
+    settingsLoaded,
+    windowOpacity: firstRunOpen
+      ? 1
+      : resolvePerPage(
+          settings,
+          settings.windowOpacity,
+          `windowOpacity${themeTabSuffix}`,
+        ) / 100,
+    panelOpacity: firstRunOpen
+      ? 1
+      : resolvePerPage(
+          settings,
+          settings.panelOpacity,
+          `panelOpacity${themeTabSuffix}`,
+        ) / 100,
+    panelBlur: resolvePerPage(
+      settings,
+      settings.panelBlur,
+      `panelBlur${themeTabSuffix}`,
+    ),
+    backgroundBlur: resolvePerPage(
+      settings,
+      settings.backgroundBlur,
+      `backgroundBlur${themeTabSuffix}`,
+    ),
+    readCommittedSettings,
+    commitSettings: commitThemeSettings,
+    openCustomizer: handleOpenCustomizer,
+  });
+
+  const handleRestartAsAdmin = useCallback(
+    () => restartAsAdministrator(flushPendingSettingsSave),
+    [flushPendingSettingsSave],
+  );
+
+  const handleElevationRestart = useCallback(async () => {
+    setPromptBusy(true);
+    try {
+      const outcome = await handleRestartAsAdmin();
+      if (outcome === "relaunched") return;
+    } catch (err) {
+      logDiagnostic("App.elevationRestart", {
+        error: String(err),
+      });
+    }
+    setPromptBusy(false);
+  }, [handleRestartAsAdmin]);
+
+  const handleAlwaysRunAsAdmin = useCallback(
+    (next: boolean) => updateSettings({ alwaysRunAsAdmin: next }),
+    [updateSettings],
+  );
+
+  const handleElevationDismiss = useCallback(() => {
+    invoke("clear_elevation_blocked").catch(() => {});
+  }, []);
 
   function computeTimeLimitMs(): number {
     if (!settings.timeLimitEnabled) return 0;
@@ -1673,7 +1979,12 @@ export default function App() {
   }
 
   return (
-    <div className="app-root" data-tab={tab}>
+    <div
+      className="app-root"
+      data-tab={tab}
+      data-elevation-prompt={elevationPromptOpen}
+      data-setup={firstRunOpen}
+    >
       {backgroundMedia.videoSrc && (
         <video
           key={backgroundMedia.videoSrc}
@@ -1688,12 +1999,9 @@ export default function App() {
           onError={(e) => {
             const ext = getExtension(backgroundMedia.videoSrc ?? "");
             const legacy = isLegacyVideoExtension(ext);
-            error(
-              JSON.stringify({
-                source: "App.backgroundVideo",
-                error: `video load failed ext=${ext} legacy=${legacy}`,
-              }),
-            );
+            logDiagnostic("App.backgroundVideo", {
+              error: `video load failed ext=${ext} legacy=${legacy}`,
+            });
             // Hide broken video so UI not black; user can pick MP4/WebM instead
             const target = e.currentTarget as HTMLVideoElement;
             target.style.display = "none";
@@ -1715,8 +2023,9 @@ export default function App() {
         stopReason={status.stopReason}
         statusBarHidden={!settings.statusBarEnabled}
         masterOff={!status.masterAllowed}
+        navDisabled={firstRunOpen}
       />
-      {updateInfo && (
+      {updateInfo && !firstRunOpen && (
         <UpdateBanner
           key={`${updateInfo.currentVersion}:${updateInfo.latestVersion}`}
           currentVersion={updateInfo.currentVersion}
@@ -1724,54 +2033,65 @@ export default function App() {
           portable={appInfo.portable}
         />
       )}
-      <main className="panel-area">
-        {tab === "simple" && (
-          <SimplePanel settings={settings} update={updateSettings} />
-        )}
-        {tab === "advanced" && (
-          <AdvancedPanel settings={settings} update={updateSettings} />
-        )}
-        {tab === "click-points" && (
-          <ClickPointsPanel
-            settings={settings}
-            update={updateSettings}
-            showInfo={true}
-            running={status.running}
-            activeClickPointIndex={status.activeClickPointIndex}
-            activeClickPointTick={status.activeClickPointTick}
-          />
-        )}
-        {tab === "zones" && (
-          <ZonesPanel
-            settings={settings}
-            update={updateSettings}
-            showInfo={true}
-          />
-        )}
-        {tab === "settings" && (
-          <SettingsPanel
-            settings={settings}
-            update={updateSettings}
-            running={status.running}
-            appInfo={appInfo}
-            onSavePreset={handleSavePreset}
-            onApplyPreset={handleApplyPreset}
-            onUpdatePreset={handleUpdatePreset}
-            onRenamePreset={handleRenamePreset}
-            onDeletePreset={handleDeletePreset}
-            onDuplicatePreset={handleDuplicatePreset}
-            onExportPreset={handleExportPreset}
-            onImportPreset={handleImportPreset}
-            onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
-            onReset={handleResetSettings}
-            updateCheckStatus={updateCheckStatus}
-            onCheckForUpdate={handleCheckForUpdate}
-            initialSettingsTab={settingsInitialTab}
-            onInitialTabConsumed={handleInitialTabConsumed}
-          />
-        )}
-      </main>
-      {settings.statusBarEnabled && (
+      {firstRunOpen ? (
+        <FirstRunSetup
+          settings={settings}
+          update={updateSettings}
+          onFinish={handleFirstRunFinish}
+        />
+      ) : (
+        <main className="panel-area" inert={elevationPromptOpen}>
+          {tab === "simple" && (
+            <SimplePanel settings={settings} update={updateSettings} />
+          )}
+          {tab === "advanced" && (
+            <AdvancedPanel settings={settings} update={updateSettings} />
+          )}
+          {tab === "click-points" && (
+            <ClickPointsPanel
+              settings={settings}
+              update={updateSettings}
+              showInfo={true}
+              running={status.running}
+              activeClickPointIndex={status.activeClickPointIndex}
+              activeClickPointTick={status.activeClickPointTick}
+            />
+          )}
+          {tab === "zones" && (
+            <ZonesPanel
+              settings={settings}
+              update={updateSettings}
+              showInfo={true}
+            />
+          )}
+          {tab === "settings" && (
+            <SettingsPanel
+              settings={settings}
+              update={updateSettings}
+              running={status.running}
+              appInfo={appInfo}
+              onSavePreset={handleSavePreset}
+              onApplyPreset={handleApplyPreset}
+              onUpdatePreset={handleUpdatePreset}
+              onRenamePreset={handleRenamePreset}
+              onDeletePreset={handleDeletePreset}
+              onDuplicatePreset={handleDuplicatePreset}
+              onExportPreset={handleExportPreset}
+              onImportPreset={handleImportPreset}
+              onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
+              onRestartAsAdmin={handleRestartAsAdmin}
+              onOpenCustomizer={handleOpenCustomizer}
+              onReset={handleResetSettings}
+              updateCheckStatus={updateCheckStatus}
+              onCheckForUpdate={handleCheckForUpdate}
+              initialSettingsTab={settingsInitialTab}
+              onInitialTabConsumed={handleInitialTabConsumed}
+              onOpenFirstRunSetup={handleOpenFirstRunSetup}
+            />
+          )}
+        </main>
+      )}
+      {settings.statusBarEnabled && !firstRunOpen && (
         <StatusBar
           activePresetName={activePreset?.name ?? null}
           version={appInfo.version}
@@ -1785,10 +2105,38 @@ export default function App() {
           clickLimit={settings.clickLimit}
           clickLimitEnabled={settings.clickLimitEnabled}
           timeLimitMs={computeTimeLimitMs()}
+          showPreset={settings.statusBarPresetEnabled}
+          showSoundToggle={
+            settings.statusBarSoundEnabled &&
+            (settings.enableSoundEnabled || settings.disableSoundEnabled)
+          }
+          soundMuted={settings.soundMuted}
+          onToggleSound={handleToggleSoundMuted}
+          onOpenSoundSettings={handleOpenSoundSettings}
+          uiScale={settings.uiScale}
+          onUiScaleChange={handleUiScaleChange}
+          showScale={settings.statusBarScaleEnabled}
           onGoToPresets={handleGoToPresets}
           onGoToVersionInfo={handleGoToVersionInfo}
         />
       )}
+      <DonationPrompt
+        prompt={donationPrompt}
+        onSupport={handleDonationSupport}
+        onAcknowledge={handleDonationAcknowledge}
+        onClose={handleDonationClose}
+      />
+      <ElevationPrompt
+        open={elevationPromptOpen}
+        canElevate={elevation.canElevate}
+        alwaysRunAsAdmin={settings.alwaysRunAsAdmin}
+        windowName={status.elevationBlockedWindow?.name ?? ""}
+        windowTitle={status.elevationBlockedWindow?.title ?? ""}
+        busy={promptBusy}
+        onRestart={handleElevationRestart}
+        onAlwaysRunChange={handleAlwaysRunAsAdmin}
+        onDismiss={handleElevationDismiss}
+      />
     </div>
   );
 }

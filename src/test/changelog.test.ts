@@ -32,12 +32,37 @@ describe("parseChangelog", () => {
   it("parses sections and items", () => {
     const [entry] = parseChangelog(sample);
     expect(entry.sections.map((s) => s.heading)).toEqual(["New", "Fixed"]);
-    expect(entry.sections[0].items).toEqual(["Added a preview button"]);
+    expect(entry.sections[0].items.map((item) => item.text)).toEqual([
+      "Added a preview button",
+    ]);
   });
 
   it("parses numbered items", () => {
     const entry = parseChangelog(sample)[2];
-    expect(entry.sections[0].items).toEqual(["First release", "Second bullet"]);
+    expect(entry.sections[0].items.map((item) => item.text)).toEqual([
+      "First release",
+      "Second bullet",
+    ]);
+  });
+
+  it("parses nested subpoints into their parent item", () => {
+    const nested = `# v3.9.7 - 12.10.2026 (d.m.y)
+
+## Changed
+
+- Small UI improvements;
+  - Removed the header.
+  - Added an animation.
+- Another change.
+`;
+    const [entry] = parseChangelog(nested);
+    expect(entry.sections[0].items).toEqual([
+      {
+        text: "Small UI improvements;",
+        subitems: ["Removed the header.", "Added an animation."],
+      },
+      { text: "Another change.", subitems: [] },
+    ]);
   });
 
   it("drops sections with no matching items", () => {

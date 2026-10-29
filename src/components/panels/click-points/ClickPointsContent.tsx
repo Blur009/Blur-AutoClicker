@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { error } from "@tauri-apps/plugin-log";
+import { logDiagnostic } from "../../../diagnostics";
 import { getEffectiveIntervalMs } from "../../../cadence";
 import type { ClickPoint, Settings } from "../../../store";
 
@@ -70,13 +70,6 @@ function reorderClickPoints(
     draggedPoint,
     ...remainingPoints.slice(clampedIndex),
   ];
-}
-
-function haveSameOrder(a: ClickPoint[], b: ClickPoint[]) {
-  return (
-    a.length === b.length &&
-    a.every((point, index) => point.id === b[index]?.id)
-  );
 }
 
 export default function ClickPointsContent({
@@ -203,12 +196,9 @@ export default function ClickPointsContent({
       await invoke("start_click_point_pick");
     } catch (err) {
       setPicking(false);
-      error(
-        JSON.stringify({
-          source: "ClickPointsContent.startPick",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("ClickPointsContent.startPick", {
+        error: String(err),
+      });
     }
   }, []);
 
@@ -217,12 +207,9 @@ export default function ClickPointsContent({
     try {
       await invoke("cancel_click_point_pick");
     } catch (err) {
-      error(
-        JSON.stringify({
-          source: "ClickPointsContent.cancelPick",
-          error: String(err),
-        }),
-      );
+      logDiagnostic("ClickPointsContent.cancelPick", {
+        error: String(err),
+      });
     }
   }, []);
 
@@ -245,20 +232,41 @@ export default function ClickPointsContent({
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [cancelPick, picking]);
 
-  const updatePoint = (index: number, patch: Partial<ClickPoint>) => {
-    const nextPoints = settings.clickPoints.map(
-      (point: ClickPoint, pointIndex: number) =>
-        pointIndex === index ? { ...point, ...patch } : point,
-    );
-    update({ clickPoints: nextPoints });
-  };
+  const commitPoints = useCallback(
+    (nextPoints: ClickPoint[]) => {
+      const current = latestPointsRef.current;
+      if (
+        current.length === nextPoints.length &&
+        current.every((point, index) => point === nextPoints[index])
+      ) {
+        return;
+      }
+      latestPointsRef.current = nextPoints;
+      update({ clickPoints: nextPoints });
+    },
+    [update],
+  );
 
-  const deletePoint = (index: number) => {
-    const nextPoints = settings.clickPoints.filter(
-      (_: ClickPoint, pointIndex: number) => pointIndex !== index,
-    );
-    update({ clickPoints: nextPoints });
-  };
+  const updatePoint = useCallback(
+    (index: number, patch: Partial<ClickPoint>) => {
+      const nextPoints = latestPointsRef.current.map(
+        (point: ClickPoint, pointIndex: number) =>
+          pointIndex === index ? { ...point, ...patch } : point,
+      );
+      commitPoints(nextPoints);
+    },
+    [commitPoints],
+  );
+
+  const deletePoint = useCallback(
+    (index: number) => {
+      const nextPoints = latestPointsRef.current.filter(
+        (_: ClickPoint, pointIndex: number) => pointIndex !== index,
+      );
+      commitPoints(nextPoints);
+    },
+    [commitPoints],
+  );
 
   const setItemRef = useCallback(
     (pointId: string, node: HTMLDivElement | null) => {
@@ -283,17 +291,6 @@ export default function ClickPointsContent({
       viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 6;
     setShowBottomFade(hasMoreBelow);
   }, []);
-
-  const commitPoints = useCallback(
-    (nextPoints: ClickPoint[]) => {
-      if (haveSameOrder(latestPointsRef.current, nextPoints)) {
-        return;
-      }
-      latestPointsRef.current = nextPoints;
-      update({ clickPoints: nextPoints });
-    },
-    [update],
-  );
 
   const computeInsertionIndex = useCallback(
     (clientY: number, draggedId: string) => {
@@ -468,6 +465,7 @@ export default function ClickPointsContent({
 
   const activeIndex =
     running && settings.clickPointsEnabled ? activeClickPointIndex : null;
+  const effectiveIntervalMs = getEffectiveIntervalMs(settings);
 
   const handleDragStart = useCallback(
     (
@@ -503,9 +501,8 @@ export default function ClickPointsContent({
       </div>
       <CardDivider />
       <div className="adv-card-desc">
-        Choose a list of spots on your screen to click one after another. Each
-        spot will use the speed and settings you chose. Choose just one spot if
-        you want to click the exact same place over and over.
+        Clicks the spots in the list in order, using your current click speed.
+        Add a single point to click the same place repeatedly.
       </div>
       <Disableable enabled={settings.clickPointsEnabled}>
         <div className="adv-click-points-body">
@@ -531,9 +528,9 @@ export default function ClickPointsContent({
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                         className="lucide lucide-spline-pointer-icon lucide-spline-pointer"
                       >
                         <path d="M12.034 12.681a.498.498 0 0 1 .647-.647l9 3.5a.5.5 0 0 1-.033.943l-3.444 1.068a1 1 0 0 0-.66.66l-1.067 3.443a.5.5 0 0 1-.943.033z" />
@@ -556,7 +553,7 @@ export default function ClickPointsContent({
                       const isActive = activeIndex === index;
                       const stepDurationMs = Math.max(
                         1,
-                        point.clicks * getEffectiveIntervalMs(settings),
+                        point.clicks * effectiveIntervalMs,
                       );
 
                       return (
@@ -566,7 +563,7 @@ export default function ClickPointsContent({
                           index={index}
                           isActive={isActive}
                           isDragging={draggingId === point.id}
-                          activeTick={activeClickPointTick}
+                          activeTick={isActive ? activeClickPointTick : 0}
                           stepDurationMs={stepDurationMs}
                           onUpdate={updatePoint}
                           onDelete={deletePoint}

@@ -5,8 +5,6 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "core:event:default",
-    "core:event:allow-listen",
 
     "core:window:allow-close",
     "core:window:allow-minimize",
@@ -20,7 +18,6 @@
     "core:window:allow-hide",
     "core:window:allow-show",
     "core:window:allow-set-ignore-cursor-events",
-    "core:window:allow-set-icon",
 
     "store:allow-get",
     "store:allow-load",
@@ -31,14 +28,7 @@
     "process:default",
     "updater:default",
 
-    "global-shortcut:allow-register",
-    "global-shortcut:allow-is-registered",
-
     "dialog:default",
-    "dialog:allow-open",
-    "dialog:allow-save",
-
-    "fs:default",
 
     "log:default"
   ]

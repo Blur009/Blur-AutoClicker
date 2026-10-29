@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PRESET_NAME_MAX_LENGTH,
   buildPresetSnapshot,
@@ -7,27 +7,7 @@ import {
 import type { PresetDefinition, PresetId, Settings } from "../../../../store";
 import { SettingsCard } from "./shared";
 
-function PresetRow({
-  preset,
-  isActive,
-  isModified,
-  isEditing,
-  isConfirmingDelete,
-  running,
-  renameDraft,
-  renameError,
-  onRenameDraftChange,
-  onStartRename,
-  onCancelRename,
-  onCommitRename,
-  onApply,
-  onUpdatePreset,
-  onRequestDelete,
-  onCancelDelete,
-  onConfirmDelete,
-  onDuplicate,
-  onExport,
-}: {
+interface PresetRowProps {
   preset: PresetDefinition;
   isActive: boolean;
   isModified: boolean;
@@ -36,18 +16,88 @@ function PresetRow({
   running: boolean;
   renameDraft: string;
   renameError: string;
-  onRenameDraftChange: (value: string) => void;
-  onStartRename: () => void;
-  onCancelRename: () => void;
+  onApply: (presetId: PresetId) => void;
+  onUpdate: (presetId: PresetId) => void;
+  onStartRename: (presetId: PresetId) => void;
   onCommitRename: () => void;
-  onApply: () => void;
-  onUpdatePreset: () => void;
-  onRequestDelete: () => void;
+  onCancelRename: () => void;
+  onRequestDelete: (presetId: PresetId) => void;
   onCancelDelete: () => void;
-  onConfirmDelete: () => void;
-  onDuplicate: () => void;
-  onExport: () => void;
-}) {
+  onConfirmDelete: (presetId: PresetId) => void;
+  onDuplicate: (presetId: PresetId) => void;
+  onExport: (presetId: PresetId) => void;
+  onRenameDraftChange: (value: string) => void;
+}
+
+function samePresetValue(a: PresetDefinition, b: PresetDefinition): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a.id !== b.id || a.name !== b.name || a.updatedAt !== b.updatedAt) {
+    return false;
+  }
+  if (a.settings === b.settings) {
+    return true;
+  }
+  return JSON.stringify(a.settings) === JSON.stringify(b.settings);
+}
+
+function arePresetRowPropsEqual(
+  prev: PresetRowProps,
+  next: PresetRowProps,
+): boolean {
+  return (
+    prev.onApply === next.onApply &&
+    prev.onUpdate === next.onUpdate &&
+    prev.onStartRename === next.onStartRename &&
+    prev.onCommitRename === next.onCommitRename &&
+    prev.onCancelRename === next.onCancelRename &&
+    prev.onRequestDelete === next.onRequestDelete &&
+    prev.onCancelDelete === next.onCancelDelete &&
+    prev.onConfirmDelete === next.onConfirmDelete &&
+    prev.onDuplicate === next.onDuplicate &&
+    prev.onExport === next.onExport &&
+    prev.onRenameDraftChange === next.onRenameDraftChange &&
+    prev.isActive === next.isActive &&
+    prev.isModified === next.isModified &&
+    prev.isEditing === next.isEditing &&
+    prev.isConfirmingDelete === next.isConfirmingDelete &&
+    prev.running === next.running &&
+    prev.renameDraft === next.renameDraft &&
+    prev.renameError === next.renameError &&
+    samePresetValue(prev.preset, next.preset)
+  );
+}
+
+function PresetRowView({
+  preset,
+  isActive,
+  isModified,
+  isEditing,
+  isConfirmingDelete,
+  running,
+  renameDraft,
+  renameError,
+  onApply,
+  onUpdate,
+  onStartRename,
+  onCommitRename,
+  onCancelRename,
+  onRequestDelete,
+  onCancelDelete,
+  onConfirmDelete,
+  onDuplicate,
+  onExport,
+  onRenameDraftChange,
+}: PresetRowProps) {
+  const formattedDate = useMemo(
+    () => new Date(preset.updatedAt).toLocaleDateString(),
+    [preset.updatedAt],
+  );
+  const summary = useMemo(
+    () => getPresetSummary(preset.settings),
+    [preset.settings],
+  );
   return (
     <div
       className={`preset-card ${isActive ? "preset-card--active" : ""}`}
@@ -85,25 +135,24 @@ function PresetRow({
                 Modified
               </span>
             )}
-            <span className="preset-badge">
-              {new Date(preset.updatedAt).toLocaleDateString()}
-            </span>
+            <span className="preset-badge">{formattedDate}</span>
           </div>
-          <div className="preset-summary">
-            {getPresetSummary(preset.settings)}
-          </div>
+          <div className="preset-summary">{summary}</div>
         </div>
         <div className="preset-actions">
           {isEditing ? (
             <>
               <button
                 className="settings-btn-secondary"
-                onClick={onCommitRename}
+                onClick={() => onCommitRename()}
                 disabled={running}
               >
                 Save
               </button>
-              <button className="settings-btn-quiet" onClick={onCancelRename}>
+              <button
+                className="settings-btn-quiet"
+                onClick={() => onCancelRename()}
+              >
                 Cancel
               </button>
             </>
@@ -111,12 +160,15 @@ function PresetRow({
             <>
               <button
                 className="settings-btn-danger settings-btn-danger--compact"
-                onClick={onConfirmDelete}
+                onClick={() => onConfirmDelete(preset.id)}
                 disabled={running}
               >
                 Confirm?
               </button>
-              <button className="settings-btn-quiet" onClick={onCancelDelete}>
+              <button
+                className="settings-btn-quiet"
+                onClick={() => onCancelDelete()}
+              >
                 Cancel
               </button>
             </>
@@ -124,42 +176,43 @@ function PresetRow({
             <>
               <button
                 className="settings-btn-primary"
-                onClick={onApply}
+                onClick={() => onApply(preset.id)}
                 disabled={running}
               >
                 Apply
               </button>
               <button
                 className="settings-btn-secondary"
-                onClick={onUpdatePreset}
+                onClick={() => onUpdate(preset.id)}
                 disabled={running}
+                title="Save the current settings into this preset"
               >
-                Update
+                Overwrite
               </button>
               <button
                 className="settings-btn-secondary"
-                onClick={onStartRename}
+                onClick={() => onStartRename(preset.id)}
                 disabled={running}
               >
                 Rename
               </button>
               <button
                 className="settings-btn-secondary"
-                onClick={onDuplicate}
+                onClick={() => onDuplicate(preset.id)}
                 disabled={running}
               >
                 Duplicate
               </button>
               <button
                 className="settings-btn-danger settings-btn-danger--compact"
-                onClick={onRequestDelete}
+                onClick={() => onRequestDelete(preset.id)}
                 disabled={running}
               >
                 Delete
               </button>
               <button
                 className="settings-btn-quiet"
-                onClick={onExport}
+                onClick={() => onExport(preset.id)}
                 title="Export preset"
               >
                 <svg
@@ -187,6 +240,8 @@ function PresetRow({
     </div>
   );
 }
+
+const PresetRow = memo(PresetRowView, arePresetRowPropsEqual);
 
 interface Props {
   settings: Settings;
@@ -230,10 +285,14 @@ export default function PresetsSection({
     ? (settings.presets.find((p) => p.id === settings.activePresetId) ?? null)
     : null;
 
-  const currentSnapshot = buildPresetSnapshot(settings);
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  const currentSnapshotJson = useMemo(
+    () => JSON.stringify(buildPresetSnapshot(settings)),
+    [settings],
+  );
   const isActiveModified =
     activePreset !== null &&
-    JSON.stringify(activePreset.settings) !== JSON.stringify(currentSnapshot);
+    JSON.stringify(activePreset.settings) !== currentSnapshotJson;
 
   useEffect(() => {
     if (!confirmingDeleteId) return;
@@ -253,41 +312,95 @@ export default function PresetsSection({
     };
   }, [confirmingDeleteId]);
 
-  const handlePresetsScroll = () => {
+  const handlePresetsScroll = useCallback(() => {
     const list = presetsListRef.current;
     if (!list) return;
     setPresetsAtBottom(
       list.scrollTop + list.clientHeight >= list.scrollHeight - 2,
     );
-  };
+  }, []);
 
   useEffect(() => {
     handlePresetsScroll();
-  }, [settings.presets.length]);
+  }, [settings.presets.length, handlePresetsScroll]);
 
-  const handleSavePreset = () => {
+  const handleSavePreset = useCallback(() => {
     if (onSavePreset(newPresetName)) {
       setNewPresetName("");
       setConfirmingDeleteId(null);
     }
-  };
+  }, [newPresetName, onSavePreset]);
 
-  const handleStartRename = (preset: PresetDefinition) => {
-    setConfirmingDeleteId(null);
-    setEditingPresetId(preset.id);
-    setRenameDraft(preset.name);
+  const handleApplyPreset = useCallback(
+    (presetId: PresetId) => {
+      setConfirmingDeleteId(null);
+      onApplyPreset(presetId);
+    },
+    [onApplyPreset],
+  );
+
+  const handleUpdatePreset = useCallback(
+    (presetId: PresetId) => {
+      setConfirmingDeleteId(null);
+      onUpdatePreset(presetId);
+    },
+    [onUpdatePreset],
+  );
+
+  const handleDuplicatePreset = useCallback(
+    (presetId: PresetId) => {
+      setConfirmingDeleteId(null);
+      onDuplicatePreset(presetId);
+    },
+    [onDuplicatePreset],
+  );
+
+  const handleExportPreset = useCallback(
+    (presetId: PresetId) => {
+      void onExportPreset(presetId);
+    },
+    [onExportPreset],
+  );
+
+  const handleRequestDelete = useCallback((presetId: PresetId) => {
+    setEditingPresetId(null);
+    setRenameDraft("");
     setRenameError("");
-  };
+    setConfirmingDeleteId(presetId);
+  }, []);
 
-  const handleCommitRename = () => {
+  const handleCancelDelete = useCallback(() => {
+    setConfirmingDeleteId(null);
+  }, []);
+
+  const handleConfirmDelete = useCallback(
+    (presetId: PresetId) => {
+      if (onDeletePreset(presetId)) {
+        setConfirmingDeleteId(null);
+      }
+    },
+    [onDeletePreset],
+  );
+
+  const handleStartRename = useCallback(
+    (presetId: PresetId) => {
+      const preset = settings.presets.find((p) => p.id === presetId);
+      if (!preset) return;
+      setConfirmingDeleteId(null);
+      setEditingPresetId(preset.id);
+      setRenameDraft(preset.name);
+      setRenameError("");
+    },
+    [settings.presets],
+  );
+
+  const handleCommitRename = useCallback(() => {
     if (!editingPresetId) return;
-
     const trimmed = renameDraft.trim();
     if (!trimmed) {
       setRenameError("Name cannot be empty");
       return;
     }
-
     const duplicate = settings.presets.some(
       (p) =>
         p.id !== editingPresetId &&
@@ -297,44 +410,90 @@ export default function PresetsSection({
       setRenameError("A preset with this name already exists");
       return;
     }
-
     setRenameError("");
     if (onRenamePreset(editingPresetId, trimmed)) {
       setEditingPresetId(null);
       setRenameDraft("");
     }
-  };
+  }, [editingPresetId, renameDraft, settings.presets, onRenamePreset]);
 
-  const handleCancelRename = () => {
+  const handleCancelRename = useCallback(() => {
     setEditingPresetId(null);
     setRenameDraft("");
     setRenameError("");
-  };
+  }, []);
 
-  const handleRequestDelete = (presetId: PresetId) => {
-    setEditingPresetId(null);
-    setRenameDraft("");
-    setRenameError("");
-    setConfirmingDeleteId(presetId);
-  };
+  const handleRenameDraftChange = useCallback((value: string) => {
+    setRenameDraft(value);
+  }, []);
 
-  const handleConfirmDelete = (presetId: PresetId) => {
-    if (onDeletePreset(presetId)) {
-      setConfirmingDeleteId(null);
-    }
-  };
-
-  const handleImport = async () => {
+  const handleImport = useCallback(async () => {
     await onImportPreset();
-  };
+  }, [onImportPreset]);
+
+  const presetRows = useMemo(
+    () =>
+      settings.presets.map((preset) => {
+        const isEditingRow = activeEditingPresetId === preset.id;
+        const isActiveRow = settings.activePresetId === preset.id;
+        return (
+          <PresetRow
+            key={preset.id}
+            preset={preset}
+            isActive={isActiveRow}
+            isModified={isActiveRow && isActiveModified}
+            isEditing={isEditingRow}
+            isConfirmingDelete={activeConfirmingDeleteId === preset.id}
+            running={running}
+            renameDraft={isEditingRow ? renameDraft : ""}
+            renameError={isEditingRow ? renameError : ""}
+            onApply={handleApplyPreset}
+            onUpdate={handleUpdatePreset}
+            onStartRename={handleStartRename}
+            onCommitRename={handleCommitRename}
+            onCancelRename={handleCancelRename}
+            onRequestDelete={handleRequestDelete}
+            onCancelDelete={handleCancelDelete}
+            onConfirmDelete={handleConfirmDelete}
+            onDuplicate={handleDuplicatePreset}
+            onExport={handleExportPreset}
+            onRenameDraftChange={handleRenameDraftChange}
+          />
+        );
+      }),
+    [
+      settings.presets,
+      settings.activePresetId,
+      isActiveModified,
+      activeEditingPresetId,
+      activeConfirmingDeleteId,
+      running,
+      renameDraft,
+      renameError,
+      handleApplyPreset,
+      handleUpdatePreset,
+      handleStartRename,
+      handleCommitRename,
+      handleCancelRename,
+      handleRequestDelete,
+      handleCancelDelete,
+      handleConfirmDelete,
+      handleDuplicatePreset,
+      handleExportPreset,
+      handleRenameDraftChange,
+    ],
+  );
 
   return (
-    <SettingsCard title="Presets" description="Save and load presets.">
+    <SettingsCard
+      title="Presets"
+      description="Saved setups you can switch between."
+    >
       <div className="settings-row settings-row--stacked">
         <div className="settings-label-group">
           <span className="settings-label">Presets</span>
           <span className="settings-sublabel">
-            Save and restore to quickly switch configurations.
+            Save your clicking setup and switch back to it later.
           </span>
         </div>
         <div className="preset-compose">
@@ -405,49 +564,7 @@ export default function PresetsSection({
               ref={presetsListRef}
               onScroll={handlePresetsScroll}
             >
-              {settings.presets.map((preset) => (
-                <PresetRow
-                  key={preset.id}
-                  preset={preset}
-                  isActive={settings.activePresetId === preset.id}
-                  isModified={
-                    settings.activePresetId === preset.id && isActiveModified
-                  }
-                  isEditing={activeEditingPresetId === preset.id}
-                  isConfirmingDelete={activeConfirmingDeleteId === preset.id}
-                  running={running}
-                  renameDraft={
-                    activeEditingPresetId === preset.id
-                      ? renameDraft
-                      : preset.name
-                  }
-                  renameError={
-                    activeEditingPresetId === preset.id ? renameError : ""
-                  }
-                  onRenameDraftChange={setRenameDraft}
-                  onStartRename={() => handleStartRename(preset)}
-                  onCancelRename={handleCancelRename}
-                  onCommitRename={handleCommitRename}
-                  onApply={() => {
-                    setConfirmingDeleteId(null);
-                    onApplyPreset(preset.id);
-                  }}
-                  onUpdatePreset={() => {
-                    setConfirmingDeleteId(null);
-                    onUpdatePreset(preset.id);
-                  }}
-                  onRequestDelete={() => handleRequestDelete(preset.id)}
-                  onCancelDelete={() => setConfirmingDeleteId(null)}
-                  onConfirmDelete={() => handleConfirmDelete(preset.id)}
-                  onDuplicate={() => {
-                    setConfirmingDeleteId(null);
-                    onDuplicatePreset(preset.id);
-                  }}
-                  onExport={() => {
-                    void onExportPreset(preset.id);
-                  }}
-                />
-              ))}
+              {presetRows}
             </div>
             <div
               className={`preset-list-fade ${presetsAtBottom ? "preset-list-fade--hidden" : ""}`}
