@@ -4871,9 +4871,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-persisted-scope"
-version = "2.4.1"
+version = "2.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "414f13b84d9f45322002068110e3628d98d743d3589af6b0f69ebb9de8536000"
+checksum = "2a9d32b58f619f83163f6d4083732c5e2c8a8129a0c083a5af5c705280fa3eba"
 dependencies = [
  "aho-corasick",
  "bincode",
