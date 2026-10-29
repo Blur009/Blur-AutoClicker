@@ -1304,15 +1304,12 @@
   pointer-events: none;
 }
 
-/* Sounds */
 .sounds-file-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
 }
 
-/* Icon components render their own wrapper div; drop its line box so the
-   glyph sits centred in the button. */
 .sounds-btn-icon {
   display: inline-flex;
   align-items: center;
@@ -1331,7 +1328,6 @@
   white-space: nowrap;
 }
 
-/* Maintenance: Discord banner */
 .maintenance-discord {
   display: flex;
   align-items: center;

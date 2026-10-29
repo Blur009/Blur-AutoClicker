@@ -412,15 +412,17 @@ pub fn reset_stats() -> AppResult<CumulativeStats> {
 }
 
 pub fn print_run_stats(click_count: i64, elapsed_secs: f64, avg_cpu: f64) {
-    log::info!("=== Run Statistics ===");
-    log::info!("Clicks: {}", click_count);
-    log::info!("Duration: {:.1}s", elapsed_secs);
-    if avg_cpu >= 0.0 {
-        log::info!("Avg CPU: {:.1}%", avg_cpu);
+    let cpu = if avg_cpu >= 0.0 {
+        format!("{avg_cpu:.1}% cpu")
     } else {
-        log::info!("Avg CPU: N/A");
-    }
-    log::info!("======================");
+        String::from("cpu n/a")
+    };
+    log::info!(
+        "run ended · {} clicks · {:.1}s · {}",
+        click_count,
+        elapsed_secs,
+        cpu
+    );
 }
 
 #[cfg(test)]

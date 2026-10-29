@@ -26,7 +26,6 @@ const DEFAULT_SOUND_NAMES: Record<ClickerSoundKind, string> = {
   disable: "disable.wav",
 };
 
-// Asset scope grants are per process, so the same file only needs one invoke.
 const authorizedPaths = new Set<string>();
 const audioElements = new Map<string, HTMLAudioElement>();
 const MAX_CACHED_AUDIO = 4;
@@ -36,7 +35,6 @@ function clampPercent(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
 
-/** Master volume and per-sound volume multiply into the 0-1 element volume. */
 export function resolvedVolume(
   masterVolume: number,
   soundVolume: number,
@@ -44,7 +42,6 @@ export function resolvedVolume(
   return (clampPercent(masterVolume) / 100) * (clampPercent(soundVolume) / 100);
 }
 
-/** File name to show in the settings row, or the bundled default name. */
 export function soundFileName(path: string, kind: ClickerSoundKind): string {
   const trimmed = path.trim();
   if (!trimmed) return DEFAULT_SOUND_NAMES[kind];
@@ -98,7 +95,6 @@ function getAudioElement(src: string): HTMLAudioElement {
 
   if (audioElements.size >= MAX_CACHED_AUDIO) {
     for (const [src, element] of audioElements) {
-      // Never cut a clip that is still running; it ages out on a later play.
       if (element.paused) audioElements.delete(src);
     }
   }
@@ -133,7 +129,6 @@ async function startPlayback(
   }
 }
 
-/** Plays the start/stop sound, honouring the per-sound toggle and mute. */
 export async function playClickerSound(
   kind: ClickerSoundKind,
   settings: Settings,

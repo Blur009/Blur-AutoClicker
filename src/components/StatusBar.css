@@ -39,8 +39,6 @@
   transition: color 0.15s ease;
 }
 
-/* The icon renders its own wrapper div, so drop its line box to keep the
-   speaker centred against the status bar text. */
 .status-bar-sound-icon {
   display: inline-flex;
   align-items: center;

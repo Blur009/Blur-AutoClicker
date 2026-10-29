@@ -14,6 +14,7 @@ mod engine;
 mod hotkeys;
 mod icon;
 mod indicator;
+mod logging;
 mod notifications;
 mod overlay;
 mod startup;
@@ -293,6 +294,7 @@ fn setup_logging(app: &AppHandle) {
             .max_file_size(2_500_000)
             .rotation_strategy(RotationStrategy::KeepSome(1))
             .timezone_strategy(TimezoneStrategy::UseLocal)
+            .format(crate::logging::format_line)
             .build(),
     );
 }

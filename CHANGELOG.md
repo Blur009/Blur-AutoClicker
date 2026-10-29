@@ -26,6 +26,7 @@
 - The administrator window notice now names the app that is blocking clicks instead of saying "this window".
 - Overhauled animated Icons.
 - Overhauled settings tab highlighting.
+- Overhauled Log messages.
 
 ## Fixed
 

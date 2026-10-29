@@ -165,7 +165,6 @@ export async function listen(
   };
 }
 
-/** Delivers a backend event to the listeners registered through `listen`. */
 export function emitBackendEvent(event: string, payload?: unknown) {
   for (const listener of [...state.listeners]) {
     if (listener.event === event) {
