@@ -45,7 +45,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-surface);
-  backdrop-filter: blur(var(--bg-panel-blur, 0px));
+  backdrop-filter: var(--panel-blur-filter, none);
   box-sizing: border-box;
   min-width: 0;
 }

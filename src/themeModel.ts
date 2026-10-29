@@ -240,7 +240,7 @@ const DARK_PALETTE: ThemeTokens = {
   radiusSmRem: 0.25,
   radiusMdRem: 0.5,
   radiusLgRem: 1,
-  radiusWindowPx: 8,
+  radiusWindowPx: 7,
   shadowContainer: { offsetY: 2, blur: 8, alpha: 0.3 },
   shadowModal: { offsetY: 20, blur: 60, alpha: 0.6 },
 };
@@ -271,7 +271,7 @@ const LIGHT_PALETTE: ThemeTokens = {
   radiusSmRem: 0.25,
   radiusMdRem: 0.5,
   radiusLgRem: 1,
-  radiusWindowPx: 8,
+  radiusWindowPx: 7,
   shadowContainer: null,
   shadowModal: { offsetY: 20, blur: 60, alpha: 0.6 },
 };

@@ -33,7 +33,7 @@ body {
   --font-title: 1rem;
   --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
   --focus-ring: 0 0 0 3px var(--accent-ring);
-  border-radius: var(--radius-window, 8px);
+  border-radius: var(--radius-window, 7px);
 }
 
 .theme-titlebar {

@@ -37,7 +37,8 @@
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 1rem;
-  --radius-window: 8px;
+  --radius-window: 7px;
+  --radius-window-inner: max(0px, calc(var(--radius-window, 7px) - 2px));
 
   --container-shadow: 0 2px 0.5rem rgba(0, 0, 0, 0.3);
   --shadow-modal: 0 1.25rem 3.75rem rgba(0, 0, 0, 0.6);
@@ -119,7 +120,7 @@ body {
 }
 
 .app-root {
-  border-radius: var(--radius-window, 8px);
+  border-radius: var(--radius-window, 7px);
   border: 2px var(--border-subtle) solid;
   background: var(--bg-base);
   width: 100%;
@@ -257,7 +258,7 @@ body {
 }
 
 .settings-card {
-  backdrop-filter: blur(var(--bg-panel-blur, 0px));
+  backdrop-filter: var(--panel-blur-filter, none);
 }
 
 .hk-wrapper {

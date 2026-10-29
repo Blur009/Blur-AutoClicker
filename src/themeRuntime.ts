@@ -242,7 +242,10 @@ export function useThemeRuntime({
       applied.root = applyThemeTokens(tokens, base, opacities, root);
     }
 
-    root.style.setProperty("--bg-panel-blur", `${panelBlur}px`);
+    root.style.setProperty(
+      "--panel-blur-filter",
+      panelBlur > 0 ? `blur(${panelBlur}px)` : "none",
+    );
     root.style.setProperty("--bg-image-blur", `${backgroundBlur}px`);
 
     return () => {
@@ -250,7 +253,7 @@ export function useThemeRuntime({
       clearThemeTokens(document.documentElement, applied.doc);
       applied.root = [];
       applied.doc = [];
-      root.style.removeProperty("--bg-panel-blur");
+      root.style.removeProperty("--panel-blur-filter");
       root.style.removeProperty("--bg-image-blur");
     };
   }, [backgroundBlur, panelBlur, panelOpacity, settings, windowOpacity]);

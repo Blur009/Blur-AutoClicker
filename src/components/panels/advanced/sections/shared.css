@@ -22,7 +22,7 @@
 
 .adv-sectioncontainer {
   background: var(--bg-surface);
-  backdrop-filter: blur(var(--bg-panel-blur, 0px));
+  backdrop-filter: var(--panel-blur-filter, none);
   border: 0px solid var(--border);
   border-radius: var(--radius-md);
   padding: 0.5rem 0.75rem;

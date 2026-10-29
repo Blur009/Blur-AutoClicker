@@ -5,8 +5,9 @@
   height: 1.625rem;
   padding-inline: 0.75rem;
   background: var(--bg-surface);
+  border-radius: 0 0 var(--radius-window-inner) var(--radius-window-inner);
   border-top: 1px solid var(--border-subtle);
-  backdrop-filter: blur(var(--bg-panel-blur, 0px));
+  backdrop-filter: var(--panel-blur-filter, none);
   flex-shrink: 0;
   position: relative;
   z-index: 10;

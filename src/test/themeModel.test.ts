@@ -148,7 +148,7 @@ describe("applyThemeTokens", () => {
     expect(target.style.getPropertyValue("--text-primary")).toBe(
       "rgba(251, 254, 254, 0.9)",
     );
-    expect(target.style.getPropertyValue("--radius-window")).toBe("8px");
+    expect(target.style.getPropertyValue("--radius-window")).toBe("7px");
     expect(target.style.getPropertyValue("--container-shadow")).toBe(
       "0 2px 8px rgba(0, 0, 0, 0.3)",
     );

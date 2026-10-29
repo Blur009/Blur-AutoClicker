@@ -7,11 +7,12 @@
   width: 100%;
   box-sizing: border-box;
   background: var(--bg-surface);
+  border-radius: var(--radius-window-inner) var(--radius-window-inner) 0 0;
   border-bottom: 2px solid var(--accent);
   position: relative;
   z-index: 10;
   flex-shrink: 0;
-  backdrop-filter: blur(var(--bg-panel-blur, 0px));
+  backdrop-filter: var(--panel-blur-filter, none);
   transition: border-color 0.3s ease;
 }
 

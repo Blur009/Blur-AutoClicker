@@ -49,6 +49,7 @@
 - Fixed clicks being sent with the toggle hotkey's modifier still held, which some targets ignored.
 - Fixed the click counter only updating after the clicker stopped.
 - Fixed Github redirect Image getting cut off on the right side.
+- Fixed 2px gap in each corner showing wrong color.
 
 # v3.9.6 - 24.08.2026 (d.m.y)
 

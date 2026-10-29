@@ -16,7 +16,7 @@
   padding: 1.5rem 0.5rem;
   position: relative;
   background: var(--bg-surface);
-  backdrop-filter: blur(var(--bg-panel-blur, 0px));
+  backdrop-filter: var(--panel-blur-filter, none);
   overflow-y: hidden;
   scrollbar-gutter: stable;
   animation: settings-sidebar-enable 0.01s 350ms forwards;
