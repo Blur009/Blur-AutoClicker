@@ -417,6 +417,19 @@ pub fn apply_config(config: IndicatorConfig) {
     }
 }
 
+pub fn preview(app: &AppHandle) {
+    let config = current_config();
+    if !config.enabled || is_clicker_running(app) {
+        return;
+    }
+    if APP.get().is_none() {
+        init(app);
+    }
+    emit_config(&config);
+    present(app, &config);
+    start_preview_timer(app);
+}
+
 pub fn set_active(app: &AppHandle, active: bool) {
     if active && APP.get().is_none() {
         init(app);

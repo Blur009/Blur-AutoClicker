@@ -91,7 +91,11 @@ const SAMPLE_UPDATE: ChangelogEntry[] = [
   },
 ];
 
-export default function DevToolsSection() {
+export default function DevToolsSection({
+  onOpenFirstRunSetup,
+}: {
+  onOpenFirstRunSetup: () => void;
+}) {
   const [preview, setPreview] = useState<PreviewId | null>(null);
   const [promptToggle, setPromptToggle] = useState(false);
   const close = () => setPreview(null);
@@ -107,6 +111,27 @@ export default function DevToolsSection() {
 
   return (
     <>
+      <SettingsCard
+        title="First-time setup"
+        description="Runs the real first-time setup again, with the current settings loaded."
+      >
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Run setup again</span>
+            <span className="settings-sublabel">
+              Runs the real sound and overlay setup again. Choices are saved.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="settings-btn-secondary"
+            onClick={onOpenFirstRunSetup}
+          >
+            Open
+          </button>
+        </div>
+      </SettingsCard>
+
       <SettingsCard
         title="Dev tools"
         description="Developer builds only. Each row opens a dialog in preview mode, so nothing is saved, deleted or restarted."

@@ -37,6 +37,7 @@ interface Props {
   stopReason: string | null;
   statusBarHidden: boolean;
   masterOff: boolean;
+  navDisabled?: boolean;
 }
 
 type NavTab = Exclude<Tab, "settings">;
@@ -141,6 +142,7 @@ const TitleBar = memo(function TitleBar({
   stopReason,
   statusBarHidden,
   masterOff,
+  navDisabled = false,
 }: Props) {
   const setTabRef = useRef(setTab);
   useEffect(() => {
@@ -169,49 +171,51 @@ const TitleBar = memo(function TitleBar({
       data-tab={tab}
       data-master-off={masterOff}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-        <button
-          className="settings-button"
-          data-active={tab === "settings"}
-          onClick={handleSettingsClick}
-          title="Settings"
-          aria-label="Settings"
-          style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
-        >
-          <svg
-            className="settings-svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      {navDisabled ? null : (
+        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <button
+            className="settings-button"
+            data-active={tab === "settings"}
+            onClick={handleSettingsClick}
+            title="Settings"
+            aria-label="Settings"
+            style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
           >
-            <circle cx="12" cy="12" r="3" />
-            <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" />
-          </svg>
-        </button>
-        <div className="tab-icon-group">
-          {TAB_ITEMS.map((item) => {
-            const isActive = tab === item.value;
-            return (
-              <TabIconButton
-                key={item.value}
-                label={item.label}
-                active={isActive}
-                onClick={handleTabClick}
-                value={item.value}
-                color={item.color}
-                activeBg={item.activeBg}
-                activeFocusRing={item.activeFocusRing}
-                icon={item.icon}
-              />
-            );
-          })}
+            <svg
+              className="settings-svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" />
+            </svg>
+          </button>
+          <div className="tab-icon-group">
+            {TAB_ITEMS.map((item) => {
+              const isActive = tab === item.value;
+              return (
+                <TabIconButton
+                  key={item.value}
+                  label={item.label}
+                  active={isActive}
+                  onClick={handleTabClick}
+                  value={item.value}
+                  color={item.color}
+                  activeBg={item.activeBg}
+                  activeFocusRing={item.activeFocusRing}
+                  icon={item.icon}
+                />
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="title-wrapper">
         <AnimatedTitle
@@ -227,6 +231,7 @@ const TitleBar = memo(function TitleBar({
             display: "flex",
             alignItems: "center",
             gap: "4px",
+            marginLeft: "auto",
             WebkitAppRegion: "no-drag",
           } as CSSProperties
         }

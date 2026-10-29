@@ -67,6 +67,7 @@ import {
 import { restartAsAdministrator } from "./restart";
 import { holdModePatch } from "./cadence";
 import { playClickerSound } from "./soundPlayback";
+import FirstRunSetup from "./components/FirstRunSetup";
 import { webviewZoom } from "./uiScale";
 import {
   KOFI_URL,
@@ -102,7 +103,10 @@ type DropdownOverflowDetail = {
   bottom?: number;
 };
 
-function getPanelSize(tab: Tab, hasUpdate: boolean) {
+const SETUP_SIZE = { width: 620, height: 520 };
+
+function getPanelSize(tab: Tab, hasUpdate: boolean, firstRunOpen: boolean) {
+  if (firstRunOpen) return SETUP_SIZE;
   const extra = hasUpdate ? 30 : 0;
   if (tab === "simple") {
     return { width: 750, height: 175 + extra };
@@ -254,6 +258,7 @@ export default function App() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<
     string | undefined
   >();
+  const [firstRunOpen, setFirstRunOpen] = useState(false);
 
   const hotkeyTimer = useRef<number | null>(null);
   const hotkeyRequestIdRef = useRef(0);
@@ -879,6 +884,7 @@ export default function App() {
             setTab((current) => (current === "simple" ? "advanced" : current));
           }
           pendingShowWindowRef.current = !autostartLaunch;
+          setFirstRunOpen(!hydratedSettings.onboardingCompleted);
           setSettingsLoaded(true);
           recordPhase("hydrate");
 
@@ -950,6 +956,11 @@ export default function App() {
       document
         .querySelector(".app-root")
         ?.getAttribute("data-elevation-prompt") === "true"
+    ) {
+      return;
+    }
+    if (
+      document.querySelector(".app-root")?.getAttribute("data-setup") === "true"
     ) {
       return;
     }
@@ -1082,7 +1093,7 @@ export default function App() {
           logDiagnostic("App.setZoom", { error: String(err) }),
         );
 
-        const preferredSize = getPanelSize(tab, !!updateInfo);
+        const preferredSize = getPanelSize(tab, !!updateInfo, firstRunOpen);
         const { width, height } = await getClampedPanelSize(
           preferredSize,
           logicalScale,
@@ -1090,11 +1101,12 @@ export default function App() {
         const measuredBarHeight =
           document.querySelector(".status-bar")?.getBoundingClientRect()
             .height ?? 0;
-        const statusBarOffset = settings.statusBarEnabled
-          ? measuredBarHeight
-            ? measuredBarHeight * contentScale
-            : STATUS_BAR_HEIGHT * logicalScale
-          : 0;
+        const statusBarOffset =
+          settings.statusBarEnabled && !firstRunOpen
+            ? measuredBarHeight
+              ? measuredBarHeight * contentScale
+              : STATUS_BAR_HEIGHT * logicalScale
+            : 0;
         const appHeight = height + statusBarOffset;
         const windowHeight = appHeight + dropdownOverflowBottom * contentScale;
         const cssWidth = width / contentScale;
@@ -1232,6 +1244,7 @@ export default function App() {
     settingsLoaded,
     settings.statusBarEnabled,
     settings.uiScale,
+    firstRunOpen,
   ]);
 
   useEffect(() => {
@@ -1420,13 +1433,15 @@ export default function App() {
     if (!root) return;
 
     const sfx = tabSuffix(tab);
-    const bgOp = resolvePerPage(
-      settings,
-      settings.backgroundOpacity,
-      `backgroundOpacity${sfx}`,
-    );
+    const bgOp = firstRunOpen
+      ? 0
+      : resolvePerPage(
+          settings,
+          settings.backgroundOpacity,
+          `backgroundOpacity${sfx}`,
+        );
     root.style.setProperty("--bg-opacity", String(bgOp));
-  }, [settings, tab]);
+  }, [settings, tab, firstRunOpen]);
 
   const handleTabChange = useCallback(
     (nextTab: Tab) => {
@@ -1453,7 +1468,10 @@ export default function App() {
       await invoke("reset_settings");
       await clearSavedSettings();
       await invoke("set_autostart_enabled", { enabled: false }).catch(() => {});
-      const resetSettings = withFactoryPresets(DEFAULT_SETTINGS);
+      const resetSettings = withFactoryPresets({
+        ...DEFAULT_SETTINGS,
+        onboardingCompleted: true,
+      });
       await getCurrentWindow().setAlwaysOnTop(resetSettings.alwaysOnTop);
 
       lastValidHotkeyRef.current = resetSettings.hotkey;
@@ -1486,6 +1504,15 @@ export default function App() {
     setSettingsInitialTab(undefined);
   }, []);
 
+  const handleFirstRunFinish = useCallback(() => {
+    setFirstRunOpen(false);
+    updateSettings({ onboardingCompleted: true });
+  }, [updateSettings]);
+
+  const handleOpenFirstRunSetup = useCallback(() => {
+    setFirstRunOpen(true);
+  }, []);
+
   const handleToggleSoundMuted = useCallback(() => {
     updateSettings({ soundMuted: !committedSettingsRef.current.soundMuted });
   }, [updateSettings]);
@@ -1504,6 +1531,11 @@ export default function App() {
   }, [handleTabChange]);
 
   const keybindMapRef = useRef<Record<string, Tab>>({});
+  const firstRunOpenRef = useRef(firstRunOpen);
+
+  useLayoutEffect(() => {
+    firstRunOpenRef.current = firstRunOpen;
+  }, [firstRunOpen]);
 
   useEffect(() => {
     const map: Record<string, Tab> = {};
@@ -1545,6 +1577,7 @@ export default function App() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (firstRunOpenRef.current) return;
       const modifierHit = captureModifierHotkey(e);
       if (modifierHit && !held.includes(modifierHit)) held.push(modifierHit);
       if (e.repeat) return;
@@ -1716,6 +1749,7 @@ export default function App() {
   useEffect(() => {
     const held: string[] = [];
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (firstRunOpenRef.current) return;
       const modifierHit = captureModifierHotkey(e);
       if (modifierHit && !held.includes(modifierHit)) held.push(modifierHit);
       if (e.repeat) return;
@@ -1872,18 +1906,20 @@ export default function App() {
   useThemeRuntime({
     settings,
     settingsLoaded,
-    windowOpacity:
-      resolvePerPage(
-        settings,
-        settings.windowOpacity,
-        `windowOpacity${themeTabSuffix}`,
-      ) / 100,
-    panelOpacity:
-      resolvePerPage(
-        settings,
-        settings.panelOpacity,
-        `panelOpacity${themeTabSuffix}`,
-      ) / 100,
+    windowOpacity: firstRunOpen
+      ? 1
+      : resolvePerPage(
+          settings,
+          settings.windowOpacity,
+          `windowOpacity${themeTabSuffix}`,
+        ) / 100,
+    panelOpacity: firstRunOpen
+      ? 1
+      : resolvePerPage(
+          settings,
+          settings.panelOpacity,
+          `panelOpacity${themeTabSuffix}`,
+        ) / 100,
     panelBlur: resolvePerPage(
       settings,
       settings.panelBlur,
@@ -1947,6 +1983,7 @@ export default function App() {
       className="app-root"
       data-tab={tab}
       data-elevation-prompt={elevationPromptOpen}
+      data-setup={firstRunOpen}
     >
       {backgroundMedia.videoSrc && (
         <video
@@ -1986,8 +2023,9 @@ export default function App() {
         stopReason={status.stopReason}
         statusBarHidden={!settings.statusBarEnabled}
         masterOff={!status.masterAllowed}
+        navDisabled={firstRunOpen}
       />
-      {updateInfo && (
+      {updateInfo && !firstRunOpen && (
         <UpdateBanner
           key={`${updateInfo.currentVersion}:${updateInfo.latestVersion}`}
           currentVersion={updateInfo.currentVersion}
@@ -1995,56 +2033,65 @@ export default function App() {
           portable={appInfo.portable}
         />
       )}
-      <main className="panel-area" inert={elevationPromptOpen}>
-        {tab === "simple" && (
-          <SimplePanel settings={settings} update={updateSettings} />
-        )}
-        {tab === "advanced" && (
-          <AdvancedPanel settings={settings} update={updateSettings} />
-        )}
-        {tab === "click-points" && (
-          <ClickPointsPanel
-            settings={settings}
-            update={updateSettings}
-            showInfo={true}
-            running={status.running}
-            activeClickPointIndex={status.activeClickPointIndex}
-            activeClickPointTick={status.activeClickPointTick}
-          />
-        )}
-        {tab === "zones" && (
-          <ZonesPanel
-            settings={settings}
-            update={updateSettings}
-            showInfo={true}
-          />
-        )}
-        {tab === "settings" && (
-          <SettingsPanel
-            settings={settings}
-            update={updateSettings}
-            running={status.running}
-            appInfo={appInfo}
-            onSavePreset={handleSavePreset}
-            onApplyPreset={handleApplyPreset}
-            onUpdatePreset={handleUpdatePreset}
-            onRenamePreset={handleRenamePreset}
-            onDeletePreset={handleDeletePreset}
-            onDuplicatePreset={handleDuplicatePreset}
-            onExportPreset={handleExportPreset}
-            onImportPreset={handleImportPreset}
-            onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
-            onRestartAsAdmin={handleRestartAsAdmin}
-            onOpenCustomizer={handleOpenCustomizer}
-            onReset={handleResetSettings}
-            updateCheckStatus={updateCheckStatus}
-            onCheckForUpdate={handleCheckForUpdate}
-            initialSettingsTab={settingsInitialTab}
-            onInitialTabConsumed={handleInitialTabConsumed}
-          />
-        )}
-      </main>
-      {settings.statusBarEnabled && (
+      {firstRunOpen ? (
+        <FirstRunSetup
+          settings={settings}
+          update={updateSettings}
+          onFinish={handleFirstRunFinish}
+        />
+      ) : (
+        <main className="panel-area" inert={elevationPromptOpen}>
+          {tab === "simple" && (
+            <SimplePanel settings={settings} update={updateSettings} />
+          )}
+          {tab === "advanced" && (
+            <AdvancedPanel settings={settings} update={updateSettings} />
+          )}
+          {tab === "click-points" && (
+            <ClickPointsPanel
+              settings={settings}
+              update={updateSettings}
+              showInfo={true}
+              running={status.running}
+              activeClickPointIndex={status.activeClickPointIndex}
+              activeClickPointTick={status.activeClickPointTick}
+            />
+          )}
+          {tab === "zones" && (
+            <ZonesPanel
+              settings={settings}
+              update={updateSettings}
+              showInfo={true}
+            />
+          )}
+          {tab === "settings" && (
+            <SettingsPanel
+              settings={settings}
+              update={updateSettings}
+              running={status.running}
+              appInfo={appInfo}
+              onSavePreset={handleSavePreset}
+              onApplyPreset={handleApplyPreset}
+              onUpdatePreset={handleUpdatePreset}
+              onRenamePreset={handleRenamePreset}
+              onDeletePreset={handleDeletePreset}
+              onDuplicatePreset={handleDuplicatePreset}
+              onExportPreset={handleExportPreset}
+              onImportPreset={handleImportPreset}
+              onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
+              onRestartAsAdmin={handleRestartAsAdmin}
+              onOpenCustomizer={handleOpenCustomizer}
+              onReset={handleResetSettings}
+              updateCheckStatus={updateCheckStatus}
+              onCheckForUpdate={handleCheckForUpdate}
+              initialSettingsTab={settingsInitialTab}
+              onInitialTabConsumed={handleInitialTabConsumed}
+              onOpenFirstRunSetup={handleOpenFirstRunSetup}
+            />
+          )}
+        </main>
+      )}
+      {settings.statusBarEnabled && !firstRunOpen && (
         <StatusBar
           activePresetName={activePreset?.name ?? null}
           version={appInfo.version}

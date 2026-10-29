@@ -708,6 +708,12 @@ pub fn get_indicator_config() -> crate::indicator::IndicatorStatus {
 }
 
 #[tauri::command]
+pub fn preview_indicator(app: AppHandle) -> AppResult<()> {
+    crate::indicator::preview(&app);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn debug_trigger_panic() -> AppResult<()> {
     #[cfg(debug_assertions)]
     {

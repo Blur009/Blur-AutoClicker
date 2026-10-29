@@ -103,6 +103,10 @@ const DEFAULT_INVOKE_RESULTS: Record<string, unknown> = {
   fetch_changelog: "",
 };
 
+function harnessSettings(): Settings {
+  return { ...createDefaultSettings("0.0.0"), onboardingCompleted: true };
+}
+
 function initialState(): HarnessState {
   return {
     invokes: [],
@@ -110,7 +114,7 @@ function initialState(): HarnessState {
     emits: [],
     sequence: [],
     windowCalls: [],
-    storedSettings: createDefaultSettings("0.0.0"),
+    storedSettings: harnessSettings(),
     savedSettings: [],
     loadError: null,
     recoveryWarning: null,
@@ -284,7 +288,7 @@ export function reset() {
 
 export function setStoredSettings(overrides: Partial<Settings>) {
   state.storedSettings = {
-    ...createDefaultSettings("0.0.0"),
+    ...harnessSettings(),
     ...overrides,
   };
 }

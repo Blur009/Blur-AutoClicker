@@ -1,4 +1,4 @@
-# v3.10.0 - 25.10.2026 (d.m.y)
+# v3.10.0 - 29.10.2026 (d.m.y)
 
 ## New
 
@@ -12,6 +12,8 @@
 - Added UI scaling in the bottom right / Appearance settings.
 - Added Discord links in Maintenance and General settings tab.
 - Added confetti. Where is it? hmmmm I guess you'll have to search...
+- Added support reminder at certain milestones.
+- Added short preference onboarding.
 
 ## Changed
 

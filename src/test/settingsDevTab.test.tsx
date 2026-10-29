@@ -41,6 +41,7 @@ function renderPanel() {
       onReset={async () => {}}
       updateCheckStatus="idle"
       onCheckForUpdate={() => {}}
+      onOpenFirstRunSetup={() => {}}
     />,
   );
 }

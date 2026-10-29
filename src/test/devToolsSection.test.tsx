@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { check } from "@tauri-apps/plugin-updater";
@@ -24,6 +30,10 @@ vi.mock("@tauri-apps/plugin-updater", () => ({
   check: vi.fn(async () => null),
 }));
 
+function renderDevTools(onOpenFirstRunSetup = () => {}) {
+  return render(<DevToolsSection onOpenFirstRunSetup={onOpenFirstRunSetup} />);
+}
+
 function openRow(label: string) {
   const row = screen.getByText(label).closest(".settings-row");
   if (!row) throw new Error(`no row for ${label}`);
@@ -37,10 +47,20 @@ beforeEach(() => {
 });
 
 describe("DevToolsSection", () => {
+  it("runs the real first-time setup again", () => {
+    const onOpenFirstRunSetup = vi.fn();
+    renderDevTools(onOpenFirstRunSetup);
+
+    fireEvent.click(openRow("Run setup again"));
+
+    expect(onOpenFirstRunSetup).toHaveBeenCalledTimes(1);
+  });
+
   it("lists every dialog that can pop up", () => {
-    render(<DevToolsSection />);
+    renderDevTools();
     const rows = document.querySelectorAll(".settings-row");
-    expect(rows).toHaveLength(8);
+    expect(rows).toHaveLength(9);
+    expect(openRow("Run setup again")).toBeEnabled();
     for (const label of [
       "Reset all settings",
       "Reset usage data",
@@ -56,7 +76,7 @@ describe("DevToolsSection", () => {
   });
 
   it("opens the update banner with inert buttons", async () => {
-    render(<DevToolsSection />);
+    renderDevTools();
     const user = userEvent.setup();
     expect(screen.queryByText("9.9.9")).toBeNull();
     await user.click(openRow("Update available banner"));
@@ -79,7 +99,7 @@ describe("DevToolsSection", () => {
   });
 
   it("opens the reset settings confirmation without resetting anything", async () => {
-    render(<DevToolsSection />);
+    renderDevTools();
     const user = userEvent.setup();
     await user.click(openRow("Reset all settings"));
     const dialog = await screen.findByRole("dialog", {
@@ -91,7 +111,7 @@ describe("DevToolsSection", () => {
   });
 
   it("opens the other confirmations in preview mode", async () => {
-    render(<DevToolsSection />);
+    renderDevTools();
     const user = userEvent.setup();
 
     await user.click(openRow("Reset usage data"));
@@ -118,7 +138,7 @@ describe("DevToolsSection", () => {
   });
 
   it("opens the administrator prompt without touching the elevation state", async () => {
-    render(<DevToolsSection />);
+    renderDevTools();
     const user = userEvent.setup();
     await user.click(openRow("Administrator window prompt"));
     expect(
@@ -138,7 +158,7 @@ describe("DevToolsSection", () => {
   });
 
   it("opens the update preview with sample changelog entries", async () => {
-    render(<DevToolsSection />);
+    renderDevTools();
     const user = userEvent.setup();
     await user.click(openRow("Update preview"));
     expect(
@@ -158,7 +178,7 @@ describe("DevToolsSection", () => {
   });
 
   it("opens the donation reminder and its support button works", async () => {
-    render(<DevToolsSection />);
+    renderDevTools();
     const user = userEvent.setup();
 
     await user.click(openRow("Donation reminder"));

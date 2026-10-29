@@ -326,6 +326,10 @@ const SETTINGS_ONLY_FIELDS = {
     default: true,
     ui: { section: "behavior", control: "toggle" },
   },
+  onboardingCompleted: {
+    default: false,
+    ui: { section: "behavior", control: "toggle" },
+  },
   alwaysRunAsAdmin: {
     default: false,
     ui: { section: "startup", control: "toggle" },

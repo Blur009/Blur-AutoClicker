@@ -132,6 +132,7 @@ interface Props {
   onCheckForUpdate: () => void;
   initialSettingsTab?: string;
   onInitialTabConsumed?: () => void;
+  onOpenFirstRunSetup: () => void;
 }
 
 export default function SettingsPanel({
@@ -155,6 +156,7 @@ export default function SettingsPanel({
   onCheckForUpdate,
   initialSettingsTab,
   onInitialTabConsumed,
+  onOpenFirstRunSetup,
 }: Props) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [atBottom, setAtBottom] = useState(true);
@@ -412,7 +414,7 @@ export default function SettingsPanel({
         )}
         {DevToolsSection && activeTab === "dev" && (
           <Suspense fallback={null}>
-            <DevToolsSection />
+            <DevToolsSection onOpenFirstRunSetup={onOpenFirstRunSetup} />
           </Suspense>
         )}
       </div>

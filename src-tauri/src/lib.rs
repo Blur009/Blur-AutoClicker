@@ -754,6 +754,7 @@ pub fn run() {
             ui_commands::export_diagnostics_bundle,
             ui_commands::set_accent_color,
             ui_commands::get_indicator_config,
+            ui_commands::preview_indicator,
             ui_commands::debug_trigger_panic,
             ui_commands::debug_trigger_crash,
         ])
