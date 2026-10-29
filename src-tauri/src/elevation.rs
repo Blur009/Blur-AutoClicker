@@ -1,23 +1,25 @@
 use std::os::windows::ffi::OsStringExt;
 use windows_sys::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED, HANDLE, HWND};
 use windows_sys::Win32::Security::{
-    GetTokenInformation, TokenElevation, TokenElevationType, TOKEN_ELEVATION, TOKEN_ELEVATION_TYPE,
-    TOKEN_QUERY,
+    GetTokenInformation, TokenElevation, TokenElevationType, TOKEN_ADJUST_DEFAULT,
+    TOKEN_ADJUST_SESSIONID, TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_ELEVATION,
+    TOKEN_ELEVATION_TYPE, TOKEN_QUERY,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
 };
 use windows_sys::Win32::System::Threading::{
-    GetCurrentProcess, OpenProcess, OpenProcessToken, QueryFullProcessImageNameW,
-    PROCESS_QUERY_LIMITED_INFORMATION,
+    CreateProcessWithTokenW, GetCurrentProcess, OpenProcess, OpenProcessToken,
+    QueryFullProcessImageNameW, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
+    STARTUPINFOW,
 };
 use windows_sys::Win32::UI::Shell::{
     ShellExecuteExW, SEE_MASK_NOASYNC, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetForegroundWindow, GetSystemMetrics, GetWindow, GetWindowLongW, GetWindowRect,
-    GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, GWL_EXSTYLE,
-    GW_OWNER, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, WS_EX_TOOLWINDOW,
+    GetForegroundWindow, GetShellWindow, GetSystemMetrics, GetWindow, GetWindowLongW,
+    GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible,
+    GWL_EXSTYLE, GW_OWNER, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, WS_EX_TOOLWINDOW,
 };
 
 pub const MAX_SUPPRESSED_WINDOWS: usize = 16;
@@ -360,25 +362,55 @@ fn wide(value: &std::ffi::OsStr) -> Vec<u16> {
     value.encode_wide().chain(std::iter::once(0)).collect()
 }
 
-pub fn elevated_parameters<I: IntoIterator<Item = String>>(args: I) -> String {
-    args.into_iter()
-        .filter(|arg| arg != "--autostart")
-        .map(|arg| {
-            if arg.contains(' ') {
-                format!("\"{arg}\"")
-            } else {
-                arg
+fn quote_argument(arg: &str) -> String {
+    if !arg.is_empty() && !arg.contains([' ', '\t', '"']) {
+        return arg.to_string();
+    }
+    let mut quoted = String::with_capacity(arg.len() + 2);
+    quoted.push('"');
+    let mut backslashes = 0;
+    for character in arg.chars() {
+        match character {
+            '\\' => {
+                backslashes += 1;
+                quoted.push('\\');
             }
-        })
+            '"' => {
+                for _ in 0..=backslashes {
+                    quoted.push('\\');
+                }
+                backslashes = 0;
+                quoted.push('"');
+            }
+            other => {
+                backslashes = 0;
+                quoted.push(other);
+            }
+        }
+    }
+    for _ in 0..backslashes {
+        quoted.push('\\');
+    }
+    quoted.push('"');
+    quoted
+}
+
+pub fn elevated_parameters<I: IntoIterator<Item = String>>(
+    args: I,
+    keep_autostart: bool,
+) -> String {
+    args.into_iter()
+        .filter(|arg| keep_autostart || arg != "--autostart")
+        .map(|arg| quote_argument(&arg))
         .collect::<Vec<_>>()
         .join(" ")
 }
 
-pub fn relaunch_elevated() -> bool {
+pub fn relaunch_elevated(keep_autostart: bool) -> bool {
     let Ok(exe) = std::env::current_exe() else {
         return false;
     };
-    let parameters = elevated_parameters(std::env::args().skip(1));
+    let parameters = elevated_parameters(std::env::args().skip(1), keep_autostart);
     let operation = wide(std::ffi::OsStr::new("runas"));
     let file = wide(exe.as_os_str());
     let arguments = wide(std::ffi::OsStr::new(&parameters));
@@ -395,6 +427,107 @@ pub fn relaunch_elevated() -> bool {
         unsafe { CloseHandle(info.hProcess) };
     }
     launched
+}
+
+fn token_is_elevated(token: HANDLE) -> Option<bool> {
+    unsafe {
+        let mut elevation: TOKEN_ELEVATION = std::mem::zeroed();
+        let mut returned: u32 = 0;
+        let ok = GetTokenInformation(
+            token,
+            TokenElevation,
+            &mut elevation as *mut _ as *mut core::ffi::c_void,
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut returned,
+        );
+        (ok != 0).then_some(elevation.TokenIsElevated != 0)
+    }
+}
+
+pub fn relaunch_unelevated(keep_autostart: bool) -> bool {
+    let Ok(exe) = std::env::current_exe() else {
+        return false;
+    };
+    let parameters = elevated_parameters(std::env::args().skip(1), keep_autostart);
+    let mut command: Vec<u16> = if parameters.is_empty() {
+        quote_argument(&exe.display().to_string())
+    } else {
+        format!(
+            "{} {parameters}",
+            quote_argument(&exe.display().to_string())
+        )
+    }
+    .encode_utf16()
+    .chain(std::iter::once(0))
+    .collect();
+    let application = wide(exe.as_os_str());
+
+    unsafe {
+        let shell = GetShellWindow();
+        if shell.is_null() {
+            log::warn!("[Elevation] No shell window, cannot drop administrator rights");
+            return false;
+        }
+        let mut shell_pid: u32 = 0;
+        GetWindowThreadProcessId(shell, &mut shell_pid);
+        let shell_process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, shell_pid);
+        if shell_process.is_null() {
+            log::warn!(
+                "[Elevation] Cannot open the shell process: {}",
+                std::io::Error::last_os_error()
+            );
+            return false;
+        }
+        let mut token: HANDLE = std::ptr::null_mut();
+        let opened = OpenProcessToken(
+            shell_process,
+            TOKEN_DUPLICATE
+                | TOKEN_QUERY
+                | TOKEN_ASSIGN_PRIMARY
+                | TOKEN_ADJUST_DEFAULT
+                | TOKEN_ADJUST_SESSIONID,
+            &mut token,
+        ) != 0;
+        let open_error = std::io::Error::last_os_error();
+        CloseHandle(shell_process);
+        if !opened || token.is_null() {
+            log::warn!("[Elevation] Cannot read the shell token: {open_error}");
+            return false;
+        }
+        if token_is_elevated(token) != Some(false) {
+            log::warn!(
+                "[Elevation] The shell token is not unprivileged, cannot drop administrator rights"
+            );
+            CloseHandle(token);
+            return false;
+        }
+        let mut startup: STARTUPINFOW = std::mem::zeroed();
+        startup.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
+        let mut process_info: PROCESS_INFORMATION = std::mem::zeroed();
+        let created = CreateProcessWithTokenW(
+            token,
+            0,
+            application.as_ptr(),
+            command.as_mut_ptr(),
+            0,
+            std::ptr::null(),
+            std::ptr::null(),
+            &startup,
+            &mut process_info,
+        ) != 0;
+        let create_error = std::io::Error::last_os_error();
+        CloseHandle(token);
+        if !process_info.hProcess.is_null() {
+            CloseHandle(process_info.hProcess);
+        }
+        if !process_info.hThread.is_null() {
+            CloseHandle(process_info.hThread);
+        }
+        if !created {
+            log::warn!("[Elevation] Relaunch without administrator rights failed: {create_error}");
+        }
+        created
+    }
 }
 
 #[cfg(test)]
@@ -544,15 +677,32 @@ mod tests {
     }
 
     #[test]
-    fn elevated_parameters_drop_autostart_and_wrap_spaced_arguments() {
-        let args = [
+    fn elevated_parameters_quote_for_the_windows_parser() {
+        let args = vec![
             String::from("--autostart"),
             String::from("--profile"),
             String::from("My Profile"),
             String::from("plain"),
         ];
-        assert_eq!(elevated_parameters(args), "--profile \"My Profile\" plain");
-        assert_eq!(elevated_parameters(Vec::<String>::new()), "");
+        assert_eq!(
+            elevated_parameters(args.clone(), true),
+            "--autostart --profile \"My Profile\" plain"
+        );
+        assert_eq!(
+            elevated_parameters(args, false),
+            "--profile \"My Profile\" plain"
+        );
+        assert_eq!(elevated_parameters(Vec::<String>::new(), true), "");
+    }
+
+    #[test]
+    fn elevated_parameters_survive_quotes_backslashes_and_empty_arguments() {
+        assert_eq!(quote_argument("plain"), "plain");
+        assert_eq!(quote_argument("a b"), "\"a b\"");
+        assert_eq!(quote_argument("a\tb"), "\"a\tb\"");
+        assert_eq!(quote_argument("a\" b"), "\"a\\\" b\"");
+        assert_eq!(quote_argument("C:\\Some Dir\\"), "\"C:\\Some Dir\\\\\"");
+        assert_eq!(quote_argument(""), "\"\"");
     }
 
     #[test]

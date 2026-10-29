@@ -62,6 +62,26 @@ export function ExtendedSpeedDialog({
   );
 }
 
+export function RestartStandardDialog({
+  open,
+  busy = false,
+  onConfirm,
+  onCancel,
+}: DialogProps) {
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Restart without administrator rights?"
+      message="The app closes and reopens without administrator rights. Skip the restart and it keeps the rights until you close it."
+      confirmLabel="Restart now"
+      cancelLabel="Not now"
+      busy={busy}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
+  );
+}
+
 export function RestartAdminDialog({
   open,
   busy = false,

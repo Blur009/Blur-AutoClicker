@@ -64,7 +64,7 @@ import {
   saveSettings,
   settingsRecoveryWarning,
 } from "./store";
-import { restartAsAdministrator } from "./restart";
+import { restartAsAdministrator, restartWithoutAdministrator } from "./restart";
 import { holdModePatch } from "./cadence";
 import { playClickerSound } from "./soundPlayback";
 import FirstRunSetup from "./components/FirstRunSetup";
@@ -267,6 +267,7 @@ export default function App() {
   const lastValidHotkeyRef = useRef(DEFAULT_SETTINGS.hotkey);
   const previousRunningRef = useRef<boolean | null>(null);
   const launchWindowPlacementDone = useRef(false);
+  const [windowReady, setWindowReady] = useState(false);
   const pendingShowWindowRef = useRef(false);
   const bootTextScaleRef = useRef<number | null>(null);
   const bootPhasesRef = useRef("");
@@ -1124,6 +1125,7 @@ export default function App() {
 
           if (cancelled) return;
           await applyStartupWindowPlacement();
+          if (cancelled) return;
           if (pendingShowWindowRef.current) {
             pendingShowWindowRef.current = false;
             await invoke("prepare_main_window").catch(() => {});
@@ -1141,6 +1143,7 @@ export default function App() {
             }).catch(() => {});
           }
           launchWindowPlacementDone.current = true;
+          setWindowReady(true);
           return;
         }
 
@@ -1223,6 +1226,7 @@ export default function App() {
           logDiagnostic("App.sizeWindow", {
             error: String(err),
           });
+          setWindowReady(true);
         }
       }
     })();
@@ -1842,11 +1846,12 @@ export default function App() {
 
   useEffect(() => {
     if (!settingsLoaded || !elevationLoaded) return;
+    if (!windowReady) return;
     if (elevationRelaunchedRef.current) return;
     elevationRelaunchedRef.current = true;
     if (!settings.alwaysRunAsAdmin || elevation.elevated) return;
     if (!elevation.canElevate) return;
-    invoke<boolean>("relaunch_as_admin")
+    invoke<boolean>("relaunch_as_admin", { keepAutostart: true })
       .then((relaunched) => {
         if (relaunched) return exit(0);
         return undefined;
@@ -1856,7 +1861,13 @@ export default function App() {
           error: String(err),
         }),
       );
-  }, [settingsLoaded, elevationLoaded, settings.alwaysRunAsAdmin, elevation]);
+  }, [
+    settingsLoaded,
+    elevationLoaded,
+    windowReady,
+    settings.alwaysRunAsAdmin,
+    elevation,
+  ]);
 
   const flushPendingSettingsSave = useCallback(async () => {
     if (saveTimerRef.current) {
@@ -1936,7 +1947,12 @@ export default function App() {
   });
 
   const handleRestartAsAdmin = useCallback(
-    () => restartAsAdministrator(flushPendingSettingsSave),
+    () => restartAsAdministrator(flushPendingSettingsSave, false),
+    [flushPendingSettingsSave],
+  );
+
+  const handleRestartWithoutAdmin = useCallback(
+    () => restartWithoutAdministrator(flushPendingSettingsSave, false),
     [flushPendingSettingsSave],
   );
 
@@ -2080,6 +2096,7 @@ export default function App() {
               onImportPreset={handleImportPreset}
               onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
               onRestartAsAdmin={handleRestartAsAdmin}
+              onRestartWithoutAdmin={handleRestartWithoutAdmin}
               onOpenCustomizer={handleOpenCustomizer}
               onReset={handleResetSettings}
               updateCheckStatus={updateCheckStatus}

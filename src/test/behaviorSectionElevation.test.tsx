@@ -31,10 +31,12 @@ function SectionHarness({
   initial,
   updateSpy,
   onRestartAsAdmin,
+  onRestartWithoutAdmin,
 }: {
   initial: Partial<Settings>;
   updateSpy: (patch: Partial<Settings>) => void;
   onRestartAsAdmin: () => Promise<RestartOutcome>;
+  onRestartWithoutAdmin: () => Promise<RestartOutcome>;
 }) {
   const [settings, setSettings] = useState<Settings>(() =>
     makeSettings(initial),
@@ -52,6 +54,7 @@ function SectionHarness({
       update={update}
       onToggleAlwaysOnTop={async () => {}}
       onRestartAsAdmin={onRestartAsAdmin}
+      onRestartWithoutAdmin={onRestartWithoutAdmin}
       portable={false}
     />
   );
@@ -60,17 +63,20 @@ function SectionHarness({
 function renderSection(
   overrides: Partial<Settings> = {},
   restart: () => Promise<RestartOutcome> = async () => "relaunched",
+  restartStandard: () => Promise<RestartOutcome> = async () => "relaunched",
 ) {
   const update = vi.fn();
   const onRestartAsAdmin = vi.fn(restart);
+  const onRestartWithoutAdmin = vi.fn(restartStandard);
   render(
     <SectionHarness
       initial={overrides}
       updateSpy={update}
       onRestartAsAdmin={onRestartAsAdmin}
+      onRestartWithoutAdmin={onRestartWithoutAdmin}
     />,
   );
-  return { update, onRestartAsAdmin };
+  return { update, onRestartAsAdmin, onRestartWithoutAdmin };
 }
 
 beforeEach(() => {
@@ -78,6 +84,74 @@ beforeEach(() => {
 });
 
 describe("Run as Administrator toggle", () => {
+  it("offers a restart when disabling while elevated", async () => {
+    tauri.setInvokeResult("get_elevation_state", {
+      elevated: true,
+      canElevate: false,
+    });
+    const { update, onRestartWithoutAdmin } = renderSection({
+      alwaysRunAsAdmin: true,
+    });
+    const user = userEvent.setup();
+    await screen.findByText(
+      "Running as administrator. Turn this off to restart without the rights.",
+    );
+    await user.click(toggleFor("Run as Administrator"));
+    expect(update).toHaveBeenCalledWith({ alwaysRunAsAdmin: false });
+    expect(
+      await screen.findByText("Restart without administrator rights?"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Restart now" }));
+    await waitFor(() => expect(onRestartWithoutAdmin).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not offer a restart when disabling and already unelevated", async () => {
+    tauri.setInvokeResult("get_elevation_state", {
+      elevated: false,
+      canElevate: true,
+    });
+    const { update, onRestartWithoutAdmin } = renderSection({
+      alwaysRunAsAdmin: true,
+    });
+    const user = userEvent.setup();
+    await screen.findByText("Starts as administrator on the next launch.");
+    await user.click(toggleFor("Run as Administrator"));
+    expect(update).toHaveBeenCalledWith({ alwaysRunAsAdmin: false });
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Restart without administrator rights?"),
+      ).toBeNull(),
+    );
+    expect(onRestartWithoutAdmin).not.toHaveBeenCalled();
+  });
+
+  it("keeps the dropped setting and explains a refused restart", async () => {
+    tauri.setInvokeResult("get_elevation_state", {
+      elevated: true,
+      canElevate: false,
+    });
+    const { update } = renderSection(
+      { alwaysRunAsAdmin: true },
+      async () => "relaunched",
+      async () => "refused",
+    );
+    const user = userEvent.setup();
+    await screen.findByText(
+      "Running as administrator. Turn this off to restart without the rights.",
+    );
+    await user.click(toggleFor("Run as Administrator"));
+    await user.click(
+      await screen.findByRole("button", { name: "Restart now" }),
+    );
+    expect(
+      await screen.findByText(
+        "Could not restart without administrator rights. Close and reopen the app to drop them.",
+      ),
+    ).toBeInTheDocument();
+    expect(update).toHaveBeenCalledWith({ alwaysRunAsAdmin: false });
+  });
+
   it("reports the live elevation state", async () => {
     tauri.setInvokeResult("get_elevation_state", {
       elevated: true,
@@ -86,7 +160,7 @@ describe("Run as Administrator toggle", () => {
     renderSection({ alwaysRunAsAdmin: true });
     expect(
       await screen.findByText(
-        "Running as administrator. Turn this off and reopen to drop the rights.",
+        "Running as administrator. Turn this off to restart without the rights.",
       ),
     ).toBeInTheDocument();
   });
@@ -335,7 +409,7 @@ describe("Run as Administrator toggle", () => {
     renderSection({ alwaysRunAsAdmin: true });
     expect(
       await screen.findByText(
-        "Running as administrator. Turn this off and reopen to drop the rights.",
+        "Running as administrator. Turn this off to restart without the rights.",
       ),
     ).toBeInTheDocument();
   });
@@ -348,7 +422,7 @@ describe("Run as Administrator toggle", () => {
     const { update } = renderSection({ alwaysRunAsAdmin: false });
     const user = userEvent.setup();
     await screen.findByText(
-      "Running as administrator now. Quit and reopen to drop the rights.",
+      "Running as administrator now. Close the app to drop the rights.",
     );
     await user.click(toggleFor("Run as Administrator"));
     expect(update).toHaveBeenCalledWith({ alwaysRunAsAdmin: true });
@@ -378,7 +452,7 @@ describe("Run as Administrator toggle", () => {
     });
     const user = userEvent.setup();
     await screen.findByText(
-      "Running as administrator. Turn this off and reopen to drop the rights.",
+      "Running as administrator. Turn this off to restart without the rights.",
     );
     await user.click(toggleFor("Run as Administrator"));
     expect(update).toHaveBeenCalledWith({ alwaysRunAsAdmin: false });

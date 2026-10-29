@@ -125,6 +125,7 @@ interface Props {
   onImportPreset: () => Promise<boolean | null>;
   onToggleAlwaysOnTop: () => Promise<void>;
   onRestartAsAdmin: () => Promise<RestartOutcome>;
+  onRestartWithoutAdmin: () => Promise<RestartOutcome>;
   onOpenCustomizer: () => void;
   onReset: () => Promise<void>;
   updateCheckStatus:
@@ -150,6 +151,7 @@ export default function SettingsPanel({
   onImportPreset,
   onToggleAlwaysOnTop,
   onRestartAsAdmin,
+  onRestartWithoutAdmin,
   onOpenCustomizer,
   onReset,
   updateCheckStatus,
@@ -371,6 +373,7 @@ export default function SettingsPanel({
             update={update}
             onToggleAlwaysOnTop={onToggleAlwaysOnTop}
             onRestartAsAdmin={onRestartAsAdmin}
+            onRestartWithoutAdmin={onRestartWithoutAdmin}
             portable={appInfo.portable}
           />
         )}

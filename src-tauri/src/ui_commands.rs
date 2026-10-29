@@ -30,37 +30,61 @@ pub fn get_elevation_state() -> crate::elevation::ElevationState {
 }
 
 #[tauri::command]
-pub fn relaunch_as_admin(app: AppHandle) -> bool {
+pub fn relaunch_as_admin(app: AppHandle, keep_autostart: bool) -> bool {
     let state = crate::elevation::state();
     if state.elevated || !state.can_elevate {
         return false;
     }
+    let (was_running, zone_started) =
+        suspend_clicking_for_restart(&app, "Restarting as administrator");
+    if !crate::elevation::relaunch_elevated(keep_autostart) {
+        resume_clicking_after_refused_restart(&app, was_running, zone_started);
+        return false;
+    }
+    true
+}
+
+#[tauri::command]
+pub fn relaunch_without_admin(app: AppHandle, keep_autostart: bool) -> bool {
+    let state = crate::elevation::state();
+    if !state.elevated {
+        return false;
+    }
+    let (was_running, zone_started) =
+        suspend_clicking_for_restart(&app, "Restarting without administrator rights");
+    if !crate::elevation::relaunch_unelevated(keep_autostart) {
+        resume_clicking_after_refused_restart(&app, was_running, zone_started);
+        return false;
+    }
+    true
+}
+
+fn suspend_clicking_for_restart(app: &AppHandle, reason: &str) -> (bool, bool) {
     let clicker = app.state::<ClickerState>();
     let was_running = clicker.running.load(Ordering::SeqCst);
     let zone_started = clicker.zone_started_generation.load(Ordering::SeqCst) != 0;
     if was_running || clicker.engine_busy.load(Ordering::SeqCst) {
-        let _ = stop_clicker_inner(&app, Some(String::from("Restarting as administrator")));
+        let _ = stop_clicker_inner(app, Some(String::from(reason)));
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
         while clicker.engine_busy.load(Ordering::SeqCst) && std::time::Instant::now() < deadline {
             std::thread::sleep(std::time::Duration::from_millis(25));
         }
     }
-    if !crate::elevation::relaunch_elevated() {
-        if was_running {
-            let resumed = if zone_started {
-                start_clicker_from_start_zone(&app)
-            } else {
-                start_clicker_inner(&app)
-            };
-            if let Err(error) = resumed {
-                log::warn!(
-                    "[Elevation] Could not resume clicking after a refused restart: {error}"
-                );
-            }
-        }
-        return false;
+    (was_running, zone_started)
+}
+
+fn resume_clicking_after_refused_restart(app: &AppHandle, was_running: bool, zone_started: bool) {
+    if !was_running {
+        return;
     }
-    true
+    let resumed = if zone_started {
+        start_clicker_from_start_zone(app)
+    } else {
+        start_clicker_inner(app)
+    };
+    if let Err(error) = resumed {
+        log::warn!("[Elevation] Could not resume clicking after a refused restart: {error}");
+    }
 }
 
 #[tauri::command]
