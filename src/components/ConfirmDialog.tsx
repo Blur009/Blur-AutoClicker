@@ -9,7 +9,6 @@ interface Props {
   confirmLabel?: string;
   cancelLabel?: string;
   busy?: boolean;
-  testMarker?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -21,7 +20,6 @@ export default function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   busy = false,
-  testMarker,
   onConfirm,
   onCancel,
 }: Props) {
@@ -68,9 +66,6 @@ export default function ConfirmDialog({
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-message"
       >
-        {testMarker ? (
-          <span className="dialog-test-marker">{testMarker}</span>
-        ) : null}
         <h2 id="confirm-dialog-title" className="confirm-dialog-title">
           {title}
         </h2>

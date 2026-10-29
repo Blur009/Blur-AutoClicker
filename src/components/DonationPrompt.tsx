@@ -22,7 +22,6 @@ function prefersReducedMotion(): boolean {
 
 interface Props {
   prompt: DonationPromptState | null;
-  testMarker?: string;
   onSupport: () => void;
   onAcknowledge: () => void;
   onClose: () => void;
@@ -30,7 +29,6 @@ interface Props {
 
 export default function DonationPrompt({
   prompt,
-  testMarker,
   onSupport,
   onAcknowledge,
   onClose,
@@ -162,9 +160,6 @@ export default function DonationPrompt({
           role="dialog"
           aria-labelledby="donation-prompt-eyebrow donation-prompt-title"
         >
-          {testMarker ? (
-            <span className="dialog-test-marker">{testMarker}</span>
-          ) : null}
           {outcome ? (
             <div className="donation-prompt-final" key={outcome}>
               <h2 className="donation-prompt-title" id="donation-prompt-title">

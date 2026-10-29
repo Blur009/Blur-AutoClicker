@@ -3,7 +3,6 @@ import ConfirmDialog from "../../ConfirmDialog";
 interface DialogProps {
   open: boolean;
   busy?: boolean;
-  testMarker?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -11,7 +10,6 @@ interface DialogProps {
 export function ResetSettingsDialog({
   open,
   busy = false,
-  testMarker,
   onConfirm,
   onCancel,
 }: DialogProps) {
@@ -22,7 +20,6 @@ export function ResetSettingsDialog({
       message="Every setting returns to its default, saved presets are replaced, and Run on Startup is turned off. This cannot be undone."
       confirmLabel="Reset"
       busy={busy}
-      testMarker={testMarker}
       onConfirm={onConfirm}
       onCancel={onCancel}
     />
@@ -32,7 +29,6 @@ export function ResetSettingsDialog({
 export function ResetUsageDialog({
   open,
   busy = false,
-  testMarker,
   onConfirm,
   onCancel,
 }: DialogProps) {
@@ -43,7 +39,6 @@ export function ResetUsageDialog({
       message="Every recorded session is deleted, so the usage charts and totals start over. This cannot be undone."
       confirmLabel="Reset"
       busy={busy}
-      testMarker={testMarker}
       onConfirm={onConfirm}
       onCancel={onCancel}
     />
@@ -52,7 +47,6 @@ export function ResetUsageDialog({
 
 export function ExtendedSpeedDialog({
   open,
-  testMarker,
   onConfirm,
   onCancel,
 }: DialogProps) {
@@ -62,7 +56,6 @@ export function ExtendedSpeedDialog({
       title="Enable extended click speed limit?"
       message="The limit goes from 500 to 1000 clicks per interval. High speeds can stutter on slower PCs."
       confirmLabel="Enable"
-      testMarker={testMarker}
       onConfirm={onConfirm}
       onCancel={onCancel}
     />
@@ -72,7 +65,6 @@ export function ExtendedSpeedDialog({
 export function RestartAdminDialog({
   open,
   busy = false,
-  testMarker,
   onConfirm,
   onCancel,
 }: DialogProps) {
@@ -84,7 +76,6 @@ export function RestartAdminDialog({
       confirmLabel="Restart now"
       cancelLabel="Not now"
       busy={busy}
-      testMarker={testMarker}
       onConfirm={onConfirm}
       onCancel={onCancel}
     />
