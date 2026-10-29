@@ -394,18 +394,65 @@ pub fn format_hotkey_binding(binding: &HotkeyBinding) -> String {
 static PHYSICAL_KEY_STATE: OnceLock<&'static [AtomicBool; 256]> = OnceLock::new();
 static HOOKS_ACTIVE: AtomicBool = AtomicBool::new(false);
 static HOOK_EVENTS: AtomicU64 = AtomicU64::new(0);
-static SYNTHETIC_RELEASE_STATE: OnceLock<&'static [AtomicBool; 256]> = OnceLock::new();
+static INJECTED_KEY_TIME: OnceLock<&'static [AtomicU64; 256]> = OnceLock::new();
+static KEY_CLOCK: OnceLock<Instant> = OnceLock::new();
 static OWN_PID: OnceLock<u32> = OnceLock::new();
 static OWN_ROOT_HWND: AtomicIsize = AtomicIsize::new(0);
+
+const INJECTED_KEY_GRACE_MS: u64 = 3_000;
 
 fn physical_key_state() -> &'static [AtomicBool; 256] {
     PHYSICAL_KEY_STATE
         .get_or_init(|| Box::leak(Box::new(std::array::from_fn(|_| AtomicBool::new(false)))))
 }
 
-fn synthetic_release_state() -> &'static [AtomicBool; 256] {
-    SYNTHETIC_RELEASE_STATE
-        .get_or_init(|| Box::leak(Box::new(std::array::from_fn(|_| AtomicBool::new(false)))))
+fn injected_key_time() -> &'static [AtomicU64; 256] {
+    INJECTED_KEY_TIME
+        .get_or_init(|| Box::leak(Box::new(std::array::from_fn(|_| AtomicU64::new(0)))))
+}
+
+fn clock_ms() -> u64 {
+    KEY_CLOCK.get_or_init(Instant::now).elapsed().as_millis() as u64
+}
+
+fn injected_protected(vk: i32, engine_running: bool) -> bool {
+    if !(0..256).contains(&vk) {
+        return false;
+    }
+    injected_holds(
+        injected_key_time()[vk as usize].load(Ordering::Relaxed),
+        clock_ms(),
+        engine_running,
+    )
+}
+
+fn injected_holds(at: u64, now: u64, engine_running: bool) -> bool {
+    at != 0 && (engine_running || injected_fresh(at, now))
+}
+
+fn injected_fresh(at: u64, now: u64) -> bool {
+    at != 0 && now.saturating_sub(at) < INJECTED_KEY_GRACE_MS
+}
+
+pub fn note_injected_key(vk: i32) {
+    if vk == VK_SHIFT as i32 {
+        mark_injected_vk(VK_LSHIFT as i32);
+        mark_injected_vk(VK_RSHIFT as i32);
+    } else if vk == VK_CONTROL as i32 {
+        mark_injected_vk(VK_LCONTROL as i32);
+        mark_injected_vk(VK_RCONTROL as i32);
+    } else if vk == VK_MENU as i32 {
+        mark_injected_vk(VK_LMENU as i32);
+        mark_injected_vk(VK_RMENU as i32);
+    } else {
+        mark_injected_vk(vk);
+    }
+}
+
+fn mark_injected_vk(vk: i32) {
+    if (0..256).contains(&vk) {
+        injected_key_time()[vk as usize].store(clock_ms().max(1), Ordering::Relaxed);
+    }
 }
 
 fn is_physical_vk_down(vk: i32) -> bool {
@@ -474,6 +521,7 @@ unsafe extern "system" fn mouse_ll_proc(n_code: i32, w_param: usize, l_param: is
             };
             if vk >= 0 && (vk as usize) < 256 {
                 physical_key_state()[vk as usize].store(down, Ordering::Relaxed);
+                injected_key_time()[vk as usize].store(0, Ordering::Relaxed);
                 HOOK_EVENTS.fetch_add(1, Ordering::Relaxed);
             }
         }
@@ -489,7 +537,7 @@ unsafe extern "system" fn keyboard_ll_proc(n_code: i32, w_param: usize, l_param:
             if (0..256).contains(&vk) {
                 let down = matches!(w_param as u32, WM_KEYDOWN | WM_SYSKEYDOWN);
                 physical_key_state()[vk as usize].store(down, Ordering::Relaxed);
-                synthetic_release_state()[vk as usize].store(false, Ordering::Relaxed);
+                injected_key_time()[vk as usize].store(0, Ordering::Relaxed);
                 HOOK_EVENTS.fetch_add(1, Ordering::Relaxed);
             }
         }
@@ -576,10 +624,17 @@ fn input_desktop_visible() -> Option<bool> {
     }
 }
 
-fn resync_physical_key_state() -> bool {
+fn repair_after_desktop_switch() {
+    for stamp in injected_key_time().iter() {
+        stamp.store(0, Ordering::Relaxed);
+    }
+    resync_physical_key_state(false);
+}
+
+fn resync_physical_key_state(engine_running: bool) -> bool {
     let mut cleared = false;
     for (vk, latched) in physical_key_state().iter().enumerate() {
-        if synthetic_release_state()[vk].load(Ordering::Relaxed) {
+        if injected_protected(vk as i32, engine_running) {
             continue;
         }
         if latched.load(Ordering::Relaxed) && !is_vk_down(vk as i32) {
@@ -637,13 +692,12 @@ pub fn start_hotkey_listener(app: AppHandle) {
                 };
 
                 if resumed {
-                    for flag in synthetic_release_state().iter() {
-                        flag.store(false, Ordering::Relaxed);
-                    }
-                    resync_physical_key_state();
+                    repair_after_desktop_switch();
                     (mouse_hook, kb_hook) = replace_hooks(mouse_hook, kb_hook);
                     log::info!("[Hotkeys] Session resumed, hooks reinstalled");
-                } else if hooks_quiet && resync_physical_key_state() {
+                } else if hooks_quiet
+                    && resync_physical_key_state(state.running.load(Ordering::SeqCst))
+                {
                     (mouse_hook, kb_hook) = replace_hooks(mouse_hook, kb_hook);
                 }
             }
@@ -1016,8 +1070,8 @@ fn release_trigger_modifiers(binding: Option<&HotkeyBinding>) {
         return;
     };
     for vk in trigger_modifier_vks(binding) {
-        if is_vk_down(vk as i32) && crate::engine::keyboard::send_key_event(vk, KEYEVENTF_KEYUP) {
-            synthetic_release_state()[vk as usize].store(true, Ordering::Relaxed);
+        if is_vk_down(vk as i32) {
+            crate::engine::keyboard::send_key_event(vk, KEYEVENTF_KEYUP);
         }
     }
 }
@@ -1388,13 +1442,18 @@ fn parse_function_key_token(token: &str) -> Option<(i32, String)> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::Ordering;
+
     use super::{
-        format_hotkey_binding, is_mouse_hotkey_binding, modifiers_match, parse_hotkey_binding,
-        parse_hotkey_main_key, parse_physical_code_token, should_release_trigger_modifiers,
+        format_hotkey_binding, injected_fresh, injected_holds, injected_key_time,
+        injected_protected, is_mouse_hotkey_binding, modifiers_match, note_injected_key,
+        parse_hotkey_binding, parse_hotkey_main_key, parse_physical_code_token, physical_key_state,
+        repair_after_desktop_switch, resync_physical_key_state, should_release_trigger_modifiers,
         trigger_modifier_vks, DownState, HotkeyBinding, PHYSICAL_CODE_KEYS,
     };
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-        VK_LCONTROL, VK_LMENU, VK_LWIN, VK_OEM_102, VK_RCONTROL, VK_RMENU, VK_RSHIFT,
+        VK_LBUTTON, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_OEM_102, VK_RBUTTON, VK_RCONTROL,
+        VK_RMENU, VK_RSHIFT, VK_SHIFT,
     };
 
     fn bare_binding() -> HotkeyBinding {
@@ -1414,6 +1473,62 @@ mod tests {
             main_vks: vec![b'Y' as i32],
             key_tokens: vec![String::from("Y")],
         }
+    }
+
+    #[test]
+    fn injected_modifier_marks_both_sides() {
+        note_injected_key(VK_SHIFT as i32);
+        assert!(injected_protected(VK_LSHIFT as i32, false));
+        assert!(injected_protected(VK_RSHIFT as i32, false));
+
+        note_injected_key(VK_LCONTROL as i32);
+        assert!(injected_protected(VK_LCONTROL as i32, false));
+        assert!(!injected_protected(VK_RCONTROL as i32, false));
+    }
+
+    #[test]
+    fn desktop_switch_repair_clears_a_latch_the_engine_marked() {
+        physical_key_state()[VK_LBUTTON as usize].store(true, Ordering::Relaxed);
+        note_injected_key(VK_LBUTTON as i32);
+        assert!(injected_protected(VK_LBUTTON as i32, true));
+
+        repair_after_desktop_switch();
+
+        assert!(!physical_key_state()[VK_LBUTTON as usize].load(Ordering::Relaxed));
+        assert!(!injected_protected(VK_LBUTTON as i32, true));
+    }
+
+    #[test]
+    fn resync_spares_a_key_the_engine_is_clicking() {
+        physical_key_state()[VK_LBUTTON as usize].store(true, Ordering::Relaxed);
+        physical_key_state()[VK_RBUTTON as usize].store(true, Ordering::Relaxed);
+        note_injected_key(VK_LBUTTON as i32);
+
+        assert!(resync_physical_key_state(true));
+        assert!(physical_key_state()[VK_LBUTTON as usize].load(Ordering::Relaxed));
+        assert!(!physical_key_state()[VK_RBUTTON as usize].load(Ordering::Relaxed));
+
+        physical_key_state()[VK_LBUTTON as usize].store(false, Ordering::Relaxed);
+        injected_key_time()[VK_LBUTTON as usize].store(0, Ordering::Relaxed);
+    }
+
+    #[test]
+    fn injected_marker_is_ignored_again_once_the_engine_stops() {
+        assert!(injected_holds(1_000, 90_000, true));
+        assert!(!injected_holds(1_000, 90_000, false));
+        assert!(injected_holds(1_000, 2_000, false));
+        assert!(!injected_holds(0, 2_000, true));
+    }
+
+    #[test]
+    fn injected_marker_goes_stale_after_the_grace() {
+        assert!(!injected_fresh(0, 0));
+        assert!(!injected_fresh(0, 60_000));
+        assert!(injected_fresh(1, 1));
+        assert!(injected_fresh(1_000, 3_999));
+        assert!(!injected_fresh(1_000, 4_000));
+        assert!(!injected_fresh(1_000, 90_000));
+        assert!(injected_fresh(5_000, 4_000));
     }
 
     #[test]

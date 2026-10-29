@@ -707,6 +707,7 @@ pub fn run() {
             ui_commands::list_font_families,
             ui_commands::get_elevation_state,
             ui_commands::relaunch_as_admin,
+            ui_commands::relaunch_without_admin,
             ui_commands::focus_main_window,
             ui_commands::clear_elevation_blocked,
             ui_commands::set_elevation_notice_enabled,

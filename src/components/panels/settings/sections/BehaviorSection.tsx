@@ -5,7 +5,11 @@ import { DEFAULT_MAX_CLICK_SPEED } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
 import type { RestartOutcome } from "../../../../restart";
 import { NumInput } from "../../advanced/sections/shared";
-import { ExtendedSpeedDialog, RestartAdminDialog } from "../settingsDialogs";
+import {
+  ExtendedSpeedDialog,
+  RestartAdminDialog,
+  RestartStandardDialog,
+} from "../settingsDialogs";
 import { SettingsCard } from "./shared";
 
 interface Props {
@@ -13,6 +17,7 @@ interface Props {
   update: (patch: Partial<Settings>) => void;
   onToggleAlwaysOnTop: () => Promise<void>;
   onRestartAsAdmin: () => Promise<RestartOutcome>;
+  onRestartWithoutAdmin: () => Promise<RestartOutcome>;
   portable: boolean;
 }
 
@@ -39,10 +44,14 @@ export default function BehaviorSection({
   update,
   onToggleAlwaysOnTop,
   onRestartAsAdmin,
+  onRestartWithoutAdmin,
   portable,
 }: Props) {
   const [pendingAction, setPendingAction] = useState<
-    "extended-click-speed-limit" | "restart-as-admin" | null
+    | "extended-click-speed-limit"
+    | "restart-as-admin"
+    | "restart-without-admin"
+    | null
   >(null);
   const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(
     null,
@@ -155,10 +164,38 @@ export default function BehaviorSection({
     const next = !settings.alwaysRunAsAdmin;
     setRestartError(null);
     update({ alwaysRunAsAdmin: next });
-    if (next && elevation && !elevation.elevated && elevation.canElevate) {
+    if (elevation === null) return;
+    if (next && !elevation.elevated && elevation.canElevate) {
       setPendingAction("restart-as-admin");
+      return;
+    }
+    if (!next && elevation.elevated) {
+      setPendingAction("restart-without-admin");
     }
   }, [update, settings.alwaysRunAsAdmin, elevation]);
+
+  const handleConfirmRestartWithoutAdmin = useCallback(async () => {
+    setRestarting(true);
+    let outcome: RestartOutcome = "refused";
+    try {
+      outcome = await onRestartWithoutAdmin();
+    } catch (err) {
+      logDiagnostic("BehaviorSection.restartWithoutAdmin", {
+        error: String(err),
+      });
+    }
+    if (outcome === "unsaved") {
+      setRestartError(
+        "Could not save the setting. Nothing was restarted, so this launch keeps administrator rights.",
+      );
+    } else if (outcome === "refused") {
+      setRestartError(
+        "Could not restart without administrator rights. Close and reopen the app to drop them.",
+      );
+    }
+    setRestarting(false);
+    setPendingAction(null);
+  }, [onRestartWithoutAdmin]);
 
   const handleConfirmRestartAsAdmin = useCallback(async () => {
     setRestarting(true);
@@ -205,12 +242,12 @@ export default function BehaviorSection({
         ? "Could not read administrator status. The setting still applies on the next launch."
         : "Checking administrator status…";
     }
+    if (restartError) return restartError;
     if (elevation.elevated) {
       return settings.alwaysRunAsAdmin
-        ? "Running as administrator. Turn this off and reopen to drop the rights."
-        : "Running as administrator now. Quit and reopen to drop the rights.";
+        ? "Running as administrator. Turn this off to restart without the rights."
+        : "Running as administrator now. Close the app to drop the rights.";
     }
-    if (restartError) return restartError;
     if (settings.alwaysRunAsAdmin) {
       return elevation.canElevate
         ? "Starts as administrator on the next launch."
@@ -481,6 +518,13 @@ export default function BehaviorSection({
         open={pendingAction === "restart-as-admin"}
         busy={restarting}
         onConfirm={handleConfirmRestartAsAdmin}
+        onCancel={handleCancelPending}
+      />
+
+      <RestartStandardDialog
+        open={pendingAction === "restart-without-admin"}
+        busy={restarting}
+        onConfirm={handleConfirmRestartWithoutAdmin}
         onCancel={handleCancelPending}
       />
 

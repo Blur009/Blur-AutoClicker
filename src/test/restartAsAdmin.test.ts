@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { restartAsAdministrator } from "../restart";
+import {
+  restartAsAdministrator,
+  restartWithoutAdministrator,
+} from "../restart";
 import { tauri } from "./tauriHarness";
 
 vi.mock(
@@ -26,14 +29,17 @@ describe("restartAsAdministrator", () => {
     const outcome = await restartAsAdministrator(async () => {
       events.push("flush");
       return true;
-    });
+    }, false);
     expect(outcome).toBe("relaunched");
     expect(events).toEqual(["flush", "relaunch"]);
+    expect(tauri.invokes("relaunch_as_admin")[0]?.args).toEqual({
+      keepAutostart: false,
+    });
   });
 
   it("exits after a successful relaunch", async () => {
     tauri.setInvokeResult("relaunch_as_admin", true);
-    await expect(restartAsAdministrator(async () => true)).resolves.toBe(
+    await expect(restartAsAdministrator(async () => true, false)).resolves.toBe(
       "relaunched",
     );
     expect(tauri.exits()).toEqual([0]);
@@ -44,16 +50,16 @@ describe("restartAsAdministrator", () => {
 
   it("keeps the app running when the relaunch is refused", async () => {
     tauri.setInvokeResult("relaunch_as_admin", false);
-    await expect(restartAsAdministrator(async () => true)).resolves.toBe(
+    await expect(restartAsAdministrator(async () => true, false)).resolves.toBe(
       "refused",
     );
     expect(tauri.exits()).toHaveLength(0);
   });
 
   it("does not relaunch when the settings could not be saved", async () => {
-    await expect(restartAsAdministrator(async () => false)).resolves.toBe(
-      "unsaved",
-    );
+    await expect(
+      restartAsAdministrator(async () => false, false),
+    ).resolves.toBe("unsaved");
     expect(tauri.invokes("relaunch_as_admin")).toHaveLength(0);
     expect(tauri.exits()).toHaveLength(0);
   });
@@ -62,9 +68,29 @@ describe("restartAsAdministrator", () => {
     tauri.setInvokeHandler("relaunch_as_admin", () => {
       throw new Error("no elevation");
     });
-    await expect(restartAsAdministrator(async () => true)).rejects.toThrow(
-      "no elevation",
-    );
+    await expect(
+      restartAsAdministrator(async () => true, false),
+    ).rejects.toThrow("no elevation");
     expect(tauri.exits()).toHaveLength(0);
+  });
+});
+
+describe("restartWithoutAdministrator", () => {
+  it("asks the backend to relaunch without admin rights", async () => {
+    tauri.setInvokeResult("relaunch_without_admin", true);
+    await expect(
+      restartWithoutAdministrator(async () => true, false),
+    ).resolves.toBe("relaunched");
+    expect(tauri.invokes("relaunch_without_admin")[0]?.args).toEqual({
+      keepAutostart: false,
+    });
+    expect(tauri.exits()).toEqual([0]);
+  });
+
+  it("does not relaunch when the settings could not be saved", async () => {
+    await expect(
+      restartWithoutAdministrator(async () => false, false),
+    ).resolves.toBe("unsaved");
+    expect(tauri.invokes("relaunch_without_admin")).toHaveLength(0);
   });
 });

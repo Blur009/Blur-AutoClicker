@@ -139,6 +139,42 @@ describe("App boot", () => {
     });
   });
 
+  it("relaunches as administrator only after the window is shown", async () => {
+    tauri.setStoredSettings({ alwaysRunAsAdmin: true });
+    tauri.setInvokeResult("get_elevation_state", {
+      elevated: false,
+      canElevate: true,
+    });
+    tauri.setInvokeResult("relaunch_as_admin", false);
+
+    await renderLoadedApp();
+
+    await waitFor(
+      () => expect(tauri.invokes("relaunch_as_admin")).toHaveLength(1),
+      { timeout: 5000 },
+    );
+    expect(tauri.invokes("relaunch_as_admin")[0]!.args).toEqual({
+      keepAutostart: true,
+    });
+    const shown = tauri.firstIndexOf("window", "show");
+    expect(shown).toBeGreaterThan(-1);
+    expect(shown).toBeLessThan(
+      tauri.firstIndexOf("invoke", "relaunch_as_admin"),
+    );
+  });
+
+  it("does not relaunch when it is already elevated", async () => {
+    tauri.setStoredSettings({ alwaysRunAsAdmin: true });
+    tauri.setInvokeResult("get_elevation_state", {
+      elevated: true,
+      canElevate: false,
+    });
+
+    await renderLoadedApp();
+
+    expect(tauri.invokes("relaunch_as_admin")).toHaveLength(0);
+  });
+
   it("emits frontend-ready before it starts loading backend state", async () => {
     await renderLoadedApp();
 

@@ -1,3 +1,12 @@
+# v3.10.1 - 29.10.2026 (d.m.y)
+
+## Fixed
+
+- Fixed start as administrator not working correctly.
+- Fixed hold hotkey letting go without user letting go.
+- Fixed WinGet not uploading correctly.
+- Fixed administrator settings toggle not have a re-launch prompt on disabling.
+
 # v3.10.0 - 29.10.2026 (d.m.y)
 
 ## New
