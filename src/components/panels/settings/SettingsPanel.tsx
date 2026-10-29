@@ -24,6 +24,7 @@ import {
 import type { AnimatedIcon } from "../../animatedIcon";
 import type { AppInfo, PresetId, Settings } from "../../../store";
 import type { RestartOutcome } from "../../../restart";
+import { burstConfetti } from "../../../confetti";
 
 import GeneralSection from "./sections/GeneralSection";
 import BehaviorSection from "./sections/BehaviorSection";
@@ -335,6 +336,13 @@ export default function SettingsPanel({
           className="sidebar-kofi"
           href="#"
           title="Support me on Ko-fi"
+          onMouseEnter={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            burstConfetti(
+              rect.left + rect.width / 2,
+              rect.top + rect.height * 0.3,
+            );
+          }}
           onClick={(e) => {
             e.preventDefault();
             void openUrl("https://ko-fi.com/Z8Z71T8QD4");
