@@ -475,3 +475,62 @@ describe("custom theme settings", () => {
     expect(second.themeProfiles).toHaveLength(0);
   });
 });
+
+describe("sound settings", () => {
+  it("defaults both sounds to on, 50% each, master at 100%", () => {
+    const defaults = createDefaultSettings(VERSION);
+
+    expect(defaults.enableSoundEnabled).toBe(true);
+    expect(defaults.disableSoundEnabled).toBe(true);
+    expect(defaults.enableSoundVolume).toBe(50);
+    expect(defaults.disableSoundVolume).toBe(50);
+    expect(defaults.soundVolume).toBe(100);
+    expect(defaults.soundMuted).toBe(false);
+    expect(defaults.enableSoundPath).toBe("");
+    expect(defaults.disableSoundPath).toBe("");
+  });
+
+  it("fills sound keys for settings saved before sounds existed", () => {
+    const legacy: Partial<Settings> = {
+      version: "3.9.5",
+      clickSpeed: 25,
+      clickInterval: "s",
+    };
+    const sanitized = sanitizeSettings(legacy, VERSION);
+
+    expect(sanitized.enableSoundEnabled).toBe(true);
+    expect(sanitized.disableSoundEnabled).toBe(true);
+    expect(sanitized.soundVolume).toBe(100);
+    expect(sanitized.enableSoundPath).toBe("");
+  });
+
+  it("clamps sound volumes to 0-100", () => {
+    const tooHigh = sanitizeSettings(
+      { soundVolume: 400, enableSoundVolume: 150 },
+      VERSION,
+    );
+    expect(tooHigh.soundVolume).toBe(100);
+    expect(tooHigh.enableSoundVolume).toBe(100);
+
+    const tooLow = sanitizeSettings(
+      { soundVolume: -20, disableSoundVolume: -1 },
+      VERSION,
+    );
+    expect(tooLow.soundVolume).toBe(0);
+    expect(tooLow.disableSoundVolume).toBe(0);
+  });
+
+  it("keeps a custom sound path and rejects non-string values", () => {
+    const kept = sanitizeSettings(
+      { enableSoundPath: "C:\\Sounds\\pop.wav" },
+      VERSION,
+    );
+    expect(kept.enableSoundPath).toBe("C:\\Sounds\\pop.wav");
+
+    const rejected = sanitizeSettings(
+      { disableSoundPath: 42 as unknown as string },
+      VERSION,
+    );
+    expect(rejected.disableSoundPath).toBe("");
+  });
+});

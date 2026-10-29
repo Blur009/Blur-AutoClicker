@@ -36,6 +36,12 @@ type HarnessState = {
   invokeResults: Map<string, unknown>;
   invokeHandlers: Map<string, InvokeHandler>;
   closeRequestedHandler: CloseRequestedHandler | null;
+  listeners: BackendListener[];
+};
+
+type BackendListener = {
+  event: string;
+  handler: (event: { event: string; payload: unknown }) => void;
 };
 
 const APP_INFO = {
@@ -110,6 +116,7 @@ function initialState(): HarnessState {
     invokeResults: new Map(),
     invokeHandlers: new Map(),
     closeRequestedHandler: null,
+    listeners: [],
   };
 }
 
@@ -146,8 +153,25 @@ export async function emit(event: string, payload?: unknown): Promise<void> {
   state.sequence.push({ kind: "emit", name: event });
 }
 
-export async function listen(): Promise<() => void> {
-  return () => {};
+export async function listen(
+  event: string,
+  handler: (event: { event: string; payload: unknown }) => void,
+): Promise<() => void> {
+  const listener = { event, handler };
+  state.listeners.push(listener);
+  return () => {
+    const index = state.listeners.indexOf(listener);
+    if (index >= 0) state.listeners.splice(index, 1);
+  };
+}
+
+/** Delivers a backend event to the listeners registered through `listen`. */
+export function emitBackendEvent(event: string, payload?: unknown) {
+  for (const listener of [...state.listeners]) {
+    if (listener.event === event) {
+      listener.handler({ event, payload });
+    }
+  }
 }
 
 export function convertFileSrc(path: string): string {
@@ -255,6 +279,7 @@ export function reset() {
   state.invokeResults = fresh.invokeResults;
   state.invokeHandlers = fresh.invokeHandlers;
   state.closeRequestedHandler = fresh.closeRequestedHandler;
+  state.listeners = fresh.listeners;
 }
 
 export function setStoredSettings(overrides: Partial<Settings>) {
@@ -328,6 +353,7 @@ export const tauri = {
   invokes,
   exits: () => [...state.exits],
   emits,
+  emitBackendEvent,
   firstIndexOf,
   windowCalls,
   requestClose,

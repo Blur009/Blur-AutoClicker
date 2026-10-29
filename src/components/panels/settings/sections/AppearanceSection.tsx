@@ -596,6 +596,16 @@ export default function AppearanceSection({
     [update, settings.statusBarEnabled],
   );
 
+  const handleStatusBarPresetToggle = useCallback(
+    () => update({ statusBarPresetEnabled: !settings.statusBarPresetEnabled }),
+    [update, settings.statusBarPresetEnabled],
+  );
+
+  const handleStatusBarSoundToggle = useCallback(
+    () => update({ statusBarSoundEnabled: !settings.statusBarSoundEnabled }),
+    [update, settings.statusBarSoundEnabled],
+  );
+
   const handleFancyTitleToggle = useCallback(
     () => update({ fancyTitle: !settings.fancyTitle }),
     [update, settings.fancyTitle],
@@ -741,6 +751,41 @@ export default function AppearanceSection({
             <button
               className={`settings-toggle ${settings.statusBarEnabled ? "on" : "off"}`}
               onClick={handleStatusBarToggle}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Preset Name</span>
+            <span className="settings-sublabel">
+              Show the active preset on the left of the status bar.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.statusBarPresetEnabled ? "on" : "off"}`}
+              onClick={handleStatusBarPresetToggle}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Sound Icon</span>
+            <span className="settings-sublabel">
+              Show the speaker button that mutes every sound. It only appears
+              while at least one sound is turned on in Sounds.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.statusBarSoundEnabled ? "on" : "off"}`}
+              onClick={handleStatusBarSoundToggle}
             >
               <span className="settings-toggle-knob" />
             </button>

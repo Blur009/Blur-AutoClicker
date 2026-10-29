@@ -8,9 +8,12 @@
 - Added an overlay to show when the clicker is active. Settings → Overlay. On by default.
 - Added ability to change font in Settings → Appearance.
 - Added a "Fancy Title" toggle in Settings → Appearance that lets you choose your own title font.
+- Added a sound Category for clicker Start/Stop sounds.
+- Added Discord links in Maintenance and General settings tab.
 
 ## Changed
 
+- Improved startup time by ~54.6%
 - Converted statistics to be stored without compression.
 - Made the statistics screen much more informative with the time point earned from the above change.
 - Small UI improvements to the settings general page:
@@ -20,14 +23,13 @@
 - Added Changelog sub-points like above.
 - Small performance improvements.
 - New color picker for theme color
-- Improved startup time by ~54.6%
 - The administrator window notice now names the app that is blocking clicks instead of saying "this window".
 - Overhauled animated Icons.
 - Overhauled settings tab highlighting.
 
 ## Fixed
 
-- Clicking stats now update without needing to leave and re-enter the settings page.
+- Fixed clicking stats not updating without leaving the settings page first.
 - Fixed the master switch and hotkeys sometimes ignoring a press.
 - Fixed hotkeys not working after locking Windows until the app was restarted.
 - Fixed Double Click ignoring the duty cycle and sending near-zero holds above 2 CPS.
@@ -42,6 +44,7 @@
 - Fixed Duty Cycle hold mode keeping the old interval when the click speed was in Interval mode.
 - Fixed clicks being sent with the toggle hotkey's modifier still held, which some targets ignored.
 - Fixed the click counter only updating after the clicker stopped.
+- Fixed Github redirect Image getting cut off on the right side.
 
 # v3.9.6 - 24.08.2026 (d.m.y)
 

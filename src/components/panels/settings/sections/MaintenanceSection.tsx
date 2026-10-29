@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import DiscordIcon from "../../../DiscordIcon";
 import { logDiagnostic } from "../../../../diagnostics";
 import { ResetSettingsDialog, ResetUsageDialog } from "../settingsDialogs";
 import { SettingsCard } from "./shared";
+
+const DISCORD_URL = "https://discord.gg/jhWEW747x5";
 
 interface CumulativeStats {
   totalClicks: number;
@@ -47,8 +51,33 @@ export default function MaintenanceSection({ onReset }: Props) {
     }
   };
 
+  const handleDiscordClick = useCallback(() => {
+    void openUrl(DISCORD_URL).catch((err) =>
+      logDiagnostic("MaintenanceSection.openDiscord", {
+        error: String(err),
+      }),
+    );
+  }, []);
+
   return (
     <>
+      <button
+        type="button"
+        className="maintenance-discord"
+        onClick={handleDiscordClick}
+      >
+        <DiscordIcon className="maintenance-discord-icon" />
+        <span className="maintenance-discord-copy">
+          <span className="maintenance-discord-title">
+            Need help? Join the Discord
+          </span>
+          <span className="maintenance-discord-text">
+            Ask questions or report a bug. Someone is usually around.
+          </span>
+        </span>
+        <span className="maintenance-discord-cta">Join</span>
+      </button>
+
       <SettingsCard
         title="Reset"
         description="Reset all settings or usage data."

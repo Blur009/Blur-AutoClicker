@@ -64,6 +64,7 @@ import {
 } from "./store";
 import { restartAsAdministrator } from "./restart";
 import { holdModePatch } from "./cadence";
+import { playClickerSound } from "./soundPlayback";
 
 void initAppVersion();
 
@@ -246,6 +247,7 @@ export default function App() {
   const uiSettingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const committedSettingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const lastValidHotkeyRef = useRef(DEFAULT_SETTINGS.hotkey);
+  const previousRunningRef = useRef<boolean | null>(null);
   const launchWindowPlacementDone = useRef(false);
   const pendingShowWindowRef = useRef(false);
   const bootTextScaleRef = useRef<number | null>(null);
@@ -861,6 +863,7 @@ export default function App() {
           setSettings(hydratedSettings);
           setAppInfo(loadedAppInfo);
           setStatus(loadedStatus);
+          previousRunningRef.current = loadedStatus.running;
           if (loadedStatus.elevationBlocked) {
             setTab((current) => (current === "simple" ? "advanced" : current));
           }
@@ -934,6 +937,15 @@ export default function App() {
     let cleanup: (() => void) | undefined;
 
     listen<ClickerStatus>("clicker-status", (event) => {
+      const wasRunning = previousRunningRef.current;
+      const nowRunning = event.payload.running;
+      if (wasRunning !== null && wasRunning !== nowRunning) {
+        void playClickerSound(
+          nowRunning ? "enable" : "disable",
+          uiSettingsRef.current,
+        );
+      }
+      previousRunningRef.current = nowRunning;
       setStatus(event.payload);
       if (event.payload.elevationBlocked) {
         setTab((current) => (current === "simple" ? "advanced" : current));
@@ -1274,7 +1286,7 @@ export default function App() {
       let converted: string | null = null;
       if (!isRemoteOrData) {
         try {
-          await invoke("allow_background_media", { path: trimmed });
+          await invoke("allow_local_media", { path: trimmed });
           converted = convertFileSrc(trimmed);
         } catch (err) {
           logDiagnostic("App.backgroundMedia", { error: String(err) });
@@ -1383,9 +1395,18 @@ export default function App() {
     setTab("settings");
   }, []);
 
+  const handleOpenSoundSettings = useCallback(() => {
+    setSettingsInitialTab("sounds");
+    setTab("settings");
+  }, []);
+
   const handleInitialTabConsumed = useCallback(() => {
     setSettingsInitialTab(undefined);
   }, []);
+
+  const handleToggleSoundMuted = useCallback(() => {
+    updateSettings({ soundMuted: !committedSettingsRef.current.soundMuted });
+  }, [updateSettings]);
 
   const handleTabChangeRef = useRef(handleTabChange);
 
@@ -1948,6 +1969,14 @@ export default function App() {
           clickLimit={settings.clickLimit}
           clickLimitEnabled={settings.clickLimitEnabled}
           timeLimitMs={computeTimeLimitMs()}
+          showPreset={settings.statusBarPresetEnabled}
+          showSoundToggle={
+            settings.statusBarSoundEnabled &&
+            (settings.enableSoundEnabled || settings.disableSoundEnabled)
+          }
+          soundMuted={settings.soundMuted}
+          onToggleSound={handleToggleSoundMuted}
+          onOpenSoundSettings={handleOpenSoundSettings}
           onGoToPresets={handleGoToPresets}
           onGoToVersionInfo={handleGoToVersionInfo}
         />

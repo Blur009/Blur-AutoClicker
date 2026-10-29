@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { MockInstance } from "vitest";
 import {
   act,
   fireEvent,
@@ -44,6 +45,10 @@ vi.mock(
 );
 
 vi.mock("../store", async () => (await import("./tauriHarness")).storeModule);
+
+const openerMock = vi.hoisted(() => ({ openUrl: vi.fn(async () => {}) }));
+
+vi.mock("@tauri-apps/plugin-opener", () => openerMock);
 
 const themeBridgeMock = vi.hoisted(() => ({
   apply: null as ((message: ThemeApplyMessage) => void) | null,
@@ -108,6 +113,7 @@ beforeEach(() => {
   tauri.setInvokeHandler("register_hotkey", registerHotkeyEcho);
   themeBridgeMock.apply = null;
   themeBridgeMock.states.length = 0;
+  openerMock.openUrl.mockClear();
 });
 
 describe("App boot", () => {
@@ -542,5 +548,232 @@ describe("App custom themes", () => {
     await waitFor(() =>
       expect(tauri.invokes("open_theme_window")).toHaveLength(1),
     );
+  });
+});
+
+describe("App status bar sounds", () => {
+  it("shows the speaker icon by default", async () => {
+    await renderLoadedApp();
+    await waitFor(() =>
+      expect(document.querySelector(".status-bar-sound-btn")).not.toBeNull(),
+    );
+  });
+
+  it("hides the icon when both sounds are turned off", async () => {
+    tauri.setStoredSettings({
+      enableSoundEnabled: false,
+      disableSoundEnabled: false,
+    });
+
+    await renderLoadedApp();
+    await waitFor(() =>
+      expect(document.querySelector(".status-bar")).not.toBeNull(),
+    );
+    expect(document.querySelector(".status-bar-sound-btn")).toBeNull();
+  });
+
+  it("hides the icon when the status bar sound toggle is off", async () => {
+    tauri.setStoredSettings({
+      enableSoundEnabled: true,
+      statusBarSoundEnabled: false,
+    });
+
+    await renderLoadedApp();
+    await waitFor(() =>
+      expect(document.querySelector(".status-bar")).not.toBeNull(),
+    );
+    expect(document.querySelector(".status-bar-sound-btn")).toBeNull();
+  });
+
+  it("opens the Sounds settings tab on right click", async () => {
+    tauri.setStoredSettings({ enableSoundEnabled: true });
+
+    await renderLoadedApp();
+    const icon = await screen.findByLabelText(/Sounds on/);
+
+    fireEvent.contextMenu(icon);
+
+    expect(
+      await screen.findByText("Auto clicker enabled", undefined, {
+        timeout: 5000,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("mutes every sound from the speaker icon", async () => {
+    tauri.setStoredSettings({ enableSoundEnabled: true });
+
+    await renderLoadedApp();
+    const icon = await screen.findByLabelText(/Sounds on/);
+
+    fireEvent.click(icon);
+
+    await waitFor(() => expect(syncedSettings().soundMuted).toBe(true));
+    expect(await screen.findByLabelText(/Sounds muted/)).toBeInTheDocument();
+  });
+
+  it("hides the preset name when the status bar preset toggle is off", async () => {
+    tauri.setStoredSettings({ statusBarPresetEnabled: false });
+
+    await renderLoadedApp();
+    await waitFor(() =>
+      expect(document.querySelector(".status-bar")).not.toBeNull(),
+    );
+    expect(document.querySelector(".status-bar-preset-btn")).toBeNull();
+    expect(document.querySelector(".status-bar-hint-btn")).toBeNull();
+  });
+
+  it("shows the preset hint by default", async () => {
+    await renderLoadedApp();
+    await waitFor(() =>
+      expect(document.querySelector(".status-bar-hint-btn")).not.toBeNull(),
+    );
+  });
+});
+
+describe("App maintenance page", () => {
+  it("opens the Discord invite from the General tab", async () => {
+    await renderLoadedApp();
+    const session = userEvent.setup();
+    await session.click(
+      await screen.findByRole("button", { name: "Settings" }),
+    );
+
+    await session.click(await screen.findByTitle("Discord"));
+
+    await waitFor(() =>
+      expect(openerMock.openUrl).toHaveBeenCalledWith(
+        "https://discord.gg/jhWEW747x5",
+      ),
+    );
+  });
+
+  it("opens the Discord invite from the banner", async () => {
+    await renderLoadedApp();
+    const session = userEvent.setup();
+    await openMaintenanceTab(session);
+
+    const banner = await screen.findByRole("button", {
+      name: /Join the Discord/i,
+    });
+    await session.click(banner);
+
+    await waitFor(() =>
+      expect(openerMock.openUrl).toHaveBeenCalledWith(
+        "https://discord.gg/jhWEW747x5",
+      ),
+    );
+  });
+});
+
+const STATUS_EVENT = "clicker-status";
+
+function statusPayload(running: boolean) {
+  return {
+    running,
+    paused: false,
+    clickCount: running ? 3 : 0,
+    lastError: null,
+    stopReason: null,
+    warning: null,
+    activeClickPointIndex: null,
+    activeClickPointTick: 0,
+    masterAllowed: true,
+    elevationBlocked: false,
+    elevationBlockedWindow: null,
+  };
+}
+
+describe("App clicker sounds", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function stubAudioPlay() {
+    return vi
+      .spyOn(HTMLMediaElement.prototype, "play")
+      .mockImplementation(() => Promise.resolve());
+  }
+
+  function playedSrc(play: MockInstance, index: number) {
+    const element = play.mock.instances[index] as HTMLMediaElement | undefined;
+    return element?.src ?? "";
+  }
+
+  async function emitStatus(running: boolean) {
+    await act(async () => {
+      tauri.emitBackendEvent(STATUS_EVENT, statusPayload(running));
+      await Promise.resolve();
+    });
+  }
+
+  it("plays once on start and once on stop", async () => {
+    const play = stubAudioPlay();
+    await renderLoadedApp();
+
+    await emitStatus(true);
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+    expect(playedSrc(play, 0)).toContain("/sounds/enable.wav");
+
+    await emitStatus(false);
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+    expect(playedSrc(play, 1)).toContain("/sounds/disable.wav");
+  });
+
+  it("plays nothing for repeated status updates without a transition", async () => {
+    const play = stubAudioPlay();
+    await renderLoadedApp();
+
+    await emitStatus(false);
+    await emitStatus(true);
+    await emitStatus(true);
+
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps quiet while muted", async () => {
+    tauri.setStoredSettings({ soundMuted: true });
+    const play = stubAudioPlay();
+    await renderLoadedApp();
+
+    await emitStatus(true);
+    await emitStatus(false);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it("respects the per-sound toggles", async () => {
+    tauri.setStoredSettings({
+      enableSoundEnabled: true,
+      disableSoundEnabled: false,
+    });
+    const play = stubAudioPlay();
+    await renderLoadedApp();
+
+    await emitStatus(true);
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+
+    await emitStatus(false);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it("authorizes a local background image through allow_local_media", async () => {
+    const path = String.raw`C:\wallpapers\bg.png`;
+    tauri.setStoredSettings({ backgroundImage: path });
+
+    await renderLoadedApp();
+
+    await waitFor(() => {
+      const call = tauri
+        .invokes("allow_local_media")
+        .find((record) => record.args?.path === path);
+      expect(call).toBeTruthy();
+    });
   });
 });

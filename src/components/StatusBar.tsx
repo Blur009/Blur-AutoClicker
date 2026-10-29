@@ -1,4 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
+import { useIconHover } from "@animateicons/react";
+import { Volume2Icon, VolumeXIcon } from "@animateicons/react/lucide";
 import "./StatusBar.css";
 
 interface Props {
@@ -14,8 +16,53 @@ interface Props {
   clickLimit: number;
   clickLimitEnabled: boolean;
   timeLimitMs: number;
+  showPreset: boolean;
+  showSoundToggle: boolean;
+  soundMuted: boolean;
+  onToggleSound: () => void;
+  onOpenSoundSettings: () => void;
   onGoToPresets: () => void;
   onGoToVersionInfo: () => void;
+}
+
+function SoundToggle({
+  muted,
+  onToggle,
+  onOpenSettings,
+}: {
+  muted: boolean;
+  onToggle: () => void;
+  onOpenSettings: () => void;
+}) {
+  const { ref, triggerProps } = useIconHover();
+  const Icon = muted ? VolumeXIcon : Volume2Icon;
+  const label = muted
+    ? "Sounds muted. Click to unmute, right-click for sound settings."
+    : "Sounds on. Click to mute, right-click for sound settings.";
+
+  return (
+    <button
+      {...triggerProps}
+      className="status-bar-sound-btn"
+      data-muted={muted}
+      onClick={onToggle}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onOpenSettings();
+      }}
+      title={label}
+      aria-label={label}
+      aria-pressed={!muted}
+    >
+      <Icon
+        ref={ref}
+        size={14}
+        isAnimated={false}
+        className="status-bar-sound-icon"
+        aria-hidden="true"
+      />
+    </button>
+  );
 }
 
 const STOP_REASON_TEXTS: Record<string, string> = {
@@ -80,6 +127,11 @@ export default memo(function StatusBar({
   clickLimit,
   clickLimitEnabled,
   timeLimitMs,
+  showPreset,
+  showSoundToggle,
+  soundMuted,
+  onToggleSound,
+  onOpenSoundSettings,
   onGoToPresets,
   onGoToVersionInfo,
 }: Props) {
@@ -167,32 +219,40 @@ export default memo(function StatusBar({
   return (
     <div className="status-bar" data-running={running}>
       <div className="status-bar-left">
-        {activePresetName ? (
-          <button
-            className="status-bar-preset-btn"
-            onClick={onGoToPresets}
-            title="Go to presets"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
-            </svg>
-            {activePresetName}
-          </button>
-        ) : (
-          <button
-            className="status-bar-hint-btn"
-            onClick={onGoToPresets}
-            title="Go to presets"
-          >
-            No preset active
-          </button>
+        {showSoundToggle && (
+          <SoundToggle
+            muted={soundMuted}
+            onToggle={onToggleSound}
+            onOpenSettings={onOpenSoundSettings}
+          />
         )}
+        {showPreset &&
+          (activePresetName ? (
+            <button
+              className="status-bar-preset-btn"
+              onClick={onGoToPresets}
+              title="Go to presets"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+              </svg>
+              {activePresetName}
+            </button>
+          ) : (
+            <button
+              className="status-bar-hint-btn"
+              onClick={onGoToPresets}
+              title="Go to presets"
+            >
+              No preset active
+            </button>
+          ))}
       </div>
       <div
         className={`status-bar-center ${hasWarning ? "status-bar-center--warning" : ""} ${centerText ? "" : "status-bar-center--empty"}`}

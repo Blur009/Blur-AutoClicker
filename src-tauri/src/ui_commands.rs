@@ -407,10 +407,11 @@ pub fn backup_unreadable_settings(app: AppHandle) -> AppResult<Option<String>> {
 }
 
 #[tauri::command]
-pub fn allow_background_media(app: AppHandle, path: String) -> AppResult<()> {
+/// Lets the webview load a user-picked local file (background media, sounds).
+pub fn allow_local_media(app: AppHandle, path: String) -> AppResult<()> {
     app.asset_protocol_scope()
         .allow_file(&path)
-        .map_err(|err| AppError::InvalidSetting(format!("background media path rejected: {err}")))
+        .map_err(|err| AppError::InvalidSetting(format!("local media path rejected: {err}")))
 }
 
 #[tauri::command]

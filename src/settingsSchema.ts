@@ -136,7 +136,8 @@ type FieldDef<T> = {
       | "startup"
       | "appearance"
       | "keybinds"
-      | "presets";
+      | "presets"
+      | "sounds";
     control: UiControl;
   };
 };
@@ -788,6 +789,49 @@ const SETTINGS_ONLY_FIELDS = {
   statusBarEnabled: {
     default: true,
     ui: { section: "appearance", control: "toggle" },
+  },
+  statusBarPresetEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  statusBarSoundEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  enableSoundEnabled: {
+    default: true,
+    ui: { section: "sounds", control: "toggle" },
+  },
+  enableSoundPath: {
+    default: "",
+    ui: { section: "sounds", control: "custom" },
+  },
+  enableSoundVolume: {
+    default: 50,
+    limit: { min: 0, max: 100 },
+    ui: { section: "sounds", control: "number" },
+  },
+  disableSoundEnabled: {
+    default: true,
+    ui: { section: "sounds", control: "toggle" },
+  },
+  disableSoundPath: {
+    default: "",
+    ui: { section: "sounds", control: "custom" },
+  },
+  disableSoundVolume: {
+    default: 50,
+    limit: { min: 0, max: 100 },
+    ui: { section: "sounds", control: "number" },
+  },
+  soundVolume: {
+    default: 100,
+    limit: { min: 0, max: 100 },
+    ui: { section: "sounds", control: "number" },
+  },
+  soundMuted: {
+    default: false,
+    ui: { section: "sounds", control: "toggle" },
   },
 } satisfies Record<string, FieldDef<unknown>>;
 

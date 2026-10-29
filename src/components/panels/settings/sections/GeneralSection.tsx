@@ -11,6 +11,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppInfo } from "../../../../store";
 import { changelogEntries } from "../../../../changelog";
 import ChangelogContent from "../../../ChangelogContent";
+import DiscordIcon from "../../../DiscordIcon";
 import UsageCard from "./UsageStats";
 import type { StatsOverview } from "./usageSeries";
 import { SettingsCard } from "./shared";
@@ -34,6 +35,7 @@ const KOFI_URL = "https://ko-fi.com/Z8Z71T8QD4";
 const YOUTUBE_URL = "https://youtube.com/@Blur009";
 const TWITCH_URL = "https://twitch.tv/Blur009";
 const GITHUB_URL = "https://github.com/Blur009/Blur-AutoClicker";
+const DISCORD_URL = "https://discord.gg/jhWEW747x5";
 
 const KOFI_IMG_STYLE: CSSProperties = { border: 0, height: "28px" };
 
@@ -85,6 +87,10 @@ export default function GeneralSection({
   const openGithub = useCallback((e: ReactMouseEvent) => {
     e.preventDefault();
     void openUrl(GITHUB_URL);
+  }, []);
+  const openDiscord = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    void openUrl(DISCORD_URL);
   }, []);
 
   return (
@@ -148,8 +154,16 @@ export default function GeneralSection({
                 width="18"
                 height="18"
               >
-                <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.2.8-.6v-2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.2-1.7-1.2-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 .1.8 1.8 3.4 1.2.1-.7.4-1.2.7-1.5-2.7-.3-5.4-1.3-5.4-6a4.7 4.7 0 0 1 1.2-3.2c-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.2 11.2 0 0 1 6.1 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2a4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.8 5.7-5.4 6 .4.3.8 1 .8 2.1v3.1c0 .4.2.7.8.6A12 12 0 0 0 12 .3" />
+                <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
               </svg>
+            </a>
+            <a
+              className="social-icon social-icon--discord"
+              href="#"
+              title="Discord"
+              onClick={openDiscord}
+            >
+              <DiscordIcon size={18} />
             </a>
           </div>
         </div>

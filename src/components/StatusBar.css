@@ -20,8 +20,50 @@
 .status-bar-left {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
   min-width: 0;
   flex: 1;
+}
+
+.status-bar-sound-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-strong);
+  cursor: pointer;
+  line-height: 0;
+  transition: color 0.15s ease;
+}
+
+/* The icon renders its own wrapper div, so drop its line box to keep the
+   speaker centred against the status bar text. */
+.status-bar-sound-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.status-bar-sound-icon svg {
+  display: block;
+}
+
+.status-bar-sound-btn[data-muted="true"] {
+  color: var(--text-dim);
+}
+
+.status-bar-sound-btn:hover {
+  color: var(--accent);
+}
+
+.status-bar-sound-btn:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .status-bar-preset-btn {

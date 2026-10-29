@@ -859,6 +859,12 @@
   background: rgba(145, 70, 255, 0.08);
 }
 
+.social-icon--discord:hover {
+  color: #5865f2;
+  border-color: rgba(88, 101, 242, 0.45);
+  background: rgba(88, 101, 242, 0.08);
+}
+
 .social-icon--github:hover {
   color: var(--text-primary);
   border-color: var(--border-focus);
@@ -1296,4 +1302,100 @@
 .settings-row--disabled {
   opacity: 0.4;
   pointer-events: none;
+}
+
+/* Sounds */
+.sounds-file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* Icon components render their own wrapper div; drop its line box so the
+   glyph sits centred in the button. */
+.sounds-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.sounds-btn-icon svg {
+  display: block;
+}
+
+.sounds-file-name {
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Maintenance: Discord banner */
+.maintenance-discord {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-family-base);
+  padding: 0.875rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid #5865f2;
+  border-right: 3px solid #5865f2;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--container-shadow);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.maintenance-discord:hover {
+  background: var(--bg-elevated);
+  border-color: rgba(88, 101, 242, 0.55);
+  border-left-color: #5865f2;
+}
+
+.maintenance-discord:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
+.maintenance-discord-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  color: #5865f2;
+}
+
+.maintenance-discord-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.maintenance-discord-title {
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-md);
+  color: var(--text-primary);
+}
+
+.maintenance-discord-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.maintenance-discord-cta {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-md);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-ring);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.625rem;
 }

@@ -729,7 +729,7 @@ pub fn run() {
             ui_commands::set_settings_warning,
             ui_commands::export_preset_file,
             ui_commands::import_preset_file,
-            ui_commands::allow_background_media,
+            ui_commands::allow_local_media,
             ui_commands::get_stats,
             ui_commands::get_stats_overview,
             ui_commands::reset_stats,

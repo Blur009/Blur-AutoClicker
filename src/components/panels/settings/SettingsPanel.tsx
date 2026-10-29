@@ -18,6 +18,7 @@ import {
   SquareTerminalIcon,
   SunIcon,
   ToggleRightIcon,
+  Volume2Icon,
   WrenchIcon,
 } from "@animateicons/react/lucide";
 import type { AnimatedIcon } from "../../animatedIcon";
@@ -28,6 +29,7 @@ import GeneralSection from "./sections/GeneralSection";
 import BehaviorSection from "./sections/BehaviorSection";
 import AppearanceSection from "./sections/AppearanceSection";
 import OverlaySection from "./sections/OverlaySection";
+import SoundsSection from "./sections/SoundsSection";
 import PresetsSection from "./sections/PresetsSection";
 import MaintenanceSection from "./sections/MaintenanceSection";
 import KeybindsSection from "./sections/KeybindsSection";
@@ -42,6 +44,7 @@ type SettingsTab =
   | "behavior"
   | "appearance"
   | "overlay"
+  | "sounds"
   | "keybinds"
   | "process-list"
   | "presets"
@@ -273,6 +276,15 @@ export default function SettingsPanel({
           onSelect={setActiveTab}
         />
         <SidebarTab
+          tab="sounds"
+          label="Sounds"
+          icon={Volume2Icon}
+          active={activeTab === "sounds"}
+          onHover={handleHover}
+          onHoverEnd={handleHoverEnd}
+          onSelect={setActiveTab}
+        />
+        <SidebarTab
           tab="keybinds"
           label="Keybinds"
           icon={KeyboardIcon}
@@ -361,6 +373,9 @@ export default function SettingsPanel({
         )}
         {activeTab === "overlay" && (
           <OverlaySection settings={settings} update={update} />
+        )}
+        {activeTab === "sounds" && (
+          <SoundsSection settings={settings} update={update} />
         )}
         {activeTab === "keybinds" && (
           <KeybindsSection settings={settings} update={update} />
