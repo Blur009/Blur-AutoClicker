@@ -8,7 +8,7 @@ use super::{SendResult, AUTOCLICKER_EXTRA_INFO};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
     MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN,
-    MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK, MOUSEINPUT,
+    MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK, MOUSEINPUT, VK_LBUTTON, VK_MBUTTON, VK_RBUTTON,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
@@ -194,6 +194,24 @@ pub fn make_movement(end_x: i32, end_y: i32) -> INPUT {
     }
 }
 
+fn released_button_vk(flags: u32) -> Option<i32> {
+    if flags & MOUSEEVENTF_LEFTUP != 0 {
+        Some(VK_LBUTTON as i32)
+    } else if flags & MOUSEEVENTF_RIGHTUP != 0 {
+        Some(VK_RBUTTON as i32)
+    } else if flags & MOUSEEVENTF_MIDDLEUP != 0 {
+        Some(VK_MBUTTON as i32)
+    } else {
+        None
+    }
+}
+
+fn note_released_button(flags: u32) {
+    if let Some(vk) = released_button_vk(flags) {
+        crate::hotkeys::note_injected_key(vk);
+    }
+}
+
 #[inline]
 pub fn make_input(flags: u32, time: u32) -> INPUT {
     INPUT {
@@ -215,6 +233,9 @@ pub fn make_input(flags: u32, time: u32) -> INPUT {
 pub fn send_mouse_event(flags: u32) -> bool {
     let input = make_input(flags, 0);
     let sent = unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
+    if sent == 1 {
+        note_released_button(flags);
+    }
     sent == 1
 }
 
@@ -235,6 +256,9 @@ pub fn send_batch(down: u32, up: u32, n: usize) -> bool {
         )
     };
     let accepted = sent == expected;
+    if sent > 0 {
+        note_released_button(up);
+    }
     if accepted {
         PARTIAL_MOUSE_INSERT_WARNED.store(false, Ordering::Relaxed);
     } else if !PARTIAL_MOUSE_INSERT_WARNED.swap(true, Ordering::Relaxed) {
@@ -478,6 +502,29 @@ pub fn smooth_move(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn released_button_vk_maps_up_flags_only() {
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+            MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_MOVE,
+            MOUSEEVENTF_RIGHTUP, VK_LBUTTON, VK_MBUTTON, VK_RBUTTON,
+        };
+
+        assert_eq!(
+            released_button_vk(MOUSEEVENTF_LEFTUP),
+            Some(VK_LBUTTON as i32)
+        );
+        assert_eq!(
+            released_button_vk(MOUSEEVENTF_RIGHTUP),
+            Some(VK_RBUTTON as i32)
+        );
+        assert_eq!(
+            released_button_vk(MOUSEEVENTF_MIDDLEUP),
+            Some(VK_MBUTTON as i32)
+        );
+        assert_eq!(released_button_vk(MOUSEEVENTF_LEFTDOWN), None);
+        assert_eq!(released_button_vk(MOUSEEVENTF_MOVE), None);
+    }
 
     #[test]
     fn contains_includes_left_and_top_edges_but_excludes_right_and_bottom() {

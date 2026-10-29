@@ -48,6 +48,9 @@ pub fn make_keyboard_input(vk: u16, flags: u32) -> INPUT {
 pub fn send_key_event(vk: u16, flags: u32) -> bool {
     let input = make_keyboard_input(vk, flags);
     let sent = unsafe { SendInput(1, &input, std::mem::size_of::<INPUT>() as i32) };
+    if sent == 1 && flags & KEYEVENTF_KEYUP != 0 {
+        crate::hotkeys::note_injected_key(vk as i32);
+    }
     sent == 1
 }
 
@@ -168,6 +171,12 @@ pub fn send_key_batch(vk: u16, n: usize, uppercase: bool) -> bool {
         )
     };
     let accepted = sent == expected;
+    if sent > 0 {
+        crate::hotkeys::note_injected_key(vk as i32);
+        if use_shift {
+            crate::hotkeys::note_injected_key(VK_SHIFT as i32);
+        }
+    }
     if accepted {
         PARTIAL_KEYBOARD_INSERT_WARNED.store(false, Ordering::Relaxed);
     } else if !PARTIAL_KEYBOARD_INSERT_WARNED.swap(true, Ordering::Relaxed) {
