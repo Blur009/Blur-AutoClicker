@@ -55,6 +55,9 @@ export const DEFAULT_TITLE_FONT = "Pristina";
 export const PRESET_NAME_MAX_LENGTH = 40;
 export const DEFAULT_MAX_CLICK_SPEED = 500;
 export const EXTENDED_MAX_CLICK_SPEED = 1000;
+export const UI_SCALE_MIN = 25;
+export const UI_SCALE_MAX = 300;
+export const UI_SCALE_DEFAULT = 100;
 
 export const CLICK_INTERVAL_OPTIONS = [
   { value: "s", label: "Second" },
@@ -797,6 +800,15 @@ const SETTINGS_ONLY_FIELDS = {
   statusBarSoundEnabled: {
     default: true,
     ui: { section: "appearance", control: "toggle" },
+  },
+  statusBarScaleEnabled: {
+    default: true,
+    ui: { section: "appearance", control: "toggle" },
+  },
+  uiScale: {
+    default: UI_SCALE_DEFAULT,
+    limit: { min: UI_SCALE_MIN, max: UI_SCALE_MAX },
+    ui: { section: "appearance", control: "number" },
   },
   enableSoundEnabled: {
     default: true,

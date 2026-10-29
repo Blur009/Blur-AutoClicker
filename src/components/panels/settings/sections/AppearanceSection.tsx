@@ -26,6 +26,7 @@ import {
 import type { IconColor, IconTheme } from "../../../../settingsSchema";
 import type { Settings } from "../../../../store";
 import ColorPicker from "../../../ColorPicker";
+import UiScaleControl from "../../../UiScaleControl";
 import { AdvDropdown } from "../../advanced/sections/shared";
 import { SettingsCard } from "./shared";
 
@@ -606,6 +607,16 @@ export default function AppearanceSection({
     [update, settings.statusBarSoundEnabled],
   );
 
+  const handleStatusBarScaleToggle = useCallback(
+    () => update({ statusBarScaleEnabled: !settings.statusBarScaleEnabled }),
+    [update, settings.statusBarScaleEnabled],
+  );
+
+  const handleUiScaleChange = useCallback(
+    (next: number) => update({ uiScale: next }),
+    [update],
+  );
+
   const handleFancyTitleToggle = useCallback(
     () => update({ fancyTitle: !settings.fancyTitle }),
     [update, settings.fancyTitle],
@@ -737,6 +748,26 @@ export default function AppearanceSection({
       </SettingsCard>
 
       <SettingsCard
+        title="Interface Scale"
+        description="Scales the entire window: text, controls, spacing and the window itself."
+      >
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Scale</span>
+            <span className="settings-sublabel">
+              The same control sits at the bottom right of the status bar. 10%
+              per click, 25% with Shift, 50% with Ctrl+Shift. Click the number
+              to reset to 100%.
+            </span>
+          </div>
+          <UiScaleControl
+            scale={settings.uiScale}
+            onChange={handleUiScaleChange}
+          />
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
         title="Status Bar"
         description="Show the status bar at the bottom of the window."
       >
@@ -786,6 +817,24 @@ export default function AppearanceSection({
             <button
               className={`settings-toggle ${settings.statusBarSoundEnabled ? "on" : "off"}`}
               onClick={handleStatusBarSoundToggle}
+            >
+              <span className="settings-toggle-knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <span className="settings-label">Interface Scale</span>
+            <span className="settings-sublabel">
+              Show the scale control at the right of the status bar. The scale
+              itself stays available above, in Interface Scale.
+            </span>
+          </div>
+          <div className="settings-toggle-wrapper">
+            <button
+              className={`settings-toggle ${settings.statusBarScaleEnabled ? "on" : "off"}`}
+              onClick={handleStatusBarScaleToggle}
             >
               <span className="settings-toggle-knob" />
             </button>

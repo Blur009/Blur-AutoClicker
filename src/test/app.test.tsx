@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { MockInstance } from "vitest";
 import {
   act,
@@ -17,6 +17,7 @@ import {
   installBrowserGlobals,
   registerHotkeyEcho,
   tauri,
+  windowCalls,
 } from "./tauriHarness";
 
 vi.mock(
@@ -775,5 +776,135 @@ describe("App clicker sounds", () => {
         .find((record) => record.args?.path === path);
       expect(call).toBeTruthy();
     });
+  });
+});
+
+describe("App interface scale", () => {
+  afterEach(() => {
+    document.documentElement.style.fontSize = "";
+  });
+
+  it("scales through page zoom so px and icons grow too", async () => {
+    tauri.setStoredSettings({ uiScale: 150 });
+
+    await renderLoadedApp();
+
+    await waitFor(() =>
+      expect(tauri.invokes("set_webview_zoom").length).toBeGreaterThan(0),
+    );
+    expect(tauri.invokes("set_webview_zoom").at(-1)?.args?.factor).toBe(1.5);
+    expect(document.documentElement.style.fontSize).toBe("16px");
+
+    const root = document.querySelector(".app-root") as HTMLElement;
+    await waitFor(() => expect(root.style.width).toBe("750px"));
+    expect(Number.parseFloat(root.style.height)).toBeCloseTo(201.33, 2);
+
+    const first = windowCalls("setSize")[0]?.args[0] as {
+      width: number;
+      height: number;
+    };
+    expect(first.width).toBe(1125);
+    expect(first.height).toBe(302);
+  });
+
+  it("composes the ui scale with the windows text scale", async () => {
+    tauri.setStoredSettings({ uiScale: 150 });
+    tauri.setInvokeResult("get_text_scale_factor", 1.25);
+
+    await renderLoadedApp();
+
+    await waitFor(() =>
+      expect(tauri.invokes("set_webview_zoom").at(-1)?.args?.factor).toBe(1.2),
+    );
+    expect(document.documentElement.style.fontSize).toBe("20px");
+
+    const first = windowCalls("setSize")[0]?.args[0] as {
+      width: number;
+      height: number;
+    };
+    expect(first.width).toBe(1407);
+  });
+
+  it("keeps the plain size and zoom at 100 percent", async () => {
+    await renderLoadedApp();
+
+    await waitFor(() =>
+      expect(document.documentElement.style.fontSize).toBe("16px"),
+    );
+    expect(tauri.invokes("set_webview_zoom").at(-1)?.args?.factor).toBe(1);
+
+    const first = windowCalls("setSize")[0]?.args[0] as {
+      width: number;
+      height: number;
+    };
+    expect(first.width).toBe(750);
+    expect(first.height).toBe(201);
+  });
+
+  it("steps by 10, 25 and 50 percent from the status bar", async () => {
+    await renderLoadedApp();
+    const plus = await screen.findByLabelText("Increase interface scale");
+
+    fireEvent.click(plus);
+    await waitFor(() => expect(syncedSettings().uiScale).toBe(110));
+
+    fireEvent.click(plus, { shiftKey: true });
+    await waitFor(() => expect(syncedSettings().uiScale).toBe(135));
+
+    fireEvent.click(plus, { ctrlKey: true, shiftKey: true });
+    await waitFor(() => expect(syncedSettings().uiScale).toBe(185));
+  });
+
+  it("steps down from the status bar", async () => {
+    await renderLoadedApp();
+    const minus = await screen.findByLabelText("Decrease interface scale");
+
+    fireEvent.click(minus, { shiftKey: true });
+
+    await waitFor(() => expect(syncedSettings().uiScale).toBe(75));
+  });
+
+  it("resets to 100 percent when the number is clicked", async () => {
+    tauri.setStoredSettings({ uiScale: 175 });
+
+    await renderLoadedApp();
+    fireEvent.click(await screen.findByLabelText(/Interface scale 175%/));
+
+    await waitFor(() => expect(syncedSettings().uiScale).toBe(100));
+  });
+
+  it("disables the buttons at the bounds", async () => {
+    tauri.setStoredSettings({ uiScale: 300 });
+
+    await renderLoadedApp();
+
+    expect(
+      await screen.findByLabelText("Increase interface scale"),
+    ).toBeDisabled();
+  });
+});
+
+describe("App status bar scale toggle", () => {
+  afterEach(() => {
+    document.documentElement.style.fontSize = "";
+  });
+
+  it("hides the scale control when the toggle is off", async () => {
+    tauri.setStoredSettings({ statusBarScaleEnabled: false });
+
+    await renderLoadedApp();
+    await waitFor(() =>
+      expect(document.querySelector(".status-bar")).not.toBeNull(),
+    );
+
+    expect(document.querySelector(".ui-scale")).toBeNull();
+  });
+
+  it("shows the scale control by default", async () => {
+    await renderLoadedApp();
+
+    expect(
+      await screen.findByLabelText("Increase interface scale"),
+    ).toBeInTheDocument();
   });
 });

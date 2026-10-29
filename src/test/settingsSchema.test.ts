@@ -534,3 +534,24 @@ describe("sound settings", () => {
     expect(rejected.disableSoundPath).toBe("");
   });
 });
+
+describe("interface scale setting", () => {
+  it("defaults to 100 percent", () => {
+    expect(createDefaultSettings(VERSION).uiScale).toBe(100);
+  });
+
+  it("registers a 25-300 limit", () => {
+    expect(SETTINGS_LIMITS.uiScale).toEqual({ min: 25, max: 300 });
+  });
+
+  it("clamps saved values into range", () => {
+    expect(sanitizeSettings({ uiScale: 900 }, VERSION).uiScale).toBe(300);
+    expect(sanitizeSettings({ uiScale: 1 }, VERSION).uiScale).toBe(25);
+    expect(sanitizeSettings({ uiScale: 175 }, VERSION).uiScale).toBe(175);
+  });
+
+  it("stays out of preset snapshots", () => {
+    const snapshot = buildPresetSnapshot(createDefaultSettings(VERSION));
+    expect("uiScale" in snapshot).toBe(false);
+  });
+});

@@ -137,6 +137,10 @@
 }
 
 .status-bar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
   font-size: 0.6875rem;
   color: var(--text-dim);
   flex: 1;

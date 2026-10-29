@@ -65,6 +65,7 @@ import {
 import { restartAsAdministrator } from "./restart";
 import { holdModePatch } from "./cadence";
 import { playClickerSound } from "./soundPlayback";
+import { webviewZoom } from "./uiScale";
 
 void initAppVersion();
 
@@ -793,12 +794,10 @@ export default function App() {
 
     invoke<number>("get_text_scale_factor")
       .then((rawScale) => {
-        const textScale = sanitizeTextScale(rawScale);
-        bootTextScaleRef.current = textScale;
-        return invoke("set_webview_zoom", { factor: 1.0 / textScale });
+        bootTextScaleRef.current = sanitizeTextScale(rawScale);
       })
       .catch((err) =>
-        logDiagnostic("App.setZoom", {
+        logDiagnostic("App.getTextScale", {
           error: String(err),
         }),
       );
@@ -1006,18 +1005,31 @@ export default function App() {
         const textScale = sanitizeTextScale(
           bootTextScale ?? (await invoke<number>("get_text_scale_factor")),
         );
+        const zoom = webviewZoom(settings.uiScale, textScale);
+        const contentScale = zoom * textScale;
+        const logicalScale = textScale * contentScale;
         document.documentElement.style.fontSize = `${16 * textScale}px`;
+        invoke("set_webview_zoom", { factor: zoom }).catch((err) =>
+          logDiagnostic("App.setZoom", { error: String(err) }),
+        );
 
         const preferredSize = getPanelSize(tab, !!updateInfo);
         const { width, height } = await getClampedPanelSize(
           preferredSize,
-          textScale,
+          logicalScale,
         );
+        const measuredBarHeight =
+          document.querySelector(".status-bar")?.getBoundingClientRect()
+            .height ?? 0;
         const statusBarOffset = settings.statusBarEnabled
-          ? STATUS_BAR_HEIGHT
+          ? measuredBarHeight
+            ? measuredBarHeight * contentScale
+            : STATUS_BAR_HEIGHT * logicalScale
           : 0;
         const appHeight = height + statusBarOffset;
-        const windowHeight = appHeight + dropdownOverflowBottom;
+        const windowHeight = appHeight + dropdownOverflowBottom * contentScale;
+        const cssWidth = width / contentScale;
+        const cssHeight = appHeight / contentScale;
 
         const appWindow = getCurrentWindow();
 
@@ -1026,8 +1038,8 @@ export default function App() {
           await appWindow.setSize(new LogicalSize(width, windowHeight));
 
           if (cancelled) return;
-          root.style.width = `${width}px`;
-          root.style.height = `${appHeight}px`;
+          root.style.width = `${cssWidth}px`;
+          root.style.height = `${cssHeight}px`;
 
           if (cancelled) return;
           await applyStartupWindowPlacement();
@@ -1066,8 +1078,8 @@ export default function App() {
           }
 
           if (cancelled) return;
-          root.style.width = `${width}px`;
-          root.style.height = `${appHeight}px`;
+          root.style.width = `${cssWidth}px`;
+          root.style.height = `${cssHeight}px`;
 
           const changedProps: string[] = [];
           if (width !== currentW) changedProps.push("width");
@@ -1117,13 +1129,13 @@ export default function App() {
           if (cancelled) return;
           await appWindow.setSize(new LogicalSize(width, windowHeight));
           if (cancelled) return;
-          root.style.width = `${currentW}px`;
-          root.style.height = `${currentH}px`;
+          root.style.width = `${currentW / contentScale}px`;
+          root.style.height = `${currentH / contentScale}px`;
 
           void root.offsetHeight;
 
-          root.style.width = `${width}px`;
-          root.style.height = `${appHeight}px`;
+          root.style.width = `${cssWidth}px`;
+          root.style.height = `${cssHeight}px`;
         }
       } catch (err) {
         if (!cancelled) {
@@ -1150,6 +1162,7 @@ export default function App() {
     dropdownOverflowBottom,
     settingsLoaded,
     settings.statusBarEnabled,
+    settings.uiScale,
   ]);
 
   useEffect(() => {
@@ -1407,6 +1420,13 @@ export default function App() {
   const handleToggleSoundMuted = useCallback(() => {
     updateSettings({ soundMuted: !committedSettingsRef.current.soundMuted });
   }, [updateSettings]);
+
+  const handleUiScaleChange = useCallback(
+    (next: number) => {
+      updateSettings({ uiScale: next });
+    },
+    [updateSettings],
+  );
 
   const handleTabChangeRef = useRef(handleTabChange);
 
@@ -1977,6 +1997,9 @@ export default function App() {
           soundMuted={settings.soundMuted}
           onToggleSound={handleToggleSoundMuted}
           onOpenSoundSettings={handleOpenSoundSettings}
+          uiScale={settings.uiScale}
+          onUiScaleChange={handleUiScaleChange}
+          showScale={settings.statusBarScaleEnabled}
           onGoToPresets={handleGoToPresets}
           onGoToVersionInfo={handleGoToVersionInfo}
         />

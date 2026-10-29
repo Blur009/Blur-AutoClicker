@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { useIconHover } from "@animateicons/react";
 import { Volume2Icon, VolumeXIcon } from "@animateicons/react/lucide";
+import UiScaleControl from "./UiScaleControl";
 import "./StatusBar.css";
 
 interface Props {
@@ -23,6 +24,9 @@ interface Props {
   onOpenSoundSettings: () => void;
   onGoToPresets: () => void;
   onGoToVersionInfo: () => void;
+  uiScale: number;
+  onUiScaleChange: (next: number) => void;
+  showScale: boolean;
 }
 
 function SoundToggle({
@@ -134,6 +138,9 @@ export default memo(function StatusBar({
   onOpenSoundSettings,
   onGoToPresets,
   onGoToVersionInfo,
+  uiScale,
+  onUiScaleChange,
+  showScale,
 }: Props) {
   const [elapsedMs, setElapsedMs] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -260,6 +267,13 @@ export default memo(function StatusBar({
         {centerText}
       </div>
       <div className="status-bar-right">
+        {showScale && (
+          <UiScaleControl
+            className="status-bar-scale"
+            scale={uiScale}
+            onChange={onUiScaleChange}
+          />
+        )}
         <button
           className="status-bar-version-btn"
           onClick={onGoToVersionInfo}

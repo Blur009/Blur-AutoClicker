@@ -9,6 +9,7 @@
 - Added ability to change font in Settings → Appearance.
 - Added a "Fancy Title" toggle in Settings → Appearance that lets you choose your own title font.
 - Added a sound Category for clicker Start/Stop sounds.
+- Added UI scaling in the bottom right / Appearance settings.
 - Added Discord links in Maintenance and General settings tab.
 - Added confetti. Where is it? hmmmm I guess you'll have to search...
 
