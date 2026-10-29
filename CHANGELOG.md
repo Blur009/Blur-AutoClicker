@@ -27,6 +27,7 @@
 - Overhauled animated Icons.
 - Overhauled settings tab highlighting.
 - Overhauled Log messages.
+- Changed update progress dialogue to a smaller version.
 
 ## Fixed
 
