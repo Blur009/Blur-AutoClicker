@@ -73,6 +73,17 @@ const BURST_PUFF: Puff = {
   maxHeight: 9,
 };
 
+const POP_PUFF: Puff = {
+  angle: -Math.PI / 2,
+  spreadRad: (52 * Math.PI) / 180,
+  minSpeed: 150,
+  maxSpeed: 290,
+  minWidth: 3,
+  maxWidth: 5,
+  minHeight: 4,
+  maxHeight: 7,
+};
+
 const CANNON_PUFF: Puff = {
   angle: -Math.PI / 2,
   spreadRad: (32 * Math.PI) / 180,
@@ -339,6 +350,22 @@ export function burstConfetti(clientX: number, clientY: number): void {
   run(
     Array.from({ length: 20 }, () =>
       spawnPuff(clientX, clientY, colors, BURST_PUFF),
+    ),
+    BURST_MOTION,
+  );
+}
+
+export function popConfetti(
+  clientX: number,
+  clientY: number,
+  count = 10,
+): void {
+  if (prefersReducedMotion()) return;
+
+  const colors = palette();
+  run(
+    Array.from({ length: count }, () =>
+      spawnPuff(clientX, clientY, colors, POP_PUFF),
     ),
     BURST_MOTION,
   );

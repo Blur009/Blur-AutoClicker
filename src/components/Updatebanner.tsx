@@ -22,6 +22,7 @@ interface UpdateBannerProps {
   currentVersion: string;
   latestVersion: string;
   portable?: boolean;
+  preview?: boolean;
   testMarker?: string;
 }
 
@@ -31,9 +32,10 @@ export default function UpdateBanner({
   currentVersion,
   latestVersion,
   portable = false,
+  preview = false,
   testMarker,
 }: UpdateBannerProps) {
-  const previewMode = Boolean(testMarker);
+  const previewMode = preview || Boolean(testMarker);
   const [stage, setStage] = useState<UpdateStage>("ready");
   const [statusText, setStatusText] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);

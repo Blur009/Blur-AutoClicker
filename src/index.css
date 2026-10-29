@@ -183,7 +183,8 @@ body {
 }
 
 .app-root > .confirm-dialog-backdrop,
-.app-root > .update-preview-backdrop {
+.app-root > .update-preview-backdrop,
+.app-root > .donation-prompt-backdrop {
   position: absolute;
   inset: 0;
   border-radius: inherit;

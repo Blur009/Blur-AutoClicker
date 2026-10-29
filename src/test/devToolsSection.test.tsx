@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { check } from "@tauri-apps/plugin-updater";
@@ -40,13 +40,14 @@ describe("DevToolsSection", () => {
   it("lists every dialog that can pop up", () => {
     render(<DevToolsSection />);
     const rows = document.querySelectorAll(".settings-row");
-    expect(rows).toHaveLength(7);
+    expect(rows).toHaveLength(8);
     for (const label of [
       "Reset all settings",
       "Reset usage data",
       "Extended click speed limit",
       "Restart as administrator",
       "Administrator window prompt",
+      "Donation reminder",
       "Update available banner",
       "Update preview",
     ]) {
@@ -60,7 +61,6 @@ describe("DevToolsSection", () => {
     expect(screen.queryByText("9.9.9")).toBeNull();
     await user.click(openRow("Update available banner"));
     expect(await screen.findByText("9.9.9")).toBeInTheDocument();
-    expect(screen.getByText("!!test!!")).toBeInTheDocument();
     await user.click(
       screen.getByRole("button", { name: "Download and Install" }),
     );
@@ -85,7 +85,6 @@ describe("DevToolsSection", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Reset all settings",
     });
-    expect(within(dialog).getByText("!!test!!")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Reset" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(tauri.invokes()).toHaveLength(0);
@@ -99,21 +98,18 @@ describe("DevToolsSection", () => {
     let dialog = await screen.findByRole("dialog", {
       name: "Reset usage data",
     });
-    expect(within(dialog).getByText("!!test!!")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
     await user.click(openRow("Extended click speed limit"));
     dialog = await screen.findByRole("dialog", {
       name: "Enable extended click speed limit?",
     });
-    expect(within(dialog).getByText("!!test!!")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
     await user.click(openRow("Restart as administrator"));
     dialog = await screen.findByRole("dialog", {
       name: "Restart as administrator?",
     });
-    expect(within(dialog).getByText("!!test!!")).toBeInTheDocument();
     await user.click(
       within(dialog).getByRole("button", { name: "Restart now" }),
     );
@@ -130,9 +126,6 @@ describe("DevToolsSection", () => {
         name: "Task Manager is running as administrator",
       }),
     ).toBeInTheDocument();
-    const dialog = screen.getByRole("alertdialog");
-    expect(within(dialog).getByText("!!test!!")).toBeInTheDocument();
-
     const toggle = screen.getByRole("button", {
       name: "Always start as administrator",
     });
@@ -156,18 +149,33 @@ describe("DevToolsSection", () => {
     expect(
       screen.getByText("Sample feature added for the preview."),
     ).toBeInTheDocument();
-    expect(
-      within(
-        screen.getByRole("dialog", {
-          name: "Updates from v3.9.6 to 9.9.9",
-        }),
-      ).getByText("!!test!!"),
-    ).toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", { name: "Close changelog preview" }),
     );
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(tauri.invokes()).toHaveLength(0);
+  });
+
+  it("opens the donation reminder and its support button works", async () => {
+    render(<DevToolsSection />);
+    const user = userEvent.setup();
+
+    await user.click(openRow("Donation reminder"));
+    const dialog = await screen.findByRole("dialog", {
+      name: /You've reached 1 million clicks/,
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Support Me" }),
+    );
+    expect(openUrl).toHaveBeenCalledWith("https://ko-fi.com/Z8Z71T8QD4");
+    expect(await screen.findByText("Thank you.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), {
+      timeout: 4000,
+    });
+    expect(
+      tauri.invokes().filter((call) => call.command !== "get_cursor_position"),
+    ).toHaveLength(0);
   });
 });

@@ -908,3 +908,104 @@ describe("App status bar scale toggle", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("App donation reminder", () => {
+  const heavyStats = {
+    totalClicks: 1_200_000,
+    totalTimeSecs: 0,
+    totalSessions: 4,
+    avgCpu: 0,
+  };
+
+  async function renderUntilStats() {
+    render(<App />);
+    await waitFor(
+      () => expect(tauri.invokes("update_settings").length).toBeGreaterThan(0),
+      { timeout: 5000 },
+    );
+  }
+
+  it("opens on a heavy milestone and moves off the simple tab", async () => {
+    tauri.setInvokeResult("get_stats", heavyStats);
+
+    await renderUntilStats();
+
+    const dialog = await screen.findByRole("dialog", {
+      name: /You've reached 1 million clicks/,
+    });
+    expect(
+      within(dialog).getByText(/^One person builds BlurAutoClicker\./),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("1,200,000 clicks recorded so far"),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".app-root")?.getAttribute("data-tab")).toBe(
+      "advanced",
+    );
+  });
+
+  it("stays quiet when the milestone was already acknowledged", async () => {
+    tauri.setInvokeResult("get_stats", heavyStats);
+    tauri.setStoredSettings({ donationClicksMilestone: 1_000_000 });
+
+    await renderUntilStats();
+    await waitFor(() => expect(tauri.invokes("get_stats")).not.toHaveLength(0));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("stays quiet for a light history", async () => {
+    tauri.setInvokeResult("get_stats", {
+      ...heavyStats,
+      totalClicks: 900_000,
+    });
+
+    await renderUntilStats();
+    await waitFor(() => expect(tauri.invokes("get_stats")).not.toHaveLength(0));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("remembers a decline", async () => {
+    tauri.setInvokeResult("get_stats", heavyStats);
+
+    await renderUntilStats();
+    const dialog = await screen.findByRole("dialog", {
+      name: /You've reached 1 million clicks/,
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "No, Thank you" }),
+    );
+
+    expect(
+      await screen.findByText("Enjoy the autoclicker."),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(syncedSettings().donationClicksMilestone).toBe(1_000_000),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), {
+      timeout: 4000,
+    });
+  });
+
+  it("opens ko-fi from the support button and remembers it", async () => {
+    tauri.setInvokeResult("get_stats", heavyStats);
+
+    await renderUntilStats();
+    const dialog = await screen.findByRole("dialog", {
+      name: /You've reached 1 million clicks/,
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Support Me" }));
+
+    expect(openerMock.openUrl).toHaveBeenCalledWith(
+      "https://ko-fi.com/Z8Z71T8QD4",
+    );
+    expect(await screen.findByText("Thank you.")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(syncedSettings().donationClicksMilestone).toBe(1_000_000),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), {
+      timeout: 4000,
+    });
+  });
+});

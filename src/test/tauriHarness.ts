@@ -86,6 +86,7 @@ const DEFAULT_INVOKE_RESULTS: Record<string, unknown> = {
   get_elevation_state: { elevated: false, canElevate: false },
   set_accent_color: null,
   set_webview_zoom: null,
+  get_cursor_position: null,
   register_master: null,
   set_elevation_notice_enabled: null,
   prepare_main_window: null,

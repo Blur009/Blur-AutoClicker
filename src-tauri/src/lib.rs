@@ -732,6 +732,7 @@ pub fn run() {
             ui_commands::export_preset_file,
             ui_commands::import_preset_file,
             ui_commands::allow_local_media,
+            ui_commands::get_cursor_position,
             ui_commands::get_stats,
             ui_commands::get_stats_overview,
             ui_commands::reset_stats,

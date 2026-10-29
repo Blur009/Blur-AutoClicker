@@ -51,30 +51,30 @@ async function freshModule(): Promise<ConfettiModule> {
   return import("../confetti");
 }
 
+beforeEach(() => {
+  clock = 1000;
+  frames = [];
+  vi.spyOn(performance, "now").mockImplementation(() => clock);
+  vi.stubGlobal("requestAnimationFrame", (step: FrameRequestCallback) => {
+    frames.push(step);
+    return frames.length;
+  });
+  vi.stubGlobal(
+    "setTimeout",
+    vi.fn(() => 0),
+  );
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+    context as unknown as CanvasRenderingContext2D,
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  document.body.innerHTML = "";
+});
+
 describe("burstConfetti", () => {
-  beforeEach(() => {
-    clock = 1000;
-    frames = [];
-    vi.spyOn(performance, "now").mockImplementation(() => clock);
-    vi.stubGlobal("requestAnimationFrame", (step: FrameRequestCallback) => {
-      frames.push(step);
-      return frames.length;
-    });
-    vi.stubGlobal(
-      "setTimeout",
-      vi.fn(() => 0),
-    );
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
-      context as unknown as CanvasRenderingContext2D,
-    );
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-    document.body.innerHTML = "";
-  });
-
   it("does nothing when the user asks for reduced motion", async () => {
     motionPermission(true);
     const module = await freshModule();
@@ -184,5 +184,43 @@ describe("burstConfetti", () => {
     drainFrames();
 
     expect(setTimeout).not.toHaveBeenCalled();
+  });
+});
+
+describe("popConfetti", () => {
+  it("fires a small fixed puff without touching the tiers", async () => {
+    motionPermission(false);
+    const module = await freshModule();
+
+    module.popConfetti(20, 40);
+    const drawn = drainFrames();
+
+    expect(drawn).toBeGreaterThan(4);
+    expect(drawn).toBeLessThan(20);
+  });
+
+  it("does nothing when the user asks for reduced motion", async () => {
+    motionPermission(true);
+    const module = await freshModule();
+
+    module.popConfetti(20, 40);
+
+    expect(canvasCount()).toBe(0);
+  });
+
+  it("does not count clicks toward the hover tiers", async () => {
+    motionPermission(false);
+    const module = await freshModule();
+
+    for (let index = 0; index < 20; index += 1) {
+      frames = [];
+      module.popConfetti(20, 40);
+      clock += 400;
+    }
+    frames = [];
+    module.burstConfetti(20, 40);
+    const drawn = drainFrames();
+
+    expect(drawn).toBeLessThan(60);
   });
 });

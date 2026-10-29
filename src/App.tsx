@@ -29,6 +29,7 @@ import {
   resolveBackgroundSource,
 } from "./backgroundMedia";
 import ElevationPrompt from "./components/ElevationPrompt";
+import DonationPrompt from "./components/DonationPrompt";
 import UpdateBanner from "./components/Updatebanner";
 import {
   buildHotkeyWithHeld,
@@ -50,6 +51,7 @@ import {
   type PresetId,
 } from "./settingsSchema";
 import { save, open } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   APP_VERSION,
   DEFAULT_SETTINGS,
@@ -66,6 +68,13 @@ import { restartAsAdministrator } from "./restart";
 import { holdModePatch } from "./cadence";
 import { playClickerSound } from "./soundPlayback";
 import { webviewZoom } from "./uiScale";
+import {
+  KOFI_URL,
+  milestonePatch,
+  nextDonationMilestone,
+} from "./donationReminders";
+import type { DonationPrompt as DonationPromptState } from "./donationReminders";
+import type { CumulativeStats } from "./components/panels/settings/sections/usageSeries";
 
 void initAppVersion();
 
@@ -229,6 +238,9 @@ export default function App() {
   });
   const [elevationLoaded, setElevationLoaded] = useState(false);
   const [promptBusy, setPromptBusy] = useState(false);
+  const [donationPrompt, setDonationPrompt] =
+    useState<DonationPromptState | null>(null);
+  const donationOpenRef = useRef(false);
   const elevationRelaunchedRef = useRef(false);
   const [appInfo, setAppInfo] = useState<AppInfo>(DEFAULT_APP_INFO);
   const [updateInfo, setUpdateInfo] = useState<{
@@ -932,6 +944,55 @@ export default function App() {
     };
   }, []);
 
+  const checkDonationMilestone = useCallback(async () => {
+    if (donationOpenRef.current) return;
+    if (
+      document
+        .querySelector(".app-root")
+        ?.getAttribute("data-elevation-prompt") === "true"
+    ) {
+      return;
+    }
+
+    try {
+      const stats = await invoke<CumulativeStats>("get_stats");
+      if (!stats) return;
+
+      const current = committedSettingsRef.current;
+      const prompt = nextDonationMilestone({
+        totalClicks: stats.totalClicks,
+        totalTimeSecs: stats.totalTimeSecs,
+        clicksSeen: current.donationClicksMilestone,
+        timeSeen: current.donationTimeMilestone,
+      });
+      if (!prompt) return;
+
+      donationOpenRef.current = true;
+      setDonationPrompt(prompt);
+      setTab((currentTab) =>
+        currentTab === "simple" ? "advanced" : currentTab,
+      );
+    } catch (err) {
+      logDiagnostic("App.donationMilestone", {
+        error: String(err),
+      });
+    }
+  }, []);
+
+  const handleDonationAcknowledge = useCallback(() => {
+    const prompt = donationPrompt;
+    if (prompt) updateSettings(milestonePatch(prompt.milestone));
+  }, [donationPrompt, updateSettings]);
+
+  const handleDonationClose = useCallback(() => {
+    donationOpenRef.current = false;
+    setDonationPrompt(null);
+  }, []);
+
+  const handleDonationSupport = useCallback(() => {
+    void openUrl(KOFI_URL);
+  }, []);
+
   useEffect(() => {
     let cleanup: (() => void) | undefined;
 
@@ -943,6 +1004,9 @@ export default function App() {
           nowRunning ? "enable" : "disable",
           uiSettingsRef.current,
         );
+      }
+      if (wasRunning === true && !nowRunning) {
+        void checkDonationMilestone();
       }
       previousRunningRef.current = nowRunning;
       setStatus(event.payload);
@@ -962,7 +1026,12 @@ export default function App() {
     return () => {
       cleanup?.();
     };
-  }, []);
+  }, [checkDonationMilestone]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    void checkDonationMilestone();
+  }, [settingsLoaded, checkDonationMilestone]);
 
   useEffect(() => {
     const handleDropdownOverflow = (event: Event) => {
@@ -2004,6 +2073,12 @@ export default function App() {
           onGoToVersionInfo={handleGoToVersionInfo}
         />
       )}
+      <DonationPrompt
+        prompt={donationPrompt}
+        onSupport={handleDonationSupport}
+        onAcknowledge={handleDonationAcknowledge}
+        onClose={handleDonationClose}
+      />
       <ElevationPrompt
         open={elevationPromptOpen}
         canElevate={elevation.canElevate}

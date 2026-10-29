@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { KOFI_URL } from "../../../../donationReminders";
 import type { ChangelogEntry } from "../../../../changelog";
 import ElevationPrompt from "../../../ElevationPrompt";
+import DonationPrompt from "../../../DonationPrompt";
 import UpdateBanner from "../../../Updatebanner";
 import UpdatePreviewModal from "../../../UpdatePreviewModal";
 import {
@@ -19,10 +22,9 @@ type PreviewId =
   | "extended-speed"
   | "restart-admin"
   | "elevation"
+  | "donation"
   | "update-banner"
   | "update-preview";
-
-const TEST_MARKER = "!!test!!";
 
 const PREVIEWS: { id: PreviewId; label: string; description: string }[] = [
   {
@@ -49,6 +51,11 @@ const PREVIEWS: { id: PreviewId; label: string; description: string }[] = [
     id: "elevation",
     label: "Administrator window prompt",
     description: "Blocking prompt shown when an elevated window takes focus.",
+  },
+  {
+    id: "donation",
+    label: "Donation reminder",
+    description: "Milestone reminder shown after heavy use.",
   },
   {
     id: "update-banner",
@@ -121,30 +128,44 @@ export default function DevToolsSection() {
         ))}
       </SettingsCard>
 
+      <DonationPrompt
+        prompt={
+          preview === "donation"
+            ? {
+                milestone: {
+                  kind: "clicks",
+                  threshold: 1_000_000,
+                  label: "1 million clicks",
+                },
+                current: 1_247_301,
+              }
+            : null
+        }
+        onSupport={() => void openUrl(KOFI_URL)}
+        onAcknowledge={() => {}}
+        onClose={close}
+      />
+
       <ResetSettingsDialog
         open={preview === "reset-settings"}
-        testMarker={TEST_MARKER}
         onConfirm={close}
         onCancel={close}
       />
 
       <ResetUsageDialog
         open={preview === "reset-usage"}
-        testMarker={TEST_MARKER}
         onConfirm={close}
         onCancel={close}
       />
 
       <ExtendedSpeedDialog
         open={preview === "extended-speed"}
-        testMarker={TEST_MARKER}
         onConfirm={close}
         onCancel={close}
       />
 
       <RestartAdminDialog
         open={preview === "restart-admin"}
-        testMarker={TEST_MARKER}
         onConfirm={close}
         onCancel={close}
       />
@@ -156,7 +177,6 @@ export default function DevToolsSection() {
         loading={false}
         error={false}
         entries={SAMPLE_UPDATE}
-        testMarker={TEST_MARKER}
         onClose={close}
       />
 
@@ -174,7 +194,7 @@ export default function DevToolsSection() {
                 <UpdateBanner
                   currentVersion="3.9.6"
                   latestVersion="9.9.9"
-                  testMarker={TEST_MARKER}
+                  preview
                 />
               </div>
             </div>,
@@ -192,7 +212,6 @@ export default function DevToolsSection() {
                 windowName="Task Manager"
                 windowTitle="Task Manager"
                 busy={false}
-                testMarker={TEST_MARKER}
                 onRestart={close}
                 onAlwaysRunChange={setPromptToggle}
                 onDismiss={close}

@@ -805,6 +805,16 @@ const SETTINGS_ONLY_FIELDS = {
     default: true,
     ui: { section: "appearance", control: "toggle" },
   },
+  donationClicksMilestone: {
+    default: 0,
+    limit: { min: 0, max: 1_000_000_000 },
+    ui: { section: "core", control: "number" },
+  },
+  donationTimeMilestone: {
+    default: 0,
+    limit: { min: 0, max: 10_000_000 },
+    ui: { section: "core", control: "number" },
+  },
   uiScale: {
     default: UI_SCALE_DEFAULT,
     limit: { min: UI_SCALE_MIN, max: UI_SCALE_MAX },

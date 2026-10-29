@@ -451,6 +451,32 @@ pub fn get_portable_info() -> crate::app_state::PortableInfo {
     }
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CursorPoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[tauri::command]
+pub fn get_cursor_position(window: tauri::WebviewWindow) -> Option<CursorPoint> {
+    #[cfg(target_os = "windows")]
+    {
+        let (x, y) = crate::engine::mouse::current_cursor_position()?;
+        let origin = window.inner_position().ok()?;
+        Some(CursorPoint {
+            x: (x - origin.x) as f64,
+            y: (y - origin.y) as f64,
+        })
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+        None
+    }
+}
+
 #[tauri::command]
 pub fn get_stats() -> AppResult<CumulativeStats> {
     crate::engine::stats::get_stats()
