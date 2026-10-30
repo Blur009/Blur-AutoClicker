@@ -65,7 +65,21 @@ $handlerCandidates = @(
 )
 $handler = $handlerCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $handler) {
-  Write-Error 'crashpad_handler.exe not found in target dirs. Build must run before bundling; this usually means the crashpad "prebuilt" feature did not produce the handler.'
+  $cacheRoot = Join-Path $env:LOCALAPPDATA 'crashpad-rs/prebuilt'
+  if ($env:LOCALAPPDATA -and (Test-Path $cacheRoot)) {
+    $handler = Get-ChildItem -Path $cacheRoot -Recurse -Filter 'crashpad_handler.exe' -File |
+      Select-Object -First 1 -ExpandProperty FullName
+  }
+}
+if (-not $handler) {
+  $targetRoot = Join-Path $RepoRoot 'src-tauri/target'
+  if (Test-Path $targetRoot) {
+    $handler = Get-ChildItem -Path $targetRoot -Recurse -Filter 'crashpad_handler.exe' -File -ErrorAction SilentlyContinue |
+      Select-Object -First 1 -ExpandProperty FullName
+  }
+}
+if (-not $handler) {
+  Write-Error 'crashpad_handler.exe not found in target dirs or the crashpad-rs cache. Build must run before bundling; this usually means the crashpad "prebuilt" feature did not produce the handler.'
 }
 Copy-Item -Path $handler -Destination (Join-Path $resourcesDir 'crashpad_handler.exe') -Force
 Write-Host "[prepare-windows-redist] crashpad handler: $handler"

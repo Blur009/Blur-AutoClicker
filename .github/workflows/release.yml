@@ -58,6 +58,10 @@ jobs:
             Set-Content -Path release_body.md -Value $match.Value.Trim()
           }
 
+      - name: Regenerate the crashpad handler
+        shell: pwsh
+        run: cargo clean --manifest-path src-tauri/Cargo.toml --package crashpad-rs-sys --release
+
       - name: Build
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
