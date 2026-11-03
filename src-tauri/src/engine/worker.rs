@@ -178,6 +178,7 @@ impl RunFlagsGuard {
         state.engine_busy.store(false, Ordering::SeqCst);
         state.running.store(false, Ordering::SeqCst);
         release_zone_claim(&state, self.generation);
+        state.paused_by_zone.store(false, Ordering::SeqCst);
         state.active_click_point_index.store(-1, Ordering::SeqCst);
         state.active_click_point_tick.store(0, Ordering::SeqCst);
         crate::icon::set_app_icons(&self.app);
@@ -333,6 +334,7 @@ fn start_clicker_run(
         state.active_click_point_index.store(0, Ordering::SeqCst);
         state.active_click_point_tick.store(0, Ordering::SeqCst);
     }
+    state.paused_by_zone.store(false, Ordering::SeqCst);
     let control = RunControl::new(app.clone(), expected_generation);
     let app_handle = app.clone();
 
@@ -595,7 +597,7 @@ pub fn current_status(app: &AppHandle) -> ClickerStatusPayload {
 
     ClickerStatusPayload {
         running: state.running.load(Ordering::SeqCst),
-        paused: state.paused.load(Ordering::SeqCst),
+        paused: state.paused.load(Ordering::SeqCst) || state.paused_by_zone.load(Ordering::SeqCst),
         click_count: get_click_count(),
         last_error,
         stop_reason,
@@ -1234,18 +1236,17 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
                 break;
             }
 
-            match zone_hit {
-                Some((crate::engine::ZoneAction::Pause, _)) => {
-                    clicker_state.paused_by_zone.store(true, Ordering::SeqCst);
-                }
-                _ => {
-                    clicker_state.paused_by_zone.store(false, Ordering::SeqCst);
-                }
+            let zone_paused = matches!(zone_hit, Some((crate::engine::ZoneAction::Pause, _)));
+            if control.is_current_generation()
+                && clicker_state
+                    .paused_by_zone
+                    .swap(zone_paused, Ordering::SeqCst)
+                    != zone_paused
+            {
+                emit_status(&control.app);
             }
 
-            if clicker_state.paused.load(Ordering::SeqCst)
-                || clicker_state.paused_by_zone.load(Ordering::SeqCst)
-            {
+            if clicker_state.paused.load(Ordering::SeqCst) || zone_paused {
                 held.release();
                 std::thread::sleep(std::time::Duration::from_millis(10));
                 continue;
@@ -1322,18 +1323,17 @@ pub fn start_clicker(config: ClickerConfig, control: RunControl) -> RunOutcome {
             break;
         }
 
-        match zone_hit {
-            Some((crate::engine::ZoneAction::Pause, _)) => {
-                clicker_state.paused_by_zone.store(true, Ordering::SeqCst);
-            }
-            _ => {
-                clicker_state.paused_by_zone.store(false, Ordering::SeqCst);
-            }
+        let zone_paused = matches!(zone_hit, Some((crate::engine::ZoneAction::Pause, _)));
+        if control.is_current_generation()
+            && clicker_state
+                .paused_by_zone
+                .swap(zone_paused, Ordering::SeqCst)
+                != zone_paused
+        {
+            emit_status(&control.app);
         }
 
-        if clicker_state.paused.load(Ordering::SeqCst)
-            || clicker_state.paused_by_zone.load(Ordering::SeqCst)
-        {
+        if clicker_state.paused.load(Ordering::SeqCst) || zone_paused {
             std::thread::sleep(std::time::Duration::from_millis(10));
             continue;
         }

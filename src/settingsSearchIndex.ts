@@ -279,6 +279,12 @@ export const SETTINGS_SEARCH_INDEX: SettingsSearchEntry[] = [
   },
   {
     tab: "sounds",
+    card: null,
+    label: "Allow more than 10 per second",
+    hint: null,
+  },
+  {
+    tab: "sounds",
     card: "Volume",
     label: "Master volume",
     hint: "Scales the volume of every sound.",
@@ -289,19 +295,8 @@ export const SETTINGS_SEARCH_INDEX: SettingsSearchEntry[] = [
     label: "Mute all sounds",
     hint: "Same switch as the speaker icon in the status bar.",
   },
-  {
-    tab: "sounds",
-    card: null,
-    label: "Play sound",
-    hint: "Flip it off to silence this sound.",
-  },
   { tab: "sounds", card: null, label: "Sound file", hint: null },
-  {
-    tab: "sounds",
-    card: null,
-    label: "Sound volume",
-    hint: "Multiplied by the master volume.",
-  },
+  { tab: "sounds", card: null, label: "Sound volume", hint: null },
   { tab: "keybinds", card: null, label: "Advanced", hint: null },
   {
     tab: "keybinds",

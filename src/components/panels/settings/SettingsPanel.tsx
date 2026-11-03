@@ -179,6 +179,7 @@ export default function SettingsPanel({
   const [hoverRect, setHoverRect] = useState<TabRect | null>(null);
   const [hoverOn, setHoverOn] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const jumpTimerRef = useRef<number | undefined>(undefined);
   const navRef = useRef<HTMLElement>(null);
   const prevInitialTabRef = useRef<string | undefined>(undefined);
 
@@ -327,12 +328,30 @@ export default function SettingsPanel({
         panel.querySelectorAll<HTMLElement>(".settings-label"),
       ).find((node) => (node.textContent ?? "").trim().toLowerCase() === label);
       if (target) {
+        const details = target.closest<HTMLElement>(".sound-details");
+        const unfold = details?.querySelector<HTMLButtonElement>(
+          ".sound-details-toggle",
+        );
+        const needsUnfold = Boolean(
+          details && unfold && details.dataset.open !== "true",
+        );
+        if (needsUnfold) unfold?.click();
         const row = target.closest<HTMLElement>(".settings-row") ?? target;
-        row.scrollIntoView({ block: "center" });
-        row.classList.add("settings-row-jump");
         window.setTimeout(
-          () => row.classList.remove("settings-row-jump"),
-          1400,
+          () => {
+            if (typeof row.scrollIntoView === "function") {
+              row.scrollIntoView({ block: "center" });
+            }
+            window.clearTimeout(jumpTimerRef.current);
+            row.classList.remove("settings-row-jump");
+            void row.offsetWidth;
+            row.classList.add("settings-row-jump");
+            jumpTimerRef.current = window.setTimeout(
+              () => row.classList.remove("settings-row-jump"),
+              1400,
+            );
+          },
+          needsUnfold ? 240 : 0,
         );
       }
       setJumpTo(null);

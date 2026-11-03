@@ -504,6 +504,84 @@ describe("sound settings", () => {
     expect(sanitized.enableSoundPath).toBe("");
   });
 
+  it("defaults the per-click sound to off, on the enabled chime", () => {
+    const defaults = createDefaultSettings(VERSION);
+
+    expect(defaults.clickSoundEnabled).toBe(false);
+    expect(defaults.clickSoundPath).toBe("");
+    expect(defaults.clickSoundVolume).toBe(50);
+    expect(defaults.clickSoundAllowFastRate).toBe(false);
+    expect(defaults.recentSoundPaths).toEqual([]);
+    expect(defaults.clickSoundTrimStart).toBe(0);
+    expect(defaults.clickSoundTrimEnd).toBe(0);
+  });
+
+  it("fills the per-click keys for settings saved before they existed", () => {
+    const sanitized = sanitizeSettings(
+      { version: "3.9.5", clickSpeed: 25, clickInterval: "s" },
+      VERSION,
+    );
+
+    expect(sanitized.clickSoundEnabled).toBe(false);
+    expect(sanitized.clickSoundAllowFastRate).toBe(false);
+    expect(sanitized.recentSoundPaths).toEqual([]);
+    expect(sanitized.enableSoundTrimEnd).toBe(0);
+  });
+
+  it("clamps the click volume and the trims", () => {
+    const clamped = sanitizeSettings(
+      {
+        clickSoundVolume: 400,
+        clickSoundTrimStart: 9e9,
+        clickSoundTrimEnd: -5,
+        disableSoundTrimStart: Number.NaN,
+        disableSoundTrimEnd: "x" as unknown as number,
+      },
+      VERSION,
+    );
+
+    expect(clamped.clickSoundVolume).toBe(100);
+    expect(clamped.clickSoundTrimStart).toBe(600_000);
+    expect(clamped.clickSoundTrimEnd).toBe(0);
+    expect(clamped.disableSoundTrimStart).toBe(0);
+    expect(clamped.disableSoundTrimEnd).toBe(0);
+  });
+
+  it("rounds stored trims to whole milliseconds", () => {
+    const sanitized = sanitizeSettings(
+      { clickSoundTrimStart: 12.7, clickSoundTrimEnd: 180.2 },
+      VERSION,
+    );
+
+    expect(sanitized.clickSoundTrimStart).toBe(13);
+    expect(sanitized.clickSoundTrimEnd).toBe(180);
+  });
+
+  it("keeps the recent sound list clean and bounded", () => {
+    const sanitized = sanitizeSettings(
+      {
+        recentSoundPaths: [
+          "a.wav",
+          42,
+          "A.WAV",
+          " b.wav ",
+          null,
+          ...Array.from({ length: 20 }, (_, index) => `f${index}.wav`),
+        ] as unknown as string[],
+      },
+      VERSION,
+    );
+
+    expect(sanitized.recentSoundPaths.slice(0, 2)).toEqual(["a.wav", "b.wav"]);
+    expect(sanitized.recentSoundPaths).toHaveLength(12);
+    expect(
+      sanitizeSettings(
+        { recentSoundPaths: "a.wav" as unknown as string[] },
+        VERSION,
+      ).recentSoundPaths,
+    ).toEqual([]);
+  });
+
   it("clamps sound volumes to 0-100", () => {
     const tooHigh = sanitizeSettings(
       { soundVolume: 400, enableSoundVolume: 150 },

@@ -1,4 +1,6 @@
 import { DEFAULT_ACCENT_HEX, sanitizeThemeProfiles } from "./themeModel";
+import { sanitizeRecentSoundPaths } from "./soundRecents";
+import { SOUND_TRIM_MAX_MS } from "./soundTrim";
 import type { ThemeProfile } from "./themeModel";
 
 export type ClickInterval = "s" | "m" | "h" | "d";
@@ -333,6 +335,57 @@ const SETTINGS_ONLY_FIELDS = {
   alwaysRunAsAdmin: {
     default: false,
     ui: { section: "startup", control: "toggle" },
+  },
+  clickSoundEnabled: {
+    default: false,
+    ui: { section: "sounds", control: "toggle" },
+  },
+  clickSoundPath: {
+    default: "",
+    ui: { section: "sounds", control: "custom" },
+  },
+  clickSoundVolume: {
+    default: 50,
+    limit: { min: 0, max: 100 },
+    ui: { section: "sounds", control: "number" },
+  },
+  clickSoundAllowFastRate: {
+    default: false,
+    ui: { section: "sounds", control: "toggle" },
+  },
+  enableSoundTrimStart: {
+    default: 0,
+    limit: { min: 0, max: SOUND_TRIM_MAX_MS },
+    ui: { section: "sounds", control: "custom" },
+  },
+  enableSoundTrimEnd: {
+    default: 0,
+    limit: { min: 0, max: SOUND_TRIM_MAX_MS },
+    ui: { section: "sounds", control: "custom" },
+  },
+  disableSoundTrimStart: {
+    default: 0,
+    limit: { min: 0, max: SOUND_TRIM_MAX_MS },
+    ui: { section: "sounds", control: "custom" },
+  },
+  disableSoundTrimEnd: {
+    default: 0,
+    limit: { min: 0, max: SOUND_TRIM_MAX_MS },
+    ui: { section: "sounds", control: "custom" },
+  },
+  clickSoundTrimStart: {
+    default: 0,
+    limit: { min: 0, max: SOUND_TRIM_MAX_MS },
+    ui: { section: "sounds", control: "custom" },
+  },
+  clickSoundTrimEnd: {
+    default: 0,
+    limit: { min: 0, max: SOUND_TRIM_MAX_MS },
+    ui: { section: "sounds", control: "custom" },
+  },
+  recentSoundPaths: {
+    default: [] as string[],
+    ui: { section: "sounds", control: "custom" },
   },
   fancyTitle: {
     default: false,
@@ -1659,6 +1712,39 @@ export function sanitizeSettings(
     saved.alwaysRunAsAdmin,
     defaults.alwaysRunAsAdmin,
   );
+  settingsOnly.clickSoundEnabled = sanitizeBoolean(
+    saved.clickSoundEnabled,
+    defaults.clickSoundEnabled,
+  );
+  settingsOnly.clickSoundPath =
+    typeof saved.clickSoundPath === "string"
+      ? saved.clickSoundPath
+      : defaults.clickSoundPath;
+  settingsOnly.clickSoundAllowFastRate = sanitizeBoolean(
+    saved.clickSoundAllowFastRate,
+    defaults.clickSoundAllowFastRate,
+  );
+  settingsOnly.clickSoundVolume = clampNumber(
+    saved.clickSoundVolume,
+    defaults.clickSoundVolume,
+    0,
+    100,
+  );
+  settingsOnly.recentSoundPaths = sanitizeRecentSoundPaths(
+    saved.recentSoundPaths,
+  );
+  for (const key of [
+    "enableSoundTrimStart",
+    "enableSoundTrimEnd",
+    "disableSoundTrimStart",
+    "disableSoundTrimEnd",
+    "clickSoundTrimStart",
+    "clickSoundTrimEnd",
+  ] as const) {
+    settingsOnly[key] = Math.round(
+      clampNumber(saved[key], defaults[key], 0, SOUND_TRIM_MAX_MS),
+    );
+  }
   settingsOnly.fancyTitle = sanitizeBoolean(
     saved.fancyTitle,
     defaults.fancyTitle,

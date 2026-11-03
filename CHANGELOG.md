@@ -3,6 +3,7 @@
 ## New
 
 - Added settings search bar.
+- Added per-click sound setting, with a waveform preview you can trim with drag handles.
 
 ## Changed
 

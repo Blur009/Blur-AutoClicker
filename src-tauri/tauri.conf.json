@@ -15,7 +15,7 @@
     "withGlobalTauri": true,
     "windows": [],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://asset.localhost http: https: data: blob:; media-src 'self' asset: http://asset.localhost https://asset.localhost http: https: data: blob:; font-src 'self' data:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://asset.localhost http: https: data: blob:; media-src 'self' asset: http://asset.localhost https://asset.localhost http: https: data: blob:; font-src 'self' data:; connect-src 'self' asset: http://asset.localhost https://asset.localhost https://api.github.com https://raw.githubusercontent.com",
       "assetProtocol": {
         "enable": true,
         "scope": {

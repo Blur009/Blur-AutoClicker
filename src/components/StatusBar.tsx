@@ -148,7 +148,7 @@ export default memo(function StatusBar({
   const segmentStartRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (running && !paused) {
+    if (running) {
       segmentStartRef.current = Date.now();
       const tick = () => {
         setElapsedMs(
@@ -157,15 +157,6 @@ export default memo(function StatusBar({
       };
       tick();
       intervalRef.current = setInterval(tick, 500);
-    } else if (running && paused) {
-      if (segmentStartRef.current !== null) {
-        baseElapsedRef.current += Date.now() - segmentStartRef.current;
-        segmentStartRef.current = null;
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -181,7 +172,7 @@ export default memo(function StatusBar({
         intervalRef.current = null;
       }
     };
-  }, [running, paused]);
+  }, [running]);
 
   let centerText = "";
   let hasWarning = false;

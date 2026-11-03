@@ -64,8 +64,9 @@ import {
   settingsRecoveryWarning,
 } from "./store";
 import { restartAsAdministrator, restartWithoutAdministrator } from "./restart";
+import { clickSoundIntervalMs } from "./clickSound";
 import { holdModePatch } from "./cadence";
-import { playClickerSound } from "./soundPlayback";
+import { playClickerSound, stopClickerSounds } from "./soundPlayback";
 import FirstRunSetup from "./components/FirstRunSetup";
 import { webviewZoom } from "./uiScale";
 import {
@@ -1038,6 +1039,37 @@ export default function App() {
       cleanup?.();
     };
   }, [checkDonationMilestone]);
+
+  const clickSoundInterval = clickSoundIntervalMs(settings);
+  const clickSoundActive =
+    settingsLoaded &&
+    status.running &&
+    !status.paused &&
+    settings.clickSoundEnabled &&
+    !settings.soundMuted;
+  const chimeMarksStart = settings.enableSoundEnabled && !settings.soundMuted;
+  const clickSoundStartedRef = useRef(false);
+  useEffect(() => {
+    if (!clickSoundActive) {
+      clickSoundStartedRef.current = false;
+      return;
+    }
+    if (!clickSoundStartedRef.current) {
+      clickSoundStartedRef.current = true;
+      if (!chimeMarksStart) {
+        void playClickerSound("click", uiSettingsRef.current);
+      }
+    }
+    const timer = window.setInterval(() => {
+      void playClickerSound("click", uiSettingsRef.current);
+    }, clickSoundInterval);
+    return () => window.clearInterval(timer);
+  }, [clickSoundActive, clickSoundInterval, chimeMarksStart]);
+
+  useEffect(() => {
+    if (clickSoundActive) return;
+    stopClickerSounds();
+  }, [clickSoundActive]);
 
   useEffect(() => {
     if (!settingsLoaded) return;
@@ -2126,7 +2158,9 @@ export default function App() {
           showPreset={settings.statusBarPresetEnabled}
           showSoundToggle={
             settings.statusBarSoundEnabled &&
-            (settings.enableSoundEnabled || settings.disableSoundEnabled)
+            (settings.enableSoundEnabled ||
+              settings.disableSoundEnabled ||
+              settings.clickSoundEnabled)
           }
           soundMuted={settings.soundMuted}
           onToggleSound={handleToggleSoundMuted}
