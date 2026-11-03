@@ -1,5 +1,9 @@
 # v3.10.2 - 03.11.2026 (d.m.y)
 
+## New
+
+- Added settings search bar.
+
 ## Changed
 
 - Changed changelog date display to hover card.

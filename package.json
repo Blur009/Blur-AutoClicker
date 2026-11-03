@@ -18,7 +18,8 @@
     "check": "node scripts/check.mjs",
     "check:fix": "node scripts/check.mjs --fix",
     "screenshots": "node .screenshot-tool/run.mjs",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "settings:index": "node scripts/gen-settings-index.mjs"
   },
   "dependencies": {
     "@animateicons/react": "^0.13.0",

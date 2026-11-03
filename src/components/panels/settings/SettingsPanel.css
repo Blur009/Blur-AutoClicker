@@ -102,6 +102,7 @@
 .sidebar-tab {
   all: unset;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.5rem;
   position: relative;
@@ -1394,4 +1395,198 @@
   border: 1px solid var(--accent-ring);
   border-radius: var(--radius-sm);
   padding: 0.25rem 0.625rem;
+}
+
+/* Settings search */
+.settings-search-field {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  /* The sidebar is shorter than its content for the first frames after the
+     panel opens, and a flex item shrinks before it overflows. Pin the height
+     so the bar does not squash while the window is still growing. */
+  flex-shrink: 0;
+  margin-bottom: 0.5rem;
+  padding: 0 0.5rem;
+  height: 1.9rem;
+  min-height: 1.9rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-dim);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.settings-search-field[data-focused="true"] {
+  border-color: var(--accent);
+  color: var(--text-muted);
+}
+
+.settings-search-icon {
+  flex-shrink: 0;
+}
+
+.settings-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-family-base);
+  font-size: 0.75rem;
+}
+
+.settings-search-input::placeholder {
+  color: var(--text-dim);
+}
+
+.settings-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.settings-search-clear {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+  line-height: 1;
+  padding: 0 0.1rem;
+  cursor: pointer;
+}
+
+.settings-search-clear:hover {
+  color: var(--text-primary);
+}
+
+.settings-search-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.settings-search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.settings-search-result {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.settings-search-result:hover,
+.settings-search-result:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.settings-search-result-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.settings-search-result-label {
+  font-family: var(--font-family-base);
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-md);
+  color: var(--text-primary);
+}
+
+.settings-search-result-label mark {
+  background: transparent;
+  color: var(--accent);
+  font-weight: var(--font-weight-md);
+}
+
+.settings-search-result-hint {
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+}
+
+.settings-search-result-badge {
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  color: var(--text-dim);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.05rem 0.3rem;
+  white-space: nowrap;
+}
+
+.settings-search-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 15rem;
+  padding: 2rem 1.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  text-align: center;
+}
+
+.settings-search-empty-mascot {
+  width: 5.5rem;
+  height: auto;
+  margin-bottom: 0.25rem;
+  transform-origin: 50% 70%;
+  transition: transform 140ms ease-out;
+  user-select: none;
+  filter: drop-shadow(0 0.4rem 0.6rem rgba(0, 0, 0, 0.3));
+}
+
+.settings-search-empty-title {
+  font-family: var(--font-family-base);
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-md);
+  color: var(--text-primary);
+}
+
+.settings-search-empty-hint {
+  max-width: 17rem;
+  font-family: var(--font-family-base);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+@keyframes settings-row-jump {
+  0% {
+    background: var(--accent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.settings-row-jump {
+  border-radius: var(--radius-sm);
+  animation: settings-row-jump 1.4s ease-out;
 }
