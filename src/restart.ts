@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { exit } from "@tauri-apps/plugin-process";
 
 export type RestartOutcome = "relaunched" | "refused" | "unsaved";
 
@@ -17,7 +16,7 @@ export async function restartAsAdministrator(
   if (!relaunched) {
     return "refused";
   }
-  await exit(0);
+  await invoke("exit_for_restart");
   return "relaunched";
 }
 
@@ -35,6 +34,6 @@ export async function restartWithoutAdministrator(
   if (!relaunched) {
     return "refused";
   }
-  await exit(0);
+  await invoke("exit_for_restart");
   return "relaunched";
 }

@@ -17,6 +17,7 @@ mod indicator;
 mod logging;
 mod notifications;
 mod overlay;
+mod session_end;
 mod startup;
 mod theme_window;
 mod ui_commands;
@@ -96,7 +97,7 @@ pub(crate) fn force_foreground(window: &tauri::WebviewWindow) {
     };
 
     let hwnd = raw.hwnd.get() as *mut std::ffi::c_void;
-    apply_ws_ex_noactivate(window, false);
+    let _ = apply_ws_ex_noactivate(window, false);
     unsafe {
         let foreground = GetForegroundWindow();
         if foreground == hwnd {
@@ -118,25 +119,64 @@ pub(crate) fn force_foreground(window: &tauri::WebviewWindow) {
     }
 }
 
-fn apply_ws_ex_noactivate(window: &tauri::WebviewWindow, enable: bool) {
+/// Adds or removes `WS_EX_NOACTIVATE` on a window and returns the resulting
+/// style. The extended style is cached in the window frame, so a bare
+/// `SetWindowLongPtr` can leave the old behaviour in place; the frame change
+/// below is what makes the new style take effect.
+fn apply_ws_ex_noactivate(window: &tauri::WebviewWindow, enable: bool) -> Option<u32> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use windows_sys::Win32::Foundation::{GetLastError, SetLastError};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongW, SetWindowLongW, GWL_EXSTYLE,
+        GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, SWP_FRAMECHANGED,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, WS_EX_NOACTIVATE,
     };
 
-    if let Ok(handle) = window.window_handle() {
-        if let RawWindowHandle::Win32(w) = handle.as_raw() {
-            let hwnd = w.hwnd.get() as *mut std::ffi::c_void;
-            unsafe {
-                let ex = GetWindowLongW(hwnd, GWL_EXSTYLE);
-                let new_ex = if enable {
-                    (ex as u32 | 0x08000000) as i32
-                } else {
-                    (ex as u32 & !0x08000000) as i32
-                };
-                SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex);
-            }
+    let Ok(handle) = window.window_handle() else {
+        return None;
+    };
+    let RawWindowHandle::Win32(w) = handle.as_raw() else {
+        return None;
+    };
+    let hwnd = w.hwnd.get() as *mut std::ffi::c_void;
+
+    unsafe {
+        let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+        let wanted = if enable {
+            current | WS_EX_NOACTIVATE
+        } else {
+            current & !WS_EX_NOACTIVATE
+        };
+        if wanted == current {
+            return Some(current);
         }
+        // `SetWindowLongPtrW` returns the previous value, which is 0 on both
+        // success and failure when the old style was 0, so read the error out
+        // of band instead.
+        SetLastError(0);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, wanted as isize);
+        let error = GetLastError();
+        if error != 0 {
+            log::warn!(
+                "[Window] Could not change WS_EX_NOACTIVATE: {}",
+                std::io::Error::from_raw_os_error(error as i32)
+            );
+            return Some(current);
+        }
+        SetWindowPos(
+            hwnd,
+            std::ptr::null_mut(),
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED
+                | SWP_NOMOVE
+                | SWP_NOSIZE
+                | SWP_NOZORDER
+                | SWP_NOOWNERZORDER
+                | SWP_NOACTIVATE,
+        );
+        Some(GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32)
     }
 }
 
@@ -240,6 +280,15 @@ fn setup_panic_hook() {
 
         crate::diagnostics::write_panic_report(&report);
 
+        // The dialog below pumps the thread's messages. During a Windows
+        // shutdown that re-enters the event loop, which is how one panic
+        // becomes two, and it holds the machine while the user is trying to
+        // log off. The report is already on disk.
+        if crate::session_end::shutdown_requested() {
+            log::error!("[Crash] Windows is ending the session; skipping the fatal error dialog");
+            return;
+        }
+
         unsafe {
             use windows_sys::Win32::UI::WindowsAndMessaging::MessageBoxW;
             use windows_sys::Win32::UI::WindowsAndMessaging::MB_ICONERROR;
@@ -259,6 +308,27 @@ fn setup_panic_hook() {
             );
         }
     }));
+}
+
+/// In a dev build the WebView2 browser process inherits the app's stderr and
+/// prints its own shutdown complaint ("Failed to unregister class
+/// Chrome_WidgetWin_0", which is what Error 1412 looks like) on every close.
+/// Nothing reads that, and the runtime's logging switches do not apply because
+/// Chromium emits it after its log sink is gone, so point stderr at NUL before
+/// the browser process exists. stdout and the log files are untouched.
+#[cfg(all(target_os = "windows", debug_assertions))]
+fn silence_inherited_stderr() {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::System::Console::{SetStdHandle, STD_ERROR_HANDLE};
+
+    let Ok(null) = std::fs::OpenOptions::new().write(true).open("NUL") else {
+        return;
+    };
+    if unsafe { SetStdHandle(STD_ERROR_HANDLE, null.as_raw_handle() as *mut _) } == 0 {
+        return;
+    }
+    // Keeping the handle open for the life of the process is the point.
+    std::mem::forget(null);
 }
 
 fn setup_logging(app: &AppHandle) {
@@ -305,7 +375,7 @@ fn show_main_window(app: &AppHandle) {
         return;
     };
     #[cfg(target_os = "windows")]
-    apply_ws_ex_noactivate(&window, false);
+    let _ = apply_ws_ex_noactivate(&window, false);
     let _ = window.unminimize();
     if window.show().is_ok() {
         let _ = app.emit("minimized-changed", false);
@@ -602,6 +672,9 @@ pub fn sync_indicator_config(app: &AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(all(target_os = "windows", debug_assertions))]
+    silence_inherited_stderr();
+
     crate::startup::mark_start();
     crate::portable::init();
     setup_panic_hook();
@@ -629,6 +702,7 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
             setup_logging(&handle);
+            crate::session_end::install();
             #[cfg(windows)]
             set_app_aumid();
 
@@ -666,8 +740,11 @@ pub fn run() {
 
             #[cfg(target_os = "windows")]
             if let Some(window) = app.get_webview_window("main") {
-                apply_ws_ex_noactivate(&window, true);
-                log::info!("[Window] Applied WS_EX_NOACTIVATE to main window");
+                let style = apply_ws_ex_noactivate(&window, true);
+                log::info!(
+                    "[Window] Applied WS_EX_NOACTIVATE to main window (exstyle {})",
+                    style.map_or_else(|| String::from("unavailable"), |value| format!("0x{value:08x}"))
+                );
             }
 
             crate::startup::mark_webview_ready();
@@ -676,6 +753,7 @@ pub fn run() {
                 log::error!("[Window] Tray setup failed, continuing without tray: {e}");
             }            setup_frontend_listener(&handle);
             crate::webview_guard::spawn_watchdog();
+            crate::webview_guard::spawn_ui_watchdog(handle.clone());
 
             if rtss_detected {
                 log::warn!(
@@ -744,6 +822,7 @@ pub fn run() {
             theme_window::close_theme_window,
             ui_commands::hide_main_window,
             ui_commands::quit_app,
+            ui_commands::exit_for_restart,
             ui_commands::get_autostart_enabled,
             ui_commands::set_autostart_enabled,
             ui_commands::list_processes,

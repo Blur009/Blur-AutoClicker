@@ -625,19 +625,30 @@ fn input_desktop_visible() -> Option<bool> {
 }
 
 fn repair_after_desktop_switch() {
+    repair_after_desktop_switch_with(is_vk_down);
+}
+
+/// `is_down` is the keyboard probe. Production passes `is_vk_down`; tests pass
+/// a fixed answer, because the real one depends on whether the user happens to
+/// be holding a key or a mouse button at that instant.
+fn repair_after_desktop_switch_with(is_down: impl Fn(i32) -> bool) {
     for stamp in injected_key_time().iter() {
         stamp.store(0, Ordering::Relaxed);
     }
-    resync_physical_key_state(false);
+    resync_physical_key_state_with(false, is_down);
 }
 
 fn resync_physical_key_state(engine_running: bool) -> bool {
+    resync_physical_key_state_with(engine_running, is_vk_down)
+}
+
+fn resync_physical_key_state_with(engine_running: bool, is_down: impl Fn(i32) -> bool) -> bool {
     let mut cleared = false;
     for (vk, latched) in physical_key_state().iter().enumerate() {
         if injected_protected(vk as i32, engine_running) {
             continue;
         }
-        if latched.load(Ordering::Relaxed) && !is_vk_down(vk as i32) {
+        if latched.load(Ordering::Relaxed) && !is_down(vk as i32) {
             latched.store(false, Ordering::Relaxed);
             cleared = true;
         }
@@ -1443,18 +1454,36 @@ fn parse_function_key_token(token: &str) -> Option<(i32, String)> {
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::Ordering;
+    use std::sync::{Mutex, MutexGuard};
 
     use super::{
         format_hotkey_binding, injected_fresh, injected_holds, injected_key_time,
         injected_protected, is_mouse_hotkey_binding, modifiers_match, note_injected_key,
         parse_hotkey_binding, parse_hotkey_main_key, parse_physical_code_token, physical_key_state,
-        repair_after_desktop_switch, resync_physical_key_state, should_release_trigger_modifiers,
-        trigger_modifier_vks, DownState, HotkeyBinding, PHYSICAL_CODE_KEYS,
+        repair_after_desktop_switch_with, resync_physical_key_state_with,
+        should_release_trigger_modifiers, trigger_modifier_vks, DownState, HotkeyBinding,
+        PHYSICAL_CODE_KEYS,
     };
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
         VK_LBUTTON, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_OEM_102, VK_RBUTTON, VK_RCONTROL,
         VK_RMENU, VK_RSHIFT, VK_SHIFT,
     };
+
+    /// The key-state tables are process-wide, and the tests below mutate the
+    /// same rows. Running them in parallel made this suite flaky, so the ones
+    /// that touch the tables hold this lock and start from a blank slate.
+    static KEY_STATE_LOCK: Mutex<()> = Mutex::new(());
+
+    fn key_state_guard() -> MutexGuard<'static, ()> {
+        let guard = KEY_STATE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        for latched in physical_key_state().iter() {
+            latched.store(false, Ordering::Relaxed);
+        }
+        for stamp in injected_key_time().iter() {
+            stamp.store(0, Ordering::Relaxed);
+        }
+        guard
+    }
 
     fn bare_binding() -> HotkeyBinding {
         HotkeyBinding {
@@ -1477,6 +1506,7 @@ mod tests {
 
     #[test]
     fn injected_modifier_marks_both_sides() {
+        let _guard = key_state_guard();
         note_injected_key(VK_SHIFT as i32);
         assert!(injected_protected(VK_LSHIFT as i32, false));
         assert!(injected_protected(VK_RSHIFT as i32, false));
@@ -1488,11 +1518,12 @@ mod tests {
 
     #[test]
     fn desktop_switch_repair_clears_a_latch_the_engine_marked() {
+        let _guard = key_state_guard();
         physical_key_state()[VK_LBUTTON as usize].store(true, Ordering::Relaxed);
         note_injected_key(VK_LBUTTON as i32);
         assert!(injected_protected(VK_LBUTTON as i32, true));
 
-        repair_after_desktop_switch();
+        repair_after_desktop_switch_with(|_| false);
 
         assert!(!physical_key_state()[VK_LBUTTON as usize].load(Ordering::Relaxed));
         assert!(!injected_protected(VK_LBUTTON as i32, true));
@@ -1500,16 +1531,14 @@ mod tests {
 
     #[test]
     fn resync_spares_a_key_the_engine_is_clicking() {
+        let _guard = key_state_guard();
         physical_key_state()[VK_LBUTTON as usize].store(true, Ordering::Relaxed);
         physical_key_state()[VK_RBUTTON as usize].store(true, Ordering::Relaxed);
         note_injected_key(VK_LBUTTON as i32);
 
-        assert!(resync_physical_key_state(true));
+        assert!(resync_physical_key_state_with(true, |_| false));
         assert!(physical_key_state()[VK_LBUTTON as usize].load(Ordering::Relaxed));
         assert!(!physical_key_state()[VK_RBUTTON as usize].load(Ordering::Relaxed));
-
-        physical_key_state()[VK_LBUTTON as usize].store(false, Ordering::Relaxed);
-        injected_key_time()[VK_LBUTTON as usize].store(0, Ordering::Relaxed);
     }
 
     #[test]

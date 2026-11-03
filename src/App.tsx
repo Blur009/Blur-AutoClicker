@@ -1,6 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
-import { exit } from "@tauri-apps/plugin-process";
 import {
   currentMonitor,
   getCurrentWindow,
@@ -1853,7 +1852,9 @@ export default function App() {
     if (!elevation.canElevate) return;
     invoke<boolean>("relaunch_as_admin", { keepAutostart: true })
       .then((relaunched) => {
-        if (relaunched) return exit(0);
+        if (relaunched) {
+          void invoke("exit_for_restart");
+        }
         return undefined;
       })
       .catch((err) =>

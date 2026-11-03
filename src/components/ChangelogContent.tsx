@@ -1,12 +1,18 @@
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type TransitionEvent as ReactTransitionEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { ChangelogEntry } from "../changelog";
+import {
+  describeChangelogDate,
+  formatDaysSince,
+  type ChangelogEntry,
+} from "../changelog";
 import "./ChangelogContent.css";
 
 const MARKDOWN_CACHE_MAX = 20;
@@ -214,8 +220,7 @@ function ChangelogEntryCard({ entry }: { entry: ChangelogEntry }) {
   return (
     <div className="changelog-entry">
       <div className="changelog-entry-header">
-        <span className="changelog-version">v{entry.version}</span>
-        <span className="changelog-date">{entry.date}</span>
+        <ChangelogVersion version={entry.version} rawDate={entry.date} />
       </div>
       {entry.sections.map((section, s) => (
         <div key={section.heading} className="changelog-section">
@@ -249,5 +254,100 @@ function ChangelogEntryCard({ entry }: { entry: ChangelogEntry }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function ChangelogVersion({
+  version,
+  rawDate,
+}: {
+  version: string;
+  rawDate: string;
+}) {
+  const date = describeChangelogDate(rawDate);
+  const age = formatDaysSince(date.daysSince);
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+  const tipId = `changelog-date-${version}`;
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setPosition(null);
+  }, []);
+
+  // The popover renders into a portal: the collapsed changelog clip and the
+  // scrolling modal body would otherwise cut it off.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    const tip = tipRef.current;
+    if (!trigger || !tip) return;
+    const rect = trigger.getBoundingClientRect();
+    const gap = 8;
+    const width = tip.offsetWidth;
+    const height = tip.offsetHeight;
+    const above = rect.top - height - gap;
+    const top = above >= gap ? above : rect.bottom + gap;
+    setPosition({
+      left: Math.max(gap, Math.min(rect.left, window.innerWidth - width - gap)),
+      top: Math.max(gap, Math.min(top, window.innerHeight - height - gap)),
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    // A fixed popover would be left hanging by a scroll or a resize.
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open, close]);
+
+  return (
+    <>
+      <span
+        ref={triggerRef}
+        className="changelog-version"
+        tabIndex={0}
+        aria-describedby={open ? tipId : undefined}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={close}
+        onFocus={() => setOpen(true)}
+        onBlur={close}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") close();
+        }}
+      >
+        v{version}
+      </span>
+      {open &&
+        createPortal(
+          <div
+            ref={tipRef}
+            id={tipId}
+            role="tooltip"
+            className="changelog-version-tip"
+            style={
+              position
+                ? { left: position.left, top: position.top }
+                : { left: 0, top: 0, visibility: "hidden" }
+            }
+          >
+            <span className="changelog-version-tip-date">{date.display}</span>
+            {date.note && (
+              <span className="changelog-version-tip-note">{date.note}</span>
+            )}
+            {age && <span className="changelog-version-tip-age">{age}</span>}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

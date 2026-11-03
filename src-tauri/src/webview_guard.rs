@@ -208,6 +208,167 @@ fn report(error: Option<&str>) {
     std::process::exit(1);
 }
 
+/// Pokes the main window every so often so an unresponsive interface leaves a
+/// trace in the log instead of only a user report. A run-as-administrator bug
+/// that leaves the window visible but deaf is otherwise invisible: the process
+/// is alive, the clicker keeps working, and nothing is written down.
+#[cfg(target_os = "windows")]
+pub fn spawn_ui_watchdog(app: tauri::AppHandle) {
+    use std::time::Duration;
+
+    const INTERVAL: Duration = Duration::from_secs(20);
+    /// Long enough that a slow frame does not count, short enough to catch a
+    /// thread that is actually stuck.
+    const PROBE_TIMEOUT_MS: u32 = 2_000;
+
+    let spawned = std::thread::Builder::new()
+        .name("ui-watchdog".into())
+        .spawn(move || {
+            let mut hung = false;
+            let mut baseline_logged = false;
+            loop {
+                std::thread::sleep(INTERVAL);
+                let Some(hwnd) = main_window_handle(&app) else {
+                    continue;
+                };
+                // A hidden window is normal (autostart, minimized to tray), and
+                // the startup watchdog already covers "never became visible".
+                if !window_is_visible(hwnd) {
+                    continue;
+                }
+                if !baseline_logged {
+                    log_window_state(hwnd, "baseline");
+                    baseline_logged = true;
+                }
+                if responds_to_messages(hwnd, PROBE_TIMEOUT_MS) {
+                    if hung {
+                        log::info!("[UI] Main window responds again");
+                        hung = false;
+                    }
+                } else {
+                    if !hung {
+                        log::error!("[UI] Main window stopped responding to window messages");
+                    }
+                    hung = true;
+                    log_window_state(hwnd, "unresponsive");
+                }
+            }
+        });
+
+    if spawned.is_err() {
+        log::warn!("[UI] Watchdog thread unavailable");
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn spawn_ui_watchdog(_app: tauri::AppHandle) {}
+
+#[cfg(target_os = "windows")]
+fn main_window_handle(app: &tauri::AppHandle) -> Option<*mut core::ffi::c_void> {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use tauri::Manager;
+
+    let window = app.get_webview_window("main")?;
+    let handle = window.window_handle().ok()?;
+    let RawWindowHandle::Win32(raw) = handle.as_raw() else {
+        return None;
+    };
+    Some(raw.hwnd.get() as *mut core::ffi::c_void)
+}
+
+#[cfg(target_os = "windows")]
+fn window_is_visible(hwnd: *mut core::ffi::c_void) -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::IsWindowVisible;
+
+    unsafe { IsWindowVisible(hwnd) != 0 }
+}
+
+#[cfg(target_os = "windows")]
+fn responds_to_messages(hwnd: *mut core::ffi::c_void, timeout_ms: u32) -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SendMessageTimeoutW, SMTO_ABORTIFHUNG, SMTO_BLOCK, WM_NULL,
+    };
+
+    let mut result: usize = 0;
+    let ok = unsafe {
+        SendMessageTimeoutW(
+            hwnd,
+            WM_NULL,
+            0,
+            0,
+            SMTO_ABORTIFHUNG | SMTO_BLOCK,
+            timeout_ms,
+            &mut result,
+        )
+    };
+    ok != 0
+}
+
+/// Writes the facts that separate the ways a window can be unreachable:
+/// hidden, off-screen, not activatable, or owned by a hung thread.
+#[cfg(target_os = "windows")]
+fn log_window_state(hwnd: *mut core::ffi::c_void, phase: &str) {
+    use windows_sys::Win32::Foundation::RECT;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, IsHungAppWindow,
+        IsWindowVisible, GWL_EXSTYLE, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
+        SM_YVIRTUALSCREEN, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+        WS_EX_TRANSPARENT,
+    };
+
+    unsafe {
+        let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+        let mut flags: Vec<&str> = Vec::new();
+        if ex_style & WS_EX_NOACTIVATE != 0 {
+            flags.push("NOACTIVATE");
+        }
+        if ex_style & WS_EX_APPWINDOW != 0 {
+            flags.push("APPWINDOW");
+        }
+        if ex_style & WS_EX_TOOLWINDOW != 0 {
+            flags.push("TOOLWINDOW");
+        }
+        if ex_style & WS_EX_LAYERED != 0 {
+            flags.push("LAYERED");
+        }
+        if ex_style & WS_EX_TRANSPARENT != 0 {
+            flags.push("TRANSPARENT");
+        }
+
+        let mut rect: RECT = std::mem::zeroed();
+        let has_rect = GetWindowRect(hwnd, &mut rect) != 0;
+        let screen_w = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        let screen_h = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+        let screen_x = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        let screen_y = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        let on_screen = has_rect
+            && screen_w > 0
+            && screen_h > 0
+            && rect.right > screen_x
+            && rect.left < screen_x + screen_w
+            && rect.bottom > screen_y
+            && rect.top < screen_y + screen_h;
+
+        log::info!(
+            "[UI] {phase}: visible={} foreground={} hung={} on_screen={} exstyle=0x{ex_style:08x} [{}] rect={}x{}+{},{} virtual_screen={}x{}+{},{} elevated={}",
+            IsWindowVisible(hwnd) != 0,
+            GetForegroundWindow() == hwnd,
+            IsHungAppWindow(hwnd) != 0,
+            on_screen,
+            flags.join(","),
+            rect.right - rect.left,
+            rect.bottom - rect.top,
+            rect.left,
+            rect.top,
+            screen_w,
+            screen_h,
+            screen_x,
+            screen_y,
+            crate::elevation::current_process_elevated(),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

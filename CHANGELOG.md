@@ -1,3 +1,14 @@
+# v3.10.2 - 03.11.2026 (d.m.y)
+
+## Changed
+
+- Changed changelog date display to hover card.
+
+## Fixed
+
+- Fixed the fatal error on Windows shutdown.
+- Fixed the window freezing while the app restarts as administrator.
+
 # v3.10.1 - 29.10.2026 (d.m.y)
 
 ## Fixed

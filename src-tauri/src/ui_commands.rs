@@ -29,7 +29,11 @@ pub fn get_elevation_state() -> crate::elevation::ElevationState {
     crate::elevation::state()
 }
 
-#[tauri::command]
+// Async on purpose. A plain command runs on the UI thread, and this one calls
+// `ShellExecuteExW("runas")`, which does not return until the UAC consent path
+// finishes. That blocks the event loop, so the window keeps its last frame and
+// ignores every click until the user answers the prompt.
+#[tauri::command(async)]
 pub fn relaunch_as_admin(app: AppHandle, keep_autostart: bool) -> bool {
     let state = crate::elevation::state();
     if state.elevated || !state.can_elevate {
@@ -44,7 +48,9 @@ pub fn relaunch_as_admin(app: AppHandle, keep_autostart: bool) -> bool {
     true
 }
 
-#[tauri::command]
+// Async for the same reason as `relaunch_as_admin`: it spawns a process and
+// waits for the engine to wind down first.
+#[tauri::command(async)]
 pub fn relaunch_without_admin(app: AppHandle, keep_autostart: bool) -> bool {
     let state = crate::elevation::state();
     if !state.elevated {
@@ -549,7 +555,20 @@ pub fn hide_main_window(app: AppHandle) -> AppResult<()> {
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     crate::overlay::OVERLAY_THREAD_RUNNING.store(false, std::sync::atomic::Ordering::SeqCst);
+    crate::ZONE_MONITOR_RUNNING.store(false, std::sync::atomic::Ordering::SeqCst);
+    crate::app_events::APP_EVENTS_SHUTDOWN.store(true, std::sync::atomic::Ordering::SeqCst);
     app.exit(0);
+}
+
+/// Leaves the process the way a normal quit does, so `ExitRequested` runs and
+/// the crashpad client is dropped. The restart flow used to call the process
+/// plugin's `exit`, which skips that and leaves `crashpad_handler.exe` holding
+/// the install directory, where the installer's "app is still running" check
+/// finds it.
+#[tauri::command]
+pub fn exit_for_restart(app: AppHandle) {
+    log::info!("[Window] Restarting: exiting through the normal teardown");
+    quit_app(app);
 }
 
 #[tauri::command]
@@ -566,7 +585,14 @@ pub fn was_autostart_launch() -> bool {
 pub fn prepare_main_window(app: AppHandle) -> AppResult<()> {
     #[cfg(target_os = "windows")]
     if let Some(window) = app.get_webview_window("main") {
-        crate::apply_ws_ex_noactivate(&window, false);
+        let style = crate::apply_ws_ex_noactivate(&window, false);
+        log::info!(
+            "[Window] Preparing main window for show (exstyle {})",
+            style.map_or_else(
+                || String::from("unavailable"),
+                |value| format!("0x{value:08x}")
+            )
+        );
     }
     Ok(())
 }

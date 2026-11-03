@@ -78,4 +78,61 @@ export function parseChangelog(raw: string): ChangelogEntry[] {
   return entries;
 }
 
+export interface ChangelogDateInfo {
+  /** The date as written in the entry, normalised to DD.MM.YYYY. */
+  display: string;
+  /** Whatever followed the date in the source, e.g. "(d.m.y)". */
+  note: string | null;
+  /** Whole days between the entry date and today, or null when unknown. */
+  daysSince: number | null;
+}
+
+const DATE_DMY = /^(\d{1,2})\.(\d{1,2})\.(\d{4})\s*(.*)$/;
+
+/**
+ * Reads the `DD.MM.YYYY` dates used in CHANGELOG.md. An entry that does not
+ * start with one still renders: its text becomes the display value and no age
+ * is shown, rather than the date disappearing from the popover.
+ */
+export function describeChangelogDate(
+  raw: string,
+  now: Date = new Date(),
+): ChangelogDateInfo {
+  const text = raw.trim();
+  const match = DATE_DMY.exec(text);
+  if (!match) {
+    return { display: text, note: null, daysSince: null };
+  }
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const stamp = Date.UTC(year, month - 1, day);
+  const parsed = new Date(stamp);
+  const valid =
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day;
+  if (!valid) {
+    return { display: text, note: null, daysSince: null };
+  }
+
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((today - stamp) / 86_400_000);
+  const note = match[4].trim();
+
+  return {
+    display: `${String(day).padStart(2, "0")}.${String(month).padStart(2, "0")}.${year}`,
+    note: note.length > 0 ? note : null,
+    daysSince: days >= 0 ? days : null,
+  };
+}
+
+export function formatDaysSince(days: number | null): string | null {
+  if (days === null || !Number.isFinite(days)) return null;
+  if (days <= 0) return "today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
+}
+
 export const changelogEntries = parseChangelog(raw);
