@@ -940,10 +940,15 @@ fn run_batch(
     } else {
         ctx.batch_size
     };
-    let remaining = if config.limit > 0 {
+    let limit_remaining = if config.limit > 0 {
         (config.limit as i64 - st.click_count).max(0) as usize
     } else {
         usize::MAX
+    };
+    let remaining = if config.use_click_points() {
+        limit_remaining.min(st.click_point_clicks_remaining)
+    } else {
+        limit_remaining
     };
     let cycle_secs = if config.variation > 0.0 {
         rng.next_gaussian(
@@ -1059,8 +1064,9 @@ fn run_batch(
     }
 
     if config.use_click_points() {
-        st.click_point_clicks_remaining =
-            st.click_point_clicks_remaining.saturating_sub(batch.cycles);
+        st.click_point_clicks_remaining = st
+            .click_point_clicks_remaining
+            .saturating_sub(batch.physical_clicks);
         if st.click_point_clicks_remaining == 0 {
             let next_index = (st.click_point_index + 1) % config.click_points.len();
             if config.stop_when_complete && next_index == 0 {
