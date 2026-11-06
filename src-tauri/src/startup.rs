@@ -78,14 +78,16 @@ pub fn report_ui_ready(visible: bool, frontend_boot_ms: u64, boot_phases: &str) 
         format!("; {boot_phases}")
     };
     log::info!(
-        "[Startup] {label} after {total_ms} ms from process start ({}{phases})",
+        "[Startup] {label} after {total_ms} ms from process start ({}; elevated={} profile={}{phases})",
         milestone_summary(
             PRE_MAIN_MS.load(Ordering::SeqCst),
             STATE_MS.load(Ordering::SeqCst),
             WEBVIEW_MS.load(Ordering::SeqCst),
             SETUP_MS.load(Ordering::SeqCst),
             frontend_boot_ms
-        )
+        ),
+        crate::elevation::current_process_elevated(),
+        std::env::var("USERPROFILE").unwrap_or_default()
     );
 }
 

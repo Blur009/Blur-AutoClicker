@@ -240,12 +240,10 @@ export default function App() {
     elevated: false,
     canElevate: false,
   });
-  const [elevationLoaded, setElevationLoaded] = useState(false);
   const [promptBusy, setPromptBusy] = useState(false);
   const [donationPrompt, setDonationPrompt] =
     useState<DonationPromptState | null>(null);
   const donationOpenRef = useRef(false);
-  const elevationRelaunchedRef = useRef(false);
   const [appInfo, setAppInfo] = useState<AppInfo>(DEFAULT_APP_INFO);
   const [updateInfo, setUpdateInfo] = useState<{
     currentVersion: string;
@@ -267,8 +265,9 @@ export default function App() {
   const lastValidHotkeyRef = useRef(DEFAULT_SETTINGS.hotkey);
   const previousRunningRef = useRef<boolean | null>(null);
   const launchWindowPlacementDone = useRef(false);
-  const [windowReady, setWindowReady] = useState(false);
   const pendingShowWindowRef = useRef(false);
+  const windowShownRef = useRef(false);
+  const startupReportedRef = useRef(false);
   const bootTextScaleRef = useRef<number | null>(null);
   const bootPhasesRef = useRef("");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -810,6 +809,10 @@ export default function App() {
       logDiagnostic("App.frontendReady", { error: String(err) }),
     );
 
+    const ping = () => invoke("frontend_heartbeat").catch(() => {});
+    ping();
+    const heartbeat = window.setInterval(ping, 5000);
+
     invoke<number>("get_text_scale_factor")
       .then((rawScale) => {
         bootTextScaleRef.current = sanitizeTextScale(rawScale);
@@ -916,13 +919,17 @@ export default function App() {
           recordPhase("save");
         },
       )
-      .catch((err) => {
+      .catch(async (err) => {
         logDiagnostic("App.boot", {
           error: String(err),
         });
         if (!mounted) return;
+        const autostartLaunch = await invoke<boolean>(
+          "was_autostart_launch",
+        ).catch(() => false);
+        if (!mounted) return;
+        pendingShowWindowRef.current = !autostartLaunch;
         setSettingsLoaded(true);
-        pendingShowWindowRef.current = true;
         emit("frontend-ready", {}).catch((err) =>
           logDiagnostic("App.bootEmit", {
             error: String(err),
@@ -933,6 +940,7 @@ export default function App() {
     return () => {
       mountedRef.current = false;
       mounted = false;
+      window.clearInterval(heartbeat);
       readyTimers.forEach((timer) => window.clearTimeout(timer));
       if (hotkeyTimer.current !== null) {
         window.clearTimeout(hotkeyTimer.current);
@@ -1110,6 +1118,16 @@ export default function App() {
     const root = document.querySelector(".app-root") as HTMLElement;
     let transitionHandler: ((e: TransitionEvent) => void) | null = null;
 
+    const reportStartupReady = (visible: boolean) => {
+      if (startupReportedRef.current) return;
+      startupReportedRef.current = true;
+      invoke("report_startup_ready", {
+        visible,
+        frontendBootMs: Math.round(performance.now()),
+        bootPhases: bootPhasesRef.current,
+      }).catch(() => {});
+    };
+
     void (async () => {
       try {
         const bootTextScale = bootTextScaleRef.current;
@@ -1158,23 +1176,18 @@ export default function App() {
           await applyStartupWindowPlacement();
           if (cancelled) return;
           if (pendingShowWindowRef.current) {
-            pendingShowWindowRef.current = false;
             await invoke("prepare_main_window").catch(() => {});
+            if (cancelled) return;
             await appWindow.show();
-            invoke("report_startup_ready", {
-              visible: true,
-              frontendBootMs: Math.round(performance.now()),
-              bootPhases: bootPhasesRef.current,
-            }).catch(() => {});
+            if (cancelled) return;
+            pendingShowWindowRef.current = false;
+            windowShownRef.current = true;
+            launchWindowPlacementDone.current = true;
+            reportStartupReady(true);
           } else {
-            invoke("report_startup_ready", {
-              visible: false,
-              frontendBootMs: Math.round(performance.now()),
-              bootPhases: bootPhasesRef.current,
-            }).catch(() => {});
+            launchWindowPlacementDone.current = true;
+            reportStartupReady(false);
           }
-          launchWindowPlacementDone.current = true;
-          setWindowReady(true);
           return;
         }
 
@@ -1253,11 +1266,28 @@ export default function App() {
           root.style.height = `${cssHeight}px`;
         }
       } catch (err) {
-        if (!cancelled) {
-          logDiagnostic("App.sizeWindow", {
-            error: String(err),
-          });
-          setWindowReady(true);
+        if (cancelled) return;
+        logDiagnostic("App.sizeWindow", {
+          error: String(err),
+        });
+        if (pendingShowWindowRef.current && !windowShownRef.current) {
+          const fallbackWindow = getCurrentWindow();
+          await invoke("prepare_main_window").catch(() => {});
+          if (cancelled) return;
+          const shown = await fallbackWindow.show().then(
+            () => true,
+            (showError) => {
+              logDiagnostic("App.showAfterSizingFailure", {
+                error: String(showError),
+              });
+              return false;
+            },
+          );
+          if (!shown || cancelled) return;
+          pendingShowWindowRef.current = false;
+          windowShownRef.current = true;
+          launchWindowPlacementDone.current = true;
+          reportStartupReady(true);
         }
       }
     })();
@@ -1851,15 +1881,11 @@ export default function App() {
 
   useEffect(() => {
     invoke<{ elevated: boolean; canElevate: boolean }>("get_elevation_state")
-      .then((state) => {
-        setElevation(state);
-        setElevationLoaded(true);
-      })
+      .then(setElevation)
       .catch((err) => {
         logDiagnostic("App.elevationState", {
           error: String(err),
         });
-        setElevationLoaded(true);
       });
   }, []);
 
@@ -1874,33 +1900,6 @@ export default function App() {
       enabled: settings.elevationNoticeEnabled,
     }).catch(() => {});
   }, [settingsLoaded, settings.elevationNoticeEnabled]);
-
-  useEffect(() => {
-    if (!settingsLoaded || !elevationLoaded) return;
-    if (!windowReady) return;
-    if (elevationRelaunchedRef.current) return;
-    elevationRelaunchedRef.current = true;
-    if (!settings.alwaysRunAsAdmin || elevation.elevated) return;
-    if (!elevation.canElevate) return;
-    invoke<boolean>("relaunch_as_admin", { keepAutostart: true })
-      .then((relaunched) => {
-        if (relaunched) {
-          void invoke("exit_for_restart");
-        }
-        return undefined;
-      })
-      .catch((err) =>
-        logDiagnostic("App.relaunchAdmin", {
-          error: String(err),
-        }),
-      );
-  }, [
-    settingsLoaded,
-    elevationLoaded,
-    windowReady,
-    settings.alwaysRunAsAdmin,
-    elevation,
-  ]);
 
   const flushPendingSettingsSave = useCallback(async () => {
     if (saveTimerRef.current) {

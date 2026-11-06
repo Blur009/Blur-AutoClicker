@@ -108,6 +108,16 @@ pub(crate) fn webview2_bootstrapper_started() -> bool {
     *BOOTSTRAPPER_SPAWNED.get().unwrap_or(&false)
 }
 
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn webview2_installed() -> bool {
+    true
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn webview2_bootstrapper_started() -> bool {
+    false
+}
+
 /// If the Evergreen WebView2 runtime is missing and the bootstrapper sits next
 /// to the exe, kick off a silent install without blocking startup.
 #[cfg(target_os = "windows")]
@@ -150,12 +160,17 @@ fn ensure_webview2() {
 /// Show a fatal error to the user. Used for both portable and non-portable
 /// startup failures where the main window could not be created.
 #[cfg(target_os = "windows")]
-pub(crate) fn notify_fatal_error(msg: &str) {
+pub(crate) fn notify_fatal_error(code: &str, msg: &str) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         MessageBoxW, MB_ICONWARNING, MB_OK, MB_SETFOREGROUND,
     };
 
-    let title: Vec<u16> = "BlurAutoClicker".encode_utf16().chain(Some(0)).collect();
+    log::error!("[Startup] Dialog {code}: {}", msg.replace('\n', " / "));
+
+    let title: Vec<u16> = format!("BlurAutoClicker - {code}")
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
     let body: Vec<u16> = msg.encode_utf16().chain(Some(0)).collect();
 
     unsafe {

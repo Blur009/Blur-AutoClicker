@@ -430,6 +430,24 @@ fn backup_unparseable_settings_file(path: &std::path::Path) -> AppResult<Option<
     Ok(Some(backup.to_string_lossy().to_string()))
 }
 
+fn always_run_as_admin_in(path: &std::path::Path) -> bool {
+    let Ok(bytes) = std::fs::read(path) else {
+        return false;
+    };
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+        return false;
+    };
+    value
+        .get("settings")
+        .and_then(|settings| settings.get("alwaysRunAsAdmin"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
+pub fn persisted_always_run_as_admin(app: &AppHandle) -> bool {
+    settings_file_path(app).is_ok_and(|path| always_run_as_admin_in(&path))
+}
+
 #[tauri::command]
 pub fn backup_unreadable_settings(app: AppHandle) -> AppResult<Option<String>> {
     let path = settings_file_path(&app)?;
@@ -870,6 +888,33 @@ mod tests {
             std::fs::read(&path).expect("read settings")
         );
         assert_eq!(recoveries(temp.path()).len(), 1);
+    }
+
+    #[test]
+    fn startup_reads_the_persisted_admin_request() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = write_settings(temp.path(), br#"{"settings":{"alwaysRunAsAdmin":true}}"#);
+
+        assert!(always_run_as_admin_in(&path));
+
+        let path = write_settings(temp.path(), br#"{"settings":{"alwaysRunAsAdmin":false}}"#);
+        assert!(!always_run_as_admin_in(&path));
+
+        let path = write_settings(temp.path(), br#"{"settings":{"cps":12}}"#);
+        assert!(!always_run_as_admin_in(&path));
+
+        let path = write_settings(temp.path(), br#"{"settings":{"alwaysRunAsAdmin":"yes"}}"#);
+        assert!(!always_run_as_admin_in(&path));
+    }
+
+    #[test]
+    fn startup_treats_an_unreadable_admin_request_as_off() {
+        let temp = tempfile::tempdir().expect("tempdir");
+
+        assert!(!always_run_as_admin_in(&temp.path().join("settings.json")));
+
+        let path = write_settings(temp.path(), br#"{"settings":{"alwaysRunAsAdmin"#);
+        assert!(!always_run_as_admin_in(&path));
     }
 
     #[test]

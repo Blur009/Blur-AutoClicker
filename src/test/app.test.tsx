@@ -139,36 +139,28 @@ describe("App boot", () => {
     });
   });
 
-  it("relaunches as administrator only after the window is shown", async () => {
+  it("still shows the window when the sizing step fails", async () => {
+    tauri.failWindowCall("setSize", "no usable monitor");
+
+    await renderLoadedApp();
+
+    await waitFor(() => expect(tauri.windowCalls("show")).toHaveLength(1), {
+      timeout: 5000,
+    });
+    expect(tauri.windowCalls("center")).toHaveLength(0);
+    expect(tauri.invokes("report_startup_ready")).toHaveLength(1);
+    expect(tauri.invokes("report_startup_ready")[0]?.args).toMatchObject({
+      visible: true,
+    });
+  });
+
+  it("does not relaunch itself at startup", async () => {
     tauri.setStoredSettings({ alwaysRunAsAdmin: true });
     tauri.setInvokeResult("get_elevation_state", {
       elevated: false,
       canElevate: true,
     });
     tauri.setInvokeResult("relaunch_as_admin", false);
-
-    await renderLoadedApp();
-
-    await waitFor(
-      () => expect(tauri.invokes("relaunch_as_admin")).toHaveLength(1),
-      { timeout: 5000 },
-    );
-    expect(tauri.invokes("relaunch_as_admin")[0]!.args).toEqual({
-      keepAutostart: true,
-    });
-    const shown = tauri.firstIndexOf("window", "show");
-    expect(shown).toBeGreaterThan(-1);
-    expect(shown).toBeLessThan(
-      tauri.firstIndexOf("invoke", "relaunch_as_admin"),
-    );
-  });
-
-  it("does not relaunch when it is already elevated", async () => {
-    tauri.setStoredSettings({ alwaysRunAsAdmin: true });
-    tauri.setInvokeResult("get_elevation_state", {
-      elevated: true,
-      canElevate: false,
-    });
 
     await renderLoadedApp();
 

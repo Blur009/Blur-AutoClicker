@@ -1,23 +1,14 @@
-//! Surfaces WebView2 startup failures instead of leaving the app running as a
-//! windowless tray process.
-//!
-//! The main window is created hidden and only shown once the frontend boots
-//! and calls `window.show()`. If the WebView2 runtime cannot start (most often
-//! because a policy blocks `msedgewebview2.exe`), the frontend never runs, the
-//! window never appears, and the user is left staring at a tray icon. wry logs
-//! the real error, so we capture it through the log pipeline and report it.
-
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri_plugin_log::fern;
 
 /// Set once the frontend has signalled it booted.
 static FRONTEND_READY: AtomicBool = AtomicBool::new(false);
-/// The wry error captured from the log, if the webview failed to create.
-static WEBVIEW_ERROR: Mutex<Option<String>> = Mutex::new(None);
-static WEBVIEW_ERROR_SET: AtomicBool = AtomicBool::new(false);
 static WATCHDOG_THREAD: Mutex<Option<std::thread::Thread>> = Mutex::new(None);
+static WINDOW_CREATED: AtomicBool = AtomicBool::new(false);
+static FATAL_REPORTED: AtomicBool = AtomicBool::new(false);
+static HEARTBEAT: Mutex<Option<Instant>> = Mutex::new(None);
+const INTERFACE_TIMEOUT: Duration = Duration::from_secs(90);
 
 fn poke_watchdog() {
     let thread = WATCHDOG_THREAD.lock().ok().and_then(|slot| slot.clone());
@@ -25,43 +16,174 @@ fn poke_watchdog() {
         thread.unpark();
     }
 }
-/// Grace period after a captured error before we give up. Covers a slow but
-/// eventually successful webview start.
-const ERROR_GRACE: Duration = Duration::from_secs(3);
-/// Hard cap when no error was captured but the frontend never boots.
 const READY_TIMEOUT: Duration = Duration::from_secs(20);
+const WINDOW_TIMEOUT: Duration = Duration::from_secs(30);
+const REVEAL_TIMEOUT: Duration = Duration::from_secs(10);
+const REPORT_RETRY: Duration = Duration::from_secs(30);
+const REPORT_RETRY_STEP: Duration = Duration::from_millis(500);
+
+pub fn window_created() {
+    WINDOW_CREATED.store(true, Ordering::SeqCst);
+}
+
+fn window_guard_expired(created: bool, elapsed: Duration) -> bool {
+    !created && elapsed >= WINDOW_TIMEOUT
+}
+
+pub fn release_startup_report() {
+    FATAL_REPORTED.store(false, Ordering::SeqCst);
+}
+
+pub fn claim_startup_report() -> bool {
+    FATAL_REPORTED
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_ok()
+}
+
+pub fn fatal_exit() -> ! {
+    crate::indicator::shutdown();
+    crate::crash_handler::shutdown_crashpad();
+    std::process::exit(1);
+}
+
+pub struct StartupFailure {
+    pub code: &'static str,
+    pub message: String,
+}
+
+impl StartupFailure {
+    pub fn with_code(code: &'static str, body: String) -> Self {
+        Self::new(code, body, &logs_path())
+    }
+
+    fn new(code: &'static str, body: String, logs: &str) -> Self {
+        let log_line = if std::path::Path::new(logs).is_dir() {
+            format!("\n\nA log is available at:\n{logs}")
+        } else {
+            String::new()
+        };
+        Self {
+            code,
+            message: format!("{body}\n\nError code: {code}{log_line}"),
+        }
+    }
+}
+
+pub const E_POLICY: &str = "E001";
+pub const E_BUSY: &str = "E002";
+pub const E_WEBVIEW_OTHER: &str = "E003";
+pub const E_MISSING_RUNTIME_INSTALLING: &str = "E004";
+pub const E_MISSING_RUNTIME: &str = "E005";
+pub const E_UNWRITABLE_FOLDER: &str = "E006";
+pub const E_WINDOW_TIMEOUT: &str = "E007";
+pub const E_INTERFACE_NOT_READY: &str = "E008";
+pub const E_PANIC: &str = "E009";
+
+pub fn creation_failure(error: &str) -> StartupFailure {
+    let logs = logs_path();
+    match classify(error) {
+        WebviewFailure::BlockedByPolicy => StartupFailure::new(
+            E_POLICY,
+            format!(
+                "BlurAutoClicker could not start.\n\n\
+                 Windows policy blocked the Microsoft Edge WebView2 runtime, which this app needs to \
+                 draw its window.\n\n\
+                 Details: {error}\n\n\
+                 Software Restriction Policy, AppLocker, or a \"debloat\" / hardening tool blocking \
+                 msedgewebview2.exe is the usual cause. On a PC you manage yourself, remove that rule. \
+                 On a locked-down or work machine, ask your administrator to allow msedgewebview2.exe."
+            ),
+            &logs,
+        ),
+        WebviewFailure::RuntimeBusy => StartupFailure::new(
+            E_BUSY,
+            format!(
+                "BlurAutoClicker could not start.\n\n\
+                 The Microsoft Edge WebView2 runtime could not use a resource it needs.\n\n\
+                 Details: {error}\n\n\
+                 Another copy of BlurAutoClicker, or a msedgewebview2.exe process left behind by an \
+                 earlier crash, can hold that folder open. Close any other copy, end any leftover \
+                 msedgewebview2.exe processes in Task Manager, then start BlurAutoClicker again."
+            ),
+            &logs,
+        ),
+        WebviewFailure::Other => StartupFailure::new(
+            E_WEBVIEW_OTHER,
+            format!(
+                "BlurAutoClicker could not start.\n\n\
+                 The Microsoft Edge WebView2 runtime failed to start.\n\n\
+                 Details: {error}\n\n\
+                 If this keeps happening, download and run the WebView2 Evergreen installer (needs an \
+                 internet connection):\n\
+                 https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+            ),
+            &logs,
+        ),
+    }
+}
+
+fn silent_startup_failure() -> StartupFailure {
+    StartupFailure::new(
+        E_INTERFACE_NOT_READY,
+        String::from(
+            "BlurAutoClicker could not finish starting.\n\n\
+             Its window was created, but the interface never reported ready, so the app has to close.\n\n\
+             A page that failed to load, a script error before the interface started, a browser \
+             process that died after the window appeared, a slow or blocked disk, or a security tool \
+             interfering with the app's files can cause this.\n\n\
+             Start BlurAutoClicker again.",
+        ),
+        &logs_path(),
+    )
+}
+
+fn window_timeout() -> StartupFailure {
+    StartupFailure::new(
+        E_WINDOW_TIMEOUT,
+        format!(
+            "BlurAutoClicker could not finish starting.\n\n\
+             Creating the app window did not finish within {} seconds, so the app will close unless \
+             the window appears.\n\n\
+             A slow or blocked disk, a security tool scanning the app's own files, or a WebView2 \
+             process that stopped responding can cause this.\n\n\
+             Start BlurAutoClicker again.",
+            WINDOW_TIMEOUT.as_secs()
+        ),
+        &logs_path(),
+    )
+}
+
+#[tauri::command]
+pub fn frontend_heartbeat() {
+    if let Ok(mut slot) = HEARTBEAT.lock() {
+        *slot = Some(Instant::now());
+    }
+}
+
+fn last_heartbeat() -> Option<Instant> {
+    HEARTBEAT.lock().ok().and_then(|slot| *slot)
+}
+
+fn interface_is_stale(window_visible: bool, window_hung: bool, last: Option<Instant>) -> bool {
+    if !window_visible || window_hung {
+        return false;
+    }
+    match last {
+        Some(at) => at.elapsed() > INTERFACE_TIMEOUT,
+        None => false,
+    }
+}
 
 pub fn frontend_ready() {
     FRONTEND_READY.store(true, Ordering::SeqCst);
     poke_watchdog();
 }
 
-fn captured_error() -> Option<String> {
-    WEBVIEW_ERROR.lock().ok().and_then(|slot| slot.clone())
-}
-
-fn is_webview_target(target: &str) -> bool {
-    fn is_crate_or_module(target: &str, root: &str) -> bool {
-        target == root
-            || target
-                .strip_prefix(root)
-                .is_some_and(|rest| rest.starts_with("::"))
-    }
-    is_crate_or_module(target, "tauri_runtime_wry") || is_crate_or_module(target, "wry")
-}
-
-fn is_webview_failure(message: &str) -> bool {
-    message.contains("failed to create webview")
-}
-
-/// How a captured WebView2 startup failure should be explained to the user.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum WebviewFailure {
     /// Windows refused to run the runtime (Software Restriction Policy,
     /// AppLocker, or a similar control).
     BlockedByPolicy,
-    /// The runtime could not open its user data folder, which a live copy of
-    /// the app already holds open.
     RuntimeBusy,
     /// Anything else.
     Other,
@@ -71,141 +193,154 @@ fn classify(error: &str) -> WebviewFailure {
     let error = error.to_ascii_lowercase();
     if error.contains("0x800704ec") {
         WebviewFailure::BlockedByPolicy
-    } else if error.contains("0x80070057") || error.contains("0x8007139f") {
+    } else if error.contains("0x8007139f")
+        || error.contains("0x800700aa")
+        || error.contains("0x80070020")
+    {
         WebviewFailure::RuntimeBusy
     } else {
         WebviewFailure::Other
     }
 }
 
-/// Log target that records WebView2 creation failures so the watchdog can
-/// report the real error text rather than a generic message.
-pub fn create_watch_target() -> fern::Dispatch {
-    fern::Dispatch::new()
-        .filter(|metadata| is_webview_target(metadata.target()))
-        .chain(fern::Output::call(|record| {
-            if WEBVIEW_ERROR_SET.load(Ordering::SeqCst) {
+pub fn spawn_window_guard() {
+    let spawned = std::thread::Builder::new()
+        .name("window-guard".into())
+        .spawn(|| {
+            let started = Instant::now();
+            while !window_guard_expired(WINDOW_CREATED.load(Ordering::SeqCst), started.elapsed()) {
+                std::thread::sleep(Duration::from_millis(250));
+            }
+            if WINDOW_CREATED.load(Ordering::SeqCst) || !claim_startup_report() {
                 return;
             }
-            let message = record.args().to_string();
-            if !is_webview_failure(&message) {
+
+            let failure = window_timeout();
+
+            log::error!(
+                "[WebView2] Window creation did not finish within {} s",
+                WINDOW_TIMEOUT.as_secs()
+            );
+
+            #[cfg(target_os = "windows")]
+            crate::portable::notify_fatal_error(failure.code, &failure.message);
+            #[cfg(not(target_os = "windows"))]
+            eprintln!("{}", failure.message);
+
+            if WINDOW_CREATED.load(Ordering::SeqCst) {
+                FATAL_REPORTED.store(false, Ordering::SeqCst);
+                log::warn!("[WebView2] Window creation finished while the timeout dialog was open");
                 return;
             }
-            if let Ok(mut slot) = WEBVIEW_ERROR.lock() {
-                if slot.is_none() {
-                    *slot = Some(message);
-                    WEBVIEW_ERROR_SET.store(true, Ordering::SeqCst);
-                    poke_watchdog();
-                }
-            }
-        }))
+
+            fatal_exit();
+        });
+
+    if let Err(error) = spawned {
+        log::warn!("[WebView2] Window guard thread unavailable: {error}");
+    }
 }
 
-/// Watch for a startup that never becomes visible. If the webview died, show
-/// the captured error; if the frontend just never booted, say so. Either way
-/// the app exits instead of lingering with no window.
-pub fn spawn_watchdog() {
+pub fn spawn_watchdog(app: tauri::AppHandle) {
     std::thread::Builder::new()
         .name("webview-watchdog".into())
-        .spawn(|| {
+        .spawn(move || {
             if let Ok(mut slot) = WATCHDOG_THREAD.lock() {
                 *slot = Some(std::thread::current());
             }
             let started = Instant::now();
             loop {
                 if FRONTEND_READY.load(Ordering::SeqCst) {
-                    return;
+                    break;
                 }
                 let elapsed = started.elapsed();
-
-                let error = if WEBVIEW_ERROR_SET.load(Ordering::SeqCst) {
-                    captured_error()
-                } else {
-                    None
-                };
-
-                let has_error = error.is_some();
-                match error {
-                    Some(error) if elapsed >= ERROR_GRACE => {
-                        report(Some(&error));
+                if elapsed >= READY_TIMEOUT {
+                    if report() || elapsed >= READY_TIMEOUT + REPORT_RETRY {
                         return;
                     }
-                    None if elapsed >= READY_TIMEOUT => {
-                        report(None);
-                        return;
-                    }
-                    _ => {}
+                    std::thread::park_timeout(REPORT_RETRY_STEP);
+                    continue;
                 }
-
-                let deadline = if has_error {
-                    ERROR_GRACE
-                } else {
-                    READY_TIMEOUT
-                };
-                match deadline.checked_sub(elapsed) {
+                match READY_TIMEOUT.checked_sub(elapsed) {
                     Some(remaining) if !remaining.is_zero() => {
                         std::thread::park_timeout(remaining);
                     }
                     _ => continue,
                 }
             }
+
+            reveal_if_hidden(&app);
         })
         .ok();
 }
 
-fn report(error: Option<&str>) {
-    let logs = crate::diagnostics::logs_dir()
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|| "the app's log folder".to_string());
+fn should_reveal(window_visible: bool, autostart_launch: bool) -> bool {
+    !window_visible && !autostart_launch
+}
 
-    let failure = error.map(classify);
+fn window_visible(app: &tauri::AppHandle) -> bool {
+    use tauri::Manager;
 
-    let message = match (error, failure) {
-        (Some(err), Some(WebviewFailure::BlockedByPolicy)) => format!(
-            "BlurAutoClicker could not start.\n\n\
-             Windows blocked the Microsoft Edge WebView2 runtime, which this app needs to draw its window.\n\n\
-             Details: {err}\n\n\
-             This is almost always a Software Restriction Policy, an AppLocker rule, or a \"debloat\" / hardening tool \
-             blocking msedgewebview2.exe. On a PC you manage yourself, remove that rule. On a locked-down or work \
-             machine, ask your administrator to allow msedgewebview2.exe.\n\n\
-             A log is available at:\n{logs}"
-        ),
-        (Some(err), Some(WebviewFailure::RuntimeBusy)) => format!(
-            "BlurAutoClicker could not start.\n\n\
-             The Microsoft Edge WebView2 runtime could not open its data folder. This usually means another copy of \
-             BlurAutoClicker is already running, because only one copy can use that folder at a time for now.\n\n\
-             Close the other copy and start BlurAutoClicker again.\n\n\
-             Details: {err}\n\n\
-             A log is available at:\n{logs}"
-        ),
-        (Some(err), _) => format!(
-            "BlurAutoClicker could not start.\n\n\
-             The Microsoft Edge WebView2 runtime failed to start.\n\n\
-             Details: {err}\n\n\
-             If this keeps happening, repair or reinstall the WebView2 runtime:\n\
-             https://go.microsoft.com/fwlink/p/?LinkId=2124703\n\n\
-             A log is available at:\n{logs}"
-        ),
-        (None, _) => format!(
-            "BlurAutoClicker could not start.\n\n\
-             Its interface never became ready. This usually means the Microsoft Edge WebView2 runtime is blocked \
-             or broken.\n\n\
-             A log is available at:\n{logs}"
-        ),
-    };
+    app.get_webview_window("main")
+        .and_then(|window| window.is_visible().ok())
+        .unwrap_or(false)
+}
 
-    log::error!(
-        "[WebView2] Startup watchdog triggered (captured webview error: {}, class: {:?})",
-        error.is_some(),
-        failure
-    );
+fn reveal_if_hidden(app: &tauri::AppHandle) {
+    let started = Instant::now();
+    while started.elapsed() < REVEAL_TIMEOUT {
+        if !should_reveal(
+            window_visible(app),
+            crate::ui_commands::was_autostart_launch(),
+        ) {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    if !should_reveal(
+        window_visible(app),
+        crate::ui_commands::was_autostart_launch(),
+    ) {
+        return;
+    }
+
+    log::warn!("[UI] Window was never shown after the frontend booted; showing it now");
+
+    use tauri::Manager;
+    if let Some(window) = app.get_webview_window("main") {
+        if let Err(error) = window.show() {
+            log::error!("[UI] Showing the window failed: {error}");
+        }
+    }
+}
+
+fn report() -> bool {
+    if !claim_startup_report() {
+        return false;
+    }
+
+    let failure = silent_startup_failure();
+
+    log::error!("[WebView2] Startup watchdog triggered: the frontend never reported ready");
 
     #[cfg(target_os = "windows")]
-    crate::portable::notify_fatal_error(&message);
+    crate::portable::notify_fatal_error(failure.code, &failure.message);
     #[cfg(not(target_os = "windows"))]
-    eprintln!("{message}");
+    eprintln!("{}", failure.message);
 
-    std::process::exit(1);
+    if FRONTEND_READY.load(Ordering::SeqCst) {
+        FATAL_REPORTED.store(false, Ordering::SeqCst);
+        log::warn!("[UI] The frontend reported ready while the startup dialog was open");
+        return true;
+    }
+
+    fatal_exit();
+}
+
+fn logs_path() -> String {
+    crate::diagnostics::logs_dir()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "the app's log folder".to_string())
 }
 
 /// Pokes the main window every so often so an unresponsive interface leaves a
@@ -225,6 +360,7 @@ pub fn spawn_ui_watchdog(app: tauri::AppHandle) {
         .name("ui-watchdog".into())
         .spawn(move || {
             let mut hung = false;
+            let mut stale = false;
             let mut baseline_logged = false;
             loop {
                 std::thread::sleep(INTERVAL);
@@ -240,7 +376,23 @@ pub fn spawn_ui_watchdog(app: tauri::AppHandle) {
                     log_window_state(hwnd, "baseline");
                     baseline_logged = true;
                 }
-                if responds_to_messages(hwnd, PROBE_TIMEOUT_MS) {
+                let responding = responds_to_messages(hwnd, PROBE_TIMEOUT_MS);
+
+                if interface_is_stale(true, !responding, last_heartbeat()) {
+                    if !stale {
+                        log::error!(
+                            "[UI] The interface stopped talking to the backend; the window is still alive"
+                        );
+                    }
+                    stale = true;
+                } else if stale {
+                    if responding {
+                        log::info!("[UI] The interface is talking to the backend again");
+                    }
+                    stale = false;
+                }
+
+                if responding {
                     if hung {
                         log::info!("[UI] Main window responds again");
                         hung = false;
@@ -374,25 +526,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn matches_wry_webview_failure() {
-        let msg = "failed to create webview: WebView2 error: WindowsError(Error { code: HRESULT(0x800704EC) })";
-        assert!(is_webview_failure(msg));
-    }
-
-    #[test]
-    fn ignores_unrelated_messages() {
-        assert!(!is_webview_failure(
-            "[Window] Frontend ready, initializing overlay..."
+    fn a_window_without_a_heartbeat_only_looks_stale_when_it_was_ever_alive() {
+        assert!(!interface_is_stale(true, false, None));
+        assert!(interface_is_stale(
+            true,
+            false,
+            Some(Instant::now() - INTERFACE_TIMEOUT - Duration::from_secs(10))
         ));
-        assert!(!is_webview_failure("[Crashpad] Initialized"));
+        assert!(!interface_is_stale(
+            true,
+            false,
+            Some(Instant::now() - Duration::from_secs(60))
+        ));
+        assert!(!interface_is_stale(
+            false,
+            false,
+            Some(Instant::now() - INTERFACE_TIMEOUT - Duration::from_secs(10))
+        ));
+        assert!(!interface_is_stale(
+            true,
+            true,
+            Some(Instant::now() - INTERFACE_TIMEOUT - Duration::from_secs(10))
+        ));
     }
 
     #[test]
-    fn matches_only_wry_targets() {
-        assert!(is_webview_target("tauri_runtime_wry"));
-        assert!(is_webview_target("wry::webview"));
-        assert!(!is_webview_target("app_lib"));
-        assert!(!is_webview_target("tauri_runtime_wry_extra"));
+    fn reveal_only_when_the_window_stayed_hidden() {
+        assert!(should_reveal(false, false));
+        assert!(!should_reveal(true, false));
+        assert!(!should_reveal(false, true));
+        assert!(!should_reveal(true, true));
     }
 
     #[test]
@@ -404,13 +567,134 @@ mod tests {
     #[test]
     fn classifies_runtime_busy_codes() {
         assert_eq!(
-            classify("failed to create webview: HRESULT(0x80070057) parameter is incorrect"),
-            WebviewFailure::RuntimeBusy
-        );
-        assert_eq!(
             classify("failed to create webview: HRESULT(0x8007139F) invalid state"),
             WebviewFailure::RuntimeBusy
         );
+        assert_eq!(
+            classify(
+                "failed to create webview: HRESULT(0x800700AA) the requested resource is in use"
+            ),
+            WebviewFailure::RuntimeBusy
+        );
+        assert_eq!(
+            classify("failed to create webview: HRESULT(0x80070020) sharing violation"),
+            WebviewFailure::RuntimeBusy
+        );
+    }
+
+    #[test]
+    fn busy_errors_tell_the_user_to_close_the_other_copy() {
+        let failure = creation_failure("failed to create webview: HRESULT(0x800700AA)");
+
+        assert_eq!(failure.code, E_BUSY);
+        assert!(
+            failure
+                .message
+                .to_ascii_lowercase()
+                .contains("another copy"),
+            "{}",
+            failure.message
+        );
+        assert!(failure.message.contains("msedgewebview2.exe"));
+        assert!(!failure
+            .message
+            .to_ascii_lowercase()
+            .contains("only one copy"));
+    }
+
+    #[test]
+    fn the_guard_expires_only_when_the_window_is_still_missing() {
+        let timeout = Duration::from_secs(30);
+
+        assert!(!window_guard_expired(
+            true,
+            timeout + Duration::from_secs(5)
+        ));
+        assert!(!window_guard_expired(
+            false,
+            timeout - Duration::from_millis(1)
+        ));
+        assert!(window_guard_expired(false, timeout));
+    }
+
+    #[test]
+    fn only_the_first_startup_dialog_can_be_claimed() {
+        assert!(claim_startup_report());
+        assert!(!claim_startup_report());
+    }
+
+    #[test]
+    fn every_message_carries_its_code() {
+        let failures = [
+            creation_failure("failed to create webview: HRESULT(0x800704EC) policy"),
+            creation_failure("failed to create webview: HRESULT(0x800700AA) busy"),
+            creation_failure("failed to create webview: HRESULT(0x80070123) other"),
+            silent_startup_failure(),
+            window_timeout(),
+            window_timeout(),
+        ];
+
+        for failure in failures {
+            assert!(
+                failure
+                    .message
+                    .contains(&format!("Error code: {}", failure.code)),
+                "{} missing its code",
+                failure.code
+            );
+            assert!(failure.code.starts_with('E'), "{}", failure.code);
+            assert_eq!(failure.code.len(), 4, "{}", failure.code);
+        }
+    }
+
+    #[test]
+    fn a_creation_failure_is_explained_by_its_error_code() {
+        let failure = creation_failure(
+            "runtime error: failed to create webview: WebView2 error: WindowsError(Error { code: HRESULT(0x800700AA), message: \"busy\" })",
+        );
+
+        assert!(failure.message.contains("msedgewebview2.exe"));
+        assert!(failure.message.contains("0x800700AA"));
+    }
+
+    #[test]
+    fn invalid_argument_is_not_reported_as_a_busy_data_folder() {
+        assert_eq!(
+            classify("failed to create webview: HRESULT(0x80070057) invalid arg"),
+            WebviewFailure::Other
+        );
+    }
+
+    #[test]
+    fn a_creation_timeout_names_the_step_that_stalled() {
+        let failure = window_timeout();
+
+        assert!(failure.message.contains("did not finish within 30 seconds"));
+        assert!(failure.message.contains("Error code: E007"));
+    }
+
+    #[test]
+    fn a_silent_startup_does_not_blame_the_webview_runtime() {
+        let failure = silent_startup_failure();
+
+        assert_eq!(failure.code, E_INTERFACE_NOT_READY);
+        assert!(failure
+            .message
+            .contains("the interface never reported ready"));
+        assert!(failure.message.contains("Start BlurAutoClicker again"));
+        assert!(!failure.message.contains("blocked or broken"));
+        assert!(!failure.message.contains("msedgewebview2"));
+    }
+
+    #[test]
+    fn an_unknown_webview_error_points_at_the_runtime() {
+        let failure = creation_failure("failed to create webview: HRESULT(0x80070123)");
+
+        assert_eq!(failure.code, E_WEBVIEW_OTHER);
+        assert!(failure.message.contains("WebView2 Evergreen installer"));
+        assert!(failure
+            .message
+            .contains("Details: failed to create webview"));
     }
 
     #[test]
