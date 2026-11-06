@@ -111,10 +111,11 @@ jobs:
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NAME: ${{ steps.changelog.outputs.name }}
         run: |
           if (-not (Test-Path release_body.md)) { throw 'release_body.md is missing, the changelog step did not run' }
           gh release edit "$env:TAG_NAME" `
-            --title "${{ steps.changelog.outputs.name }}" `
+            --title "$env:RELEASE_NAME" `
             --notes-file release_body.md
 
       - name: Create portable package
