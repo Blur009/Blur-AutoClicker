@@ -525,17 +525,17 @@ pub fn get_cursor_position(window: tauri::WebviewWindow) -> Option<CursorPoint> 
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_stats() -> AppResult<CumulativeStats> {
     crate::engine::stats::get_stats()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_stats_overview() -> AppResult<StatsOverview> {
     crate::engine::stats::get_overview()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn reset_stats(app: AppHandle) -> AppResult<CumulativeStats> {
     let stats = crate::engine::stats::reset_stats()?;
     if let Err(e) = app.emit("stats-updated", stats.clone()) {

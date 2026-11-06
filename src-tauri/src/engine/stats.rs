@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
@@ -98,12 +99,57 @@ fn open_db(path: &Path) -> AppResult<Connection> {
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
-         PRAGMA busy_timeout = 5000;",
+         PRAGMA busy_timeout = 1500;",
     )?;
     MIGRATIONS
         .to_latest(&mut conn)
         .map_err(|e| AppError::DbMigration(e.to_string()))?;
     Ok(conn)
+}
+
+fn sidecar(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = path.as_os_str().to_os_string();
+    name.push(suffix);
+    PathBuf::from(name)
+}
+
+fn move_aside(path: &Path) -> Option<PathBuf> {
+    let mut target = path.as_os_str().to_os_string();
+    target.push(format!(
+        ".recovered-{}",
+        Local::now().format("%Y%m%d-%H%M%S")
+    ));
+    let target = PathBuf::from(target);
+    fs::rename(path, &target).ok().map(|_| target)
+}
+
+fn open_db_or_recover(path: &Path) -> AppResult<Connection> {
+    let error = match open_db(path) {
+        Ok(conn) => return Ok(conn),
+        Err(error) => error,
+    };
+
+    log::error!("[stats] database unusable ({error}); moving it aside and starting fresh");
+
+    let mut moved = Vec::new();
+    for suffix in ["", "-wal", "-shm"] {
+        let file = sidecar(path, suffix);
+        if file.exists() {
+            if let Some(target) = move_aside(&file) {
+                moved.push(target);
+            }
+        }
+    }
+
+    if moved.is_empty() {
+        return Err(error);
+    }
+
+    for target in &moved {
+        log::warn!("[stats] kept the old file at {}", target.display());
+    }
+
+    open_db(path)
 }
 
 fn db() -> AppResult<&'static Mutex<Connection>> {
@@ -112,7 +158,7 @@ fn db() -> AppResult<&'static Mutex<Connection>> {
     }
     let _guard = INIT_LOCK.lock().unwrap_or_else(poisoned_inner);
     if DB.get().is_none() {
-        let conn = open_db(&stats_db_path())?;
+        let conn = open_db_or_recover(&stats_db_path())?;
         import_legacy_csv(&conn, &legacy_csv_path())?;
         let _ = DB.set(Mutex::new(conn));
     }
@@ -141,7 +187,7 @@ fn import_legacy_csv(conn: &Connection, csv_path: &Path) -> AppResult<()> {
         return Ok(());
     }
 
-    let contents = fs::read_to_string(csv_path)?;
+    let reader = BufReader::new(fs::File::open(csv_path)?);
 
     let tx = conn.unchecked_transaction()?;
     let mut imported = 0u64;
@@ -151,7 +197,14 @@ fn import_legacy_csv(conn: &Connection, csv_path: &Path) -> AppResult<()> {
             "INSERT INTO runs (clicks, time_secs, avg_cpu, sessions, started_at)
              VALUES (?1, ?2, ?3, ?4, 0)",
         )?;
-        for line in contents.lines() {
+        for line in reader.lines() {
+            let line = match line {
+                Ok(line) => line,
+                Err(_) => {
+                    skipped += 1;
+                    continue;
+                }
+            };
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
                 continue;
@@ -668,6 +721,50 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM runs", [], |row| row.get(0))
             .expect("count after reset");
         assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn a_corrupt_database_is_moved_aside_instead_of_breaking_stats() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("stats.db");
+        fs::write(&path, b"this is not a sqlite database").expect("write");
+
+        let conn = open_db_or_recover(&path).expect("recover");
+
+        let runs: i64 = conn
+            .query_row("SELECT COUNT(*) FROM runs", [], |row| row.get(0))
+            .expect("query");
+        assert_eq!(runs, 0);
+        let recovered = fs::read_dir(dir.path())
+            .expect("dir")
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().to_string())
+            .filter(|name| name.contains(".recovered-"))
+            .count();
+        assert_eq!(recovered, 1);
+    }
+
+    #[test]
+    fn legacy_import_streams_and_skips_unreadable_lines() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let conn = open_db(&dir.path().join("stats.db")).expect("open db");
+        let csv = dir.path().join("stats.csv");
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"id,clicks,time,avg_cpu,sessions\n");
+        bytes.extend_from_slice(b"1,100,12.5,3.5,2\n");
+        bytes.extend_from_slice(b"2,notanumber,1.0,1.0,1\n");
+        bytes.extend_from_slice(b"3,50,5.0,0.0,1\n");
+        bytes.extend_from_slice(&[0xff, 0xfe, b'\n']);
+        fs::write(&csv, &bytes).expect("write csv");
+
+        import_legacy_csv(&conn, &csv).expect("import");
+
+        let rows: i64 = conn
+            .query_row("SELECT COUNT(*) FROM runs", [], |row| row.get(0))
+            .expect("count");
+        assert_eq!(rows, 2);
+        assert!(!csv.exists());
+        assert!(dir.path().join("stats.csv.migrated").exists());
     }
 
     #[test]
