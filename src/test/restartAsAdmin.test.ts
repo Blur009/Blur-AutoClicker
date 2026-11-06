@@ -37,14 +37,15 @@ describe("restartAsAdministrator", () => {
     });
   });
 
-  it("exits after a successful relaunch", async () => {
+  it("exits through the normal teardown after a successful relaunch", async () => {
     tauri.setInvokeResult("relaunch_as_admin", true);
     await expect(restartAsAdministrator(async () => true, false)).resolves.toBe(
       "relaunched",
     );
-    expect(tauri.exits()).toEqual([0]);
+    expect(tauri.invokes("exit_for_restart")).toHaveLength(1);
+    expect(tauri.exits()).toHaveLength(0);
     expect(tauri.firstIndexOf("invoke", "relaunch_as_admin")).toBeLessThan(
-      tauri.firstIndexOf("exit", "exit"),
+      tauri.firstIndexOf("invoke", "exit_for_restart"),
     );
   });
 
@@ -53,7 +54,7 @@ describe("restartAsAdministrator", () => {
     await expect(restartAsAdministrator(async () => true, false)).resolves.toBe(
       "refused",
     );
-    expect(tauri.exits()).toHaveLength(0);
+    expect(tauri.invokes("exit_for_restart")).toHaveLength(0);
   });
 
   it("does not relaunch when the settings could not be saved", async () => {
@@ -61,7 +62,7 @@ describe("restartAsAdministrator", () => {
       restartAsAdministrator(async () => false, false),
     ).resolves.toBe("unsaved");
     expect(tauri.invokes("relaunch_as_admin")).toHaveLength(0);
-    expect(tauri.exits()).toHaveLength(0);
+    expect(tauri.invokes("exit_for_restart")).toHaveLength(0);
   });
 
   it("propagates a failing relaunch without exiting", async () => {
@@ -71,7 +72,7 @@ describe("restartAsAdministrator", () => {
     await expect(
       restartAsAdministrator(async () => true, false),
     ).rejects.toThrow("no elevation");
-    expect(tauri.exits()).toHaveLength(0);
+    expect(tauri.invokes("exit_for_restart")).toHaveLength(0);
   });
 });
 
@@ -84,7 +85,7 @@ describe("restartWithoutAdministrator", () => {
     expect(tauri.invokes("relaunch_without_admin")[0]?.args).toEqual({
       keepAutostart: false,
     });
-    expect(tauri.exits()).toEqual([0]);
+    expect(tauri.invokes("exit_for_restart")).toHaveLength(1);
   });
 
   it("does not relaunch when the settings could not be saved", async () => {

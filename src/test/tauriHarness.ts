@@ -37,6 +37,7 @@ type HarnessState = {
   invokeHandlers: Map<string, InvokeHandler>;
   closeRequestedHandler: CloseRequestedHandler | null;
   listeners: BackendListener[];
+  failingWindowCalls: Map<string, string>;
 };
 
 type BackendListener = {
@@ -122,6 +123,7 @@ function initialState(): HarnessState {
     invokeHandlers: new Map(),
     closeRequestedHandler: null,
     listeners: [],
+    failingWindowCalls: new Map(),
   };
 }
 
@@ -130,6 +132,12 @@ const state = initialState();
 function recordWindowCall(method: string, args: unknown[]) {
   state.windowCalls.push({ method, args });
   state.sequence.push({ kind: "window", name: method });
+  const failure = state.failingWindowCalls.get(method);
+  if (failure) throw new Error(failure);
+}
+
+export function failWindowCall(method: string, message = "window call failed") {
+  state.failingWindowCalls.set(method, message);
 }
 
 export async function invoke<T>(
@@ -276,6 +284,7 @@ export function reset() {
   state.emits = fresh.emits;
   state.sequence = fresh.sequence;
   state.windowCalls = fresh.windowCalls;
+  state.failingWindowCalls = fresh.failingWindowCalls;
   state.storedSettings = fresh.storedSettings;
   state.savedSettings = fresh.savedSettings;
   state.loadError = fresh.loadError;
@@ -360,6 +369,7 @@ export const tauri = {
   emitBackendEvent,
   firstIndexOf,
   windowCalls,
+  failWindowCall,
   requestClose,
 };
 

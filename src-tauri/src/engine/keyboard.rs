@@ -185,6 +185,15 @@ pub fn send_key_batch(vk: u16, n: usize, uppercase: bool) -> bool {
     accepted
 }
 
+fn batch_residual(vk: u16, uppercase: bool) -> KeyDown {
+    let use_shift = should_hold_shift_for_case(vk, uppercase);
+    KeyDown {
+        use_shift,
+        shift_down: use_shift,
+        key_down: true,
+    }
+}
+
 pub fn send_key_presses(
     vk: u16,
     count: usize,
@@ -218,19 +227,14 @@ fn send_key_presses_inner(
     }
 
     if plan.kind == ClickCycleKind::Single && plan.first_hold_ms == 0 {
+        let residual = batch_residual(vk, uppercase);
         if count > 1 {
-            return (
-                batch_result(send_key_batch(vk, count, uppercase)),
-                KeyDown::default(),
-            );
+            return (batch_result(send_key_batch(vk, count, uppercase)), residual);
         }
         if !control.is_active() {
             return (SendResult::Sent, KeyDown::default());
         }
-        return (
-            batch_result(send_key_batch(vk, count, uppercase)),
-            KeyDown::default(),
-        );
+        return (batch_result(send_key_batch(vk, count, uppercase)), residual);
     }
 
     let blocked = std::cell::Cell::new(false);
@@ -346,6 +350,14 @@ mod tests {
 
         assert_eq!(after_release(held, false), held);
         assert_eq!(after_release(held, true), KeyDown::default());
+    }
+
+    #[test]
+    fn a_blocked_batch_reports_the_press_it_must_release() {
+        let residual = super::batch_residual(b'A' as u16, true);
+
+        assert!(residual.held());
+        assert!(key_up_plan(residual).key);
     }
 
     #[test]

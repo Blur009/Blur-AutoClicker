@@ -58,6 +58,10 @@ jobs:
             Set-Content -Path release_body.md -Value $match.Value.Trim()
           }
 
+      - name: Regenerate the crashpad handler
+        shell: pwsh
+        run: cargo clean --manifest-path src-tauri/Cargo.toml --package crashpad-rs-sys --release
+
       - name: Build
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
@@ -173,33 +177,6 @@ jobs:
             if (Test-Path ./winget-manifests) { Remove-Item ./winget-manifests -Recurse -Force }
           }
           throw "wingetcreate update failed after $attempts attempts"
-
-      - name: Extract release notes from CHANGELOG
-        shell: pwsh
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          $version = [regex]::Escape($env:VERSION)
-          $content = Get-Content CHANGELOG.md -Raw
-          $pattern = "(?ms)# v$version .*?(?=\n# v|\z)"
-          $match = [regex]::Match($content, $pattern)
-          if ($match.Success) {
-            Set-Content -Path release_notes.md -Value $match.Value.Trim()
-          } else {
-            Set-Content -Path release_notes.md -Value "See https://github.com/$env:REPO/releases/tag/$env:TAG_NAME"
-          }
-
-      - name: Inject ReleaseNotes into locale manifest
-        shell: pwsh
-        run: |
-          $notes = Get-Content release_notes.md -Raw
-          $locale = Get-ChildItem ./winget-manifests -Recurse -Filter "*.locale.*.yaml" | Select-Object -First 1
-          if (-not $locale) { throw 'No locale manifest found to add ReleaseNotes' }
-          $body = ($notes.TrimEnd() -split "`n") |
-            Where-Object { $_ -notmatch '^#\s*v\d' } |
-            ForEach-Object { "  " + ($_ -replace "`t", "    ").TrimEnd() }
-          $block = "ReleaseNotes: |`n" + ($body -join "`n") + "`n"
-          Add-Content -Path $locale.FullName -Value $block
 
       - name: Submit to winget-pkgs
         shell: pwsh

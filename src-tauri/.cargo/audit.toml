@@ -1,8 +1,9 @@
 # cargo-audit config. Read by `cargo audit` when run from src-tauri/ (our CI).
 #
 # Everything else is either patched or a warning we accept. The three ignores
-# below are all zip advisories that need zip >= 9.0.0, which two of our
-# transitive deps cannot take yet.
+# below are all zip advisories that need zip >= 9.0.0, which crashpad-rs-sys
+# (build-dependency, zip 0.6) cannot take yet. tauri-plugin-updater moved to
+# zip 9 in 2.14.1, so the updater side of these no longer applies.
 
 [advisories]
 ignore = [
@@ -11,17 +12,22 @@ ignore = [
   # RUSTSEC-2026-0369: extract() applies permissions through symlinks.
   #
   # All three affect only the `extract()` path, which we never feed untrusted bytes:
-  # - tauri-plugin-updater 2.13.3 (windows-only zip ^4) verifies the minisign
-  #   signature over the downloaded archive before extracting it, so forging an
-  #   archive requires our private key.
   # - crashpad-rs-sys 0.2.7 (build-dependency, zip 0.6) unpacks the prebuilt
   #   Crashpad archive that build.rs pins by SHA-256.
-  # Neither runs as root on Unix: the updater runs as the user, the build script
-  # as the developer or CI runner. Windows has no SUID bits at all.
-  # Drop these once tauri-plugin-updater and crashpad-rs move to zip 9.
+  # It never runs as root on Unix: the build script runs as the developer or CI
+  # runner. Windows has no SUID bits at all.
+  # Drop these once crashpad-rs moves to zip 9.
   "RUSTSEC-2026-0367",
   "RUSTSEC-2026-0368",
   "RUSTSEC-2026-0369",
+
+  # RUSTSEC-2026-0429: extract() aborts the process on a symlink entry with a
+  # huge declared size (allocation failure, not a panic).
+  # Same crate and same reasoning as above: zip 0.6.6 arrives only through
+  # crashpad-rs-sys's build script, is never linked into the app, and its only
+  # input is the pinned prebuilt tarball. Patched in zip 9.0.0.
+  # Drop once crashpad-rs moves past zip 0.6.
+  "RUSTSEC-2026-0429",
 
   # RUSTSEC-2026-0403: DCtx::decompress_stream commits a bogus output position
   # when streaming decompression of a corrupt legacy (v0.4-v0.7) frame fails,

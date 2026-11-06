@@ -87,6 +87,28 @@ pub fn write_panic_report(report: &str) {
     }
 }
 
+/// Appends one line to `Diagnostics/shutdown.log`. Used from the session-end
+/// window procedure, where anything that queues work for another thread would
+/// race the process teardown.
+pub fn write_shutdown_note(reason: &str) {
+    let Some(root) = diagnostics_root() else {
+        return;
+    };
+    let _ = std::fs::create_dir_all(&root);
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(root.join("shutdown.log"))
+    {
+        use std::io::Write;
+        let _ = writeln!(file, "{ts} {reason}");
+    }
+}
+
 pub fn get_diagnostics_info() -> Option<DiagnosticsInfo> {
     let root = diagnostics_root()?;
     Some(DiagnosticsInfo {

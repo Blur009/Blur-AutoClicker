@@ -1,9 +1,9 @@
 use std::os::windows::ffi::OsStringExt;
 use windows_sys::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED, HANDLE, HWND};
 use windows_sys::Win32::Security::{
-    GetTokenInformation, TokenElevation, TokenElevationType, TOKEN_ADJUST_DEFAULT,
-    TOKEN_ADJUST_SESSIONID, TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_ELEVATION,
-    TOKEN_ELEVATION_TYPE, TOKEN_QUERY,
+    DuplicateTokenEx, GetTokenInformation, SecurityImpersonation, TokenElevation,
+    TokenElevationType, TokenPrimary, TOKEN_ADJUST_DEFAULT, TOKEN_ADJUST_SESSIONID,
+    TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_ELEVATION, TOKEN_ELEVATION_TYPE, TOKEN_QUERY,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
@@ -501,11 +501,30 @@ pub fn relaunch_unelevated(keep_autostart: bool) -> bool {
             CloseHandle(token);
             return false;
         }
+        let mut primary: HANDLE = std::ptr::null_mut();
+        let duplicated = DuplicateTokenEx(
+            token,
+            TOKEN_ASSIGN_PRIMARY
+                | TOKEN_DUPLICATE
+                | TOKEN_QUERY
+                | TOKEN_ADJUST_DEFAULT
+                | TOKEN_ADJUST_SESSIONID,
+            std::ptr::null(),
+            SecurityImpersonation,
+            TokenPrimary,
+            &mut primary,
+        ) != 0;
+        let duplicate_error = std::io::Error::last_os_error();
+        CloseHandle(token);
+        if !duplicated || primary.is_null() {
+            log::warn!("[Elevation] Cannot duplicate the shell token: {duplicate_error}");
+            return false;
+        }
         let mut startup: STARTUPINFOW = std::mem::zeroed();
         startup.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
         let mut process_info: PROCESS_INFORMATION = std::mem::zeroed();
         let created = CreateProcessWithTokenW(
-            token,
+            primary,
             0,
             application.as_ptr(),
             command.as_mut_ptr(),
@@ -516,7 +535,7 @@ pub fn relaunch_unelevated(keep_autostart: bool) -> bool {
             &mut process_info,
         ) != 0;
         let create_error = std::io::Error::last_os_error();
-        CloseHandle(token);
+        CloseHandle(primary);
         if !process_info.hProcess.is_null() {
             CloseHandle(process_info.hProcess);
         }

@@ -71,7 +71,7 @@ pub fn create_app_events_target() -> fern::Dispatch {
             let _ = tx.try_send(AppEventRecord {
                 level: record.level().to_string(),
                 target: record.target().to_string(),
-                message: record.args().to_string(),
+                message: crate::logging::redact_profile(&record.args().to_string()),
                 millis: chrono::Utc::now().timestamp_millis(),
             });
         }))

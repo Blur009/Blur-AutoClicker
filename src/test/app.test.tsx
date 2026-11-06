@@ -139,36 +139,28 @@ describe("App boot", () => {
     });
   });
 
-  it("relaunches as administrator only after the window is shown", async () => {
+  it("still shows the window when the sizing step fails", async () => {
+    tauri.failWindowCall("setSize", "no usable monitor");
+
+    await renderLoadedApp();
+
+    await waitFor(() => expect(tauri.windowCalls("show")).toHaveLength(1), {
+      timeout: 5000,
+    });
+    expect(tauri.windowCalls("center")).toHaveLength(0);
+    expect(tauri.invokes("report_startup_ready")).toHaveLength(1);
+    expect(tauri.invokes("report_startup_ready")[0]?.args).toMatchObject({
+      visible: true,
+    });
+  });
+
+  it("does not relaunch itself at startup", async () => {
     tauri.setStoredSettings({ alwaysRunAsAdmin: true });
     tauri.setInvokeResult("get_elevation_state", {
       elevated: false,
       canElevate: true,
     });
     tauri.setInvokeResult("relaunch_as_admin", false);
-
-    await renderLoadedApp();
-
-    await waitFor(
-      () => expect(tauri.invokes("relaunch_as_admin")).toHaveLength(1),
-      { timeout: 5000 },
-    );
-    expect(tauri.invokes("relaunch_as_admin")[0]!.args).toEqual({
-      keepAutostart: true,
-    });
-    const shown = tauri.firstIndexOf("window", "show");
-    expect(shown).toBeGreaterThan(-1);
-    expect(shown).toBeLessThan(
-      tauri.firstIndexOf("invoke", "relaunch_as_admin"),
-    );
-  });
-
-  it("does not relaunch when it is already elevated", async () => {
-    tauri.setStoredSettings({ alwaysRunAsAdmin: true });
-    tauri.setInvokeResult("get_elevation_state", {
-      elevated: true,
-      canElevate: false,
-    });
 
     await renderLoadedApp();
 
@@ -596,10 +588,25 @@ describe("App status bar sounds", () => {
     );
   });
 
-  it("hides the icon when both sounds are turned off", async () => {
+  it("keeps the icon while only the per-click sound is on", async () => {
     tauri.setStoredSettings({
       enableSoundEnabled: false,
       disableSoundEnabled: false,
+      clickSoundEnabled: true,
+    });
+
+    await renderLoadedApp();
+
+    await waitFor(() =>
+      expect(document.querySelector(".status-bar-sound-btn")).not.toBeNull(),
+    );
+  });
+
+  it("hides the icon when every sound is turned off", async () => {
+    tauri.setStoredSettings({
+      enableSoundEnabled: false,
+      disableSoundEnabled: false,
+      clickSoundEnabled: false,
     });
 
     await renderLoadedApp();
@@ -737,6 +744,12 @@ describe("App clicker sounds", () => {
     return element?.src ?? "";
   }
 
+  async function playAfter(ms: number) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    });
+  }
+
   async function emitStatus(running: boolean) {
     await act(async () => {
       tauri.emitBackendEvent(STATUS_EVENT, statusPayload(running));
@@ -766,6 +779,73 @@ describe("App clicker sounds", () => {
     await emitStatus(true);
 
     await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+  });
+
+  it("ticks the click sound at the configured rate", async () => {
+    tauri.setStoredSettings({
+      enableSoundEnabled: false,
+      disableSoundEnabled: false,
+      clickSoundEnabled: true,
+      clickSpeed: 10,
+      clickInterval: "s",
+    });
+    const play = stubAudioPlay();
+    await renderLoadedApp();
+
+    await emitStatus(true);
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+    expect(playedSrc(play, 0)).toContain("/sounds/enable.wav");
+
+    await playAfter(350);
+    expect(play.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(play.mock.calls.length).toBeLessThanOrEqual(5);
+    expect(playedSrc(play, play.mock.calls.length - 1)).toContain(
+      "/sounds/enable.wav",
+    );
+
+    await emitStatus(false);
+    const afterStop = play.mock.calls.length;
+    await playAfter(150);
+    expect(play.mock.calls.length).toBe(afterStop);
+  });
+
+  it("does not double the start chime with a click", async () => {
+    tauri.setStoredSettings({
+      enableSoundEnabled: true,
+      disableSoundEnabled: false,
+      clickSoundEnabled: true,
+      clickSpeed: 10,
+      clickInterval: "s",
+    });
+    const play = stubAudioPlay();
+    await renderLoadedApp();
+
+    await emitStatus(true);
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+
+    await playAfter(350);
+    expect(play.mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("holds the click sound while the run is paused", async () => {
+    tauri.setStoredSettings({
+      enableSoundEnabled: false,
+      disableSoundEnabled: false,
+      clickSoundEnabled: true,
+    });
+    const play = stubAudioPlay();
+    await renderLoadedApp();
+
+    await act(async () => {
+      tauri.emitBackendEvent(STATUS_EVENT, {
+        ...statusPayload(true),
+        paused: true,
+      });
+      await Promise.resolve();
+    });
+    await playAfter(150);
+
+    expect(play).not.toHaveBeenCalled();
   });
 
   it("keeps quiet while muted", async () => {

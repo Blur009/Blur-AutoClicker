@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { compareVersions, parseChangelog } from "../changelog";
+import {
+  compareVersions,
+  describeChangelogDate,
+  formatDaysSince,
+  parseChangelog,
+} from "../changelog";
 
 const sample = `# v3.9.2 - 14.08.2026 (d.m.y)
 
@@ -92,5 +97,68 @@ describe("compareVersions", () => {
 
   it("handles non-numeric segments as zero", () => {
     expect(compareVersions("3.9.x", "3.9.2")).toBe(-1);
+  });
+});
+
+describe("describeChangelogDate", () => {
+  const now = new Date(2026, 10, 3, 15, 30);
+
+  it("splits the date from the trailing note", () => {
+    expect(describeChangelogDate("29.10.2026 (d.m.y)", now)).toEqual({
+      display: "29.10.2026",
+      note: "(d.m.y)",
+      daysSince: 5,
+    });
+  });
+
+  it("accepts a date without a note and pads single digits", () => {
+    expect(describeChangelogDate("1.2.2026", now)).toEqual({
+      display: "01.02.2026",
+      note: null,
+      daysSince: 275,
+    });
+  });
+
+  it("counts whole days regardless of the time of day", () => {
+    expect(
+      describeChangelogDate("03.11.2026", new Date(2026, 10, 3, 0, 1))
+        .daysSince,
+    ).toBe(0);
+    expect(
+      describeChangelogDate("03.11.2026", new Date(2026, 10, 3, 23, 59))
+        .daysSince,
+    ).toBe(0);
+    expect(
+      describeChangelogDate("02.11.2026", new Date(2026, 10, 3, 0, 1))
+        .daysSince,
+    ).toBe(1);
+  });
+
+  it("shows an unparseable date as written and claims no age", () => {
+    expect(describeChangelogDate("soon", now)).toEqual({
+      display: "soon",
+      note: null,
+      daysSince: null,
+    });
+    expect(describeChangelogDate("31.02.2026", now)).toEqual({
+      display: "31.02.2026",
+      note: null,
+      daysSince: null,
+    });
+  });
+
+  it("does not report a negative age for a future date", () => {
+    const info = describeChangelogDate("09.11.2026", now);
+    expect(info.display).toBe("09.11.2026");
+    expect(info.daysSince).toBeNull();
+  });
+});
+
+describe("formatDaysSince", () => {
+  it("reads like a person would say it", () => {
+    expect(formatDaysSince(null)).toBeNull();
+    expect(formatDaysSince(0)).toBe("today");
+    expect(formatDaysSince(1)).toBe("1 day ago");
+    expect(formatDaysSince(9)).toBe("9 days ago");
   });
 });

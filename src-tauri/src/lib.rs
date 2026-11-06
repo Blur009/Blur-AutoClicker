@@ -17,6 +17,7 @@ mod indicator;
 mod logging;
 mod notifications;
 mod overlay;
+mod session_end;
 mod startup;
 mod theme_window;
 mod ui_commands;
@@ -96,7 +97,7 @@ pub(crate) fn force_foreground(window: &tauri::WebviewWindow) {
     };
 
     let hwnd = raw.hwnd.get() as *mut std::ffi::c_void;
-    apply_ws_ex_noactivate(window, false);
+    let _ = apply_ws_ex_noactivate(window, false);
     unsafe {
         let foreground = GetForegroundWindow();
         if foreground == hwnd {
@@ -118,25 +119,64 @@ pub(crate) fn force_foreground(window: &tauri::WebviewWindow) {
     }
 }
 
-fn apply_ws_ex_noactivate(window: &tauri::WebviewWindow, enable: bool) {
+/// Adds or removes `WS_EX_NOACTIVATE` on a window and returns the resulting
+/// style. The extended style is cached in the window frame, so a bare
+/// `SetWindowLongPtr` can leave the old behaviour in place; the frame change
+/// below is what makes the new style take effect.
+fn apply_ws_ex_noactivate(window: &tauri::WebviewWindow, enable: bool) -> Option<u32> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use windows_sys::Win32::Foundation::{GetLastError, SetLastError};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongW, SetWindowLongW, GWL_EXSTYLE,
+        GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, SWP_FRAMECHANGED,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, WS_EX_NOACTIVATE,
     };
 
-    if let Ok(handle) = window.window_handle() {
-        if let RawWindowHandle::Win32(w) = handle.as_raw() {
-            let hwnd = w.hwnd.get() as *mut std::ffi::c_void;
-            unsafe {
-                let ex = GetWindowLongW(hwnd, GWL_EXSTYLE);
-                let new_ex = if enable {
-                    (ex as u32 | 0x08000000) as i32
-                } else {
-                    (ex as u32 & !0x08000000) as i32
-                };
-                SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex);
-            }
+    let Ok(handle) = window.window_handle() else {
+        return None;
+    };
+    let RawWindowHandle::Win32(w) = handle.as_raw() else {
+        return None;
+    };
+    let hwnd = w.hwnd.get() as *mut std::ffi::c_void;
+
+    unsafe {
+        let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+        let wanted = if enable {
+            current | WS_EX_NOACTIVATE
+        } else {
+            current & !WS_EX_NOACTIVATE
+        };
+        if wanted == current {
+            return Some(current);
         }
+        // `SetWindowLongPtrW` returns the previous value, which is 0 on both
+        // success and failure when the old style was 0, so read the error out
+        // of band instead.
+        SetLastError(0);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, wanted as isize);
+        let error = GetLastError();
+        if error != 0 {
+            log::warn!(
+                "[Window] Could not change WS_EX_NOACTIVATE: {}",
+                std::io::Error::from_raw_os_error(error as i32)
+            );
+            return Some(current);
+        }
+        SetWindowPos(
+            hwnd,
+            std::ptr::null_mut(),
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED
+                | SWP_NOMOVE
+                | SWP_NOSIZE
+                | SWP_NOZORDER
+                | SWP_NOOWNERZORDER
+                | SWP_NOACTIVATE,
+        );
+        Some(GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32)
     }
 }
 
@@ -240,14 +280,43 @@ fn setup_panic_hook() {
 
         crate::diagnostics::write_panic_report(&report);
 
+        // The dialog below pumps the thread's messages. During a Windows
+        // shutdown that re-enters the event loop, which is how one panic
+        // becomes two, and it holds the machine while the user is trying to
+        // log off. The report is already on disk.
+        if crate::session_end::shutdown_requested() {
+            log::error!("[Crash] Windows is ending the session; skipping the fatal error dialog");
+            return;
+        }
+
+        let body = format!(
+            "BlurAutoClicker encountered a fatal error and needs to close.
+
+Error code: {}
+
+Please check the log for details.",
+            crate::webview_guard::E_PANIC
+        );
+        if !crate::webview_guard::claim_startup_report() {
+            return;
+        }
+        log::error!(
+            "[Startup] Dialog {}: {}",
+            crate::webview_guard::E_PANIC,
+            body.replace('\n', " / ")
+        );
+
         unsafe {
             use windows_sys::Win32::UI::WindowsAndMessaging::MessageBoxW;
             use windows_sys::Win32::UI::WindowsAndMessaging::MB_ICONERROR;
-            let wide: Vec<u16> = "BlurAutoClicker encountered a fatal error and needs to close.\nPlease check the log for details.\n\n"
-                .encode_utf16()
-                .chain(std::iter::once(0))
-                .collect();
-            let title: Vec<u16> = "BlurAutoClicker - Fatal Error"
+            let wide: Vec<u16> = format!(
+                "BlurAutoClicker encountered a fatal error and needs to close.\n\nError code: {}\n\nPlease check the log for details.",
+                crate::webview_guard::E_PANIC
+            )
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+            let title: Vec<u16> = format!("BlurAutoClicker - {}", crate::webview_guard::E_PANIC)
                 .encode_utf16()
                 .chain(std::iter::once(0))
                 .collect();
@@ -258,7 +327,30 @@ fn setup_panic_hook() {
                 MB_ICONERROR,
             );
         }
+
+        crate::webview_guard::release_startup_report();
     }));
+}
+
+/// In a dev build the WebView2 browser process inherits the app's stderr and
+/// prints its own shutdown complaint ("Failed to unregister class
+/// Chrome_WidgetWin_0", which is what Error 1412 looks like) on every close.
+/// Nothing reads that, and the runtime's logging switches do not apply because
+/// Chromium emits it after its log sink is gone, so point stderr at NUL before
+/// the browser process exists. stdout and the log files are untouched.
+#[cfg(all(target_os = "windows", debug_assertions))]
+fn silence_inherited_stderr() {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::System::Console::{SetStdHandle, STD_ERROR_HANDLE};
+
+    let Ok(null) = std::fs::OpenOptions::new().write(true).open("NUL") else {
+        return;
+    };
+    if unsafe { SetStdHandle(STD_ERROR_HANDLE, null.as_raw_handle() as *mut _) } == 0 {
+        return;
+    }
+    // Keeping the handle open for the life of the process is the point.
+    std::mem::forget(null);
 }
 
 fn setup_logging(app: &AppHandle) {
@@ -285,9 +377,6 @@ fn setup_logging(app: &AppHandle) {
                 Target::new(TargetKind::Dispatch(
                     crate::app_events::create_app_events_target(),
                 )),
-                Target::new(TargetKind::Dispatch(
-                    crate::webview_guard::create_watch_target(),
-                )),
             ])
             .level(log_level)
             .level_for("tao", log::LevelFilter::Warn)
@@ -305,7 +394,7 @@ fn show_main_window(app: &AppHandle) {
         return;
     };
     #[cfg(target_os = "windows")]
-    apply_ws_ex_noactivate(&window, false);
+    let _ = apply_ws_ex_noactivate(&window, false);
     let _ = window.unminimize();
     if window.show().is_ok() {
         let _ = app.emit("minimized-changed", false);
@@ -602,6 +691,9 @@ pub fn sync_indicator_config(app: &AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(all(target_os = "windows", debug_assertions))]
+    silence_inherited_stderr();
+
     crate::startup::mark_start();
     crate::portable::init();
     setup_panic_hook();
@@ -629,6 +721,7 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
             setup_logging(&handle);
+            crate::session_end::install();
             #[cfg(windows)]
             set_app_aumid();
 
@@ -636,38 +729,78 @@ pub fn run() {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             }
 
+            if crate::ui_commands::persisted_always_run_as_admin(&handle)
+                && crate::elevation::can_elevate()
+            {
+                log::info!("[Elevation] Requesting administrator rights before the window exists");
+                if crate::elevation::relaunch_elevated(true) {
+                    log::info!(
+                        "[Elevation] Restarting as administrator before the window is created"
+                    );
+                    app.handle().exit(0);
+                    return Ok(());
+                }
+                log::warn!("[Elevation] Could not restart as administrator at startup");
+            }
+
+            crate::webview_guard::spawn_window_guard();
             if let Err(e) = create_main_window(app) {
                 log::error!("[Window] Failed to create main window: {e}");
-                #[cfg(target_os = "windows")]
-                if crate::portable::is_portable() {
-                    let msg = if !crate::portable::webview2_installed() {
-                        if crate::portable::webview2_bootstrapper_started() {
-                            "The Microsoft Edge WebView2 Runtime was not found.\n\nThe bundled installer was started automatically. Wait a moment, then start BlurAutoClicker again."
-                        } else {
-                            "The Microsoft Edge WebView2 Runtime was not found.\n\nThe app could not start its installer. Install it manually from:\nhttps://go.microsoft.com/fwlink/p/?LinkId=2124703"
-                        }
-                    } else {
-                        &format!(
-                            "The app could not start.\n\n{0}\n\nIf you extracted the app to a folder you cannot write to (such as Program Files), move it somewhere writable (for example Documents or the Desktop).",
-                            e
+                use crate::webview_guard::{
+                    E_MISSING_RUNTIME, E_MISSING_RUNTIME_INSTALLING, E_UNWRITABLE_FOLDER,
+                };
+                let failure = if crate::portable::is_portable()
+                    && !crate::portable::webview2_installed()
+                {
+                    if crate::portable::webview2_bootstrapper_started() {
+                        crate::webview_guard::StartupFailure::with_code(
+                            E_MISSING_RUNTIME_INSTALLING,
+                            String::from("The Microsoft Edge WebView2 Runtime was not found.
+
+The bundled installer was started automatically. Wait a moment, then start BlurAutoClicker again."),
                         )
-                    };
-                    crate::portable::notify_fatal_error(msg);
-                    std::process::exit(1);
+                    } else {
+                        crate::webview_guard::StartupFailure::with_code(
+                            E_MISSING_RUNTIME,
+                            String::from("The Microsoft Edge WebView2 Runtime was not found, and no bundled installer ran. Install it manually from:
+https://go.microsoft.com/fwlink/p/?LinkId=2124703"),
+                        )
+                    }
+                } else if crate::portable::is_portable()
+                    && crate::portable::ensure_data_dir().is_err()
+                {
+                    crate::webview_guard::StartupFailure::with_code(
+                        E_UNWRITABLE_FOLDER,
+                        format!(
+                            "The app could not start.
+
+{}
+
+If you extracted the app to a folder you cannot write to (such as Program Files), move it somewhere writable (for example Documents or the Desktop).",
+                            e
+                        ),
+                    )
                 } else {
-                    let msg = format!(
-                        "The application window could not be created.\n\n{0}\n\nIf reinstalling the app does not help, please report the issue at:\nhttps://github.com/Blur009/Blur-AutoClicker/issues",
-                        e
-                    );
-                    crate::portable::notify_fatal_error(&msg);
-                    std::process::exit(1);
+                    crate::webview_guard::creation_failure(&e.to_string())
+                };
+                if crate::webview_guard::claim_startup_report() {
+                    #[cfg(target_os = "windows")]
+                    crate::portable::notify_fatal_error(failure.code, &failure.message);
+                    #[cfg(not(target_os = "windows"))]
+                    eprintln!("{}", failure.message);
                 }
+                crate::webview_guard::fatal_exit();
             }
+
+            crate::webview_guard::window_created();
 
             #[cfg(target_os = "windows")]
             if let Some(window) = app.get_webview_window("main") {
-                apply_ws_ex_noactivate(&window, true);
-                log::info!("[Window] Applied WS_EX_NOACTIVATE to main window");
+                let style = apply_ws_ex_noactivate(&window, true);
+                log::info!(
+                    "[Window] Applied WS_EX_NOACTIVATE to main window (exstyle {})",
+                    style.map_or_else(|| String::from("unavailable"), |value| format!("0x{value:08x}"))
+                );
             }
 
             crate::startup::mark_webview_ready();
@@ -675,7 +808,8 @@ pub fn run() {
             if let Err(e) = setup_tray(&handle) {
                 log::error!("[Window] Tray setup failed, continuing without tray: {e}");
             }            setup_frontend_listener(&handle);
-            crate::webview_guard::spawn_watchdog();
+            crate::webview_guard::spawn_watchdog(handle.clone());
+            crate::webview_guard::spawn_ui_watchdog(handle.clone());
 
             if rtss_detected {
                 log::warn!(
@@ -744,12 +878,15 @@ pub fn run() {
             theme_window::close_theme_window,
             ui_commands::hide_main_window,
             ui_commands::quit_app,
+            ui_commands::exit_for_restart,
             ui_commands::get_autostart_enabled,
             ui_commands::set_autostart_enabled,
             ui_commands::list_processes,
             ui_commands::was_autostart_launch,
             ui_commands::prepare_main_window,
             ui_commands::report_startup_ready,
+            crate::webview_guard::frontend_heartbeat,
+            crate::webview_guard::breadcrumb,
             ui_commands::get_diagnostics_info,
             ui_commands::open_diagnostics_folder,
             ui_commands::export_diagnostics_bundle,

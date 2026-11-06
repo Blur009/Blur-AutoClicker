@@ -2,6 +2,7 @@ import "./SettingsPanel.css";
 import {
   lazy,
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -35,6 +36,8 @@ import PresetsSection from "./sections/PresetsSection";
 import MaintenanceSection from "./sections/MaintenanceSection";
 import KeybindsSection from "./sections/KeybindsSection";
 import ProcessListSection from "./sections/ProcessListSection";
+import { SettingsSearchInput, SettingsSearchResults } from "./SettingsSearch";
+import type { SettingsSearchResult } from "../../../settingsSearch";
 
 const DevToolsSection = import.meta.env.DEV
   ? lazy(() => import("./sections/DevToolsSection"))
@@ -161,11 +164,22 @@ export default function SettingsPanel({
   onOpenFirstRunSetup,
 }: Props) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
-  const [atBottom, setAtBottom] = useState(true);
+  const [search, setSearch] = useState("");
+  const searchAnimation = useRef<number | null>(null);
+  const searchValue = useRef("");
+  const [jumpTo, setJumpTo] = useState<{
+    label: string;
+    nonce: number;
+  } | null>(null);
+  const [scrollState, setScrollState] = useState({
+    atBottom: true,
+    scrollable: false,
+  });
   const [activeRect, setActiveRect] = useState<TabRect | null>(null);
   const [hoverRect, setHoverRect] = useState<TabRect | null>(null);
   const [hoverOn, setHoverOn] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const jumpTimerRef = useRef<number | undefined>(undefined);
   const navRef = useRef<HTMLElement>(null);
   const prevInitialTabRef = useRef<string | undefined>(undefined);
 
@@ -206,23 +220,149 @@ export default function SettingsPanel({
     }
   }, [initialSettingsTab, onInitialTabConsumed]);
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     const panel = panelRef.current;
     if (!panel) return;
-    setAtBottom(panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 2);
-  };
+    // Without this the fade outlives the content: switching to a short tab (or
+    // an empty search) fires no scroll event, so the old "not at bottom" state
+    // kept the gradient on screen over nothing.
+    const scrollable = panel.scrollHeight - panel.clientHeight > 2;
+    setScrollState({
+      scrollable,
+      atBottom:
+        !scrollable ||
+        panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 2,
+    });
+  }, []);
 
   useEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
+    handleScroll();
     const observer = new ResizeObserver(handleScroll);
     observer.observe(panel);
-    return () => observer.disconnect();
-  }, [activeTab]);
+    // Sections also grow after mount (process list, fonts, stats), so watch the
+    // content itself, not just the panel box.
+    const mutations = new MutationObserver(handleScroll);
+    mutations.observe(panel, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      mutations.disconnect();
+    };
+  }, [activeTab, search, handleScroll]);
+
+  const showSections = search.trim().length === 0;
+
+  const stopSearchAnimation = useCallback(() => {
+    if (searchAnimation.current !== null) {
+      window.clearInterval(searchAnimation.current);
+      searchAnimation.current = null;
+    }
+  }, []);
+
+  // Clearing deletes the query one step at a time so the text types itself
+  // back out, and the results thin out as it goes.
+  const clearSearch = useCallback(
+    (animate: boolean) => {
+      stopSearchAnimation();
+      if (!animate) {
+        searchValue.current = "";
+        setSearch("");
+        return;
+      }
+      searchAnimation.current = window.setInterval(() => {
+        const current = searchValue.current;
+        if (current.length === 0) {
+          stopSearchAnimation();
+          return;
+        }
+        const step = Math.max(1, Math.ceil(current.length / 14));
+        const next = current.slice(0, -step);
+        searchValue.current = next;
+        setSearch(next);
+        if (next.length === 0) stopSearchAnimation();
+      }, 18);
+    },
+    [stopSearchAnimation],
+  );
+
+  useEffect(() => () => stopSearchAnimation(), [stopSearchAnimation]);
+
+  const handleQueryChange = useCallback(
+    (next: string) => {
+      stopSearchAnimation();
+      searchValue.current = next;
+      setSearch(next);
+    },
+    [stopSearchAnimation],
+  );
+
+  const handleTabSelect = useCallback(
+    (tab: SettingsTab) => {
+      if (search.trim().length > 0) clearSearch(true);
+      setActiveTab(tab);
+    },
+    [search, clearSearch],
+  );
+
+  const handleSearchSelect = useCallback(
+    (result: SettingsSearchResult) => {
+      stopSearchAnimation();
+      searchValue.current = "";
+      setSearch("");
+      setActiveTab(result.tab as SettingsTab);
+      setJumpTo({ label: result.label, nonce: Date.now() });
+    },
+    [stopSearchAnimation],
+  );
+
+  // Land on the row the user picked: switch tab (done above), then scroll the
+  // matching label into view and flash it so it is obvious which row it is.
+  useEffect(() => {
+    if (!jumpTo) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const frame = requestAnimationFrame(() => {
+      const label = jumpTo.label.toLowerCase();
+      const target = Array.from(
+        panel.querySelectorAll<HTMLElement>(".settings-label"),
+      ).find((node) => (node.textContent ?? "").trim().toLowerCase() === label);
+      if (target) {
+        const details = target.closest<HTMLElement>(".sound-details");
+        const unfold = details?.querySelector<HTMLButtonElement>(
+          ".sound-details-toggle",
+        );
+        const needsUnfold = Boolean(
+          details && unfold && details.dataset.open !== "true",
+        );
+        if (needsUnfold) unfold?.click();
+        const row = target.closest<HTMLElement>(".settings-row") ?? target;
+        window.setTimeout(
+          () => {
+            if (typeof row.scrollIntoView === "function") {
+              row.scrollIntoView({ block: "center" });
+            }
+            window.clearTimeout(jumpTimerRef.current);
+            row.classList.remove("settings-row-jump");
+            void row.offsetWidth;
+            row.classList.add("settings-row-jump");
+            jumpTimerRef.current = window.setTimeout(
+              () => row.classList.remove("settings-row-jump"),
+              1400,
+            );
+          },
+          needsUnfold ? 240 : 0,
+        );
+      }
+      setJumpTo(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [jumpTo, activeTab]);
 
   return (
     <div className="settings-wrapper">
       <nav className="settings-sidebar" ref={navRef}>
+        <SettingsSearchInput query={search} onQueryChange={handleQueryChange} />
         <div
           className="sidebar-highlight sidebar-highlight-hover"
           data-ready={hoverRect !== null}
@@ -251,7 +391,7 @@ export default function SettingsPanel({
           active={activeTab === "general"}
           onHover={handleHover}
           onHoverEnd={handleHoverEnd}
-          onSelect={setActiveTab}
+          onSelect={handleTabSelect}
         />
         <SidebarTab
           tab="behavior"
@@ -260,7 +400,7 @@ export default function SettingsPanel({
           active={activeTab === "behavior"}
           onHover={handleHover}
           onHoverEnd={handleHoverEnd}
-          onSelect={setActiveTab}
+          onSelect={handleTabSelect}
         />
         <SidebarTab
           tab="appearance"
@@ -269,7 +409,7 @@ export default function SettingsPanel({
           active={activeTab === "appearance"}
           onHover={handleHover}
           onHoverEnd={handleHoverEnd}
-          onSelect={setActiveTab}
+          onSelect={handleTabSelect}
         />
         <SidebarTab
           tab="overlay"
@@ -278,7 +418,7 @@ export default function SettingsPanel({
           active={activeTab === "overlay"}
           onHover={handleHover}
           onHoverEnd={handleHoverEnd}
-          onSelect={setActiveTab}
+          onSelect={handleTabSelect}
         />
         <SidebarTab
           tab="sounds"
@@ -287,7 +427,7 @@ export default function SettingsPanel({
           active={activeTab === "sounds"}
           onHover={handleHover}
           onHoverEnd={handleHoverEnd}
-          onSelect={setActiveTab}
+          onSelect={handleTabSelect}
         />
         <SidebarTab
           tab="keybinds"
@@ -296,7 +436,7 @@ export default function SettingsPanel({
           active={activeTab === "keybinds"}
           onHover={handleHover}
           onHoverEnd={handleHoverEnd}
-          onSelect={setActiveTab}
+          onSelect={handleTabSelect}
         />
         <SidebarTab
           tab="process-list"
@@ -305,7 +445,7 @@ export default function SettingsPanel({
           active={activeTab === "process-list"}
           onHover={handleHover}
           onHoverEnd={handleHoverEnd}
-          onSelect={setActiveTab}
+          onSelect={handleTabSelect}
         />
         <SidebarTab
           tab="presets"
@@ -314,7 +454,7 @@ export default function SettingsPanel({
           active={activeTab === "presets"}
           onHover={handleHover}
           onHoverEnd={handleHoverEnd}
-          onSelect={setActiveTab}
+          onSelect={handleTabSelect}
         />
         <SidebarTab
           tab="maintenance"
@@ -323,7 +463,7 @@ export default function SettingsPanel({
           active={activeTab === "maintenance"}
           onHover={handleHover}
           onHoverEnd={handleHoverEnd}
-          onSelect={setActiveTab}
+          onSelect={handleTabSelect}
         />
         {DevToolsSection && (
           <SidebarTab
@@ -333,7 +473,7 @@ export default function SettingsPanel({
             active={activeTab === "dev"}
             onHover={handleHover}
             onHoverEnd={handleHoverEnd}
-            onSelect={setActiveTab}
+            onSelect={handleTabSelect}
           />
         )}
         <a
@@ -360,14 +500,22 @@ export default function SettingsPanel({
       </nav>
       <div className="settings-corner" />
       <div className="settings-panel" ref={panelRef} onScroll={handleScroll}>
-        {activeTab === "general" && (
+        {!showSections && (
+          <div className="settings-search-view">
+            <SettingsSearchResults
+              query={search}
+              onSelect={handleSearchSelect}
+            />
+          </div>
+        )}
+        {showSections && activeTab === "general" && (
           <GeneralSection
             appInfo={appInfo}
             updateCheckStatus={updateCheckStatus}
             onCheckForUpdate={onCheckForUpdate}
           />
         )}
-        {activeTab === "behavior" && (
+        {showSections && activeTab === "behavior" && (
           <BehaviorSection
             settings={settings}
             update={update}
@@ -377,28 +525,28 @@ export default function SettingsPanel({
             portable={appInfo.portable}
           />
         )}
-        {activeTab === "appearance" && (
+        {showSections && activeTab === "appearance" && (
           <AppearanceSection
             settings={settings}
             update={update}
             onOpenCustomizer={onOpenCustomizer}
           />
         )}
-        {activeTab === "overlay" && (
+        {showSections && activeTab === "overlay" && (
           <OverlaySection settings={settings} update={update} />
         )}
-        {activeTab === "sounds" && (
+        {showSections && activeTab === "sounds" && (
           <SoundsSection settings={settings} update={update} />
         )}
-        {activeTab === "keybinds" && (
+        {showSections && activeTab === "keybinds" && (
           <KeybindsSection settings={settings} update={update} />
         )}
-        {activeTab === "process-list" && (
+        {showSections && activeTab === "process-list" && (
           <div className="settings-proc-list-wrapper">
             <ProcessListSection settings={settings} update={update} />
           </div>
         )}
-        {activeTab === "presets" && (
+        {showSections && activeTab === "presets" && (
           <PresetsSection
             settings={settings}
             running={running}
@@ -412,17 +560,21 @@ export default function SettingsPanel({
             onImportPreset={onImportPreset}
           />
         )}
-        {activeTab === "maintenance" && (
+        {showSections && activeTab === "maintenance" && (
           <MaintenanceSection onReset={onReset} />
         )}
-        {DevToolsSection && activeTab === "dev" && (
+        {showSections && DevToolsSection && activeTab === "dev" && (
           <Suspense fallback={null}>
             <DevToolsSection onOpenFirstRunSetup={onOpenFirstRunSetup} />
           </Suspense>
         )}
       </div>
       <div
-        className={`settings-fade ${atBottom ? "settings-fade--hidden" : ""}`}
+        className={`settings-fade ${
+          scrollState.atBottom || !scrollState.scrollable
+            ? "settings-fade--hidden"
+            : ""
+        }`}
       ></div>
     </div>
   );

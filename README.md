@@ -12,7 +12,7 @@
   # Blur Auto Clicker
 
 
-  <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/public/V3.0.0_UI.png" width="600"/>
+  <img src="https://github.com/Blur009/Blur-AutoClicker/blob/main/screenshots/advanced_dark.png" width="600"/>
 
   <p align="center"><em>An auto clicker that actually clicks at the speed you set.</em></p>
   
@@ -64,7 +64,6 @@ Most auto clickers aren't accurate at high speeds. Set it to 50 CPS and you migh
 Installed to `%localappdata%/BlurAutoClicker/BlurAutoClicker.exe`.  
 Config and stats are saved in `%appdata%/BlurAutoClicker`.
 
-> On version 2.1.2 or below? Delete the old executable first — the installer won't do it. Old configs won't work with v3+, they'll be deleted on first launch.
 
 ---
 

@@ -29,7 +29,11 @@ pub fn get_elevation_state() -> crate::elevation::ElevationState {
     crate::elevation::state()
 }
 
-#[tauri::command]
+// Async on purpose. A plain command runs on the UI thread, and this one calls
+// `ShellExecuteExW("runas")`, which does not return until the UAC consent path
+// finishes. That blocks the event loop, so the window keeps its last frame and
+// ignores every click until the user answers the prompt.
+#[tauri::command(async)]
 pub fn relaunch_as_admin(app: AppHandle, keep_autostart: bool) -> bool {
     let state = crate::elevation::state();
     if state.elevated || !state.can_elevate {
@@ -44,7 +48,9 @@ pub fn relaunch_as_admin(app: AppHandle, keep_autostart: bool) -> bool {
     true
 }
 
-#[tauri::command]
+// Async for the same reason as `relaunch_as_admin`: it spawns a process and
+// waits for the engine to wind down first.
+#[tauri::command(async)]
 pub fn relaunch_without_admin(app: AppHandle, keep_autostart: bool) -> bool {
     let state = crate::elevation::state();
     if !state.elevated {
@@ -357,6 +363,7 @@ pub fn pick_position() -> AppResult<PositionPayload> {
 
 #[tauri::command]
 pub fn start_click_point_pick(app: AppHandle) -> AppResult<()> {
+    crate::webview_guard::push_breadcrumb("picker:click-point");
     crate::click_point_picker::start_click_point_pick_inner(app)
 }
 
@@ -368,6 +375,7 @@ pub async fn cancel_click_point_pick(app: AppHandle) -> AppResult<()> {
 
 #[tauri::command]
 pub fn start_custom_stop_zone_pick(app: AppHandle) -> AppResult<()> {
+    crate::webview_guard::push_breadcrumb("picker:stop-zone");
     crate::custom_stop_zone_picker::start_custom_stop_zone_pick_inner(app)
 }
 
@@ -422,6 +430,24 @@ fn backup_unparseable_settings_file(path: &std::path::Path) -> AppResult<Option<
     let backup = path.with_file_name(format!("settings.recovered-{stamp}.json"));
     std::fs::copy(path, &backup)?;
     Ok(Some(backup.to_string_lossy().to_string()))
+}
+
+fn always_run_as_admin_in(path: &std::path::Path) -> bool {
+    let Ok(bytes) = std::fs::read(path) else {
+        return false;
+    };
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+        return false;
+    };
+    value
+        .get("settings")
+        .and_then(|settings| settings.get("alwaysRunAsAdmin"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
+pub fn persisted_always_run_as_admin(app: &AppHandle) -> bool {
+    settings_file_path(app).is_ok_and(|path| always_run_as_admin_in(&path))
 }
 
 #[tauri::command]
@@ -501,17 +527,17 @@ pub fn get_cursor_position(window: tauri::WebviewWindow) -> Option<CursorPoint> 
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_stats() -> AppResult<CumulativeStats> {
     crate::engine::stats::get_stats()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_stats_overview() -> AppResult<StatsOverview> {
     crate::engine::stats::get_overview()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn reset_stats(app: AppHandle) -> AppResult<CumulativeStats> {
     let stats = crate::engine::stats::reset_stats()?;
     if let Err(e) = app.emit("stats-updated", stats.clone()) {
@@ -549,7 +575,20 @@ pub fn hide_main_window(app: AppHandle) -> AppResult<()> {
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     crate::overlay::OVERLAY_THREAD_RUNNING.store(false, std::sync::atomic::Ordering::SeqCst);
+    crate::ZONE_MONITOR_RUNNING.store(false, std::sync::atomic::Ordering::SeqCst);
+    crate::app_events::APP_EVENTS_SHUTDOWN.store(true, std::sync::atomic::Ordering::SeqCst);
     app.exit(0);
+}
+
+/// Leaves the process the way a normal quit does, so `ExitRequested` runs and
+/// the crashpad client is dropped. The restart flow used to call the process
+/// plugin's `exit`, which skips that and leaves `crashpad_handler.exe` holding
+/// the install directory, where the installer's "app is still running" check
+/// finds it.
+#[tauri::command]
+pub fn exit_for_restart(app: AppHandle) {
+    log::info!("[Window] Restarting: exiting through the normal teardown");
+    quit_app(app);
 }
 
 #[tauri::command]
@@ -566,7 +605,14 @@ pub fn was_autostart_launch() -> bool {
 pub fn prepare_main_window(app: AppHandle) -> AppResult<()> {
     #[cfg(target_os = "windows")]
     if let Some(window) = app.get_webview_window("main") {
-        crate::apply_ws_ex_noactivate(&window, false);
+        let style = crate::apply_ws_ex_noactivate(&window, false);
+        log::info!(
+            "[Window] Preparing main window for show (exstyle {})",
+            style.map_or_else(
+                || String::from("unavailable"),
+                |value| format!("0x{value:08x}")
+            )
+        );
     }
     Ok(())
 }
@@ -844,6 +890,33 @@ mod tests {
             std::fs::read(&path).expect("read settings")
         );
         assert_eq!(recoveries(temp.path()).len(), 1);
+    }
+
+    #[test]
+    fn startup_reads_the_persisted_admin_request() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = write_settings(temp.path(), br#"{"settings":{"alwaysRunAsAdmin":true}}"#);
+
+        assert!(always_run_as_admin_in(&path));
+
+        let path = write_settings(temp.path(), br#"{"settings":{"alwaysRunAsAdmin":false}}"#);
+        assert!(!always_run_as_admin_in(&path));
+
+        let path = write_settings(temp.path(), br#"{"settings":{"cps":12}}"#);
+        assert!(!always_run_as_admin_in(&path));
+
+        let path = write_settings(temp.path(), br#"{"settings":{"alwaysRunAsAdmin":"yes"}}"#);
+        assert!(!always_run_as_admin_in(&path));
+    }
+
+    #[test]
+    fn startup_treats_an_unreadable_admin_request_as_off() {
+        let temp = tempfile::tempdir().expect("tempdir");
+
+        assert!(!always_run_as_admin_in(&temp.path().join("settings.json")));
+
+        let path = write_settings(temp.path(), br#"{"settings":{"alwaysRunAsAdmin"#);
+        assert!(!always_run_as_admin_in(&path));
     }
 
     #[test]

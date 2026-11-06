@@ -60,6 +60,15 @@ fn milestone_summary(
     parts.join(", ")
 }
 
+fn profile_label() -> String {
+    let raw = std::env::var("USERPROFILE").unwrap_or_default();
+    let path = std::path::Path::new(&raw);
+    match (raw.is_empty(), path.parent()) {
+        (false, Some(parent)) => format!("{}{}<user>", parent.display(), std::path::MAIN_SEPARATOR),
+        _ => String::from("<unknown>"),
+    }
+}
+
 pub fn report_ui_ready(visible: bool, frontend_boot_ms: u64, boot_phases: &str) {
     let pre_main_ms = PRE_MAIN_MS.load(Ordering::SeqCst);
     let pre_main_offset = if pre_main_ms == UNSET { 0 } else { pre_main_ms };
@@ -78,14 +87,16 @@ pub fn report_ui_ready(visible: bool, frontend_boot_ms: u64, boot_phases: &str) 
         format!("; {boot_phases}")
     };
     log::info!(
-        "[Startup] {label} after {total_ms} ms from process start ({}{phases})",
+        "[Startup] {label} after {total_ms} ms from process start ({}; elevated={} profile={}{phases})",
         milestone_summary(
             PRE_MAIN_MS.load(Ordering::SeqCst),
             STATE_MS.load(Ordering::SeqCst),
             WEBVIEW_MS.load(Ordering::SeqCst),
             SETUP_MS.load(Ordering::SeqCst),
             frontend_boot_ms
-        )
+        ),
+        crate::elevation::current_process_elevated(),
+        profile_label()
     );
 }
 
@@ -139,6 +150,21 @@ fn process_age_ms() -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn profile_label_keeps_the_account_name_out_of_the_log() {
+        let raw = std::env::var("USERPROFILE").unwrap_or_default();
+        let leaf = std::path::Path::new(&raw)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
+        let label = profile_label();
+
+        assert!(label.ends_with("<user>"), "{label}");
+        if !leaf.is_empty() {
+            assert!(!label.contains(leaf), "{label} leaked {leaf}");
+        }
+    }
 
     #[test]
     fn summary_lists_recorded_milestones_in_order() {

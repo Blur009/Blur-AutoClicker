@@ -73,4 +73,38 @@ describe("ChangelogContent", () => {
       screen.getByRole("button", { name: /2 more versions/ }),
     ).toBeInTheDocument();
   });
+  it("keeps the release date in a popover on the version", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChangelogContent
+        entries={[{ ...entries[0], date: "01.01.2026 (d.m.y)" }]}
+      />,
+    );
+
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+
+    await user.hover(screen.getByText("v3.0.0"));
+
+    const tip = screen.getByRole("tooltip");
+    // Portaled to the body so the collapsed clip animation cannot cut it off.
+    expect(tip.parentElement).toBe(document.body);
+    expect(tip.closest(".changelog-clip")).toBeNull();
+    expect(tip).toHaveTextContent("01.01.2026");
+    expect(tip).toHaveTextContent("(d.m.y)");
+    expect(tip).toHaveTextContent(/today|day ago|days ago/);
+
+    await user.unhover(screen.getByText("v3.0.0"));
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("opens the date popover from the keyboard too", async () => {
+    const user = userEvent.setup();
+    render(<ChangelogContent entries={entries} />);
+
+    await user.tab();
+    expect(screen.getByRole("tooltip")).toHaveTextContent("01.01.2026");
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
 });

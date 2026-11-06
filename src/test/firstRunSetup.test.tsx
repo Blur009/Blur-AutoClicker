@@ -61,6 +61,7 @@ vi.mock("../themeBridge", async (importOriginal) => {
 
 vi.mock("../soundPlayback", () => ({
   playClickerSound: vi.fn(async () => {}),
+  stopClickerSounds: vi.fn(),
   soundFileName: (path: string) => path,
 }));
 

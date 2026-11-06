@@ -1,7 +1,7 @@
 {
   "name": "blur-autoclicker",
   "private": true,
-  "version": "3.10.1",
+  "version": "3.10.2",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -17,7 +17,10 @@
     "format:write": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "check": "node scripts/check.mjs",
     "check:fix": "node scripts/check.mjs --fix",
-    "prepare": "lefthook install"
+    "screenshots": "node .screenshot-tool/run.mjs",
+    "prepare": "lefthook install",
+    "settings:index": "node scripts/gen-settings-index.mjs",
+    "logs": "node scripts/logs.mjs"
   },
   "dependencies": {
     "@animateicons/react": "^0.13.0",
@@ -41,7 +44,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "eslint": "^10.13.0",
+    "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
@@ -49,11 +52,14 @@
     "lefthook": "^2.2.2",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.72.0",
+    "typescript-eslint": "^8.72.1",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
   },
   "allowScripts": {
     "lefthook@2.1.10": true
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
   }
 }

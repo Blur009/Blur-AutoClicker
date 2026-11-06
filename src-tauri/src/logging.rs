@@ -1,4 +1,5 @@
 use std::fmt::{Arguments, Display};
+use std::sync::OnceLock;
 
 const TARGET_WIDTH: usize = 16;
 
@@ -19,9 +20,31 @@ pub fn render_line(level: log::Level, target: &str, message: impl Display) -> St
         timestamp(),
         level.as_str(),
         short_target(target),
-        message,
+        redact_profile(&message.to_string()),
         width = TARGET_WIDTH,
     )
+}
+
+fn profile_paths() -> &'static (String, String) {
+    static PATHS: OnceLock<(String, String)> = OnceLock::new();
+    PATHS.get_or_init(|| {
+        let raw = std::env::var("USERPROFILE").unwrap_or_default();
+        let redacted = match std::path::Path::new(&raw).parent() {
+            Some(parent) if !raw.is_empty() => {
+                format!("{}{}<user>", parent.display(), std::path::MAIN_SEPARATOR)
+            }
+            _ => String::new(),
+        };
+        (raw, redacted)
+    })
+}
+
+pub fn redact_profile(text: &str) -> String {
+    let (raw, redacted) = profile_paths();
+    if raw.is_empty() || redacted.is_empty() || !text.contains(raw.as_str()) {
+        return text.to_string();
+    }
+    text.replace(raw.as_str(), redacted)
 }
 
 pub fn short_target(target: &str) -> &str {
@@ -37,6 +60,27 @@ fn timestamp() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_profile_name_is_replaced_in_rendered_lines() {
+        let raw = std::env::var("USERPROFILE").unwrap_or_default();
+        let leaf = std::path::Path::new(&raw)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
+        if leaf.is_empty() {
+            return;
+        }
+
+        let line = render_line(
+            log::Level::Info,
+            "app_lib::startup",
+            format_args!("crash reports directory: {raw}"),
+        );
+
+        assert!(line.contains("<user>"), "{line}");
+        assert!(!line.contains(leaf), "{line}");
+    }
 
     #[test]
     fn strips_only_the_crate_prefix() {

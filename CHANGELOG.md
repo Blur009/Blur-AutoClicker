@@ -1,3 +1,28 @@
+# v3.10.2 - 06.11.2026 (d.m.y)
+
+## New
+
+- Added settings search bar.
+- Added per-click sound setting, with a waveform preview you can trim with drag handles.
+- Added startup error codes.
+
+## Changed
+
+- Changed changelog date display to hover card.
+
+## Fixed
+
+- Hopefully fixed UI not being interactable since 3.10.0 on some machines.
+- Fixed the fatal error on Windows shutdown.
+- Fixed the window freezing while the app restarts as administrator.
+- Fixed startup dialogs always suggesting a WebView2 reinstall even when it was not the problem.
+- Fixed a flash of an unelevated window at launch when "start as administrator" is on.
+- Fixed turning "start as administrator" off not restarting the app.
+- Fixed a WebView2 hang while creating the window.
+- Fixed the window never appearing when the first sizing step failed.
+- Fixed a leftover crashpad_handler.exe after a fatal startup error.
+- Fixed a startup message that wrongly said only one copy of the app can run at a time.
+
 # v3.10.1 - 29.10.2026 (d.m.y)
 
 ## Fixed
