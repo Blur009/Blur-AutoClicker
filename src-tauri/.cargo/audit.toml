@@ -1,43 +1,29 @@
 # cargo-audit config. Read by `cargo audit` when run from src-tauri/ (our CI).
 #
-# Everything else is either patched or a warning we accept. The three ignores
-# below are all zip advisories that need zip >= 9.0.0, which crashpad-rs-sys
-# (build-dependency, zip 0.6) cannot take yet. tauri-plugin-updater moved to
-# zip 9 in 2.14.1, so the updater side of these no longer applies.
+# Every ignore below covers a crate that sits in Cargo.lock but never runs in a
+# build of our code:
+# - zip 9.1.2 is ours and patched. zip 0.6.6 is a build-dependency of
+#   crashpad-rs-sys, and build.rs compiles the only file that touches it
+#   (build/tools.rs, via run()) just for the `vendored` strategies. We build
+#   with `prebuilt`.
+# - zstd-safe 5.0.2 comes only from that same zip 0.6.6.
+# Everything else is patched, or an unmaintained/unsound warning we accept.
+# Drop an entry when the crate that carries it leaves the lock.
 
 [advisories]
 ignore = [
-  # RUSTSEC-2026-0367: extract() keeps SUID/SGID bits from the archive.
-  # RUSTSEC-2026-0368: symlink entries can point outside the destination.
-  # RUSTSEC-2026-0369: extract() applies permissions through symlinks.
-  #
-  # All three affect only the `extract()` path, which we never feed untrusted bytes:
-  # - crashpad-rs-sys 0.2.7 (build-dependency, zip 0.6) unpacks the prebuilt
-  #   Crashpad archive that build.rs pins by SHA-256.
-  # It never runs as root on Unix: the build script runs as the developer or CI
-  # runner. Windows has no SUID bits at all.
-  # Drop these once crashpad-rs moves to zip 9.
+  # zip extract() keeps SUID/SGID bits, lets symlink targets escape the
+  # destination, applies permissions through those symlinks, and aborts the
+  # process on a symlink entry with a huge declared size. All four need
+  # extract(), which nothing in our build calls.
   "RUSTSEC-2026-0367",
   "RUSTSEC-2026-0368",
   "RUSTSEC-2026-0369",
-
-  # RUSTSEC-2026-0429: extract() aborts the process on a symlink entry with a
-  # huge declared size (allocation failure, not a panic).
-  # Same crate and same reasoning as above: zip 0.6.6 arrives only through
-  # crashpad-rs-sys's build script, is never linked into the app, and its only
-  # input is the pinned prebuilt tarball. Patched in zip 9.0.0.
-  # Drop once crashpad-rs moves past zip 0.6.
   "RUSTSEC-2026-0429",
 
-  # RUSTSEC-2026-0403: DCtx::decompress_stream commits a bogus output position
-  # when streaming decompression of a corrupt legacy (v0.4-v0.7) frame fails,
-  # leaking up to 32 KiB of stale heap through zstd::stream::write::Decoder.
-  # Patched in zstd-safe 8.2.0. Our only zstd 0.11 -> zstd-safe 5.0.2 comes
-  # from crashpad-rs-sys 0.2.7's build-dependency zip 0.6.6.
-  # Not reachable: with the `prebuilt` feature on (our default) crashpad-rs-sys
-  # downloads a .tar.gz and shells out to `tar`; it never calls zip. zip 0.6.6
-  # only uses zstd::stream::read::Decoder and Encoder, and the advisory lists
-  # read::Decoder as unaffected. The vulnerable call site is compiled in but
-  # never executed. Drop once crashpad-rs moves past zip 0.6.
+  # zstd DCtx::decompress_stream leaks stale heap when streaming decompression
+  # of a corrupt legacy frame fails. Only reachable through
+  # zstd::stream::write::Decoder, which zip 0.6.6 never uses; it uses
+  # read::Decoder and write::Encoder.
   "RUSTSEC-2026-0403",
 ]
