@@ -17,7 +17,8 @@
     "format:write": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "check": "node scripts/check.mjs",
     "check:fix": "node scripts/check.mjs --fix",
-    "screenshots": "node .screenshot-tool/run.mjs",
+    "release": "node blurs-tools/release.mjs",
+    "screenshots": "node blurs-tools/screenshot/run.mjs",
     "prepare": "lefthook install",
     "settings:index": "node scripts/gen-settings-index.mjs",
     "logs": "node scripts/logs.mjs"

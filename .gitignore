@@ -1,6 +1,9 @@
 # -- Dependencies --
 node_modules/
 
+# -- Local maintainer tooling (release, screenshots, version bumps) --
+blurs-tools/
+
 # -- Build output --
 dist/
 dist-ssr/

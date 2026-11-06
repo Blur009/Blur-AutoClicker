@@ -12,7 +12,10 @@ permissions:
 jobs:
   release:
     name: Build and release
-    runs-on: windows-latest
+    # Point RELEASE_RUNNER (repository variable) at the local runner to build
+    # here, e.g. ["self-hosted","Windows","X64","blur-release"]. Clear the
+    # variable and the release goes back to the hosted runner.
+    runs-on: ${{ vars.RELEASE_RUNNER && fromJSON(vars.RELEASE_RUNNER) || 'windows-latest' }}
     timeout-minutes: 30
     # Hand the tag over as data. Interpolating ${{ github.ref_name }} straight
     # into a run: block makes GitHub substitute it before the shell parses the
@@ -23,6 +26,22 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # A persistent local runner keeps src-tauri/target and node_modules,
+          # which is the whole point. Hosted runners start empty, so only they
+          # need the clean. Checkout still resets tracked files either way.
+          clean: ${{ vars.RELEASE_RUNNER == '' }}
+
+      # A tag pushed from a stale local branch builds a tree that CI never saw.
+      - name: Refuse a tag that is not on main
+        shell: bash
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$TAG_NAME points at $GITHUB_SHA, which is not on main. Merge the work first, then re-tag."
+            exit 1
+          fi
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -48,15 +67,30 @@ jobs:
           cargo audit
 
       - name: Extract changelog
+        id: changelog
         shell: pwsh
         run: |
-          $version = [regex]::Escape(($env:TAG_NAME).TrimStart('v'))
+          $tagVersion = $env:TAG_NAME.TrimStart('v')
+          $version = [regex]::Escape($tagVersion)
           $content = Get-Content CHANGELOG.md -Raw
-          $pattern = "(?ms)# v$version .*?(?=\n# v|\z)"
+          $pattern = "(?ms)^# v$version .*?(?=\n# v|\z)"
           $match = [regex]::Match($content, $pattern)
-          if ($match.Success) {
-            Set-Content -Path release_body.md -Value $match.Value.Trim()
-          }
+          if (-not $match.Success) { throw "CHANGELOG.md has no section for $env:TAG_NAME" }
+
+          $lines = $match.Value.Trim() -split "`n"
+          # "# v3.10.3 - 06.11.2026 (d.m.y)" -> "3.10.3 - 06.11.26"
+          $heading = $lines[0] -split ' - ', 2
+          if ($heading.Count -ne 2) { throw "Unusable changelog heading: $($lines[0])" }
+          $dateBits = (($heading[1].Trim() -split ' ')[0]).Split('.')
+          if ($dateBits.Count -ne 3) { throw "Unusable changelog date: $($heading[1])" }
+          $name = "$tagVersion - $($dateBits[0]).$($dateBits[1]).$($dateBits[2].Substring(2))"
+          Write-Output "name=$name" >> $env:GITHUB_OUTPUT
+
+          # The release body is the sections only, no version heading.
+          $body = ((($lines | Select-Object -Skip 1) -join "`n").Trim())
+          if (-not $body) { throw "CHANGELOG.md section for $env:TAG_NAME has no body" }
+          Set-Content -Path release_body.md -Value $body
+          Write-Host "release name: $name"
 
       - name: Regenerate the crashpad handler
         shell: pwsh
@@ -69,18 +103,19 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: ${{ github.ref_name }}
-          releaseBody: See CHANGELOG.md for details.
+          releaseName: ${{ steps.changelog.outputs.name }}
+          releaseBody: Building, the real notes land in the next step.
           releaseDraft: false
 
-      - name: Update release body from changelog
+      - name: Update release name and body from changelog
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if (Test-Path release_body.md) {
-            gh release edit "$env:TAG_NAME" --notes-file release_body.md
-          }
+          if (-not (Test-Path release_body.md)) { throw 'release_body.md is missing, the changelog step did not run' }
+          gh release edit "$env:TAG_NAME" `
+            --title "${{ steps.changelog.outputs.name }}" `
+            --notes-file release_body.md
 
       - name: Create portable package
         shell: pwsh
