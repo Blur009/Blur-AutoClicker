@@ -12,6 +12,7 @@
 
 ## Fixed
 
+- Hopefully fixed UI not being interactable since 3.10.0 on some machines.
 - Fixed the fatal error on Windows shutdown.
 - Fixed the window freezing while the app restarts as administrator.
 - Fixed startup dialogs always suggesting a WebView2 reinstall even when it was not the problem.
