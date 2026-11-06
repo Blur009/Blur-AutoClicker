@@ -1511,6 +1511,7 @@ export default function App() {
   const handleTabChange = useCallback(
     (nextTab: Tab) => {
       setTab(nextTab);
+      invoke("breadcrumb", { action: `tab:${nextTab}` }).catch(() => {});
 
       if (nextTab === "settings") return;
       if (committedSettingsRef.current.lastPanel === nextTab) return;

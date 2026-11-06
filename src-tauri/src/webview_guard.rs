@@ -1,3 +1,6 @@
+use std::collections::VecDeque;
+
+use crate::error::poisoned_inner;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -8,6 +11,9 @@ static WATCHDOG_THREAD: Mutex<Option<std::thread::Thread>> = Mutex::new(None);
 static WINDOW_CREATED: AtomicBool = AtomicBool::new(false);
 static FATAL_REPORTED: AtomicBool = AtomicBool::new(false);
 static HEARTBEAT: Mutex<Option<Instant>> = Mutex::new(None);
+static BREADCRUMBS: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
+const BREADCRUMB_LIMIT: usize = 8;
+const BREADCRUMB_CHARS: usize = 64;
 const INTERFACE_TIMEOUT: Duration = Duration::from_secs(90);
 
 fn poke_watchdog() {
@@ -153,6 +159,42 @@ fn window_timeout() -> StartupFailure {
     )
 }
 
+pub fn push_breadcrumb(action: &str) {
+    let cleaned: String = action
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .take(BREADCRUMB_CHARS)
+        .collect();
+    let cleaned = cleaned.trim();
+    if cleaned.is_empty() {
+        return;
+    }
+    let mut trail = BREADCRUMBS.lock().unwrap_or_else(poisoned_inner);
+    if trail.len() >= BREADCRUMB_LIMIT {
+        trail.pop_front();
+    }
+    trail.push_back(format!(
+        "{} {}",
+        chrono::Local::now().format("%H:%M:%S%.3f"),
+        cleaned
+    ));
+}
+
+#[tauri::command(async)]
+pub fn breadcrumb(action: String) {
+    push_breadcrumb(&action);
+}
+
+fn breadcrumb_trail() -> String {
+    BREADCRUMBS
+        .lock()
+        .unwrap_or_else(poisoned_inner)
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(" -> ")
+}
+
 #[tauri::command]
 pub fn frontend_heartbeat() {
     if let Ok(mut slot) = HEARTBEAT.lock() {
@@ -274,6 +316,108 @@ pub fn spawn_watchdog(app: tauri::AppHandle) {
         .ok();
 }
 
+#[cfg(target_os = "windows")]
+fn webview_cpu_100ns() -> Option<(u32, u32, u64)> {
+    use windows_sys::Win32::Foundation::{CloseHandle, FILETIME};
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
+    };
+    use windows_sys::Win32::System::Threading::{
+        GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if snapshot == windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE {
+            return None;
+        }
+
+        let mut entries: Vec<(u32, u32, String)> = Vec::new();
+        let mut entry: PROCESSENTRY32W = std::mem::zeroed();
+        entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+        if Process32FirstW(snapshot, &mut entry) != 0 {
+            loop {
+                let name = String::from_utf16_lossy(
+                    &entry.szExeFile[..entry
+                        .szExeFile
+                        .iter()
+                        .position(|&c| c == 0)
+                        .unwrap_or(entry.szExeFile.len())],
+                );
+                entries.push((entry.th32ProcessID, entry.th32ParentProcessID, name));
+                if Process32NextW(snapshot, &mut entry) == 0 {
+                    break;
+                }
+            }
+        }
+        CloseHandle(snapshot);
+
+        let ours = std::process::id();
+        let children: Vec<u32> = entries
+            .iter()
+            .filter(|(_, parent, _)| *parent == ours)
+            .map(|(pid, _, _)| *pid)
+            .collect();
+
+        let mut found = 0u32;
+        let mut browsers = 0u32;
+        let mut cpu_100ns = 0u64;
+        for (pid, parent, name) in &entries {
+            if !name.eq_ignore_ascii_case("msedgewebview2.exe") {
+                continue;
+            }
+            if *parent == ours {
+                browsers += 1;
+                continue;
+            }
+            if !children.contains(parent) {
+                continue;
+            }
+            found += 1;
+            let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, *pid);
+            if process.is_null() {
+                continue;
+            }
+            let mut creation: FILETIME = std::mem::zeroed();
+            let mut exit: FILETIME = std::mem::zeroed();
+            let mut kernel: FILETIME = std::mem::zeroed();
+            let mut user: FILETIME = std::mem::zeroed();
+            if GetProcessTimes(process, &mut creation, &mut exit, &mut kernel, &mut user) != 0 {
+                let ticks =
+                    |t: FILETIME| ((t.dwHighDateTime as u64) << 32) | t.dwLowDateTime as u64;
+                cpu_100ns = cpu_100ns
+                    .saturating_add(ticks(kernel))
+                    .saturating_add(ticks(user));
+            }
+            CloseHandle(process);
+        }
+
+        Some((browsers, found, cpu_100ns))
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn renderer_snapshot() -> String {
+    let Some((browsers, found, cpu)) = webview_cpu_100ns() else {
+        return String::from("webview processes unknown");
+    };
+    let first = cpu;
+    std::thread::sleep(Duration::from_millis(1000));
+    let second = webview_cpu_100ns().map(|(_, _, cpu)| cpu).unwrap_or(first);
+    let busy = second.saturating_sub(first) as f64 / 10_000_000.0;
+
+    format!(
+        "browsers={browsers} webview_children={found} cpu={:.1}s busy_last_second={busy:.2}s",
+        cpu as f64 / 10_000_000.0
+    )
+}
+
+#[cfg(not(target_os = "windows"))]
+fn renderer_snapshot() -> String {
+    String::from("webview processes unknown")
+}
+
 fn should_reveal(window_visible: bool, autostart_launch: bool) -> bool {
     !window_visible && !autostart_launch
 }
@@ -381,8 +525,10 @@ pub fn spawn_ui_watchdog(app: tauri::AppHandle) {
                 if interface_is_stale(true, !responding, last_heartbeat()) {
                     if !stale {
                         log::error!(
-                            "[UI] The interface stopped talking to the backend; the window is still alive"
+                            "[UI] The interface stopped talking to the backend; the window is still alive ({})",
+                            renderer_snapshot()
                         );
+                        log::error!("[UI] last actions: {}", breadcrumb_trail());
                     }
                     stale = true;
                 } else if stale {
@@ -615,6 +761,35 @@ mod tests {
             timeout - Duration::from_millis(1)
         ));
         assert!(window_guard_expired(false, timeout));
+    }
+
+    #[test]
+    fn breadcrumbs_keep_the_last_eight_and_drop_the_oldest() {
+        BREADCRUMBS.lock().unwrap_or_else(poisoned_inner).clear();
+
+        for index in 0..12 {
+            push_breadcrumb(&format!("action{index}"));
+        }
+
+        let trail = breadcrumb_trail();
+        assert!(!trail.contains("action3"), "{trail}");
+        assert!(trail.contains("action4"), "{trail}");
+        assert!(trail.contains("action11"), "{trail}");
+        assert_eq!(
+            BREADCRUMBS.lock().unwrap_or_else(poisoned_inner).len(),
+            BREADCRUMB_LIMIT
+        );
+    }
+
+    #[test]
+    fn a_control_character_cannot_forge_a_log_line() {
+        BREADCRUMBS.lock().unwrap_or_else(poisoned_inner).clear();
+
+        push_breadcrumb("tab:zones\n[ERROR] fake");
+
+        let trail = breadcrumb_trail();
+        assert!(!trail.contains('\n'), "{trail}");
+        assert!(trail.contains("tab:zones"), "{trail}");
     }
 
     #[test]

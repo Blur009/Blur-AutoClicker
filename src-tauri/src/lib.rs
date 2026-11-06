@@ -886,6 +886,7 @@ If you extracted the app to a folder you cannot write to (such as Program Files)
             ui_commands::prepare_main_window,
             ui_commands::report_startup_ready,
             crate::webview_guard::frontend_heartbeat,
+            crate::webview_guard::breadcrumb,
             ui_commands::get_diagnostics_info,
             ui_commands::open_diagnostics_folder,
             ui_commands::export_diagnostics_bundle,

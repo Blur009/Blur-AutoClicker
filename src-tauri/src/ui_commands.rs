@@ -363,6 +363,7 @@ pub fn pick_position() -> AppResult<PositionPayload> {
 
 #[tauri::command]
 pub fn start_click_point_pick(app: AppHandle) -> AppResult<()> {
+    crate::webview_guard::push_breadcrumb("picker:click-point");
     crate::click_point_picker::start_click_point_pick_inner(app)
 }
 
@@ -374,6 +375,7 @@ pub async fn cancel_click_point_pick(app: AppHandle) -> AppResult<()> {
 
 #[tauri::command]
 pub fn start_custom_stop_zone_pick(app: AppHandle) -> AppResult<()> {
+    crate::webview_guard::push_breadcrumb("picker:stop-zone");
     crate::custom_stop_zone_picker::start_custom_stop_zone_pick_inner(app)
 }
 
