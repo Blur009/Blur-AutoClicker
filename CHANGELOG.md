@@ -1,5 +1,7 @@
 # UNRELEASED
 
+# v3.10.2 - 06.11.2026 (d.m.y)
+
 ## New
 
 - Added settings search bar.
