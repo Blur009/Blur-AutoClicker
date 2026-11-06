@@ -214,6 +214,25 @@ jobs:
           }
           throw "wingetcreate update failed after $attempts attempts"
 
+      - name: Set the Apps and Features DisplayVersion
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $installer = Get-ChildItem ./winget-manifests -Recurse -Filter "*.installer.yaml" | Select-Object -First 1
+          if (-not $installer) { throw 'No installer manifest found to patch' }
+          # wingetcreate copies DisplayVersion from the previous manifest instead
+          # of reading the new installer, so it stays one release behind and the
+          # index rejects the PR with "DisplayVersion has overlap with existing
+          # DisplayVersion range" (ArpVersionFailure).
+          $patched = Get-Content $installer.FullName | ForEach-Object {
+            if ($_ -match '^(\s*)DisplayVersion:\s') { "$($Matches[1])DisplayVersion: $env:VERSION" } else { $_ }
+          }
+          Set-Content -Path $installer.FullName -Value $patched
+          $found = Select-String -Path $installer.FullName -Pattern "DisplayVersion: $([regex]::Escape($env:VERSION))$"
+          if (-not $found) { throw "DisplayVersion was not set to $env:VERSION" }
+          Write-Host "DisplayVersion set to $env:VERSION"
+
       - name: Submit to winget-pkgs
         shell: pwsh
         run: |
